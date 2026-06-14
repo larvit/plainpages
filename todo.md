@@ -13,7 +13,7 @@ everything via Docker.
 
 ## 0. Housekeeping / primitives
 - [x] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding. → `node:crypto` (no new dep); `src/jwt.ts` verifies JWS signatures.
-- [ ] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite).
+- [x] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite). → `src/cookie.ts` (`parseCookies`/`serializeCookie`); stdlib-only, injection/pollution-safe.
 - [ ] Request context type threaded to handlers: `{ req, res, url, params, query, user|null, roles }`.
 - [ ] Error templates: add 403 + 500 (404 exists).
 - [ ] Config/env loader: Ory endpoints, cookie/CSRF secret, JWKS location, ports.

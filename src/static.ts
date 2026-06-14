@@ -48,7 +48,11 @@ export async function serveStatic(dir: string, requestedPath: string, res: Serve
     const info = await stat(filePath);
     if (!info.isFile()) return plain(res, 404, "Not Found");
     res.writeHead(200, { "content-length": info.size, "content-type": contentTypeFor(filePath) });
-    createReadStream(filePath).pipe(res);
+    // Headers are already sent, so a mid-stream read error can't become an HTTP error —
+    // destroy the response to signal a truncated body instead of leaving the socket open.
+    createReadStream(filePath)
+      .on("error", () => res.destroy())
+      .pipe(res);
   } catch {
     plain(res, 404, "Not Found");
   }
