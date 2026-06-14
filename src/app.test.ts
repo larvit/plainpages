@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import * as ejs from "ejs";
 import { createApp } from "./app.ts";
 import { contentTypeFor, resolveStaticPath } from "./static.ts";
+
+const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
 
 const server = createApp();
 let base = "";
@@ -27,9 +34,35 @@ test("serves static CSS", async () => {
   assert.match(res.headers.get("content-type") ?? "", /text\/css/);
 });
 
-test("returns 404 for unknown routes", async () => {
+test("returns the 404 HTML page for unknown routes", async () => {
   const res = await fetch(base + "/missing");
   assert.equal(res.status, 404);
+  assert.match(res.headers.get("content-type") ?? "", /text\/html/);
+  assert.match(await res.text(), /404/);
+});
+
+test("renders the 500 HTML page when a handler throws", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-views-"));
+  writeFileSync(join(dir, "index.ejs"), "<% throw new Error('boom'); %>");
+  cpSync(join(viewsDir, "500.ejs"), join(dir, "500.ejs"));
+  const app = createApp({ viewsDir: dir });
+  try {
+    await new Promise<void>((resolve) => app.listen(0, resolve));
+    const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`);
+    assert.equal(res.status, 500);
+    assert.match(res.headers.get("content-type") ?? "", /text\/html/);
+    assert.match(await res.text(), /500/);
+  } finally {
+    app.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+// 403 has no first-party route yet (guards land in §4), so assert the template renders.
+test("renders the 403 error page as HTML", async () => {
+  const html = await ejs.renderFile(join(viewsDir, "403.ejs"), { title: "Forbidden" });
+  assert.match(html, /403/);
+  assert.match(html, /style\.css/);
 });
 
 test("blocks encoded path traversal out of /public/ with 403", async () => {

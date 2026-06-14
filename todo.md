@@ -15,8 +15,11 @@ everything via Docker.
 - [x] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding. → `node:crypto` (no new dep); `src/jwt.ts` verifies JWS signatures.
 - [x] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite). → `src/cookie.ts` (`parseCookies`/`serializeCookie`); stdlib-only, injection/pollution-safe.
 - [x] Request context type threaded to handlers: `{ req, res, url, params, query, user|null, roles }`. → `src/context.ts` (`RequestContext` + `buildContext`); `roles` mirror `user.roles`, the §2 router/§4 JWT middleware supply `params`/`user`.
-- [ ] Error templates: add 403 + 500 (404 exists).
+- [x] Error templates: add 403 + 500 (404 exists). → `views/403.ejs` + `views/500.ejs`; 500 wired into `app.ts` error handler (HTML, plain-text fallback).
 - [ ] Config/env loader: Ory endpoints, cookie/CSRF secret, JWKS location, ports.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [ ] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`.
@@ -31,9 +34,11 @@ everything via Docker.
 - [ ] Helper `composeNav(fragments, override, roles)` → merged, permission-filtered tree.
 - [ ] Helper `parseListQuery(url)` → `{ q, filters, sort, page, pageSize }`.
 - [ ] Helper `paginate(total, page, pageSize)` → page model.
-- [ ] Unit tests for all helpers (first).
 - [ ] Replace placeholder `index` with the app-shell dashboard.
 - [ ] Go over all HTML and CSS and make adjust it to be as sematic as we can, css classes, ids html elements and all, then add semantic DOM as a priority in this project.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 2. Plugin host
 - [ ] **Specify the plugin contract** (big job, do first — it's the product's main API surface). Write it down as the authoritative reference: the full manifest shape; the `RequestContext` handed to handlers and what's guaranteed stable; **contract versioning** (a `apiVersion`/`engines`-style field so a plugin declares the host it targets, and the host refuses or warns on mismatch); **conflict rules** (two plugins claiming the same `basePath`, nav slot, or `permission` name → defined, loud resolution, not last-write-wins); the **local dev/test story** (how an author runs + tests one plugin in isolation against the host). Audience is experienced devs: optimise for a powerful, predictable, clearly-documented API. Crash-isolation (a bad plugin can't take down the host) is a *nice-to-have*, not a blocker — fail loud at boot/discovery over sandboxing at runtime.
@@ -43,7 +48,9 @@ everything via Docker.
 - [ ] Per-plugin static serving: `plugins/<id>/public/` → `/public/<id>/`.
 - [ ] `config/menu.ts` central override: reorder/rename/hide/group + branding (app name, logo, default theme).
 - [ ] Wire branding into the app shell.
-- [ ] Tests: discovery, routing, param matching, permission gate, nav merge + filter.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 3. Ory stack — compose + config
 - [ ] `postgres` service (pinned tag); separate DB/schema per Kratos/Keto/Hydra.
@@ -59,6 +66,9 @@ everything via Docker.
 - [ ] **One-command bootstrap** (the MVP bar): `docker compose up` brings up web + all Ory services + Postgres with *zero* manual prep. Commit working default Ory configs; auto-run migrations on first boot; auto-generate the JWKS signing key if absent; seed an admin identity + its Keto roles + a demo password (`admin`/`admin`) idempotently. Land an `OPL`/namespace bootstrap so Keto answers checks out of the box.
 - [ ] First-run banner / log line printing the login URL + seeded admin creds, with a clear "change these before production" warning.
 - [ ] Document the *only* things that can't be auto-generated: third-party **SSO provider** client id/secret (optional — password login works without them) and **production secrets** (real cookie/CSRF secret + signing key, supplied via env, replacing the dev throwaways). Everything else must work from a clean clone.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 4. Auth — identity, session JWT, guards
 - [ ] Kratos public client (fetch): init/get/submit flows, `whoami`, `whoami?tokenize_as=plainpages`.
@@ -73,30 +83,41 @@ everything via Docker.
 - [ ] Session re-mint on TTL expiry (re-read roles from Keto).
 - [ ] Logout: revoke Kratos session + clear cookie.
 - [ ] Secure cookie flags; CSRF for our own POST forms.
-- [ ] Tests: JWT verify (valid/expired/bad-sig), guard behavior, login→projection→tokenize flow (Ory mocked).
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 5. Built-in admin screens (writes go only to Keto/Kratos)
 - [ ] Users: list (Kratos identities) with filter/sort/pagination; create/edit/deactivate/delete; trigger recovery.
 - [ ] Groups: Keto subject sets — list/create/delete + membership management.
 - [ ] Roles & permissions: Keto relations — assign roles to users/groups; "effective access" view via Keto expand.
 - [ ] Wire into the menu (admin section, permission-gated).
-- [ ] Tests: CRUD flows (Ory mocked) + permission gating.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 6. Hydra — OAuth2/OIDC provider (can ship after the rest)
 - [ ] Login-challenge handler: authenticate via Kratos session, accept/reject.
 - [ ] Consent-challenge handler: show / auto-accept first-party, grant scopes, accept/reject.
 - [ ] OAuth2 client registration (admin UI or CLI).
-- [ ] Tests: authorization-code login+consent happy path; token + refresh.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 7. Example plugin (reference)
 - [ ] Reference plugin (e.g. people directory or scheduling): list page fetching upstream data, a form that forwards writes upstream, permission-gated nav.
 - [ ] Verify the full plugin contract end-to-end against the README.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 8. Testing & CI
 - [ ] node --test units across helpers / router / nav / auth (tests-first throughout).
 - [ ] **Playwright full E2E**: login (password + mocked SSO), menu filtering by role, users/groups/permissions CRUD, a plugin page, logout.
 - [ ] E2E harness: bring up the full compose stack, seed Keto roles + a test identity, **tear down after**.
-- [ ] Typecheck + tests green in Docker (`docker compose run --rm web …`).
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
 ## 9. Production, security, ops
 - [ ] `compose.yml` prod: Ory + Postgres, secrets via env, no source mount.
@@ -105,4 +126,7 @@ everything via Docker.
 - [ ] Structured logging / basic observability. use @larvit/log for OTLP compability - but add subtasks and stuff for supporting incoming trace id etc from a reverse-proxy etc.
 - [ ] JWT signing-key rotation runbook.
 - [ ] Refresh README `Layout` + drop `_(planned)_` markers as pieces land.
+- [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
+- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
 
