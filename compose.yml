@@ -1,5 +1,5 @@
-# Base / production config. Run alone with: docker compose -f docker-compose.yml up
-# Plain `docker compose up` also merges docker-compose.override.yml for development.
+# Base / production config. Run alone with: docker compose -f compose.yml up
+# Plain `docker compose up` also merges compose.override.yml for development.
 services:
   web:
     build: .

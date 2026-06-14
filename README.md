@@ -52,14 +52,13 @@ shipping a client-side runtime, not using the platform.
 
 ## The MVP — "clone, one command, hack on a plugin" _(planned)_
 
-The bar for a first usable release: **clone the repo, run one command, and you have
-a working register/login and can start building your own plugin** — no manual key
-generation, no hand-edited Ory config, no separate database setup. One command
-brings up the whole stack (web + Ory + Postgres), generates signing keys and seeds
-an admin on first boot, and drops you at a login screen. From there you copy the
-example plugin folder and you're writing your own page. That moment — clone → one
-command → login → your plugin renders — *is* the MVP. SSO and the OAuth2-provider
-role (Hydra) come after; they aren't required to start.
+The bar for a first usable release: **clone, run one command, get a working
+register/login, and start building your own plugin** — no manual key generation, no
+hand-edited Ory config, no separate database. That one command brings up the whole
+stack (web + Ory + Postgres), generates signing keys, seeds an admin on first boot,
+and drops you at a login screen; from there you copy the example plugin folder and
+write your own page. SSO and the OAuth2-provider role (Hydra) come after — not
+required to start.
 
 ## Architecture
 
@@ -338,6 +337,8 @@ src/server.ts        Entry point — starts the HTTP server (reads PORT, default
 src/app.ts           Request routing + EJS rendering
 src/static.ts        Static file serving with path-traversal protection
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
+src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
+src/context.ts       RequestContext handed to handlers + buildContext()
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
 views/               Core EJS templates (index, 404, partials/)
 public/              Static assets under /public/ (css/, favicon, robots.txt)

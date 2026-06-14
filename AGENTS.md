@@ -26,7 +26,7 @@ Docker Compose. **Never run `node`, `npm`, or `tsc` on the host.**
 docker compose up                                # dev server, live reload
 docker compose run --rm web npm run typecheck    # strict type check
 docker compose run --rm web npm test             # tests
-docker compose -f docker-compose.yml up --build -d   # production
+docker compose -f compose.yml up --build -d          # production
 ```
 
 ## Rules

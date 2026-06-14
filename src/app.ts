@@ -28,7 +28,7 @@ export function createApp(options: AppOptions = {}): Server {
       const { pathname } = new URL(req.url ?? "/", "http://localhost");
 
       if (pathname.startsWith("/public/")) {
-        await serveStatic(publicDir, pathname.slice("/public/".length), res);
+        await serveStatic(publicDir, pathname.slice("/public/".length), res, req.method === "HEAD");
         return;
       }
 

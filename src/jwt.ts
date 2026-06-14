@@ -1,15 +1,12 @@
 import { createPublicKey, verify } from "node:crypto";
 import type { JsonWebKey, KeyObject } from "node:crypto";
 
-// JWT signature verification with the Node standard library — no `jose`/JWT package.
-// Decision (todo §0): `node:crypto` imports a JWK directly (`createPublicKey({format:"jwk"})`)
-// and verifies the RS*/ES* signatures the Kratos session tokenizer produces — everything
-// we need. A dependency would add supply-chain surface for capability we already have; see
-// AGENTS.md (few dependencies, prefer stdlib).
+// JWS signature verification with the Node stdlib — no `jose`/JWT dep (todo §0):
+// `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures the
+// Kratos tokenizer produces — all we need, no supply-chain surface (see AGENTS.md).
 //
-// Scope is signature verification only. The §4 auth layer builds the rest on top of this:
-// claim checks (exp/iss/aud, clock skew), JWKS-by-`kid` fetch/cache/rotation, and — at its
-// network boundary — guarding `token` is a string and bounding its length before calling in.
+// Signature only. §4 builds the rest on top: claim checks (exp/iss/aud, clock skew),
+// JWKS-by-`kid` fetch/cache/rotation, and bounding `token` type/length at the boundary.
 
 // JOSE `alg` → Node verify parameters. ES* signatures are raw r‖s (IEEE P1363), not DER.
 // Widen support by extending this map. Security invariant: never add an `HS*` (symmetric)

@@ -1,10 +1,7 @@
-// Cookie helpers — parse the request `Cookie` header and build `Set-Cookie`
-// response headers with secure-by-default attributes. Stdlib only (no `cookie` dep).
-// §4 auth uses these to store/clear the session JWT cookie and the CSRF token.
-//
-// Values round-trip via percent-encoding: `serializeCookie` encodes, `parseCookies`
-// decodes. JWTs survive unescaped (their `-_.` base64url chars are URI-unreserved),
-// so the header stays human-readable.
+// Cookie helpers — parse the request `Cookie` header, build secure-by-default
+// `Set-Cookie` headers. Stdlib only (no `cookie` dep); §4 stores/clears the session
+// JWT + CSRF token with these. Values round-trip via percent-encoding (serialize
+// encodes, parse decodes); JWT `-_.` chars are URI-unreserved, so JWTs stay readable.
 
 export interface CookieOptions {
   domain?: string;

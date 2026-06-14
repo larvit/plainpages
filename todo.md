@@ -14,12 +14,12 @@ everything via Docker.
 ## 0. Housekeeping / primitives
 - [x] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding. → `node:crypto` (no new dep); `src/jwt.ts` verifies JWS signatures.
 - [x] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite). → `src/cookie.ts` (`parseCookies`/`serializeCookie`); stdlib-only, injection/pollution-safe.
-- [ ] Request context type threaded to handlers: `{ req, res, url, params, query, user|null, roles }`.
+- [x] Request context type threaded to handlers: `{ req, res, url, params, query, user|null, roles }`. → `src/context.ts` (`RequestContext` + `buildContext`); `roles` mirror `user.roles`, the §2 router/§4 JWT middleware supply `params`/`user`.
 - [ ] Error templates: add 403 + 500 (404 exists).
 - [ ] Config/env loader: Ory endpoints, cookie/CSRF secret, JWKS location, ports.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
-- [ ] Move `styles.css` + `auth.css` into `public/css/`; reconcile with existing `style.css`.
+- [ ] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`.
 - [ ] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used.
 - [ ] App-shell partial (sidebar + topbar + content slot).
 - [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.
@@ -33,6 +33,7 @@ everything via Docker.
 - [ ] Helper `paginate(total, page, pageSize)` → page model.
 - [ ] Unit tests for all helpers (first).
 - [ ] Replace placeholder `index` with the app-shell dashboard.
+- [ ] Go over all HTML and CSS and make adjust it to be as sematic as we can, css classes, ids html elements and all, then add semantic DOM as a priority in this project.
 
 ## 2. Plugin host
 - [ ] **Specify the plugin contract** (big job, do first — it's the product's main API surface). Write it down as the authoritative reference: the full manifest shape; the `RequestContext` handed to handlers and what's guaranteed stable; **contract versioning** (a `apiVersion`/`engines`-style field so a plugin declares the host it targets, and the host refuses or warns on mismatch); **conflict rules** (two plugins claiming the same `basePath`, nav slot, or `permission` name → defined, loud resolution, not last-write-wins); the **local dev/test story** (how an author runs + tests one plugin in isolation against the host). Audience is experienced devs: optimise for a powerful, predictable, clearly-documented API. Crash-isolation (a bad plugin can't take down the host) is a *nice-to-have*, not a blocker — fail loud at boot/discovery over sandboxing at runtime.

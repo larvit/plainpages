@@ -71,6 +71,11 @@ test("rejects when the JWK pins a different alg", () => {
   assert.throws(() => verifyJws(token, { ...rsaJwk, alg: "RS512" }), /alg mismatch/);
 });
 
+test("rejects a symmetric JWK (kty:oct) for an asymmetric alg — second defense after the allowlist", () => {
+  const token = makeJws("RS256", rsa.privateKey, { sub: "u" });
+  assert.throws(() => verifyJws(token, { k: b64url("secret"), kty: "oct" }), /invalid JWK/);
+});
+
 test("rejects a token without three segments", () => {
   assert.throws(() => verifyJws("only.two", rsaJwk), /expected 3 segments/);
 });
