@@ -6,8 +6,13 @@ commands and layout.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the smallest, most readable solution.
-2. **Few dependencies** — the only runtime dep is `ejs`. Prefer the Node standard
-   library. Justify any new dependency; do not add frameworks.
+2. **Few dependencies** — the only npm runtime dep is `ejs`. Prefer the Node
+   standard library; justify any new dependency; do not add frameworks. The app is
+   **stateless — no database**. Auth/identity/OAuth are **Ory sidecar services**
+   (Kratos/Keto/Hydra, backed by Postgres), reached over their REST APIs with
+   built-in `fetch` — no SDK dependency. New capabilities ship as **plugin
+   folders** under `plugins/` that fetch their data from upstream services, not as
+   core code. See `README.md` for the architecture.
 3. **Strict TypeScript** — `tsconfig.json` is strict (incl. `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way.
 
