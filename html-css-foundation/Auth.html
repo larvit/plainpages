@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Console</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="auth.css">
+</head>
+<body>
+
+<!-- ============ ICON SPRITE — Lucide (ISC) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+</svg>
+
+<main class="auth-stage">
+  <div class="auth">
+
+    <div class="auth-brand">
+      <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box"/></svg></span>
+      <span class="brand-name">Console</span>
+    </div>
+
+    <!-- =================== LOGIN =================== -->
+    <section id="login" class="auth-view" aria-labelledby="login-title">
+      <form class="auth-card" method="post" action="#">
+        <div class="auth-head">
+          <h1 id="login-title">Sign in</h1>
+          <p class="auth-sub">Welcome back. Enter your details to continue.</p>
+        </div>
+
+        <!-- SSO section (toggle on/off) -->
+        <div class="sso" aria-label="Single sign-on options">
+          <ul class="sso-list">
+            <!-- add a provider: copy one <li> and change the logo + label -->
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true">G</span><span class="sso-label">Continue with Google</span></button></li>
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true">M</span><span class="sso-label">Continue with Microsoft</span></button></li>
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true"><svg class="ico ico-sm"><use href="#i-shield"/></svg></span><span class="sso-label">Continue with SAML SSO</span></button></li>
+          </ul>
+          <div class="auth-divider">or</div>
+        </div>
+
+        <div class="auth-form">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-mail"/></svg>
+              <input class="input has-ico" id="login-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <label for="login-password">Password</label>
+              <a class="field-link" href="#forgot">Forgot password?</a>
+            </div>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-lock"/></svg>
+              <input class="input has-ico" id="login-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            </div>
+          </div>
+
+          <label class="check remember"><input type="checkbox" name="remember" value="1"> Keep me signed in</label>
+
+          <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+        </div>
+
+        <p class="auth-alt">Don't have an account? <a href="#register">Create one</a></p>
+      </form>
+    </section>
+
+    <!-- =================== REGISTER =================== -->
+    <section id="register" class="auth-view" aria-labelledby="register-title">
+      <form class="auth-card" method="post" action="#">
+        <div class="auth-head">
+          <h1 id="register-title">Create account</h1>
+          <p class="auth-sub">Get started — it only takes a minute.</p>
+        </div>
+
+        <div class="sso" aria-label="Single sign-on options">
+          <ul class="sso-list">
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true">G</span><span class="sso-label">Sign up with Google</span></button></li>
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true">M</span><span class="sso-label">Sign up with Microsoft</span></button></li>
+            <li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true"><svg class="ico ico-sm"><use href="#i-shield"/></svg></span><span class="sso-label">Sign up with SAML SSO</span></button></li>
+          </ul>
+          <div class="auth-divider">or</div>
+        </div>
+
+        <div class="auth-form">
+          <div class="register-alert alert alert-neg" role="alert">
+            <svg class="ico ico-sm" aria-hidden="true"><use href="#i-alert"/></svg>
+            <div class="alert-body"><strong>Please fix the highlighted fields</strong><span>A couple of details need your attention before we can create your account.</span></div>
+          </div>
+          <div class="field">
+            <div class="field-top">
+              <label for="reg-name">Name</label>
+              <span class="optional">Optional</span>
+            </div>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-user"/></svg>
+              <input class="input has-ico" id="reg-name" name="name" type="text" autocomplete="name" placeholder="Avery Kline">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-mail"/></svg>
+              <input class="input has-ico" id="reg-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" aria-describedby="reg-email-err" required>
+            </div>
+            <p class="field-error err-email" id="reg-email-err" role="alert">
+              <svg class="ico ico-sm" aria-hidden="true"><use href="#i-alert"/></svg>
+              <span>This email is already used by another account. <a href="#login">Sign in instead</a>.</span>
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="reg-password">Password</label>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-lock"/></svg>
+              <input class="input has-ico" id="reg-password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" aria-describedby="reg-password-err" required>
+            </div>
+            <span class="field-hint">Use 8 or more characters.</span>
+            <p class="field-error err-password" id="reg-password-err" role="alert">
+              <svg class="ico ico-sm" aria-hidden="true"><use href="#i-alert"/></svg>
+              <span>Password must be at least 8 characters.</span>
+            </p>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        </div>
+
+        <p class="auth-alt">Already have an account? <a href="#login">Sign in</a></p>
+      </form>
+    </section>
+
+    <!-- =================== FORGOT PASSWORD =================== -->
+    <section id="forgot" class="auth-view" aria-labelledby="forgot-title">
+      <form class="auth-card" method="post">
+        <div class="auth-head">
+          <a class="auth-back" href="#login"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to sign in</a>
+          <h1 id="forgot-title">Reset password</h1>
+          <p class="auth-sub">Enter your email and we'll send you a reset link.</p>
+        </div>
+
+        <!-- feedback (shown by server via .state-sent / .state-error on #forgot) -->
+        <div class="forgot-alert is-sent alert alert-pos" role="status">
+          <svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg>
+          <div class="alert-body"><strong>Check your email</strong><span>If an account exists for that address, a reset link is on its way.</span></div>
+        </div>
+        <div class="forgot-alert is-error alert alert-neg" role="alert">
+          <svg class="ico ico-sm" aria-hidden="true"><use href="#i-alert"/></svg>
+          <div class="alert-body"><strong>Couldn't send the link</strong><span>Something went wrong on our end. Please try again.</span></div>
+        </div>
+
+        <div class="auth-form">
+          <div class="field">
+            <label for="forgot-email">Email</label>
+            <div class="input-wrap">
+              <svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#i-mail"/></svg>
+              <input class="input has-ico" id="forgot-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Send reset link</button>
+        </div>
+
+        <p class="auth-alt">Remembered it? <a href="#login">Sign in</a></p>
+      </form>
+    </section>
+
+  </div>
+</main>
+
+<!-- ============ TEMPLATE PREVIEW CONTROLS (remove for production) ============ -->
+<div class="tpl-controls" role="group" aria-label="Template preview controls">
+  <span class="tpl-label">Preview</span>
+  <div class="theme-switch" role="radiogroup" aria-label="Color theme">
+    <label><input type="radio" name="theme" id="theme-light"><span>Light</span></label>
+    <label><input type="radio" name="theme" id="theme-auto" checked><span>Auto</span></label>
+    <label><input type="radio" name="theme" id="theme-dark"><span>Dark</span></label>
+  </div>
+  <span class="tpl-sep" aria-hidden="true"></span>
+  <label class="tpl-toggle">
+    <input type="checkbox" id="sso-toggle" checked>
+    <span class="tpl-track" aria-hidden="true"></span>
+    SSO
+  </label>
+  <span class="tpl-sep tpl-forgot" aria-hidden="true"></span>
+  <div class="tpl-forgot">
+    <div class="segmented" role="radiogroup" aria-label="Forgot-password state (preview)">
+      <label><input type="radio" name="fstate" id="fstate-default" checked><span>Default</span></label>
+      <label><input type="radio" name="fstate" id="fstate-sent"><span>Sent</span></label>
+      <label><input type="radio" name="fstate" id="fstate-error"><span>Error</span></label>
+    </div>
+  </div>
+  <span class="tpl-sep tpl-register" aria-hidden="true"></span>
+  <div class="tpl-register">
+    <div class="segmented" role="radiogroup" aria-label="Register state (preview)">
+      <label><input type="radio" name="rstate" id="rstate-default" checked><span>Default</span></label>
+      <label><input type="radio" name="rstate" id="rstate-taken"><span>Email taken</span></label>
+      <label><input type="radio" name="rstate" id="rstate-combined"><span>Multiple</span></label>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

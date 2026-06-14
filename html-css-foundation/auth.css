@@ -1,0 +1,232 @@
+/* =============================================================
+   Auth flow — login / register / forgot password
+   Built on the shared tokens in styles.css. Pure HTML/CSS:
+   - screens switch via :target (no JS)
+   - SSO is a config section toggled by a class/checkbox; providers
+     are a <ul> you extend by adding one <li class="sso-item">.
+   ============================================================= */
+
+.auth-stage {
+  min-height: 100dvh;
+  display: grid; place-items: center;
+  padding: 40px 20px 96px;
+  background: var(--bg);
+}
+.auth {
+  width: 100%; max-width: 408px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+
+/* brand */
+.auth-brand {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.auth-brand .brand-name { font-size: 16px; }
+
+/* ---- screen switching via :target (login is the default) ---- */
+.auth-view { display: none; }
+#login { display: block; }
+#register:target, #forgot:target { display: block; }
+body:has(#register:target) #login,
+body:has(#forgot:target) #login { display: none; }
+
+/* card */
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 3px);
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(0,0,0,.06);
+}
+.auth-head { display: flex; flex-direction: column; gap: 4px; }
+.auth-head h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+.auth-sub { margin: 0; color: var(--text-muted); font-size: var(--fz); }
+.auth-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--fz-sm); color: var(--text-muted); width: fit-content;
+  margin-bottom: 2px;
+}
+.auth-back:hover { color: var(--text); }
+
+/* ---- SSO section (toggle on/off via #sso-toggle) ---- */
+.sso { display: flex; flex-direction: column; gap: 10px; }
+body:not(:has(#sso-toggle:checked)) .sso { display: none; }
+
+.sso-list { display: flex; flex-direction: column; gap: 8px; }
+.sso-btn {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  height: 40px; padding: 0 12px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: var(--radius);
+  font: inherit; font-size: var(--fz-sm); font-weight: 550;
+  cursor: pointer; text-align: left;
+}
+.sso-btn:hover { background: var(--surface-2); }
+/* logo slot — swap the initial for an <img class="sso-logo"> later */
+.sso-logo {
+  width: 22px; height: 22px; flex: 0 0 auto;
+  display: grid; place-items: center; border-radius: 5px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 11px; font-weight: 700;
+}
+.sso-logo .ico { color: var(--text-muted); }
+.sso-btn .sso-label { flex: 1 1 auto; }
+
+/* divider */
+.auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text-faint); font-size: var(--fz-xs);
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ""; flex: 1 1 auto; height: 1px; background: var(--border);
+}
+
+/* ---- form fields ---- */
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.field label { font-size: var(--fz-sm); font-weight: 550; color: var(--text); }
+.field .optional { font-size: var(--fz-xs); color: var(--text-faint); font-weight: 400; }
+.field-link { font-size: var(--fz-xs); color: var(--accent); }
+.field-link:hover { text-decoration: underline; }
+
+.input-wrap { position: relative; display: flex; }
+.input-ico {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--text-faint); pointer-events: none;
+}
+.input {
+  width: 100%; height: 40px; padding: 0 12px;
+  background: var(--surface-3); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: var(--radius);
+  font: inherit; font-size: var(--fz);
+}
+.input.has-ico { padding-left: 36px; }
+.input::placeholder { color: var(--text-faint); }
+.input:focus { outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg); }
+/* gentle validation feedback only after the user has interacted */
+.input:user-invalid { border-color: var(--neg); }
+.input:user-invalid:focus { box-shadow: 0 0 0 2px var(--neg-bg); }
+
+.field-hint { font-size: var(--fz-xs); color: var(--text-faint); }
+
+.remember { margin-top: 2px; }
+
+/* full-width primary button (extends .btn / .btn-primary from styles.css) */
+.btn-block { width: 100%; justify-content: center; height: 40px; font-size: var(--fz); }
+
+/* alternate action line */
+.auth-alt { margin: 0; text-align: center; font-size: var(--fz-sm); color: var(--text-muted); }
+.auth-alt a { color: var(--accent); font-weight: 550; }
+.auth-alt a:hover { text-decoration: underline; }
+
+/* legal footnote */
+.auth-foot { margin: 0; text-align: center; font-size: var(--fz-xs); color: var(--text-faint); }
+.auth-foot a { color: var(--text-muted); text-decoration: underline; }
+
+/* =============================================================
+   Template preview controls (delete this block + its markup for
+   production). Drives theme + SSO on/off with zero JS.
+   ============================================================= */
+.tpl-controls {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 8px 6px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 99px; box-shadow: 0 6px 22px rgba(0,0,0,.12);
+}
+.tpl-label { font-size: var(--fz-xs); color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.tpl-sep { width: 1px; height: 20px; background: var(--border); }
+.tpl-controls .theme-switch { width: 156px; }
+
+/* on/off switch */
+.tpl-toggle { display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--fz-sm); color: var(--text-muted); cursor: pointer; }
+.tpl-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tpl-track { width: 32px; height: 18px; border-radius: 99px;
+  background: var(--border-2); position: relative; transition: background .15s ease; }
+.tpl-track::after { content: ""; position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s ease; }
+.tpl-toggle:has(input:checked) .tpl-track { background: var(--accent); }
+.tpl-toggle:has(input:checked) .tpl-track::after { transform: translateX(14px); }
+.tpl-toggle:has(input:focus-visible) .tpl-track {
+  outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (max-width: 520px) {
+  .tpl-label { display: none; }
+  .tpl-controls { gap: 10px; padding: 6px 10px; }
+}
+
+/* =============================================================
+   Forgot-password feedback (Post/Redirect/Get, no JS).
+   The form POSTs to its own URL; on the redirect-GET the server
+   re-renders #forgot with a state class so the matching alert shows:
+     <section id="forgot" class="auth-view state-sent"> … </section>
+   (state-sent | state-error). No extra view is added.
+   The preview radios below demonstrate the same states live.
+   ============================================================= */
+.forgot-alert { display: none; }
+#forgot.state-sent  .forgot-alert.is-sent,
+body:has(#fstate-sent:checked)  #forgot .forgot-alert.is-sent  { display: flex; }
+#forgot.state-error .forgot-alert.is-error,
+body:has(#fstate-error:checked) #forgot .forgot-alert.is-error { display: flex; }
+
+/* the Forgot-state control only appears while the forgot view is open */
+.tpl-forgot { display: none; }
+body:has(#forgot:target) .tpl-forgot { display: flex; }
+.tpl-controls .segmented { padding: 1px; }
+.tpl-controls .segmented label { padding: 3px 8px; }
+
+/* =============================================================
+   Field-level errors (e.g. "email already used"), server-driven.
+   The server re-renders the field's form with a state class and
+   adds aria-invalid="true" to the input:
+     <section id="register" class="auth-view state-email-taken"> … </section>
+   Reusable: drop a <p class="field-error"> under any field and gate
+   it on whatever state your server sets.
+   ============================================================= */
+.field-error {
+  display: none; align-items: center; gap: 6px; margin: 0;
+  font-size: var(--fz-xs); color: var(--neg);
+}
+.field-error > .ico { flex: 0 0 auto; color: var(--neg); }
+.field-error a { color: var(--neg); font-weight: 600; text-decoration: underline; }
+
+/* register form-level error banner (pairs with field-level errors) */
+.register-alert { display: none; }
+
+/* --- state A: email already taken — field-level error only --- */
+#register.state-email-taken .err-email,
+body:has(#rstate-taken:checked) #register .err-email { display: flex; }
+#register.state-email-taken #reg-email,
+body:has(#rstate-taken:checked) #register #reg-email { border-color: var(--neg); }
+
+/* --- state B: multiple errors — banner + several field errors together --- */
+#register.state-invalid .register-alert,
+body:has(#rstate-combined:checked) #register .register-alert { display: flex; }
+#register.state-invalid .err-email,
+#register.state-invalid .err-password,
+body:has(#rstate-combined:checked) #register .err-email,
+body:has(#rstate-combined:checked) #register .err-password { display: flex; }
+#register.state-invalid #reg-email,
+#register.state-invalid #reg-password,
+body:has(#rstate-combined:checked) #register #reg-email,
+body:has(#rstate-combined:checked) #register #reg-password { border-color: var(--neg); }
+
+/* red focus ring on any invalid register input */
+#register.state-email-taken #reg-email:focus,
+#register.state-invalid #reg-email:focus,
+#register.state-invalid #reg-password:focus,
+body:has(#rstate-taken:checked) #register #reg-email:focus,
+body:has(#rstate-combined:checked) #register #reg-email:focus,
+body:has(#rstate-combined:checked) #register #reg-password:focus { box-shadow: 0 0 0 2px var(--neg-bg); }
+
+/* the Register-state control only appears while the register view is open */
+.tpl-register { display: none; }
+body:has(#register:target) .tpl-register { display: flex; }

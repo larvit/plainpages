@@ -1,0 +1,10 @@
+# Development overrides, merged automatically by `docker compose up`.
+# Mounts the source for live editing and restarts on change via `node --watch`.
+services:
+  web:
+    command: node --watch src/server.ts
+    environment:
+      NODE_ENV: development
+    volumes:
+      - .:/app
+      - /app/node_modules

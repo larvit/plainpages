@@ -1,0 +1,23 @@
+{
+  "name": "plainpages",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "ejs": "3.1.10"
+  },
+  "devDependencies": {
+    "@types/ejs": "3.1.5",
+    "@types/node": "24.13.2",
+    "typescript": "5.9.3"
+  }
+}

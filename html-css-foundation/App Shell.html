@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Shell — Template</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ ICON SPRITE — Lucide (https://lucide.dev, ISC license) ============
+     Official Lucide paths, inlined as <symbol> so usage stays zero-JS:
+     <svg class="ico"><use href="#i-name"/></svg>. Stroke + currentColor are
+     applied via the .ico class, matching Lucide's 24-grid / round-cap style. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+  <symbol id="i-kebab" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+  <symbol id="i-cols" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+</svg>
+
+<!-- nav-toggle drives the mobile overlay (pure CSS) -->
+<input type="checkbox" id="nav-toggle" aria-hidden="true" tabindex="-1">
+
+<div class="app">
+
+  <!-- =================== SIDEBAR =================== -->
+  <aside class="sidebar" aria-label="Primary">
+    <div class="brand">
+      <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box"/></svg></span>
+      <span class="brand-name">Console</span>
+      <span class="brand-sub">v0.1</span>
+    </div>
+
+    <!-- ====================================================
+         UNIFIED NAV TREE — every item uses the SAME node markup.
+           HEADER  → node has a <details class="nav-disc"> toggle + <ul class="nav-children">
+           LEAF    → node has a <span class="nav-spacer"> instead of a toggle
+           CLICKABLE → label is <a class="nav-self" href>
+           STATIC    → label is <span class="nav-self">
+         Mix freely: a node can be header+clickable, header+static,
+         leaf+clickable, or leaf+static. Workspace / Insights below are
+         simply header + static nodes — nothing special about them.
+    ==================================================== -->
+    <nav class="nav" aria-label="Main navigation">
+      <ul class="nav-tree">
+
+        <!-- leaf + clickable -->
+        <li class="nav-node">
+          <div class="nav-row">
+            <span class="nav-spacer" aria-hidden="true"></span>
+            <a class="nav-self" href="#"><svg class="ico"><use href="#i-grid"/></svg><span class="nav-label">Overview</span></a>
+          </div>
+        </li>
+
+        <!-- header + STATIC (was the "Workspace" group label) -->
+        <li class="nav-node">
+          <div class="nav-row">
+            <details class="nav-disc" open>
+              <summary class="nav-tog" aria-label="Toggle Workspace"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+            </details>
+            <span class="nav-self"><span class="nav-label">Workspace</span></span>
+          </div>
+          <ul class="nav-children">
+
+            <!-- header + CLICKABLE -->
+            <li class="nav-node">
+              <div class="nav-row">
+                <details class="nav-disc" open>
+                  <summary class="nav-tog" aria-label="Toggle Directory"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                </details>
+                <a class="nav-self" href="#"><svg class="ico"><use href="#i-users"/></svg><span class="nav-label">Directory</span><span class="nav-count">4</span></a>
+              </div>
+              <ul class="nav-children">
+
+                <!-- leaf + clickable (active) -->
+                <li class="nav-node">
+                  <div class="nav-row">
+                    <span class="nav-spacer" aria-hidden="true"></span>
+                    <a class="nav-self" href="#" aria-current="page"><span class="nav-label">People</span><span class="nav-count">1,284</span></a>
+                  </div>
+                </li>
+                <li class="nav-node">
+                  <div class="nav-row">
+                    <span class="nav-spacer" aria-hidden="true"></span>
+                    <a class="nav-self" href="#"><span class="nav-label">Teams</span></a>
+                  </div>
+                </li>
+
+                <!-- header + CLICKABLE -->
+                <li class="nav-node">
+                  <div class="nav-row">
+                    <details class="nav-disc" open>
+                      <summary class="nav-tog" aria-label="Toggle Roles &amp; Access"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                    </details>
+                    <a class="nav-self" href="#"><span class="nav-label">Roles &amp; Access</span></a>
+                  </div>
+                  <ul class="nav-children">
+                    <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Roles</span></a></div></li>
+                    <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Permission sets</span></a></div></li>
+
+                    <!-- header + CLICKABLE (level 4) -->
+                    <li class="nav-node">
+                      <div class="nav-row">
+                        <details class="nav-disc" open>
+                          <summary class="nav-tog" aria-label="Toggle Policies"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                        </details>
+                        <a class="nav-self" href="#"><span class="nav-label">Policies</span></a>
+                      </div>
+                      <ul class="nav-children">
+                        <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Password policy</span></a></div></li>
+                        <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Session limits</span></a></div></li>
+                      </ul>
+                    </li>
+
+                    <!-- header + STATIC (level 4) -->
+                    <li class="nav-node">
+                      <div class="nav-row">
+                        <details class="nav-disc">
+                          <summary class="nav-tog" aria-label="Toggle Scopes"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                        </details>
+                        <span class="nav-self"><span class="nav-label">Scopes</span></span>
+                      </div>
+                      <ul class="nav-children">
+                        <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Read scopes</span></a></div></li>
+                        <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Write scopes</span></a></div></li>
+                      </ul>
+                    </li>
+                  </ul>
+                </li>
+
+                <!-- header + STATIC -->
+                <li class="nav-node">
+                  <div class="nav-row">
+                    <details class="nav-disc">
+                      <summary class="nav-tog" aria-label="Toggle Segments"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                    </details>
+                    <span class="nav-self"><span class="nav-label">Segments</span></span>
+                  </div>
+                  <ul class="nav-children">
+                    <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Active users</span></a></div></li>
+                    <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Invited</span></a></div></li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+
+            <!-- header + STATIC -->
+            <li class="nav-node">
+              <div class="nav-row">
+                <details class="nav-disc" open>
+                  <summary class="nav-tog" aria-label="Toggle Resources"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                </details>
+                <span class="nav-self"><svg class="ico"><use href="#i-box"/></svg><span class="nav-label">Resources</span></span>
+              </div>
+              <ul class="nav-children">
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Projects</span></a></div></li>
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Environments</span></a></div></li>
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">API keys</span></a></div></li>
+                <!-- leaf + STATIC (no link → not a navigation target) -->
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><span class="nav-self"><span class="nav-label">Webhooks (soon)</span></span></div></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- header + STATIC (was the "Insights" group label) -->
+        <li class="nav-node">
+          <div class="nav-row">
+            <details class="nav-disc" open>
+              <summary class="nav-tog" aria-label="Toggle Insights"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+            </details>
+            <span class="nav-self"><span class="nav-label">Insights</span></span>
+          </div>
+          <ul class="nav-children">
+            <li class="nav-node">
+              <div class="nav-row">
+                <span class="nav-spacer" aria-hidden="true"></span>
+                <a class="nav-self" href="#"><svg class="ico"><use href="#i-chart"/></svg><span class="nav-label">Reports</span></a>
+              </div>
+            </li>
+
+            <!-- header + CLICKABLE -->
+            <li class="nav-node">
+              <div class="nav-row">
+                <details class="nav-disc">
+                  <summary class="nav-tog" aria-label="Toggle Activity"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                </details>
+                <a class="nav-self" href="#"><svg class="ico"><use href="#i-bell"/></svg><span class="nav-label">Activity</span></a>
+              </div>
+              <ul class="nav-children">
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Audit log</span></a></div></li>
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Notifications</span></a></div></li>
+              </ul>
+            </li>
+
+            <!-- header + STATIC -->
+            <li class="nav-node">
+              <div class="nav-row">
+                <details class="nav-disc">
+                  <summary class="nav-tog" aria-label="Toggle Catalog"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                </details>
+                <span class="nav-self"><svg class="ico"><use href="#i-layers"/></svg><span class="nav-label">Catalog</span></span>
+              </div>
+              <ul class="nav-children">
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Items</span></a></div></li>
+                <li class="nav-node"><div class="nav-row"><span class="nav-spacer" aria-hidden="true"></span><a class="nav-self" href="#"><span class="nav-label">Categories</span></a></div></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- ---- sidebar footer: theme + profile + settings ---- -->
+    <div class="side-footer">
+      <!-- theme switcher: Light / Auto / Dark (Auto = follow system) -->
+      <div class="theme-switch" role="radiogroup" aria-label="Color theme">
+        <label>
+          <input type="radio" name="theme" id="theme-light">
+          <span>Light</span>
+        </label>
+        <label>
+          <input type="radio" name="theme" id="theme-auto" checked>
+          <span>Auto</span>
+        </label>
+        <label>
+          <input type="radio" name="theme" id="theme-dark">
+          <span>Dark</span>
+        </label>
+      </div>
+
+      <div class="footer-actions">
+        <!-- profile (opens a menu) -->
+        <details class="menu" style="flex:1 1 auto">
+          <summary class="profile">
+            <span class="avatar" aria-hidden="true">AK</span>
+            <span class="profile-meta">
+              <span class="profile-name">Avery Kline</span>
+              <span class="profile-mail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1f7e697a6d665f7e7c727a317670">[email&#160;protected]</a></span>
+            </span>
+          </summary>
+          <div class="menu-pop left" style="bottom:calc(100% + 6px); top:auto; min-width:220px">
+            <div class="menu-head">Signed in as Avery</div>
+            <button class="menu-item"><svg class="ico"><use href="#i-user"/></svg>Profile</button>
+            <button class="menu-item"><svg class="ico"><use href="#i-globe"/></svg>Language — English</button>
+            <button class="menu-item"><svg class="ico"><use href="#i-bell"/></svg>Notifications</button>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger"><svg class="ico"><use href="#i-logout"/></svg>Sign out</button>
+          </div>
+        </details>
+
+        <!-- settings -->
+        <details class="menu">
+          <summary class="btn icon-btn" aria-label="Settings">
+            <svg class="ico"><use href="#i-gear"/></svg>
+          </summary>
+          <div class="menu-pop" style="bottom:calc(100% + 6px); top:auto">
+            <div class="menu-head">Settings</div>
+            <button class="menu-item"><svg class="ico"><use href="#i-gear"/></svg>Preferences</button>
+            <button class="menu-item"><svg class="ico"><use href="#i-users"/></svg>Members</button>
+            <button class="menu-item"><svg class="ico"><use href="#i-globe"/></svg>Region &amp; language</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </aside>
+
+  <!-- scrim closes the mobile menu (label toggles the checkbox) -->
+  <label class="scrim" for="nav-toggle" aria-label="Close menu"></label>
+
+  <!-- =================== CONTENT =================== -->
+  <main class="content">
+
+    <!-- topbar -->
+    <header class="topbar">
+      <label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu">
+        <svg class="ico"><use href="#i-menu"/></svg>
+      </label>
+      <div>
+        <div class="page-title">People</div>
+      </div>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="#">Directory</a><span class="sep">/</span><span>People</span>
+      </nav>
+      <div class="topbar-spacer"></div>
+      <button class="btn"><svg class="ico ico-sm"><use href="#i-download"/></svg>Export</button>
+      <button class="btn btn-primary"><svg class="ico ico-sm"><use href="#i-plus"/></svg>Add person</button>
+    </header>
+
+    <!-- ============ FILTER BAR ============
+         A real GET form: selections submit as query params (?q=…&status=…)
+         so filtering is server-side and works with zero JavaScript.
+         Every control has a name + associated label; related controls are
+         grouped in <fieldset>/<legend>; Apply submits, Reset clears. -->
+    <form class="filters" method="get" aria-label="Filter people">
+      <!-- row 1: search + status + team + column/extra menus -->
+      <div class="filter-row">
+        <label class="search">
+          <span class="sr-only">Search people</span>
+          <svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg>
+          <input type="search" name="q" placeholder="Search people…">
+        </label>
+
+        <fieldset class="filter-field">
+          <legend class="sr-only">Status</legend>
+          <div class="segmented">
+            <label><input type="radio" name="status" value="all" checked><span>All</span><span class="seg-count">1,284</span></label>
+            <label><input type="radio" name="status" value="active"><span>Active</span></label>
+            <label><input type="radio" name="status" value="archived"><span>Archived</span></label>
+          </div>
+        </fieldset>
+
+        <span class="filter">
+          <label class="sr-only" for="f-team">Team</label>
+          <span class="select">
+            <select id="f-team" name="team">
+              <option value="">All teams</option>
+              <option value="engineering">Engineering</option>
+              <option value="design">Design</option>
+              <option value="operations">Operations</option>
+              <option value="sales">Sales</option>
+            </select>
+          </span>
+        </span>
+
+        <div class="spacer"></div>
+
+        <!-- column visibility (display preference, also persisted via the form) -->
+        <details class="menu">
+          <summary class="btn"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cols"/></svg>Columns</summary>
+          <div class="menu-pop">
+            <fieldset class="menu-field">
+              <legend class="menu-head">Visible columns</legend>
+              <label class="menu-check"><input type="checkbox" name="col" value="name" checked>Name</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="email" checked>Email</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="role" checked>Role</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="team" checked>Team</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="status" checked>Status</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="last_active" checked>Last active</label>
+              <label class="menu-check"><input type="checkbox" name="col" value="created">Created</label>
+            </fieldset>
+          </div>
+        </details>
+
+        <details class="menu">
+          <summary class="btn"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg>More filters</summary>
+          <div class="menu-pop" style="min-width:240px">
+            <fieldset class="menu-field">
+              <legend class="menu-head">Role</legend>
+              <label class="menu-check"><input type="radio" name="role" value="" checked>Any role</label>
+              <label class="menu-check"><input type="radio" name="role" value="admin">Admin</label>
+              <label class="menu-check"><input type="radio" name="role" value="member">Member</label>
+              <label class="menu-check"><input type="radio" name="role" value="viewer">Viewer</label>
+            </fieldset>
+            <div class="menu-sep"></div>
+            <fieldset class="menu-field">
+              <legend class="menu-head">Flags</legend>
+              <label class="menu-check"><input type="checkbox" name="flag" value="2fa">2FA enabled</label>
+              <label class="menu-check"><input type="checkbox" name="flag" value="pending">Pending invite</label>
+            </fieldset>
+          </div>
+        </details>
+      </div>
+
+      <!-- row 2: tags + joined date range -->
+      <div class="filter-row">
+        <fieldset class="filter-field">
+          <legend class="sr-only">Tags</legend>
+          <span class="filter-legend" aria-hidden="true">Tags</span>
+          <div class="chips">
+            <label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="tag" value="engineering" checked>Engineering</label>
+            <label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="tag" value="design">Design</label>
+            <label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="tag" value="oncall" checked>On-call</label>
+            <label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="tag" value="contractor">Contractor</label>
+            <label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="tag" value="remote">Remote</label>
+          </div>
+        </fieldset>
+
+        <div class="spacer"></div>
+
+        <fieldset class="filter-field">
+          <legend class="sr-only">Joined</legend>
+          <span class="filter-legend" aria-hidden="true">Joined</span>
+          <div class="daterange">
+            <svg class="ico ico-sm" aria-hidden="true"><use href="#i-cal"/></svg>
+            <label class="sr-only" for="f-from">Joined from</label>
+            <input type="date" id="f-from" name="joined_from" value="2026-01-01">
+            <span class="to" aria-hidden="true">to</span>
+            <label class="sr-only" for="f-to">Joined to</label>
+            <input type="date" id="f-to" name="joined_to" value="2026-06-14">
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- row 3: applied filters (server-rendered) + form actions -->
+      <div class="filter-row filter-foot">
+        <div class="active-pills" aria-label="Applied filters">
+          <span class="filter-legend">Applied</span>
+          <span class="pill"><b>Team:</b> Engineering <a class="pill-x" href="?tag=oncall&amp;joined_from=2026-01-01" aria-label="Remove Team filter"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span>
+          <span class="pill"><b>Tag:</b> On-call <a class="pill-x" href="?team=engineering&amp;joined_from=2026-01-01" aria-label="Remove On-call filter"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span>
+          <span class="pill"><b>Joined:</b> 2026 <a class="pill-x" href="?team=engineering&amp;tag=oncall" aria-label="Remove Joined filter"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span>
+          <a class="pill-clear" href="?">Clear all</a>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="filter-actions">
+          <button type="reset" class="btn">Reset</button>
+          <button type="submit" class="btn btn-primary"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg>Apply filters</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- ============ TABLE ============ -->
+    <div class="table-wrap">
+      <table class="table">
+        <caption class="sr-only">People in the directory</caption>
+        <thead>
+          <tr>
+            <th class="col-check" scope="col">
+              <input type="checkbox" aria-label="Select all rows">
+            </th>
+            <th scope="col" aria-sort="ascending">
+              <button class="th-sort">Name <svg class="ico ico-sm sort-ico"><use href="#i-up"/></svg></button>
+            </th>
+            <th scope="col">
+              <button class="th-sort">Email <svg class="ico ico-sm sort-ico"><use href="#i-sort"/></svg></button>
+            </th>
+            <th scope="col">
+              <button class="th-sort">Role <svg class="ico ico-sm sort-ico"><use href="#i-sort"/></svg></button>
+            </th>
+            <th scope="col">Team</th>
+            <th scope="col">Status</th>
+            <th scope="col">
+              <button class="th-sort">Last active <svg class="ico ico-sm sort-ico"><use href="#i-sort"/></svg></button>
+            </th>
+            <th class="col-actions" scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- row template, repeated -->
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Mara Delgado"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">MD</span><span class="cell-strong">Mara Delgado</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="80ede1f2e1aee4e5ece7e1e4efc0e1e3ede5aee9ef">[email&#160;protected]</a></td>
+            <td>Admin</td>
+            <td class="cell-muted">Engineering</td>
+            <td><span class="badge pos"><span class="dot"></span>Active</span></td>
+            <td class="cell-muted">2 min ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Mara Delgado"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Soren Vance"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">SV</span><span class="cell-strong">Soren Vance</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4b3824392e25653d2a25282e0b2a28262e652224">[email&#160;protected]</a></td>
+            <td>Member</td>
+            <td class="cell-muted">Design</td>
+            <td><span class="badge warn"><span class="dot"></span>Idle</span></td>
+            <td class="cell-muted">3 hours ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Soren Vance"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Priya Nair"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">PN</span><span class="cell-strong">Priya Nair</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5f2f2d36263e71313e362d1f3e3c323a713630">[email&#160;protected]</a></td>
+            <td>Admin</td>
+            <td class="cell-muted">Operations</td>
+            <td><span class="badge pos"><span class="dot"></span>Active</span></td>
+            <td class="cell-muted">just now</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Priya Nair"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Eli Brandt"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">EB</span><span class="cell-strong">Eli Brandt</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b0d5dcd99ed2c2d1ded4c4f0d1d3ddd59ed9df">[email&#160;protected]</a></td>
+            <td>Viewer</td>
+            <td class="cell-muted">Sales</td>
+            <td><span class="badge neg"><span class="dot"></span>Suspended</span></td>
+            <td class="cell-muted">6 days ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Eli Brandt"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Tomas Lindqvist"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">TL</span><span class="cell-strong">Tomas Lindqvist</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d9adb6b4b8aaf7b599b8bab4bcf7b0b6">[email&#160;protected]</a></td>
+            <td>Member</td>
+            <td class="cell-muted">Engineering</td>
+            <td><span class="badge info"><span class="dot"></span>Invited</span></td>
+            <td class="cell-muted">—</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Tomas Lindqvist"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Hana Osei"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">HO</span><span class="cell-strong">Hana Osei</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e28a838c83cc8d91878ba283818f87cc8b8d">[email&#160;protected]</a></td>
+            <td>Member</td>
+            <td class="cell-muted">Design</td>
+            <td><span class="badge pos"><span class="dot"></span>Active</span></td>
+            <td class="cell-muted">21 min ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Hana Osei"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Rafael Costa"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">RC</span><span class="cell-strong">Rafael Costa</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="fd8f9c9b9c9891d39e928e899cbd9c9e9098d39492">[email&#160;protected]</a></td>
+            <td>Admin</td>
+            <td class="cell-muted">Operations</td>
+            <td><span class="badge warn"><span class="dot"></span>Idle</span></td>
+            <td class="cell-muted">1 hour ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Rafael Costa"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Wen Li"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">WL</span><span class="cell-strong">Wen Li</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="dfa8bab1f1b3b69fbebcb2baf1b6b0">[email&#160;protected]</a></td>
+            <td>Viewer</td>
+            <td class="cell-muted">Sales</td>
+            <td><span class="badge pos"><span class="dot"></span>Active</span></td>
+            <td class="cell-muted">44 min ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Wen Li"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Nadia Farouk"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">NF</span><span class="cell-strong">Nadia Farouk</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4826292c2129662e293a273d2308292b252d662127">[email&#160;protected]</a></td>
+            <td>Member</td>
+            <td class="cell-muted">Engineering</td>
+            <td><span class="badge neg"><span class="dot"></span>Suspended</span></td>
+            <td class="cell-muted">12 days ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Nadia Farouk"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Otto Berg"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">OB</span><span class="cell-strong">Otto Berg</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4a253e3e2564282f382d0a2b29272f642325">[email&#160;protected]</a></td>
+            <td>Member</td>
+            <td class="cell-muted">Design</td>
+            <td><span class="badge info"><span class="dot"></span>Invited</span></td>
+            <td class="cell-muted">—</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Otto Berg"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Greta Holm"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">GH</span><span class="cell-strong">Greta Holm</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2047524554410e484f4c4d6041434d450e494f">[email&#160;protected]</a></td>
+            <td>Admin</td>
+            <td class="cell-muted">Operations</td>
+            <td><span class="badge pos"><span class="dot"></span>Active</span></td>
+            <td class="cell-muted">8 min ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Greta Holm"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Yusuf Demir"></td>
+            <td><span class="cell-user"><span class="avatar" aria-hidden="true">YD</span><span class="cell-strong">Yusuf Demir</span></span></td>
+            <td class="cell-muted cell-mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2059555355460e44454d49526041434d450e494f">[email&#160;protected]</a></td>
+            <td>Viewer</td>
+            <td class="cell-muted">Sales</td>
+            <td><span class="badge warn"><span class="dot"></span>Idle</span></td>
+            <td class="cell-muted">5 hours ago</td>
+            <td class="col-actions">
+              <details class="menu kebab">
+                <summary aria-label="Row actions for Yusuf Demir"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary>
+                <div class="menu-pop">
+                  <button class="menu-item"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="menu-item"><svg class="ico"><use href="#i-copy"/></svg>Duplicate</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </details>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ============ PAGINATION ============ -->
+    <footer class="pager">
+      <span>1–12 of <b>1,284</b></span>
+      <div class="pager-rows">
+        <label for="rows">Rows</label>
+        <div class="select">
+          <select id="rows" aria-label="Rows per page">
+            <option>12</option><option>25</option><option>50</option><option>100</option>
+          </select>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <nav class="page-nums" aria-label="Pagination">
+        <button class="page-btn" disabled aria-label="Previous page"><svg class="ico ico-sm" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button>
+        <button class="page-btn" aria-current="page">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">…</button>
+        <button class="page-btn">107</button>
+        <button class="page-btn" aria-label="Next page"><svg class="ico ico-sm"><use href="#i-chev"/></svg></button>
+      </nav>
+    </footer>
+
+  </main>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+</html>
