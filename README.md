@@ -113,6 +113,22 @@ docker compose up            # http://localhost:3000, live reload via `node --wa
 restarts the server on change. _(The Ory + Postgres services join this compose
 file as they land — planned.)_
 
+## Configuration
+
+Read from the environment once at boot (`src/config.ts`) and validated there — a bad
+URL, an out-of-range `PORT`, or a missing/throwaway production secret fails loud before
+the server starts. A clean clone needs **none** of these set; every value defaults to
+the dev stack. In production (`NODE_ENV=production`) the two secrets must be supplied
+and may not stay at their dev throwaways — everything else still defaults.
+
+| Var | Default | Notes |
+| --- | --- | --- |
+| `PORT` | `3000` | web listen port |
+| `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
+| `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
+| `JWKS_URL` | Kratos tokenizer JWKS | verifies the session JWT (§4) |
+| `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | **required in production** |
+
 ## Type check & tests
 
 ```bash
@@ -339,6 +355,7 @@ src/static.ts        Static file serving with path-traversal protection
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/context.ts       RequestContext handed to handlers + buildContext()
+src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
 views/               Core EJS templates (index, 403/404/500, partials/)
 public/              Static assets under /public/ (css/, favicon, robots.txt)
