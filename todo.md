@@ -5,6 +5,12 @@ Conventions: **write tests first** (node --test for units, Playwright for E2E),
 tear down test containers after runs, keep deps minimal, pin all versions, run
 everything via Docker.
 
+> **North-star / MVP.** Done = a developer can **clone, run one command, get a
+> working register/login, and start hacking on their own plugin** — no manual key
+> generation, no hand-edited Ory config, no DB setup. Everything below serves that;
+> the one-command bootstrap (§3) and the example plugin (§7) are what make the MVP
+> real. Hydra/SSO are explicitly *post-MVP*.
+
 ## 0. Housekeeping / primitives
 - [ ] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding.
 - [ ] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite).
@@ -14,7 +20,7 @@ everything via Docker.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [ ] Move `styles.css` + `auth.css` into `public/css/`; reconcile with existing `style.css`.
-- [ ] Lucide icon sprite → `views/partials/icons.ejs`.
+- [ ] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used.
 - [ ] App-shell partial (sidebar + topbar + content slot).
 - [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.
 - [ ] Filter-bar partial — GET form (search, segmented, selects, chips, daterange, applied pills).
@@ -29,7 +35,7 @@ everything via Docker.
 - [ ] Replace placeholder `index` with the app-shell dashboard.
 
 ## 2. Plugin host
-- [ ] `definePlugin()` + manifest types: `id`, `basePath`, `nav[]`, `routes[] {method, path, permission?, handler}`.
+- [ ] **Specify the plugin contract** (big job, do first — it's the product's main API surface). Write it down as the authoritative reference: the full manifest shape; the `RequestContext` handed to handlers and what's guaranteed stable; **contract versioning** (a `apiVersion`/`engines`-style field so a plugin declares the host it targets, and the host refuses or warns on mismatch); **conflict rules** (two plugins claiming the same `basePath`, nav slot, or `permission` name → defined, loud resolution, not last-write-wins); the **local dev/test story** (how an author runs + tests one plugin in isolation against the host). Audience is experienced devs: optimise for a powerful, predictable, clearly-documented API. Crash-isolation (a bad plugin can't take down the host) is a *nice-to-have*, not a blocker — fail loud at boot/discovery over sandboxing at runtime.
 - [ ] Discovery: scan `plugins/`, import each `plugin.ts` default export, validate.
 - [ ] Router: match method+path under `basePath`, resolve path params, run permission gate, call handler with context.
 - [ ] Per-plugin view resolver (`plugins/<id>/views/*.ejs`).
@@ -42,20 +48,23 @@ everything via Docker.
 - [ ] `postgres` service (pinned tag); separate DB/schema per Kratos/Keto/Hydra.
 - [ ] `kratos` service (pinned) + `migrate`; identity schema (traits: email, name).
 - [ ] Kratos self-service flows (login, registration, recovery, verification, settings) → return URLs at our themed pages.
-- [ ] Kratos OIDC/SSO providers (Google/Microsoft/SAML) config (placeholders + secrets via env).
+- [ ] Kratos OIDC/SSO providers (Google/Microsoft/SAML) config (secrets via env). **None enabled by default** — a clean clone runs password-only; a provider activates purely by supplying its env creds.
 - [ ] Kratos session settings (cookie name, lifespan, sliding refresh).
 - [ ] Kratos tokenizer template `plainpages`: claims `{ sub, email, roles }`, `ttl ≈ 10m`, `jwks_url` signer, `claims_mapper_url` (Jsonnet reading `metadata_admin.roles`).
 - [ ] Generate + mount the JWT signing JWKS; document key rotation.
 - [ ] `keto` service (pinned) + `migrate`; namespaces in OPL (`role`, `group`, resource permissions).
 - [ ] `hydra` service (pinned) + `migrate`; issuer + login/consent URLs → our app.
 - [ ] Split dev (`compose.override.yml`) vs prod (`compose.yml`) wiring; health checks + `depends_on` ordering.
+- [ ] **One-command bootstrap** (the MVP bar): `docker compose up` brings up web + all Ory services + Postgres with *zero* manual prep. Commit working default Ory configs; auto-run migrations on first boot; auto-generate the JWKS signing key if absent; seed an admin identity + its Keto roles + a demo password (`admin`/`admin`) idempotently. Land an `OPL`/namespace bootstrap so Keto answers checks out of the box.
+- [ ] First-run banner / log line printing the login URL + seeded admin creds, with a clear "change these before production" warning.
+- [ ] Document the *only* things that can't be auto-generated: third-party **SSO provider** client id/secret (optional — password login works without them) and **production secrets** (real cookie/CSRF secret + signing key, supplied via env, replacing the dev throwaways). Everything else must work from a clean clone.
 
 ## 4. Auth — identity, session JWT, guards
 - [ ] Kratos public client (fetch): init/get/submit flows, `whoami`, `whoami?tokenize_as=plainpages`.
 - [ ] Kratos admin client (fetch): identity CRUD + `metadata_admin` update.
 - [ ] Keto client (fetch): `check`, list/expand relations, write/delete tuples.
 - [ ] Render Kratos flows: fetch flow → render fields against our themed pages → POST to `flow.ui.action` (Kratos handles its CSRF), map field errors/messages.
-- [ ] SSO buttons → Kratos OIDC flows.
+- [ ] SSO buttons → Kratos OIDC flows. **Render per configured provider only**: derive the list from Kratos' enabled OIDC providers (no creds ⇒ no button); hide the whole SSO section when none are configured. No code change needed to add/remove a provider — config only.
 - [ ] Login completion: read roles from Keto → write `metadata_admin` projection → tokenize → set JWT cookie.
 - [ ] JWT middleware: verify signature via cached JWKS, validate `exp`/`iss`/`aud` (+clock skew), build context (user, roles).
 - [ ] JWKS fetch + cache + rotation handling.

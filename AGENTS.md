@@ -6,8 +6,9 @@ commands and layout.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the smallest, most readable solution.
-2. **Few dependencies** — the only npm runtime dep is `ejs`. Prefer the Node
-   standard library; justify any new dependency; do not add frameworks. The app is
+2. **Few dependencies** — runtime deps stay minimal (today `ejs` + `lucide-static`).
+   Prefer the Node standard library; justify any new dependency; do not add
+   frameworks. The app is
    **stateless — no database**. Auth/identity/OAuth are **Ory sidecar services**
    (Kratos/Keto/Hydra, backed by Postgres), reached over their REST APIs with
    built-in `fetch` — no SDK dependency. New capabilities ship as **plugin
