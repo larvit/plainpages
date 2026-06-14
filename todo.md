@@ -12,7 +12,7 @@ everything via Docker.
 > real. Hydra/SSO are explicitly *post-MVP*.
 
 ## 0. Housekeeping / primitives
-- [ ] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding.
+- [x] Decide JWT verify approach: `node:crypto` (RS256/ES256 via `createPublicKey({format:"jwk"})`) vs add `jose` — justify if adding. → `node:crypto` (no new dep); `src/jwt.ts` verifies JWS signatures.
 - [ ] Cookie helpers: parse `Cookie` header, build `Set-Cookie` (HttpOnly, Secure, SameSite).
 - [ ] Request context type threaded to handlers: `{ req, res, url, params, query, user|null, roles }`.
 - [ ] Error templates: add 403 + 500 (404 exists).

@@ -337,6 +337,7 @@ _(Production compose grows to include the Ory services and Postgres — planned.
 src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
 src/app.ts           Request routing + EJS rendering
 src/static.ts        Static file serving with path-traversal protection
+src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
 views/               Core EJS templates (index, 404, partials/)
 public/              Static assets under /public/ (css/, favicon, robots.txt)
