@@ -28,7 +28,7 @@ everything via Docker.
 - [x] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`. → `git mv` from `html-css-foundation/` into `public/css/`; dropped the placeholder `style.css`; views + tests now reference `styles.css`; foundation mockups repointed to `../public/css/`.
 - [x] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used. → `src/icons.ts` (id→lucide map + `buildIconSprite`) generates a hidden `<symbol>` sprite of the 31 icons the mockups reference, paths sourced from pinned lucide-static; `icons.test.ts` guards provenance + only-used. Stale image rebuilt (lucide-static was missing). Wiring into the app shell is the next item.
 - [x] App-shell partial (sidebar + topbar + content slot). → `views/partials/shell.ejs`: full document wrapping `.app` → sidebar (brand + `nav` slot + theme/profile footer) · `.scrim` · `.content` (`.topbar` + `body` slot); reuses the mockup's classes (styled by `styles.css`), inlines the icon sprite. Slots `nav`/`actions`/`body` are HTML locals, `title`/`brand`/`user`/`breadcrumbs` text; defaults render standalone. `shell.test.ts` covers landmarks, slots, escaping, defaults. Not yet routed (that's "replace placeholder index").
-- [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.
+- [x] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`. → `views/partials/nav-tree.ejs`: data-driven, self-including. Node `{ label, href?, icon?, count?, current?, open?, children? }`; header (children → `.nav-disc` toggle + sibling `.nav-children`) vs leaf (spacer), clickable (`<a>`) vs static (`<span>`), orthogonal. Renders into the shell's `nav` slot. `nav-tree.test.ts` covers the full matrix + counts/icons/aria-current/escaping/empty.
 - [ ] Filter-bar partial — GET form (search, segmented, selects, chips, daterange, applied pills).
 - [ ] Data-table partial — sortable headers, row-select, badges, kebab row actions.
 - [ ] Pagination partial — rows-per-page + page numbers, query-param driven.
@@ -38,6 +38,7 @@ everything via Docker.
 - [ ] Helper `parseListQuery(url)` → `{ q, filters, sort, page, pageSize }`.
 - [ ] Helper `paginate(total, page, pageSize)` → page model.
 - [ ] Replace placeholder `index` with the app-shell dashboard.
+- [ ] Check the full system in Playwright and make screenshots and compare to the static original design in html-css-foundation to make sure we're showing the correct graphics.
 - [ ] Go over all HTML and CSS and make adjust it to be as sematic as we can, css classes, ids html elements and all, then add semantic DOM as a priority in this project.
 - [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
 - [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.

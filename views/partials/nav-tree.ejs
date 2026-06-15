@@ -1,0 +1,28 @@
+<%#
+  Recursive nav tree. Each node: { label, href?, icon?, count?, current?, open?, children? }.
+  Shape is orthogonal: header (children → disclosure toggle + nested <ul>) vs leaf (spacer),
+  and clickable (href → <a>) vs static (<span>). Mirrors the html-css-foundation markup; the
+  CSS reveals children only when the sibling .nav-disc is [open]. `root` picks the outer class.
+%><%
+  const nodes = locals.nodes || [];
+  const root = locals.root !== false;
+-%>
+<ul class="<%= root ? "nav-tree" : "nav-children" %>">
+<% nodes.forEach((node) => { const header = node.children && node.children.length; const tag = node.href ? "a" : "span"; -%>
+  <li class="nav-node">
+    <div class="nav-row">
+<% if (header) { -%>
+      <details class="nav-disc"<%= node.open ? " open" : "" %>>
+        <summary class="nav-tog" aria-label="Toggle <%= node.label %>"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+      </details>
+<% } else { -%>
+      <span class="nav-spacer" aria-hidden="true"></span>
+<% } -%>
+      <<%= tag %> class="nav-self"<% if (node.href) { %> href="<%= node.href %>"<% } %><% if (node.current) { %> aria-current="page"<% } %>><% if (node.icon) { %><svg class="ico"><use href="#<%= node.icon %>"/></svg><% } %><span class="nav-label"><%= node.label %></span><% if (node.count != null) { %><span class="nav-count"><%= node.count %></span><% } %></<%= tag %>>
+    </div>
+<% if (header) { -%>
+    <%- include("nav-tree", { nodes: node.children, root: false }) %>
+<% } -%>
+  </li>
+<% }) -%>
+</ul>

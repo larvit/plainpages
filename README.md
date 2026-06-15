@@ -362,7 +362,7 @@ src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
-views/               Core EJS templates (index, 403/404/500, partials/ incl. the app shell + icon sprite)
+views/               Core EJS templates (index, 403/404/500, partials/ incl. app shell, nav tree, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
 plugins/             Drop-in plugin folders, auto-discovered               (planned)
