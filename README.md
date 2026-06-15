@@ -41,7 +41,10 @@ a remote site on a flaky link. That's *why* the baseline is boring, standards-co
 **HTML + CSS** with zero JavaScript: it loads fast, degrades gracefully, and works on
 whatever browser is already there. Where a modern **CSS** feature removes the need for
 JavaScript (theme switching, popovers, disclosure) we use it — the trade we avoid is
-shipping a client-side runtime, not using the platform.
+shipping a client-side runtime, not using the platform. That standards-first stance also
+makes **semantic, accessible markup** a priority: real landmarks, one `<h1>` per page,
+lists and tables with proper headers, a skip link, and ARIA (`aria-current`/`aria-sort`)
+only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 
 > **Status.** This README describes the target architecture. What exists today is the
 > **scaffold** — a Node 24 + EJS HTTP server with static serving — plus the **design

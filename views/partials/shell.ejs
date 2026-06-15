@@ -21,6 +21,7 @@
     <link rel="icon" href="/public/favicon.svg" />
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <%- include("icons") %>
     <!-- nav-toggle drives the mobile overlay (pure CSS) -->
     <input type="checkbox" id="nav-toggle" aria-hidden="true" tabindex="-1" />
@@ -67,10 +68,10 @@
       <!-- scrim closes the mobile menu (label toggles the checkbox) -->
       <label class="scrim" for="nav-toggle" aria-label="Close menu"></label>
 
-      <main class="content">
+      <main class="content" id="main-content">
         <header class="topbar">
           <label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu"><svg class="ico"><use href="#i-menu" /></svg></label>
-          <div><div class="page-title"><%= title %></div></div>
+          <h1 class="page-title"><%= title %></h1>
           <% if (breadcrumbs.length) { %>
           <nav class="crumbs" aria-label="Breadcrumb">
             <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= c.href %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>

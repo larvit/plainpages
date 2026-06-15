@@ -55,8 +55,8 @@ test("data-table renders sortable headers, row-select, typed cells, badges and k
   // Actions header.
   assert.match(html, /<th class="col-actions" scope="col"><span class="sr-only">Actions<\/span><\/th>/);
 
-  // Typed cells: user (avatar + strong), classed text, badge tone, raw html.
-  assert.match(html, /<td><span class="cell-user"><span class="avatar" aria-hidden="true">MD<\/span><span class="cell-strong">Mara Delgado<\/span><\/span><\/td>/);
+  // Typed cells: user identifies the row → <th scope="row">; classed text, badge tone, raw html.
+  assert.match(html, /<th scope="row"><span class="cell-user"><span class="avatar" aria-hidden="true">MD<\/span><span class="cell-strong">Mara Delgado<\/span><\/span><\/th>/);
   assert.match(html, /<td class="cell-muted cell-mono">mara@x.io<\/td>/);
   assert.match(html, /<td class="cell-muted">Engineering<\/td>/);
   assert.match(html, /<td><span class="badge pos"><span class="dot"><\/span>Active<\/span><\/td>/);

@@ -6,6 +6,7 @@
     columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
     rows:    { name?, cells: Cell[], actions?: Action[] }[]
   Cell ∈ string | { text, className? } | { user:{name,initials} } | { badge:{tone,label} } | { html, className? }
+    user cells render as <th scope="row"> — they identify the row (the row header).
   Action = { label, icon?, href?, danger?, separatorBefore? }
 %><%
   const caption = locals.caption;
@@ -46,7 +47,7 @@
 <% if (typeof cell === "string") { -%>
         <td><%= cell %></td>
 <% } else if (cell.user) { -%>
-        <td><span class="cell-user"><span class="avatar" aria-hidden="true"><%= cell.user.initials %></span><span class="cell-strong"><%= cell.user.name %></span></span></td>
+        <th scope="row"><span class="cell-user"><span class="avatar" aria-hidden="true"><%= cell.user.initials %></span><span class="cell-strong"><%= cell.user.name %></span></span></th>
 <% } else if (cell.badge) { -%>
         <td><span class="badge <%= cell.badge.tone %>"><span class="dot"></span><%= cell.badge.label %></span></td>
 <% } else if (cell.html != null) { -%>

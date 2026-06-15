@@ -20,6 +20,11 @@ commands and layout.
    no `NODE_ENV` (or equivalent) branching. Every behaviour is an **explicit config
    toggle** (e.g. `CACHE_TEMPLATES`, `REQUIRE_SECURE_SECRETS`, a future "disable email"),
    read once in `src/config.ts`. Compose files set the toggles per deployment.
+5. **Semantic, accessible DOM** — markup is a first-class concern. Use the right element
+   for the job (landmarks, one `<h1>` per page + sane heading order, lists, `<table>` with
+   row/column headers, `<fieldset>`/`<legend>`, `<button>` vs `<a>`); add ARIA only to fill
+   real gaps (`aria-current`, `aria-sort`, labels). Classes/ids name *meaning*, not looks.
+   Prefer native semantics over `div` + ARIA. New views and partials keep this bar.
 
 ## Docker only — no host tooling
 

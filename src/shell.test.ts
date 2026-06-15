@@ -16,10 +16,14 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
     actions: '<button id="action-marker">Add</button>',
   });
 
-  // Three structural landmarks of the shell.
+  // Skip link is the first focusable element, targeting the main landmark.
+  assert.match(html, /<a class="skip-link" href="#main-content">Skip to content<\/a>/);
+
+  // Three structural landmarks of the shell; the page title is the page's <h1>.
   assert.match(html, /<aside class="sidebar"/);
   assert.match(html, /<header class="topbar"/);
-  assert.match(html, /<main class="content"/);
+  assert.match(html, /<main class="content" id="main-content"/);
+  assert.match(html, /<h1 class="page-title">People<\/h1>/);
 
   // Slots render their raw HTML where the page injects it.
   assert.match(html, /<a id="nav-marker"/); // sidebar nav slot
