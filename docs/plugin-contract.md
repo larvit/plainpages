@@ -1,0 +1,227 @@
+# The Plainpages plugin contract
+
+The authoritative reference for the plugin API — the product's main surface. A plugin is a
+self-contained folder under `plugins/` that the host discovers at boot; there is no
+registration step. The contract is **TypeScript** (`src/plugin.ts`), so the types here are the
+single source of truth — this document explains them, the guarantees around them, and the rules
+the host enforces.
+
+**Design stance.** The audience is experienced developers. The API optimises for being
+**powerful, predictable, and overloadable** — a plugin can take over as much of a page as it
+wants. The host **fails loud at boot/discovery** rather than sandboxing at runtime: a malformed
+manifest, a version mismatch, or a conflict stops startup with a clear message. Runtime
+crash-isolation (one bad plugin can't take the host down) is a *non-goal* — diagnose at deploy
+time, not in production.
+
+> **Status.** This is the contract the §2 host implements. The types and the pure rules
+> (`checkApiVersion`, `findConflicts`) exist today in `src/plugin.ts`; discovery, the router,
+> the per-plugin view resolver, and static serving are the next §2 items and wire this contract
+> to the filesystem and HTTP. Behaviour described as the host's is the target those items meet.
+
+## Anatomy of a plugin
+
+```
+plugins/scheduling/
+  plugin.ts            # default export: the manifest (definePlugin(...))
+  shifts.ts            # handlers, helpers — plain modules
+  views/               # EJS templates for this plugin's pages
+    shifts.ejs
+  public/              # static assets, served at /public/scheduling/
+    scheduling.css
+```
+
+Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
+Nothing else references it; the operator stays in control through the central menu override
+(`config/menu.ts`, §2).
+
+## The manifest
+
+```ts
+import { definePlugin, HOST_API_VERSION } from "../../src/plugin.ts";
+import { listShifts, createShift } from "./shifts.ts";
+
+export default definePlugin({
+  apiVersion: HOST_API_VERSION,       // the host contract this plugin targets
+  basePath: "/scheduling",            // unique mount prefix
+  id: "scheduling",                   // globally unique; namespaces views/static/tokens
+
+  // Nav fragment, merged into the global menu and permission-filtered per user.
+  nav: [{
+    icon: "i-cal", id: "scheduling:root", label: "Scheduling",
+    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
+  }],
+
+  // Permission tokens this plugin introduces (for docs + Keto seeding). Optional.
+  permissions: [
+    { token: "scheduling:read", description: "View shifts" },
+    { token: "scheduling:write", description: "Create and edit shifts" },
+  ],
+
+  // Route handlers, mounted under basePath. `permission` gates before the handler runs.
+  routes: [
+    { method: "GET",  path: "/shifts", permission: "scheduling:read",  handler: listShifts },
+    { method: "POST", path: "/shifts", permission: "scheduling:write", handler: createShift },
+  ],
+});
+```
+
+`definePlugin()` only types the object and returns it unchanged — a manifest may equally be a
+plain typed object. All validation happens at discovery.
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `apiVersion` | yes | Host contract major version the plugin targets — see [Versioning](#contract-versioning). |
+| `basePath` | yes | Absolute, no trailing slash (`/scheduling`). Unique; must not prefix-overlap another plugin's. |
+| `id` | yes | Globally unique slug. Namespaces `views/`, `/public/<id>/`, and (by convention) nav/permission tokens. |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Node `id`s must be globally unique. |
+| `permissions` | no | Tokens this plugin introduces; declared for documentation and seeding. |
+| `routes` | no | See [Routes & handlers](#routes--handlers). |
+| `hooks` | no | See [Hooks](#hooks). |
+
+A plugin may be routes-only, nav-only, or hooks-only — every collection field is optional.
+
+## Routes & handlers
+
+A route is `{ method, path, permission?, handler }`. `path` is **relative to `basePath`**; the
+host matches `method` + the resolved full path, extracts `:name` segments into
+`ctx.params.name`, runs the `permission` gate (a coarse JWT-claim check — see the README), and
+only then calls the handler with the [request context](#requestcontext).
+
+`method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
+
+A handler returns a **`RouteResult`** (or a `Promise` of one); the host turns it into the HTTP
+response. Returning `void` is the escape hatch — the handler wrote to `ctx.res` itself.
+
+```ts
+type RouteResult =
+  | { view: string; data?: Record<string, unknown>; status?: number; headers?: Record<string, string> }
+  | { html: string;  status?: number; headers?: Record<string, string> }
+  | { json: unknown;  status?: number; headers?: Record<string, string> }  // opt-in JS enhancement
+  | { redirect: string; status?: number };                                  // 303 unless status set
+```
+
+```ts
+// shifts.ts
+import type { RequestContext } from "../../src/context.ts";
+import { parseListQuery } from "../../src/list-query.ts";
+
+export async function listShifts(ctx: RequestContext) {
+  const q = parseListQuery(ctx.url);
+  const rows = await fetch(`${upstream}/shifts?${ctx.url.searchParams}`).then((r) => r.json());
+  return { view: "shifts", data: { rows, q } }; // renders plugins/scheduling/views/shifts.ejs
+}
+```
+
+- **`view`** resolves against the plugin's own `views/` (the per-plugin view resolver, §2). The
+  template may `include()` the core building-block partials (app shell, nav tree, data table, …)
+  to render a full page — exactly as the built-in screens do.
+- The handler **fetches its own data** from upstream and renders it; plugins hold no state
+  (see the README's *Stateless* section). The partials only need rows.
+- `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.
+
+## RequestContext
+
+Every handler receives one argument, the `RequestContext` (`src/context.ts`), built once per
+request:
+
+```ts
+interface RequestContext {
+  params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
+  query: URLSearchParams;            // alias of url.searchParams
+  req: IncomingMessage;
+  res: ServerResponse;
+  roles: string[];                   // user?.roles ?? [] — coarse gate without a null-check
+  url: URL;
+  user: User | null;                 // { id, email, roles } from the verified session JWT, or null
+}
+```
+
+**Stability guarantee.** The fields above are the stable contract — present and non-breaking
+across a major `apiVersion`. New fields may be **added** within a major version (additive, never
+breaking). `req`/`res` are the raw Node objects and the full escape hatch; reading them is fine,
+but prefer the typed fields so a handler keeps working as the host evolves. `user`/`roles` come
+from the §4 JWT middleware and are `null`/`[]` until a session exists.
+
+## Nav & permissions
+
+A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/nav.ts`), which
+applies the central override and then **filters per user** by the roles in the session JWT — a
+node shows iff it declares no `permission` or the user's roles include that token. Use arbitrary
+depth, counts, and icons; see `composeNav` for the node shape.
+
+Permission tokens are a **shared global namespace** — that's deliberate, so an operator grants
+`scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
+your tokens as `<id>:<action>` to avoid accidental clashes. Declaring them in `permissions` is
+optional but recommended (it documents them and lets the bootstrap seed Keto, §3).
+
+## Contract versioning
+
+Each manifest declares `apiVersion` — the host contract major version it targets — and the host
+exposes the current `HOST_API_VERSION`. At discovery the host runs `checkApiVersion`:
+
+| Plugin `apiVersion` vs host | Result | Host action |
+| --- | --- | --- |
+| equal | `ok` | load |
+| less than host | `warn` | load, log — review for deprecated behaviour |
+| greater than host | `refuse` | **abort boot** — the plugin needs a newer host |
+| missing / not a positive integer | `refuse` | **abort boot** — must be declared |
+
+The version is a single integer bumped only on a **breaking** manifest/handler change; additive
+changes don't bump it (hence "older → warn, still load"). There are no semver ranges — pinned,
+explicit, in keeping with the project's versioning rules.
+
+## Conflict rules
+
+Plugins are independent folders, so the host detects collisions across all discovered manifests
+with `findConflicts` and resolves them **loudly — never last-write-wins**. `error` aborts boot;
+`warn` logs and continues.
+
+| Kind | Level | Rule |
+| --- | --- | --- |
+| `id` | error | Two plugins share an `id`. Ids must be globally unique (they namespace views/static/tokens). |
+| `basePath` | error | Two `basePath`s are equal, or one is a path-prefix of the other (`/x` vs `/x/y`) — routes would shadow. |
+| `route` | error | Two routes resolve to the same `method` + full path (within or across plugins). |
+| `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
+| `permission` | warn | A permission token is declared by more than one plugin. Sharing is legitimate (shared role); namespace as `<id>:<action>` if unintended. |
+
+`permission` is the one intentional overlap, so it warns rather than aborts; everything else is
+an error an author fixes before the host will start.
+
+## Hooks
+
+Optional, for reacting to system actions. A plugin's `hooks` may implement:
+
+| Hook | When | May |
+| --- | --- | --- |
+| `onBoot()` | after discovery, before the server listens | warm caches, validate upstream config |
+| `onRequest(ctx)` | before route matching | inspect, or **short-circuit** by returning a `RouteResult` |
+| `onResponse(ctx, result)` | after the handler | observe/log; cannot change the response |
+
+Hooks run with no sandbox — a throwing hook fails loud (boot for `onBoot`, the request for the
+others). Keep them cheap; `onRequest` is on the hot path. This surface is intentionally small and
+may grow additively within the major version.
+
+## Local dev & test story
+
+A plugin is a normal folder of TypeScript, so an author tests it the same way the core is tested
+— everything in Docker, no host tooling.
+
+1. **Unit-test handlers as pure functions.** Keep a handler thin: parse `ctx`, fetch upstream,
+   return a `RouteResult`. Test the data-shaping in isolation (mock `fetch`/upstream) with
+   `node --test`, exactly like `src/dashboard.test.ts` tests the dashboard model. No host needed.
+
+   ```bash
+   docker compose run --rm web npm test
+   ```
+
+2. **Run one plugin against the host.** Drop the folder in `plugins/` and `docker compose up`;
+   the host discovers it. For an isolated harness, the §2 host exposes plugin injection
+   (`createApp({ plugins: [myPlugin] })`) so a test can mount a single manifest and assert its
+   routes, nav, and gating without the rest of the stack.
+
+3. **E2E the user-facing flow.** Per AGENTS.md §6, every plugin page/form ships *with* a
+   Playwright test in `e2e/`, side-effect-free so the suite stays `fullyParallel`. The test runs
+   against the live `web` service with the plugin mounted.
+
+The validation an author hits is the same the host runs: bad `apiVersion` or a conflict
+([above](#conflict-rules)) stops boot with a precise message naming the plugin(s) involved.

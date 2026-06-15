@@ -164,7 +164,10 @@ is covered end-to-end; tests are independent and run **fully in parallel** for s
 ## Building a plugin _(planned)_
 
 A plugin is a folder under `plugins/`. The host discovers it at boot — no
-registration step, no central wiring.
+registration step, no central wiring. The full, authoritative API surface —
+manifest shape, handler/`RequestContext` contract, versioning, conflict rules,
+hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-contract.md)**
+(`src/plugin.ts` holds the types). The sketch below is the shape.
 
 ```
 plugins/scheduling/
@@ -183,6 +186,7 @@ import { definePlugin } from "../../src/plugin.ts";
 import { listShifts } from "./shifts.ts";
 
 export default definePlugin({
+  apiVersion: 1,            // host contract this plugin targets; mismatch fails loud at boot
   id: "scheduling",
   basePath: "/scheduling",
 
@@ -386,11 +390,12 @@ src/icons.ts         Used-icon registry + sprite builder from lucide-static (reg
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
 src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
-src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
+src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules (discovery/router planned, §2)
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
 plugins/             Drop-in plugin folders, auto-discovered               (planned)
+docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
