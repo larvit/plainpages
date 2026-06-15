@@ -33,32 +33,28 @@ test("verifies an ES256 token (raw r‖s signature)", () => {
   assert.deepEqual(verifyJws(token, ecJwk).payload, { sub: "u" });
 });
 
-test("rejects a tampered payload", () => {
+// All three reach and fail the signature check itself, not an earlier structural guard.
+test("rejects a signature that fails verification (tampered payload, wrong key, empty)", () => {
   const token = makeJws("RS256", rsa.privateKey, { roles: ["user"], sub: "u" });
-  const [header, , signature] = token.split(".");
+  const [header, payload, signature] = token.split(".");
+
   const forged = `${header}.${b64url(JSON.stringify({ roles: ["admin"], sub: "u" }))}.${signature}`;
   assert.throws(() => verifyJws(forged, rsaJwk), /invalid signature/);
-});
 
-test("rejects a signature from a different key", () => {
-  const token = makeJws("RS256", rsa.privateKey, { sub: "u" });
-  const other = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  assert.throws(() => verifyJws(token, other.publicKey.export({ format: "jwk" }) as JsonWebKey), /invalid signature/);
-});
+  const otherJwk = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ format: "jwk" }) as JsonWebKey;
+  assert.throws(() => verifyJws(token, otherJwk), /invalid signature/);
 
-test("rejects an empty signature segment", () => {
-  const [header, payload] = makeJws("RS256", rsa.privateKey, { sub: "u" }).split(".");
   assert.throws(() => verifyJws(`${header}.${payload}.`, rsaJwk), /invalid signature/);
 });
 
-test("rejects alg:none", () => {
-  const token = `${b64url(JSON.stringify({ alg: "none", typ: "JWT" }))}.${b64url(JSON.stringify({ sub: "u" }))}.`;
-  assert.throws(() => verifyJws(token, rsaJwk), /unsupported alg/);
-});
+// The algParams allowlist is the alg-confusion defense: anything outside RS*/ES* is refused
+// (`HS*` symmetric and `none` would otherwise let an attacker forge tokens).
+test("rejects an alg outside the allowlist (none, HS256)", () => {
+  const none = `${b64url(JSON.stringify({ alg: "none", typ: "JWT" }))}.${b64url(JSON.stringify({ sub: "u" }))}.`;
+  assert.throws(() => verifyJws(none, rsaJwk), /unsupported alg/);
 
-test("rejects symmetric alg HS256", () => {
-  const token = `${b64url(JSON.stringify({ alg: "HS256" }))}.${b64url(JSON.stringify({ sub: "u" }))}.${b64url("x")}`;
-  assert.throws(() => verifyJws(token, rsaJwk), /unsupported alg/);
+  const hs256 = `${b64url(JSON.stringify({ alg: "HS256" }))}.${b64url(JSON.stringify({ sub: "u" }))}.${b64url("x")}`;
+  assert.throws(() => verifyJws(hs256, rsaJwk), /unsupported alg/);
 });
 
 test("rejects when key type does not match the alg family", () => {
@@ -76,22 +72,18 @@ test("rejects a symmetric JWK (kty:oct) for an asymmetric alg — second defense
   assert.throws(() => verifyJws(token, { k: b64url("secret"), kty: "oct" }), /invalid JWK/);
 });
 
-test("rejects a token without three segments", () => {
+// decodeJws structural guards, all rejected before any crypto runs.
+test("rejects malformed tokens before crypto (segment count, payload type, base64url, kid)", () => {
+  const p = b64url(JSON.stringify({ sub: "u" }));
   assert.throws(() => verifyJws("only.two", rsaJwk), /expected 3 segments/);
-});
 
-test("rejects a non-object (array) payload", () => {
-  const token = `${b64url(JSON.stringify({ alg: "RS256" }))}.${b64url(JSON.stringify([1, 2, 3]))}.${b64url("x")}`;
-  assert.throws(() => verifyJws(token, rsaJwk), /payload not an object/);
-});
+  const arrayPayload = `${b64url(JSON.stringify({ alg: "RS256" }))}.${b64url(JSON.stringify([1, 2, 3]))}.${b64url("x")}`;
+  assert.throws(() => verifyJws(arrayPayload, rsaJwk), /payload not an object/);
 
-test("rejects a non-canonical base64url segment before any crypto", () => {
-  assert.throws(() => verifyJws(`ab*c.${b64url(JSON.stringify({ sub: "u" }))}.${b64url("x")}`, rsaJwk), /base64url/);
-});
+  assert.throws(() => verifyJws(`ab*c.${p}.${b64url("x")}`, rsaJwk), /base64url/);
 
-test("rejects a non-string kid in the header", () => {
-  const token = `${b64url(JSON.stringify({ alg: "RS256", kid: 123 }))}.${b64url(JSON.stringify({ sub: "u" }))}.${b64url("x")}`;
-  assert.throws(() => verifyJws(token, rsaJwk), /kid/);
+  const badKid = `${b64url(JSON.stringify({ alg: "RS256", kid: 123 }))}.${p}.${b64url("x")}`;
+  assert.throws(() => verifyJws(badKid, rsaJwk), /kid/);
 });
 
 test("decodeJws exposes header and payload without verifying", () => {

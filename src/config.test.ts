@@ -32,12 +32,9 @@ test("rejects a malformed Ory URL", () => {
   assert.throws(() => loadConfig({ KETO_READ_URL: "not a url" }), /KETO_READ_URL/);
 });
 
-test("production requires every secret to be set", () => {
+test("production rejects a missing or dev-throwaway secret", () => {
   assert.throws(() => loadConfig({ NODE_ENV: "production" }), /COOKIE_SECRET/);
   assert.throws(() => loadConfig({ COOKIE_SECRET: "real", NODE_ENV: "production" }), /CSRF_SECRET/);
-});
-
-test("production rejects a dev throwaway secret", () => {
   assert.throws(
     () => loadConfig({ COOKIE_SECRET: "dev-insecure-cookie-secret", CSRF_SECRET: "real", NODE_ENV: "production" }),
     /COOKIE_SECRET/,

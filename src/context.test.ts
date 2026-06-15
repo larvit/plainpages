@@ -12,23 +12,18 @@ function reqRes(url?: string): { req: IncomingMessage; res: ServerResponse } {
   return { req, res: new ServerResponse(req) };
 }
 
-test("buildContext parses the URL and defaults to an anonymous user", () => {
-  const { req, res } = reqRes("/users?q=ann");
+test("buildContext parses the URL, exposes query, and defaults to an anonymous user", () => {
+  const { req, res } = reqRes("/users?q=ann&page=2");
   const ctx = buildContext(req, res);
   assert.equal(ctx.req, req);
   assert.equal(ctx.res, res);
   assert.equal(ctx.url.pathname, "/users");
-  assert.equal(ctx.user, null);
-  assert.deepEqual(ctx.roles, []);
-  assert.deepEqual(ctx.params, {});
-});
-
-test("buildContext exposes query as the URL's search params", () => {
-  const { req, res } = reqRes("/users?q=ann&page=2");
-  const ctx = buildContext(req, res);
   assert.equal(ctx.query, ctx.url.searchParams); // same instance, not a copy
   assert.equal(ctx.query.get("q"), "ann");
   assert.equal(ctx.query.get("page"), "2");
+  assert.equal(ctx.user, null);
+  assert.deepEqual(ctx.roles, []);
+  assert.deepEqual(ctx.params, {});
 });
 
 test("buildContext threads path params supplied by the router", () => {
