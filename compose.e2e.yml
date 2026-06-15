@@ -1,7 +1,8 @@
 # Playwright E2E. Brings up the app + a Playwright runner, screenshots the live pages and the
 # html-css-foundation mockups, and asserts the live DOM computes the same design styles.
-#   docker compose -f compose.yml -f compose.e2e.yml run --rm e2e
+#   docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e
 #   docker compose -f compose.yml -f compose.e2e.yml down -v   # tear down after
+# --build rebuilds the runner (the image bakes in e2e/) so spec edits are picked up.
 # Screenshots + HTML report land in ./e2e/artifacts/ (git-ignored).
 services:
   web:

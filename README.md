@@ -151,11 +151,15 @@ service — no Node/browsers on the host. It screenshots the live pages **and** 
 styles** as the reference (so a styling regression fails the build, independent of the row data).
 
 ```bash
-docker compose -f compose.yml -f compose.e2e.yml run --rm e2e   # run the suite
-docker compose -f compose.yml -f compose.e2e.yml down -v         # tear down after
+docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f compose.e2e.yml down -v                 # tear down after
 ```
 
-Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Tests run in parallel.
+`--build` rebuilds the runner so spec edits are always picked up (the image bakes in `e2e/`).
+
+Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Every user-facing flow
+is covered end-to-end; tests are independent and run **fully in parallel** for speed
+([AGENTS.md](AGENTS.md) §6) — keep new tests side-effect-free so the suite stays fast.
 
 ## Building a plugin _(planned)_
 

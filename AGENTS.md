@@ -25,6 +25,11 @@ commands and layout.
    row/column headers, `<fieldset>`/`<legend>`, `<button>` vs `<a>`); add ARIA only to fill
    real gaps (`aria-current`, `aria-sort`, labels). Classes/ids name *meaning*, not looks.
    Prefer native semantics over `div` + ARIA. New views and partials keep this bar.
+6. **Full, parallel E2E** — every user-facing flow (each page, form, guard, plugin route)
+   has a Playwright E2E test, and a new surface ships *with* its E2E in the same change.
+   Tests stay independent and side-effect-free so the suite runs `fullyParallel` — keep it
+   that way as it grows (never serialise on shared state); parallelism is what keeps it
+   fast. E2E runs in Docker against the live stack — see `README.md`.
 
 ## Docker only — no host tooling
 

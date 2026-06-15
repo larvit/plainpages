@@ -101,3 +101,10 @@ test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({
   });
   expect(offCanvas).toBe(true);
 });
+
+test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
+  const res = await page.goto("/no-such-page");
+  expect(res?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back home" })).toBeVisible();
+});
