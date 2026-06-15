@@ -360,8 +360,9 @@ src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS 
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
+src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
-views/               Core EJS templates (index, 403/404/500, partials/)
+views/               Core EJS templates (index, 403/404/500, partials/ incl. the icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
 plugins/             Drop-in plugin folders, auto-discovered               (planned)

@@ -26,7 +26,7 @@ everything via Docker.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [x] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`. → `git mv` from `html-css-foundation/` into `public/css/`; dropped the placeholder `style.css`; views + tests now reference `styles.css`; foundation mockups repointed to `../public/css/`.
-- [ ] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used.
+- [x] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used. → `src/icons.ts` (id→lucide map + `buildIconSprite`) generates a hidden `<symbol>` sprite of the 31 icons the mockups reference, paths sourced from pinned lucide-static; `icons.test.ts` guards provenance + only-used. Stale image rebuilt (lucide-static was missing). Wiring into the app shell is the next item.
 - [ ] App-shell partial (sidebar + topbar + content slot).
 - [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.
 - [ ] Filter-bar partial — GET form (search, segmented, selects, chips, daterange, applied pills).
@@ -42,6 +42,9 @@ everything via Docker.
 - [ ] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues.
 - [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
 - [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
+
+### 1.1 Extra input from human
+- [ ] Add to principles that we should have full E2E coverage in the Playwright tests - make sure they can run in parallel to get up some speed.
 
 ## 2. Plugin host
 - [ ] **Specify the plugin contract** (big job, do first — it's the product's main API surface). Write it down as the authoritative reference: the full manifest shape; the `RequestContext` handed to handlers and what's guaranteed stable; **contract versioning** (a `apiVersion`/`engines`-style field so a plugin declares the host it targets, and the host refuses or warns on mismatch); **conflict rules** (two plugins claiming the same `basePath`, nav slot, or `permission` name → defined, loud resolution, not last-write-wins); the **local dev/test story** (how an author runs + tests one plugin in isolation against the host). Audience is experienced devs: optimise for a powerful, predictable, clearly-documented API. Crash-isolation (a bad plugin can't take down the host) is a *nice-to-have*, not a blocker — fail loud at boot/discovery over sandboxing at runtime.
