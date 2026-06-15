@@ -25,7 +25,7 @@ everything via Docker.
 - [x] Remove all usage of NODE_ENV - add a new core principle to the project that the app should at all times be unaware of what environment it is running in. Configuration should be explicit, like "disable email" or "cache templates". → Dropped NODE_ENV everywhere; added **environment-agnostic** principle (AGENTS.md §4 + README). Behaviour is now explicit toggles: `CACHE_TEMPLATES`, `REQUIRE_SECURE_SECRETS` (parsed/validated in `config.ts`, wired via `server.ts`); compose files set them per deployment. `app.ts` no longer reads `process.env`.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
-- [ ] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`.
+- [x] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`. → `git mv` from `html-css-foundation/` into `public/css/`; dropped the placeholder `style.css`; views + tests now reference `styles.css`; foundation mockups repointed to `../public/css/`.
 - [ ] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used.
 - [ ] App-shell partial (sidebar + topbar + content slot).
 - [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.

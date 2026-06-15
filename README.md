@@ -362,11 +362,11 @@ src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
 views/               Core EJS templates (index, 403/404/500, partials/)
-public/              Static assets under /public/ (css/, favicon, robots.txt)
+public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
 plugins/             Drop-in plugin folders, auto-discovered               (planned)
-html-css-foundation/ Raw HTML/CSS design reference — the source for the
-                     building-block partials; not served.
+html-css-foundation/ HTML design mockups — the source for the building-block
+                     partials; reference the stylesheets in public/css/.
 ```
 
 Comments and docs cite roadmap phases as `§N` — the sections in `todo.md`.

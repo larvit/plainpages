@@ -29,11 +29,11 @@ test("serves the home page as HTML", async () => {
 });
 
 test("serves a static file: GET sends body + content-type, HEAD sends headers only", async () => {
-  const get = await fetch(base + "/public/css/style.css");
+  const get = await fetch(base + "/public/css/styles.css");
   assert.equal(get.status, 200);
   assert.match(get.headers.get("content-type") ?? "", /text\/css/);
 
-  const head = await fetch(base + "/public/css/style.css", { method: "HEAD" });
+  const head = await fetch(base + "/public/css/styles.css", { method: "HEAD" });
   assert.equal(head.status, 200);
   assert.ok(Number(head.headers.get("content-length")) > 0);
   assert.equal((await head.text()).length, 0);
@@ -83,7 +83,7 @@ test("renders the 500 HTML page when a handler throws", async () => {
 test("renders the 403 error page as HTML", async () => {
   const html = await ejs.renderFile(join(viewsDir, "403.ejs"), { title: "Forbidden" });
   assert.match(html, /403/);
-  assert.match(html, /style\.css/);
+  assert.match(html, /styles\.css/);
 });
 
 test("rejects unsafe static request paths (encoded traversal, NUL) with 403", async () => {
@@ -94,7 +94,7 @@ test("rejects unsafe static request paths (encoded traversal, NUL) with 403", as
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {
   assert.equal(resolveStaticPath("/srv/public", "../app.ts"), null);
   assert.equal(resolveStaticPath("/srv/public", "a\x00b"), null);
-  assert.equal(resolveStaticPath("/srv/public", "css/style.css"), "/srv/public/css/style.css");
+  assert.equal(resolveStaticPath("/srv/public", "css/styles.css"), "/srv/public/css/styles.css");
 });
 
 test("contentTypeFor maps known and unknown extensions", () => {
