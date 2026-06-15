@@ -363,6 +363,7 @@ src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, po
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
+src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 src/plugin.ts        definePlugin() + the host's plugin discovery/router   (planned)
 views/               Core EJS templates (index, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
