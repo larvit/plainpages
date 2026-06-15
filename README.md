@@ -137,8 +137,22 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 
 ```bash
 docker compose run --rm web npm run typecheck   # strict tsc --noEmit
-docker compose run --rm web npm test            # node --test
+docker compose run --rm web npm test            # node --test (units)
 ```
+
+### End-to-end (Playwright)
+
+E2E runs in the official Playwright image (browsers preinstalled) against the live `web`
+service — no Node/browsers on the host. It screenshots the live pages **and** the
+`html-css-foundation` mockups, then asserts the live DOM computes the **same design-system
+styles** as the reference (so a styling regression fails the build, independent of the row data).
+
+```bash
+docker compose -f compose.yml -f compose.e2e.yml run --rm e2e   # run the suite
+docker compose -f compose.yml -f compose.e2e.yml down -v         # tear down after
+```
+
+Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Tests run in parallel.
 
 ## Building a plugin _(planned)_
 
@@ -370,6 +384,7 @@ views/               Core EJS templates (index = the app-shell People dashboard,
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
 plugins/             Drop-in plugin folders, auto-discovered               (planned)
+e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
 ```

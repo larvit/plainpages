@@ -1,0 +1,13 @@
+{
+  "name": "plainpages-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright visual + functional E2E: live app vs the html-css-foundation design.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

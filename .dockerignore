@@ -4,3 +4,5 @@ npm-debug.log
 *.log
 .DS_Store
 html-css-foundation
+
+e2e/artifacts

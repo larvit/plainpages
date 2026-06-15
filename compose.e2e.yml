@@ -1,0 +1,31 @@
+# Playwright E2E. Brings up the app + a Playwright runner, screenshots the live pages and the
+# html-css-foundation mockups, and asserts the live DOM computes the same design styles.
+#   docker compose -f compose.yml -f compose.e2e.yml run --rm e2e
+#   docker compose -f compose.yml -f compose.e2e.yml down -v   # tear down after
+# Screenshots + HTML report land in ./e2e/artifacts/ (git-ignored).
+services:
+  web:
+    # Dev throwaways are fine for tests; cache templates for production-like rendering.
+    environment:
+      CACHE_TEMPLATES: "true"
+      REQUIRE_SECURE_SECRETS: "false"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://web:3000
+    volumes:
+      # The mockups + their stylesheet, kept as siblings so file:// ../public/css resolves.
+      - ./html-css-foundation:/repo/html-css-foundation:ro
+      - ./public:/repo/public:ro
+      - ./e2e/artifacts:/e2e/artifacts
