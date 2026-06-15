@@ -8,14 +8,15 @@ import { serveStatic } from "./static.ts";
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppOptions {
-  // Cache compiled templates: on in production, off in dev so edits show live.
+  // Cache compiled templates; caller decides (server passes config.cacheTemplates).
+  // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
   publicDir?: string;
   viewsDir?: string;
 }
 
 export function createApp(options: AppOptions = {}): Server {
-  const cache = options.cache ?? process.env["NODE_ENV"] === "production";
+  const cache = options.cache ?? false;
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
 

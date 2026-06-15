@@ -3,8 +3,10 @@
 services:
   web:
     command: node --watch src/server.ts
+    # Dev overrides the base toggles: live template edits, dev-throwaway secrets allowed.
     environment:
-      NODE_ENV: development
+      CACHE_TEMPLATES: "false"
+      REQUIRE_SECURE_SECRETS: "false"
     volumes:
       - .:/app
       - /app/node_modules

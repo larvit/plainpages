@@ -11,7 +11,8 @@ folders**. The only screens it ships itself are the ones for running the system:
 **users, groups, and permissions**. Everything else is a plugin.
 
 Priorities (unchanged from day one): **simplicity, few dependencies, strict
-TypeScript, no build step, Docker-only.** Heavy lifting that *isn't* simple to do
+TypeScript, no build step, Docker-only, environment-agnostic** (no `NODE_ENV` —
+every behaviour is an explicit config toggle). Heavy lifting that *isn't* simple to do
 well — identity, sessions, SSO, OAuth2, permission checks — is delegated to **Ory**
 sidecar services rather than reinvented.
 
@@ -113,18 +114,24 @@ file as they land — planned.)_
 ## Configuration
 
 Read from the environment once at boot (`src/config.ts`) and validated there — a bad
-URL, an out-of-range `PORT`, or a missing/throwaway production secret fails loud before
-the server starts. A clean clone needs **none** of these; every value defaults to the
-dev stack. In production (`NODE_ENV=production`) the two secrets must be supplied and
-must differ from their dev throwaways — everything else still defaults.
+URL, an out-of-range `PORT`, a non-boolean toggle, or a missing/throwaway enforced secret
+fails loud before the server starts. A clean clone needs **none** of these; every value
+defaults to the dev stack.
+
+The app is **environment-agnostic**: there is no `NODE_ENV`. Behaviour that used to flip
+on "production" is now its own explicit toggle, so a deployment turns on exactly what it
+wants. `compose.yml` (base) sets the hardened toggles; `compose.override.yml` (dev,
+auto-merged by `docker compose up`) turns them back off for live editing.
 
 | Var | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `3000` | web listen port |
+| `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
+| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, the two secrets must be supplied and differ from the dev throwaways |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
 | `JWKS_URL` | Kratos tokenizer JWKS | verifies the session JWT (§4) |
-| `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | **required in production** |
+| `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
 ## Type check & tests
 

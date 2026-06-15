@@ -22,7 +22,7 @@ everything via Docker.
 - [x] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us. → Merged related cases across jwt/cookie/app/context/config tests (59 → 42), every assertion preserved; typecheck + tests green.
 
 ### 0.1 Extra input from human
-- [ ] Remove all usage of NODE_ENV - add a new core principle to the project that the app should at all times be unaware of what environment it is running in. Configuration should be explicit, like "disable email" or "cache templates".
+- [x] Remove all usage of NODE_ENV - add a new core principle to the project that the app should at all times be unaware of what environment it is running in. Configuration should be explicit, like "disable email" or "cache templates". → Dropped NODE_ENV everywhere; added **environment-agnostic** principle (AGENTS.md §4 + README). Behaviour is now explicit toggles: `CACHE_TEMPLATES`, `REQUIRE_SECURE_SECRETS` (parsed/validated in `config.ts`, wired via `server.ts`); compose files set them per deployment. `app.ts` no longer reads `process.env`.
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [ ] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`.

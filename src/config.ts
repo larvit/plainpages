@@ -1,12 +1,15 @@
 // Config loaded once from the environment at boot (todo §0): Ory endpoints, cookie/CSRF
-// secrets, JWKS location, listen port. Fail-loud — a missing prod secret, a bad URL, or
-// an out-of-range port throws here at boot, never at request time.
+// secrets, JWKS location, listen port, behaviour toggles. Fail-loud — a bad value, a
+// missing enforced secret, a bad URL, or an out-of-range port throws here, never at
+// request time.
 //
-// Clean-clone (README): every value has a working dev default, so `docker compose up`
-// runs with zero config; in production the secrets must be supplied (dev throwaways
-// refused), everything else still defaults to the Ory services.
+// Environment-agnostic (AGENTS.md): the app never asks "which environment am I?". Every
+// behaviour that used to ride on NODE_ENV is its own explicit toggle — `CACHE_TEMPLATES`,
+// `REQUIRE_SECURE_SECRETS`. Clean-clone (README): every value has a working dev default,
+// so `docker compose up` runs with zero config; a hardened deploy sets the toggles it wants.
 
 export interface Config {
+  cacheTemplates: boolean;
   cookieSecret: string;
   csrfSecret: string;
   jwksUrl: string;
@@ -19,14 +22,23 @@ export interface Config {
 
 type Env = Record<string, string | undefined>;
 
-// A secret: free to use a dev throwaway locally; in production it must be supplied and
-// must not be the throwaway (README: real secrets replace the dev ones).
-function readSecret(env: Env, key: string, devDefault: string, production: boolean): string {
+// A secret: free to use a dev throwaway by default; when REQUIRE_SECURE_SECRETS is on it
+// must be supplied and must not be the throwaway (README: real secrets replace dev ones).
+function readSecret(env: Env, key: string, devDefault: string, requireSecure: boolean): string {
   const value = env[key];
-  if (!production) return value || devDefault;
-  if (!value) throw new Error(`config: ${key} must be set in production`);
-  if (value === devDefault) throw new Error(`config: ${key} must not be the dev throwaway in production`);
+  if (!requireSecure) return value || devDefault;
+  if (!value) throw new Error(`config: ${key} must be set when REQUIRE_SECURE_SECRETS=true`);
+  if (value === devDefault) throw new Error(`config: ${key} must not be the dev throwaway when REQUIRE_SECURE_SECRETS=true`);
   return value;
+}
+
+// An explicit boolean toggle: only "true"/"false"; a typo fails at boot, never silently.
+function readBool(env: Env, key: string, devDefault: boolean): boolean {
+  const value = env[key];
+  if (value === undefined) return devDefault;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`config: ${key} must be "true" or "false", got "${value}"`);
 }
 
 // An absolute URL: defaults to the Ory service; validated so a typo fails at boot.
@@ -51,10 +63,11 @@ function readPort(env: Env): number {
 }
 
 export function loadConfig(env: Env = process.env): Config {
-  const production = env["NODE_ENV"] === "production";
+  const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
-    cookieSecret: readSecret(env, "COOKIE_SECRET", "dev-insecure-cookie-secret", production),
-    csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", production),
+    cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
+    cookieSecret: readSecret(env, "COOKIE_SECRET", "dev-insecure-cookie-secret", requireSecure),
+    csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
     jwksUrl: readUrl(env, "JWKS_URL", "http://kratos:4433/.well-known/jwks.json"),
     ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),

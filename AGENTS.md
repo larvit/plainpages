@@ -16,6 +16,10 @@ commands and layout.
    core code. See `README.md` for the architecture.
 3. **Strict TypeScript** — `tsconfig.json` is strict (incl. `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way.
+4. **Environment-agnostic** — the app never asks *which environment* it runs in; there is
+   no `NODE_ENV` (or equivalent) branching. Every behaviour is an **explicit config
+   toggle** (e.g. `CACHE_TEMPLATES`, `REQUIRE_SECURE_SECRETS`, a future "disable email"),
+   read once in `src/config.ts`. Compose files set the toggles per deployment.
 
 ## Docker only — no host tooling
 
