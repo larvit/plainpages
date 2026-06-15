@@ -1,0 +1,14 @@
+<%#
+  Theme switcher: Light / Auto / Dark radiogroup. Zero-JS — the radios drive the
+  html:has(#theme-…:checked) token swaps in styles.css, so the ids are a fixed CSS
+  contract (one switch per page). Config: value? ∈ light|auto|dark (default auto,
+  rendered checked) · label?.
+%><%
+  const value = locals.value || "auto";
+  const label = locals.label || "Color theme";
+-%>
+<div class="theme-switch" role="radiogroup" aria-label="<%= label %>">
+  <label><input type="radio" name="theme" id="theme-light"<%= value === "light" ? " checked" : "" %>><span>Light</span></label>
+  <label><input type="radio" name="theme" id="theme-auto"<%= value === "auto" ? " checked" : "" %>><span>Auto</span></label>
+  <label><input type="radio" name="theme" id="theme-dark"<%= value === "dark" ? " checked" : "" %>><span>Dark</span></label>
+</div>

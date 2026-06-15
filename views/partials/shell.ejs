@@ -36,13 +36,10 @@
         <nav class="nav" aria-label="Main navigation"><%- nav %></nav>
 
         <div class="side-footer">
-          <div class="theme-switch" role="radiogroup" aria-label="Color theme">
-            <label><input type="radio" name="theme" id="theme-light" /><span>Light</span></label>
-            <label><input type="radio" name="theme" id="theme-auto" checked /><span>Auto</span></label>
-            <label><input type="radio" name="theme" id="theme-dark" /><span>Dark</span></label>
-          </div>
+          <%- include("theme-switch", { value: locals.theme }) %>
 
           <div class="footer-actions">
+            <%# profile menu stays inline: the summary composes escaped user values %>
             <details class="menu" style="flex:1 1 auto">
               <summary class="profile">
                 <span class="avatar" aria-hidden="true"><%= user.initials %></span>
@@ -51,20 +48,18 @@
                   <% if (user.email) { %><span class="profile-mail"><%= user.email %></span><% } %>
                 </span>
               </summary>
-              <div class="menu-pop left" style="bottom:calc(100% + 6px); top:auto; min-width:220px">
+              <div class="menu-pop left up" style="min-width:220px">
                 <div class="menu-head">Signed in as <%= user.name %></div>
-                <button class="menu-item"><svg class="ico"><use href="#i-user" /></svg>Profile</button>
-                <button class="menu-item danger"><svg class="ico"><use href="#i-logout" /></svg>Sign out</button>
+                <button class="menu-item" type="button"><svg class="ico"><use href="#i-user" /></svg>Profile</button>
+                <button class="menu-item danger" type="button"><svg class="ico"><use href="#i-logout" /></svg>Sign out</button>
               </div>
             </details>
 
-            <details class="menu">
-              <summary class="btn icon-btn" aria-label="Settings"><svg class="ico"><use href="#i-gear" /></svg></summary>
-              <div class="menu-pop" style="bottom:calc(100% + 6px); top:auto">
-                <div class="menu-head">Settings</div>
-                <button class="menu-item"><svg class="ico"><use href="#i-gear" /></svg>Preferences</button>
-              </div>
-            </details>
+            <%- include("menu", {
+              up: true,
+              trigger: { class: "btn icon-btn", label: "Settings", html: '<svg class="ico"><use href="#i-gear"/></svg>' },
+              items: [{ head: "Settings" }, { label: "Preferences", icon: "i-gear" }],
+            }) %>
           </div>
         </div>
       </aside>
