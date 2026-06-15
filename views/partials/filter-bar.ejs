@@ -1,0 +1,51 @@
+<%#
+  Filter bar: a real GET form so filtering is server-side and zero-JS. Mirrors the
+  html-css-foundation markup. Config:
+    rows: Control[][]            rows of controls, laid out left→right
+    pills, clearHref, label, action, applyLabel
+  Control.type ∈ search | segmented | select | chips | daterange | spacer.
+    search    { name, placeholder?, value?, label? }
+    segmented { name, legend?, value?, options:{value,label,count?}[] }      (radios)
+    select    { name, label, value?, options:{value,label}[] }
+    chips     { name, legend?, value?:string[], options:{value,label}[] }    (checkboxes)
+    daterange { legend?, from:{name,value?,label?}, to:{name,value?,label?} }
+%><%
+  const action = locals.action || "";
+  const label = locals.label || "Filter";
+  const rows = locals.rows || [];
+  const pills = locals.pills || [];
+  const clearHref = locals.clearHref || "?";
+  const applyLabel = locals.applyLabel || "Apply filters";
+  const eq = (a, b) => String(a ?? "") === String(b);
+-%>
+<form class="filters" method="get"<% if (action) { %> action="<%= action %>"<% } %> aria-label="<%= label %>">
+<% rows.forEach((row) => { -%>
+  <div class="filter-row">
+<% row.forEach((c) => { -%>
+<% if (c.type === "search") { -%>
+    <label class="search"><span class="sr-only"><%= c.label || "Search" %></span><svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg><input type="search" name="<%= c.name %>" placeholder="<%= c.placeholder || "" %>"<% if (c.value) { %> value="<%= c.value %>"<% } %>></label>
+<% } else if (c.type === "segmented") { -%>
+    <fieldset class="filter-field"><legend class="sr-only"><%= c.legend || c.name %></legend><div class="segmented"><% c.options.forEach((o) => { %><label><input type="radio" name="<%= c.name %>" value="<%= o.value %>"<% if (eq(c.value, o.value)) { %> checked<% } %>><span><%= o.label %></span><% if (o.count != null) { %><span class="seg-count"><%= o.count %></span><% } %></label><% }) %></div></fieldset>
+<% } else if (c.type === "select") { -%>
+    <span class="filter"><label class="sr-only" for="f-<%= c.name %>"><%= c.label %></label><span class="select"><select id="f-<%= c.name %>" name="<%= c.name %>"><% c.options.forEach((o) => { %><option value="<%= o.value %>"<% if (eq(c.value, o.value)) { %> selected<% } %>><%= o.label %></option><% }) %></select></span></span>
+<% } else if (c.type === "chips") { -%>
+    <fieldset class="filter-field"><legend class="sr-only"><%= c.legend || c.name %></legend><span class="filter-legend" aria-hidden="true"><%= c.legend || c.name %></span><div class="chips"><% (c.options).forEach((o) => { const on = (c.value || []).map(String).includes(String(o.value)); %><label class="chip"><span class="chip-dot" aria-hidden="true"></span><input type="checkbox" name="<%= c.name %>" value="<%= o.value %>"<% if (on) { %> checked<% } %>><%= o.label %></label><% }) %></div></fieldset>
+<% } else if (c.type === "daterange") { -%>
+    <fieldset class="filter-field"><legend class="sr-only"><%= c.legend || "Date range" %></legend><span class="filter-legend" aria-hidden="true"><%= c.legend || "Date range" %></span><div class="daterange"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cal"/></svg><label class="sr-only" for="f-<%= c.from.name %>"><%= c.from.label || "From" %></label><input type="date" id="f-<%= c.from.name %>" name="<%= c.from.name %>"<% if (c.from.value) { %> value="<%= c.from.value %>"<% } %>><span class="to" aria-hidden="true">to</span><label class="sr-only" for="f-<%= c.to.name %>"><%= c.to.label || "To" %></label><input type="date" id="f-<%= c.to.name %>" name="<%= c.to.name %>"<% if (c.to.value) { %> value="<%= c.to.value %>"<% } %>></div></fieldset>
+<% } else if (c.type === "spacer") { -%>
+    <div class="spacer"></div>
+<% } -%>
+<% }) -%>
+  </div>
+<% }) -%>
+  <div class="filter-row filter-foot">
+<% if (pills.length) { -%>
+    <div class="active-pills" aria-label="Applied filters"><span class="filter-legend">Applied</span><% pills.forEach((p) => { %><span class="pill"><b><%= p.label %>:</b> <%= p.value %> <a class="pill-x" href="<%= p.remove %>" aria-label="Remove <%= p.label %> filter"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span><% }) %><a class="pill-clear" href="<%= clearHref %>">Clear all</a></div>
+<% } -%>
+    <div class="spacer"></div>
+    <div class="filter-actions">
+      <button type="reset" class="btn">Reset</button>
+      <button type="submit" class="btn btn-primary"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg><%= applyLabel %></button>
+    </div>
+  </div>
+</form>
