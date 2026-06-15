@@ -23,42 +23,39 @@ or migrate.
 
 ## Who this is for
 
-**Experienced developers building back-office, admin, and dashboard products** —
-for their own use or for a client. You know your way around HTTP, Docker, and an
-identity provider, and you'd rather assemble pages from solid building blocks than
-fight a framework or hand-roll auth for the tenth time. Plainpages hands you the
-boring-but-hard parts (auth, authz, menu, design system, plugin host) and stays out
-of the way of your domain logic. It does not try to be a no-code tool or hide its
-moving parts: if "Ory is down ⇒ no logins" (see [Auth](#auth-sessions--permissions-planned))
-reads as an obvious consequence rather than a surprise, you're the audience.
+**Experienced developers building back-office, admin, and dashboard products** — for
+their own use or for a client. You know HTTP, Docker, and identity providers, and
+you'd rather assemble pages from building blocks than fight a framework or hand-roll
+auth for the tenth time. Plainpages hands you the boring-but-hard parts (auth, authz,
+menu, design system, plugin host) and stays out of your domain logic. It's not a
+no-code tool and doesn't hide its moving parts: if "Ory is down ⇒ no logins" (see
+[Auth](#auth-sessions--permissions-planned)) reads as obvious rather than a surprise,
+you're the audience.
 
 ## Project goals
 
-Beyond the priorities above, Plainpages deliberately targets **low-end systems, odd
-hardware, and low-bandwidth environments** — a tablet on a factory floor, an old
-thin client at a reception desk, a remote site on a flaky link. That's *why* the
-baseline is standards-compliant, boring **HTML + CSS** with zero JavaScript: it
-loads fast, degrades gracefully, and works on whatever browser the site already
-has. Where a modern **CSS** feature removes the need to ship JavaScript (theme
-switching, popovers, disclosure), we'll happily use it — the trade we avoid is
+Plainpages deliberately targets **low-end systems, odd hardware, and low-bandwidth
+environments** — a tablet on a factory floor, an old thin client at a reception desk,
+a remote site on a flaky link. That's *why* the baseline is boring, standards-compliant
+**HTML + CSS** with zero JavaScript: it loads fast, degrades gracefully, and works on
+whatever browser is already there. Where a modern **CSS** feature removes the need for
+JavaScript (theme switching, popovers, disclosure) we use it — the trade we avoid is
 shipping a client-side runtime, not using the platform.
 
-> **Status.** This README describes the target architecture (the project's scope).
-> What exists in the repo today is the **scaffold** — a Node 24 + EJS HTTP server
-> with static serving — plus the **design foundation** in `html-css-foundation/`
-> (a complete zero-JS app shell + auth screens). The plugin host and Ory
-> integration (Kratos/Keto/Hydra + their Postgres) are the roadmap below, not yet
-> implemented. Sections marked _(planned)_ are not built yet.
+> **Status.** This README describes the target architecture. What exists today is the
+> **scaffold** — a Node 24 + EJS HTTP server with static serving — plus the **design
+> foundation** in `html-css-foundation/` (a complete zero-JS app shell + auth screens).
+> The plugin host and Ory integration (Kratos/Keto/Hydra + their Postgres) are the
+> roadmap below. Sections marked _(planned)_ are not built yet.
 
 ## The MVP — "clone, one command, hack on a plugin" _(planned)_
 
 The bar for a first usable release: **clone, run one command, get a working
 register/login, and start building your own plugin** — no manual key generation, no
-hand-edited Ory config, no separate database. That one command brings up the whole
-stack (web + Ory + Postgres), generates signing keys, seeds an admin on first boot,
-and drops you at a login screen; from there you copy the example plugin folder and
-write your own page. SSO and the OAuth2-provider role (Hydra) come after — not
-required to start.
+hand-edited Ory config, no separate database. That command brings up the whole stack
+(web + Ory + Postgres), generates signing keys, seeds an admin on first boot, and drops
+you at a login screen; from there you copy the example plugin folder and write your own
+page. SSO and the OAuth2-provider role (Hydra) come after — not required to start.
 
 ## Architecture
 
@@ -117,9 +114,9 @@ file as they land — planned.)_
 
 Read from the environment once at boot (`src/config.ts`) and validated there — a bad
 URL, an out-of-range `PORT`, or a missing/throwaway production secret fails loud before
-the server starts. A clean clone needs **none** of these set; every value defaults to
-the dev stack. In production (`NODE_ENV=production`) the two secrets must be supplied
-and may not stay at their dev throwaways — everything else still defaults.
+the server starts. A clean clone needs **none** of these; every value defaults to the
+dev stack. In production (`NODE_ENV=production`) the two secrets must be supplied and
+must differ from their dev throwaways — everything else still defaults.
 
 | Var | Default | Notes |
 | --- | --- | --- |
@@ -219,13 +216,12 @@ the work is extracting it into reusable EJS partials + TS helpers:
 ## Interactivity: zero-JS spine, opt-in enhancement
 
 The core and all building blocks **work with zero JavaScript** — menus, theme
-switching, and filtering are pure CSS + GET forms (server-side). This is the robust
-default for back-office and industrial use, and on the [low-end, low-bandwidth
-targets](#project-goals) we care about it's usually *faster*: a full round-trip
-that returns a small, already-rendered HTML page beats a client-side runtime that
-must boot, fetch JSON, and re-render before the user sees anything. List state
-(`?q=…&status=…&sort=…&page=…`) lives **in the URL**, so a view is bookmarkable,
-shareable, and reproducible — the URL is the only state the UI keeps.
+switching, and filtering are pure CSS + GET forms. On the [low-end, low-bandwidth
+targets](#project-goals) we care about this is usually *faster*: a round-trip returning
+a small, pre-rendered HTML page beats a client-side runtime that must boot, fetch JSON,
+and re-render before anything shows. List state (`?q=…&status=…&sort=…&page=…`) lives
+**in the URL**, so a view is bookmarkable, shareable, and reproducible — the URL is the
+only state the UI keeps.
 
 Plugins that genuinely need it — live dashboards, bulk actions, client-side
 validation — may **opt into progressive enhancement** (htmx, Alpine, or vanilla
@@ -239,15 +235,14 @@ fine-grained, must-be-fresh check.
 
 ### Login → session JWT (the Kratos session tokenizer)
 
-The themed sign-in / register / reset / SSO screens drive Kratos self-service
-flows. **SSO is entirely optional and self-configuring:** each provider's button
-renders only when its credentials are present, and if no provider is configured the
-SSO section disappears altogether — leaving plain password login. A developer never
-has to touch SSO to get started. On success, instead of keeping the opaque Kratos
-cookie and calling `whoami` on every request, the app **exchanges the session for a
-signed JWT once**
-via the Kratos **session tokenizer** — `whoami` with a `tokenize_as` template — and
-stores that JWT as the session cookie.
+The themed sign-in / register / reset / SSO screens drive Kratos self-service flows.
+**SSO is optional and self-configuring:** each provider's button renders only when its
+credentials are present, and the whole SSO section disappears when none are configured —
+leaving plain password login. A developer never has to touch SSO to get started. On
+success, rather than keeping the opaque Kratos cookie and calling `whoami` on every
+request, the app **exchanges the session for a signed JWT once** via the Kratos
+**session tokenizer** (`whoami` with a `tokenize_as` template) and stores it as the
+session cookie.
 
 ```
   ── AT LOGIN / REFRESH  (the only time Ory is on the path) ──────────
@@ -266,12 +261,12 @@ stores that JWT as the session cookie.
 
 **Keto is the single source of truth for roles.** Coarse roles are Keto relations
 (e.g. `role:admin#member@user:alice`); the admin screens write them *only* to Keto.
-But the tokenizer's claims mapper can only read the **identity**, not call Keto — so
-at login the app reads the user's roles from Keto and refreshes a **derived
-projection** — a read-only copy of those roles written onto the identity's
-`metadata_admin` so the tokenizer can see them — which the tokenizer template then
-maps into the JWT `roles` claim. That projection is a per-login cache, authoritative
-nowhere; nothing edits it by hand, and a stale one self-heals on the next login.
+But the tokenizer's claims mapper can read only the **identity**, not call Keto — so at
+login the app reads the roles from Keto and refreshes a **derived projection**: a
+read-only copy written onto the identity's `metadata_admin` for the tokenizer to see,
+which the template maps into the JWT `roles` claim. That projection is a per-login
+cache, authoritative nowhere; nothing edits it by hand, and a stale one self-heals on
+the next login.
 
 Cost: **one Keto read + one identity refresh per login** — never per request. JWKS
 is cached, so even signature verification hits the network only on key rotation. The
@@ -280,20 +275,19 @@ moment authz is recomputed from Keto.
 
 #### Two trade-offs — both deliberate
 
-This design buys an I/O-free hot path that scales to **tens of thousands of
-concurrent users** on modest hardware. In return:
+This design buys an I/O-free hot path that scales to **tens of thousands of concurrent
+users** on modest hardware. In return:
 
-- **Role changes lag by up to one TTL (~10m).** Because gating reads the JWT, not
-  Keto, a granted or revoked role only takes effect when the token is next minted
-  (re-login or TTL refresh). For an admin tool this is intentional: the alternative
-  is a Keto call on every request, which we explicitly traded away. If a deployment
-  needs instant revoke, the optional revocation denylist (roadmap) closes the gap
-  for the security-critical cases without putting Keto back on the hot path.
-- **Ory is on the critical path for sign-in.** If Kratos is down, no one can log
-  in; if it stays down past the TTL, existing sessions can't refresh and the UI
-  goes dark. This is the direct consequence of being stateless and delegating
-  identity — there is no local fallback, by design. Run Ory with the same
-  availability you'd give any auth provider.
+- **Role changes lag by up to one TTL (~10m).** Gating reads the JWT, not Keto, so a
+  granted or revoked role only takes effect when the token is next minted (re-login or
+  TTL refresh). For an admin tool this is intentional — the alternative is a Keto call
+  per request, which we traded away. For instant revoke, the optional revocation
+  denylist (roadmap) closes the gap for security-critical cases without putting Keto
+  back on the hot path.
+- **Ory is on the critical path for sign-in.** If Kratos is down no one can log in; if
+  it stays down past the TTL, existing sessions can't refresh and the UI goes dark.
+  That's the direct consequence of being stateless and delegating identity — no local
+  fallback, by design. Run Ory with the availability you'd give any auth provider.
 
 ### Three tiers of "may I?"
 

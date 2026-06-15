@@ -1,7 +1,7 @@
 // Cookie helpers — parse the request `Cookie` header, build secure-by-default
 // `Set-Cookie` headers. Stdlib only (no `cookie` dep); §4 stores/clears the session
-// JWT + CSRF token with these. Values round-trip via percent-encoding (serialize
-// encodes, parse decodes); JWT `-_.` chars are URI-unreserved, so JWTs stay readable.
+// JWT + CSRF token here. Values round-trip via percent-encoding; JWT `-_.` chars are
+// URI-unreserved, so JWTs stay readable.
 
 export interface CookieOptions {
   domain?: string;
@@ -22,7 +22,7 @@ const minExpires = Date.UTC(1601, 0, 1);
 const maxExpires = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
 
 function decode(value: string): string {
-  if (!value.includes("%")) return value; // optimization only: an unencoded value has no escapes to decode
+  if (!value.includes("%")) return value; // fast path: nothing to decode
   try {
     return decodeURIComponent(value);
   } catch {
@@ -30,10 +30,9 @@ function decode(value: string): string {
   }
 }
 
-// Parse a request `Cookie` header into a name→value map. First occurrence of a
-// name wins (a later duplicate can't shadow it). The result is a null-prototype
-// object, so an attacker-supplied `__proto__`/`constructor` key can't pollute.
-// Input length is bounded upstream by Node's HTTP `maxHeaderSize` (~16 KB default).
+// Parse a `Cookie` header into a name→value map. First occurrence of a name wins.
+// Null-prototype result, so a `__proto__`/`constructor` key can't pollute. Header
+// length is bounded upstream by Node's `maxHeaderSize` (~16 KB).
 export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = Object.create(null);
   if (!header) return out;
@@ -50,10 +49,9 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
-// Validate a Domain/Path attribute: non-empty (an empty one emits a junk `Path=`
-// browsers ignore — fail loud on a misconfig), and free of chars that could inject
-// extra attributes or split the response header (CRLF). These come from config, but
-// validating is cheap insurance against Set-Cookie injection.
+// Validate a Domain/Path attribute: non-empty (fail loud on a misconfig) and free of
+// chars that could inject extra attributes or split the header (CRLF). Cheap insurance
+// against Set-Cookie injection, even though these come from config.
 function assertAttrSafe(label: string, value: string): void {
   if (value === "" || /[;\x00-\x1f\x7f]/.test(value)) throw new Error(`invalid cookie ${label}: ${JSON.stringify(value)}`);
 }

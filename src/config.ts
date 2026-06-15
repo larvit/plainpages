@@ -1,11 +1,10 @@
-// Config loaded once from the environment at boot (todo §0): Ory endpoints, the
-// cookie/CSRF secrets, the JWKS location, and the listen port. Fail-loud — a missing
-// production secret, a bad URL, or an out-of-range port throws here, before the server
-// starts, never at request time.
+// Config loaded once from the environment at boot (todo §0): Ory endpoints, cookie/CSRF
+// secrets, JWKS location, listen port. Fail-loud — a missing prod secret, a bad URL, or
+// an out-of-range port throws here at boot, never at request time.
 //
-// Clean-clone philosophy (README): every value has a working dev default so `docker
-// compose up` runs with zero config; in production only the secrets must be supplied
-// (the dev throwaways are refused), everything else still defaults to the Ory services.
+// Clean-clone (README): every value has a working dev default, so `docker compose up`
+// runs with zero config; in production the secrets must be supplied (dev throwaways
+// refused), everything else still defaults to the Ory services.
 
 export interface Config {
   cookieSecret: string;

@@ -2,16 +2,13 @@ import { createPublicKey, verify } from "node:crypto";
 import type { JsonWebKey, KeyObject } from "node:crypto";
 
 // JWS signature verification with the Node stdlib — no `jose`/JWT dep (todo §0):
-// `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures the
-// Kratos tokenizer produces — all we need, no supply-chain surface (see AGENTS.md).
-//
-// Signature only. §4 builds the rest on top: claim checks (exp/iss/aud, clock skew),
-// JWKS-by-`kid` fetch/cache/rotation, and bounding `token` type/length at the boundary.
+// `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures
+// the Kratos tokenizer produces (see AGENTS.md). Signature only — §4 adds claim checks
+// (exp/iss/aud, clock skew), JWKS-by-`kid` fetch/cache/rotation, and `token` bounds.
 
 // JOSE `alg` → Node verify parameters. ES* signatures are raw r‖s (IEEE P1363), not DER.
-// Widen support by extending this map. Security invariant: never add an `HS*` (symmetric)
-// entry — this map is the allowlist, and one would let an attacker-supplied HMAC key verify.
-// `none` is absent for the same reason.
+// Extend this map to widen support. Security invariant: never add `HS*`/`none` — this map
+// is the allowlist, and a symmetric entry lets an attacker-supplied HMAC key verify.
 const algParams: Record<string, { hash: string; keyType: "ec" | "rsa"; dsaEncoding?: "ieee-p1363" }> = {
   ES256: { dsaEncoding: "ieee-p1363", hash: "SHA256", keyType: "ec" },
   RS256: { hash: "RSA-SHA256", keyType: "rsa" },
@@ -29,9 +26,9 @@ export interface DecodedJws {
   signature: Buffer;
 }
 
-// Unpadded base64url alphabet — `Buffer.from(_, "base64url")` is lax (drops junk, tolerates
-// non-canonical padding), so reject non-canonical segments up front. §4 reads `kid` from the
-// still-unverified header, so this stops laundered bytes reaching key selection.
+// Unpadded base64url alphabet — `Buffer.from(_,"base64url")` is lax (drops junk, tolerates
+// bad padding), so reject non-canonical segments up front. §4 reads `kid` from the still-
+// unverified header, so this stops laundered bytes reaching key selection.
 const base64url = /^[A-Za-z0-9_-]+$/;
 
 function decodeSegment(segment: string): unknown {
@@ -68,8 +65,8 @@ export function decodeJws(token: string): DecodedJws {
 }
 
 // Verify a compact JWS against one JWK public key; returns the decoded JWS or throws.
-// Signature only — the caller validates claims. The returned header is post-verification,
-// so §4 can trust its `alg`/`kid` when logging.
+// Signature only — caller validates claims. Returned header is post-verification, so §4
+// can trust its `alg`/`kid` when logging.
 export function verifyJws(token: string, jwk: JsonWebKey): DecodedJws {
   const decoded = decodeJws(token);
   const { header, signingInput, signature } = decoded;

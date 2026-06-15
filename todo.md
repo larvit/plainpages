@@ -18,8 +18,11 @@ everything via Docker.
 - [x] Error templates: add 403 + 500 (404 exists). → `views/403.ejs` + `views/500.ejs`; 500 wired into `app.ts` error handler (HTML, plain-text fallback).
 - [x] Config/env loader: Ory endpoints, cookie/CSRF secret, JWKS location, ports. → `src/config.ts` (`loadConfig`); validated at boot, dev defaults for clean-clone, prod requires real secrets; wired into `server.ts`.
 - [x] Run the architecture _and_ the stability reviewer agents on the _whole_ project, not just the latest changes, and address their issues. → Both: no bugs/security issues. Addressed: wired `buildContext` into `app.ts`; graceful SIGTERM/SIGINT shutdown; EJS template caching in prod. Deferred `core/`/`shell/` split (premature for an 8-file scaffold; revisit at §2/§4).
-- [ ] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff.
+- [x] Go over all comments in the code and the README and try to make it shorter and more information dense. Remove not strictly needed stuff. → Tightened comments across `src/*.ts`, Dockerfile, and trimmed verbose/duplicated prose in README; tests + typecheck green.
 - [ ] Go over all tests and combine/unify ones that cover the same stuff or are very related and could be combined in a good way. Remove tests that aren't helping, we only want tests that are actually helpful to us.
+
+### 0.1 Extra input from human
+- [ ] Remove all usage of NODE_ENV - add a new core principle to the project that the app should at all times be unaware of what environment it is running in. Configuration should be explicit, like "disable email" or "cache templates".
 
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [ ] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`.

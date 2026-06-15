@@ -1,11 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-// The request context threaded to every route handler (plugin + built-in). Built
-// once per request by `buildContext`: the router supplies matched path `params`,
-// the §4 JWT middleware supplies the `user` (null/[] until then). Handlers read the
-// request and write the response through it — the host's single handler argument.
+// The request context threaded to every route handler (plugin + built-in), built once
+// per request by `buildContext`: the router supplies matched path `params`, the §4 JWT
+// middleware supplies `user` (null until then). The host's single handler argument.
 
-// The authenticated user, projected from the verified session JWT claims (§4):
+// The authenticated user, projected from verified session JWT claims (§4):
 // `id` = `sub`, plus `email` and the coarse `roles` carried in the token.
 export interface User {
   email: string;

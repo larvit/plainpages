@@ -8,8 +8,7 @@ import { serveStatic } from "./static.ts";
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppOptions {
-  // Cache compiled templates (compile once vs. re-read+recompile per request).
-  // Defaults to on in production, off in dev so source edits show up live.
+  // Cache compiled templates: on in production, off in dev so edits show live.
   cache?: boolean;
   publicDir?: string;
   viewsDir?: string;
@@ -35,8 +34,8 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      // The single request shape handlers receive (§2/§4 router passes it on); routing
-      // reads its parsed URL instead of building a throwaway one.
+      // The request shape handlers receive (§2/§4 router passes it on); routing
+      // reuses its parsed URL instead of building a throwaway.
       const { pathname } = buildContext(req, res).url;
 
       if (pathname.startsWith("/public/")) {
@@ -54,8 +53,8 @@ export function createApp(options: AppOptions = {}): Server {
       console.error(err);
       if (res.headersSent) return void res.end(); // a partial body is already on the wire
       try {
-        // Render first: if the error page itself fails, headers stay unsent and we
-        // fall back to plain text below rather than emit a half-written response.
+        // Render before writing: if the 500 page itself throws, headers stay unsent
+        // and we fall back to plain text below instead of a half-written response.
         sendHtml(res, 500, await render("500", { title: "Server error" }));
       } catch (renderErr) {
         console.error(renderErr);
