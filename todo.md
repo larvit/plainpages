@@ -27,7 +27,7 @@ everything via Docker.
 ## 1. Building blocks — extract from `html-css-foundation/` (no Ory needed; render mock data)
 - [x] Move `styles.css` + `auth.css` into `public/css/`; remove existing `style.css`. → `git mv` from `html-css-foundation/` into `public/css/`; dropped the placeholder `style.css`; views + tests now reference `styles.css`; foundation mockups repointed to `../public/css/`.
 - [x] Lucide icon sprite from `lucide-static` (dep added) → `views/partials/icons.ejs`; serve/inline only the icons used. → `src/icons.ts` (id→lucide map + `buildIconSprite`) generates a hidden `<symbol>` sprite of the 31 icons the mockups reference, paths sourced from pinned lucide-static; `icons.test.ts` guards provenance + only-used. Stale image rebuilt (lucide-static was missing). Wiring into the app shell is the next item.
-- [ ] App-shell partial (sidebar + topbar + content slot).
+- [x] App-shell partial (sidebar + topbar + content slot). → `views/partials/shell.ejs`: full document wrapping `.app` → sidebar (brand + `nav` slot + theme/profile footer) · `.scrim` · `.content` (`.topbar` + `body` slot); reuses the mockup's classes (styled by `styles.css`), inlines the icon sprite. Slots `nav`/`actions`/`body` are HTML locals, `title`/`brand`/`user`/`breadcrumbs` text; defaults render standalone. `shell.test.ts` covers landmarks, slots, escaping, defaults. Not yet routed (that's "replace placeholder index").
 - [ ] Nav-tree partial — recursive, header/leaf × clickable/static, counts, `aria-current`.
 - [ ] Filter-bar partial — GET form (search, segmented, selects, chips, daterange, applied pills).
 - [ ] Data-table partial — sortable headers, row-select, badges, kebab row actions.

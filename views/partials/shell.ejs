@@ -1,0 +1,92 @@
+<%#
+  App shell: sidebar (brand + nav slot + footer) · topbar · content slot.
+  Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
+  `actions` (topbar buttons), `body` (page content). Text locals: `title`, `brand`,
+  `user`, `breadcrumbs`. Real `user`/branding arrive with §4 auth / §2 menu config.
+%><%
+  const title = locals.title || "Plainpages";
+  const brand = locals.brand || { name: "Plainpages" };
+  const user = locals.user || { name: "Guest", initials: "G", email: "" };
+  const breadcrumbs = locals.breadcrumbs || [];
+  const nav = locals.nav || "";
+  const actions = locals.actions || "";
+  const body = locals.body || "";
+%><!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+    <link rel="icon" href="/public/favicon.svg" />
+  </head>
+  <body>
+    <%- include("icons") %>
+    <!-- nav-toggle drives the mobile overlay (pure CSS) -->
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" tabindex="-1" />
+
+    <div class="app">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="brand">
+          <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span>
+          <span class="brand-name"><%= brand.name %></span>
+          <% if (brand.sub) { %><span class="brand-sub"><%= brand.sub %></span><% } %>
+        </div>
+
+        <nav class="nav" aria-label="Main navigation"><%- nav %></nav>
+
+        <div class="side-footer">
+          <div class="theme-switch" role="radiogroup" aria-label="Color theme">
+            <label><input type="radio" name="theme" id="theme-light" /><span>Light</span></label>
+            <label><input type="radio" name="theme" id="theme-auto" checked /><span>Auto</span></label>
+            <label><input type="radio" name="theme" id="theme-dark" /><span>Dark</span></label>
+          </div>
+
+          <div class="footer-actions">
+            <details class="menu" style="flex:1 1 auto">
+              <summary class="profile">
+                <span class="avatar" aria-hidden="true"><%= user.initials %></span>
+                <span class="profile-meta">
+                  <span class="profile-name"><%= user.name %></span>
+                  <% if (user.email) { %><span class="profile-mail"><%= user.email %></span><% } %>
+                </span>
+              </summary>
+              <div class="menu-pop left" style="bottom:calc(100% + 6px); top:auto; min-width:220px">
+                <div class="menu-head">Signed in as <%= user.name %></div>
+                <button class="menu-item"><svg class="ico"><use href="#i-user" /></svg>Profile</button>
+                <button class="menu-item danger"><svg class="ico"><use href="#i-logout" /></svg>Sign out</button>
+              </div>
+            </details>
+
+            <details class="menu">
+              <summary class="btn icon-btn" aria-label="Settings"><svg class="ico"><use href="#i-gear" /></svg></summary>
+              <div class="menu-pop" style="bottom:calc(100% + 6px); top:auto">
+                <div class="menu-head">Settings</div>
+                <button class="menu-item"><svg class="ico"><use href="#i-gear" /></svg>Preferences</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </aside>
+
+      <!-- scrim closes the mobile menu (label toggles the checkbox) -->
+      <label class="scrim" for="nav-toggle" aria-label="Close menu"></label>
+
+      <main class="content">
+        <header class="topbar">
+          <label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu"><svg class="ico"><use href="#i-menu" /></svg></label>
+          <div><div class="page-title"><%= title %></div></div>
+          <% if (breadcrumbs.length) { %>
+          <nav class="crumbs" aria-label="Breadcrumb">
+            <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= c.href %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>
+          </nav>
+          <% } %>
+          <div class="topbar-spacer"></div>
+          <%- actions %>
+        </header>
+
+        <%- body %>
+      </main>
+    </div>
+  </body>
+</html>
