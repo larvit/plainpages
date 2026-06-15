@@ -1,0 +1,71 @@
+<%#
+  Data table: sortable headers, row-select, typed cells, badges, kebab row actions.
+  Mirrors the html-css-foundation markup; zero-JS (sort = links, select highlight = CSS).
+  Config:
+    caption?, selectable?, actions?       sr-only caption; toggle the check / kebab columns
+    columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
+    rows:    { name?, cells: Cell[], actions?: Action[] }[]
+  Cell ∈ string | { text, className? } | { user:{name,initials} } | { badge:{tone,label} } | { html, className? }
+  Action = { label, icon?, href?, danger?, separatorBefore? }
+%><%
+  const caption = locals.caption;
+  const selectable = !!locals.selectable;
+  const withActions = !!locals.actions;
+  const columns = locals.columns || [];
+  const rows = locals.rows || [];
+-%>
+<div class="table-wrap">
+  <table class="table">
+<% if (caption) { -%>
+    <caption class="sr-only"><%= caption %></caption>
+<% } -%>
+    <thead>
+      <tr>
+<% if (selectable) { -%>
+        <th class="col-check" scope="col"><input type="checkbox" aria-label="Select all rows"></th>
+<% } -%>
+<% columns.forEach((col) => { -%>
+<% if (col.sortable) { -%>
+        <th scope="col"<% if (col.sort === "asc") { %> aria-sort="ascending"<% } else if (col.sort === "desc") { %> aria-sort="descending"<% } %><% if (col.className) { %> class="<%= col.className %>"<% } %>><a class="th-sort" href="<%= col.href %>"><%= col.label %> <svg class="ico ico-sm sort-ico"><use href="#<%= col.sort ? "i-up" : "i-sort" %>"/></svg></a></th>
+<% } else { -%>
+        <th scope="col"<% if (col.className) { %> class="<%= col.className %>"<% } %>><%= col.label %></th>
+<% } -%>
+<% }) -%>
+<% if (withActions) { -%>
+        <th class="col-actions" scope="col"><span class="sr-only">Actions</span></th>
+<% } -%>
+      </tr>
+    </thead>
+    <tbody>
+<% rows.forEach((row) => { -%>
+      <tr>
+<% if (selectable) { -%>
+        <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select <%= row.name || "row" %>"></td>
+<% } -%>
+<% (row.cells || []).forEach((cell) => { -%>
+<% if (typeof cell === "string") { -%>
+        <td><%= cell %></td>
+<% } else if (cell.user) { -%>
+        <td><span class="cell-user"><span class="avatar" aria-hidden="true"><%= cell.user.initials %></span><span class="cell-strong"><%= cell.user.name %></span></span></td>
+<% } else if (cell.badge) { -%>
+        <td><span class="badge <%= cell.badge.tone %>"><span class="dot"></span><%= cell.badge.label %></span></td>
+<% } else if (cell.html != null) { -%>
+        <td<% if (cell.className) { %> class="<%= cell.className %>"<% } %>><%- cell.html %></td>
+<% } else { -%>
+        <td<% if (cell.className) { %> class="<%= cell.className %>"<% } %>><%= cell.text %></td>
+<% } -%>
+<% }) -%>
+<% if (withActions) { -%>
+<% if ((row.actions || []).length) { -%>
+        <td class="col-actions"><details class="menu kebab"><summary aria-label="Row actions for <%= row.name || "row" %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
+<% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= a.href %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
+</div></details></td>
+<% } else { -%>
+        <td class="col-actions"></td>
+<% } -%>
+<% } -%>
+      </tr>
+<% }) -%>
+    </tbody>
+  </table>
+</div>
