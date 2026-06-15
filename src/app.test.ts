@@ -21,11 +21,22 @@ before(async () => {
 
 after(() => server.close());
 
-test("serves the home page as HTML", async () => {
+test("serves the home page: the app-shell People dashboard, filterable via the URL", async () => {
   const res = await fetch(base + "/");
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
-  assert.match(await res.text(), /Plainpages/);
+  const html = await res.text();
+  // Shell + building blocks composed around the mock data.
+  assert.match(html, /Plainpages/); // sidebar brand
+  assert.match(html, /<aside class="sidebar"/);
+  assert.match(html, /<form class="filters"/);
+  assert.match(html, /<table class="table"/);
+  assert.match(html, /<footer class="pager"/);
+  assert.match(html, /Avery Kline/); // a mock person on page 1
+
+  // A search query filters server-side: a no-match query drops every row.
+  const empty = await fetch(base + "/?q=zzz-no-such-person");
+  assert.doesNotMatch(await empty.text(), /Avery Kline/);
 });
 
 test("serves a static file: GET sends body + content-type, HEAD sends headers only", async () => {

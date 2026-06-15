@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
+import { buildDashboardModel } from "./dashboard.ts";
 import { serveStatic } from "./static.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,7 +38,8 @@ export function createApp(options: AppOptions = {}): Server {
 
       // The request shape handlers receive (§2/§4 router passes it on); routing
       // reuses its parsed URL instead of building a throwaway.
-      const { pathname } = buildContext(req, res).url;
+      const { url } = buildContext(req, res);
+      const pathname = url.pathname;
 
       if (pathname.startsWith("/public/")) {
         await serveStatic(publicDir, pathname.slice("/public/".length), res, req.method === "HEAD");
@@ -45,7 +47,8 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/") {
-        sendHtml(res, 200, await render("index", { title: "Plainpages" }));
+        // Mock data + no roles until the plugin host (§2) and auth (§4) land.
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(url) }));
         return;
       }
 

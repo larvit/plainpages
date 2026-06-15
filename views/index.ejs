@@ -1,20 +1,23 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %></title>
-    <link rel="stylesheet" href="/public/css/styles.css" />
-    <link rel="icon" href="/public/favicon.svg" />
-  </head>
-  <body>
-    <%- include("partials/header", { title }) %>
-    <main>
-      <h1>Welcome to <%= title %></h1>
-      <p>A plain, server-rendered page. Edit <code>views/index.ejs</code> to change it.</p>
-    </main>
-    <footer>
-      <p>Served with Node.js + EJS.</p>
-    </footer>
-  </body>
-</html>
+<%#
+  Dashboard (todo §1): the app-shell "People" list. Composes the building-block partials around
+  the shell using the view model from src/dashboard.ts. EJS `include()` returns the rendered
+  string, so each partial is captured and handed to the shell as a slot. The filter form,
+  sortable headers and pager are real GET links — q/sort/page round-trip the URL, zero-JS.
+%><%
+  const nav = include("partials/nav-tree", { nodes: model.nav });
+  const filters = include("partials/filter-bar", model.filterBar);
+  const table = include("partials/data-table", model.table);
+  const pager = include("partials/pagination", model.pagination);
+  const actions =
+    '<button class="btn"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-download"/></svg>Export</button>' +
+    '<button class="btn btn-primary"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add person</button>';
+-%>
+<%- include("partials/shell", {
+  actions,
+  body: filters + table + pager,
+  brand: model.shell.brand,
+  breadcrumbs: model.shell.breadcrumbs,
+  nav,
+  title: model.shell.title,
+  user: model.shell.user,
+}) %>
