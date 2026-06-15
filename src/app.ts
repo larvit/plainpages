@@ -2,21 +2,26 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
+import { buildContext } from "./context.ts";
 import { serveStatic } from "./static.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppOptions {
+  // Cache compiled templates (compile once vs. re-read+recompile per request).
+  // Defaults to on in production, off in dev so source edits show up live.
+  cache?: boolean;
   publicDir?: string;
   viewsDir?: string;
 }
 
 export function createApp(options: AppOptions = {}): Server {
+  const cache = options.cache ?? process.env["NODE_ENV"] === "production";
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
 
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
-    ejs.renderFile(join(viewsDir, `${view}.ejs`), data);
+    ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -30,7 +35,9 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      const { pathname } = new URL(req.url ?? "/", "http://localhost");
+      // The single request shape handlers receive (§2/§4 router passes it on); routing
+      // reads its parsed URL instead of building a throwaway one.
+      const { pathname } = buildContext(req, res).url;
 
       if (pathname.startsWith("/public/")) {
         await serveStatic(publicDir, pathname.slice("/public/".length), res, req.method === "HEAD");

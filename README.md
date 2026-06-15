@@ -346,6 +346,9 @@ docker compose -f compose.yml up --build -d   # base config only, no source moun
 
 _(Production compose grows to include the Ory services and Postgres — planned.)_
 
+The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting them
+mid-response, so container restarts are clean.
+
 ## Layout
 
 ```
@@ -364,6 +367,8 @@ plugins/             Drop-in plugin folders, auto-discovered               (plan
 html-css-foundation/ Raw HTML/CSS design reference — the source for the
                      building-block partials; not served.
 ```
+
+Comments and docs cite roadmap phases as `§N` — the sections in `todo.md`.
 
 ## Extending the core
 

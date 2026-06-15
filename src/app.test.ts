@@ -34,6 +34,22 @@ test("serves static CSS", async () => {
   assert.match(res.headers.get("content-type") ?? "", /text\/css/);
 });
 
+// Production caches compiled templates; rendering must stay correct across repeated requests.
+test("renders correctly with template caching enabled", async () => {
+  const app = createApp({ cache: true });
+  try {
+    await new Promise<void>((resolve) => app.listen(0, resolve));
+    const url = `http://localhost:${(app.address() as AddressInfo).port}/`;
+    for (let i = 0; i < 2; i++) {
+      const res = await fetch(url);
+      assert.equal(res.status, 200);
+      assert.match(await res.text(), /Plainpages/);
+    }
+  } finally {
+    app.close();
+  }
+});
+
 test("returns the 404 HTML page for unknown routes", async () => {
   const res = await fetch(base + "/missing");
   assert.equal(res.status, 404);
