@@ -195,6 +195,7 @@ body:has(#forgot:target) .tpl-forgot { display: flex; }
   display: none; align-items: center; gap: 6px; margin: 0;
   font-size: var(--fz-xs); color: var(--neg);
 }
+.field.has-error .field-error { display: flex; }  /* server-rendered field shows its own error */
 .field-error > .ico { flex: 0 0 auto; color: var(--neg); }
 .field-error a { color: var(--neg); font-weight: 600; text-decoration: underline; }
 

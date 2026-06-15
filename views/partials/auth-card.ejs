@@ -1,0 +1,31 @@
+<%#
+  Auth card: the <form class="auth-card"> shell — head (back · title · sub),
+  optional SSO providers + divider, a body slot (field partials + submit), alt footer.
+  Mirrors html-css-foundation auth markup. Config:
+    title, sub?
+    method? (default "post"), action?
+    back?   { href, label }                                    back link above the title
+    sso?    { label?, divider?, providers: Provider[] }         omit / empty ⇒ no SSO section
+              Provider: { label, logo? (text) | icon? (sprite id), href? ⇒ <a>, else <button> }
+    body    pre-rendered HTML placed inside .auth-form (fields + submit)
+    alt?    { text, href, label }                               centered footer line
+%><%
+  const method = locals.method || "post";
+  const back = locals.back;
+  const sso = locals.sso;
+  const providers = (sso && sso.providers) || [];
+  const alt = locals.alt;
+-%>
+<form class="auth-card" method="<%= method %>"<% if (locals.action) { %> action="<%= locals.action %>"<% } %>>
+  <div class="auth-head"><% if (back) { %><a class="auth-back" href="<%= back.href %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><%= back.label %></a><% } %><h1><%= locals.title %></h1><% if (locals.sub) { %><p class="auth-sub"><%= locals.sub %></p><% } %></div>
+<% if (providers.length) { -%>
+  <div class="sso" aria-label="<%= sso.label || "Single sign-on options" %>">
+    <ul class="sso-list"><% providers.forEach((p) => { %><li><% if (p.href) { %><a class="sso-btn" href="<%= p.href %>"><% } else { %><button type="button" class="sso-btn"><% } %><span class="sso-logo" aria-hidden="true"><% if (p.icon) { %><svg class="ico ico-sm"><use href="#<%= p.icon %>"/></svg><% } else { %><%= p.logo %><% } %></span><span class="sso-label"><%= p.label %></span><% if (p.href) { %></a><% } else { %></button><% } %></li><% }) %></ul>
+    <div class="auth-divider"><%= sso.divider || "or" %></div>
+  </div>
+<% } -%>
+  <div class="auth-form"><%- locals.body || "" %></div>
+<% if (alt) { -%>
+  <p class="auth-alt"><%= alt.text %> <a href="<%= alt.href %>"><%= alt.label %></a></p>
+<% } -%>
+</form>

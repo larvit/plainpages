@@ -1,0 +1,34 @@
+<%#
+  Form field: label (+ inline link / "Optional") · icon input · hint · error.
+  Mirrors html-css-foundation auth markup. Config:
+    id, name, label
+    type? (default "text"), value?, placeholder?, autocomplete?, required?, minlength?
+    icon?      input-ico id (e.g. "i-mail") → left-padded input
+    optional?  show an "Optional" tag in the label row
+    link?      { href, label } inline beside the label (e.g. Forgot password?)
+    hint?      muted helper text under the input
+    error?     string | { text } | { html } — server-driven; sets aria-invalid + describedby
+%><%
+  const id = locals.id;
+  const type = locals.type || "text";
+  const icon = locals.icon;
+  const optional = !!locals.optional;
+  const link = locals.link;
+  const hint = locals.hint;
+  const error = locals.error;
+  const errId = id + "-err";
+-%>
+<div class="field<% if (error) { %> has-error<% } %>">
+<% if (link || optional) { -%>
+  <div class="field-top"><label for="<%= id %>"><%= locals.label %></label><% if (link) { %><a class="field-link" href="<%= link.href %>"><%= link.label %></a><% } else { %><span class="optional">Optional</span><% } %></div>
+<% } else { -%>
+  <label for="<%= id %>"><%= locals.label %></label>
+<% } -%>
+  <div class="input-wrap"><% if (icon) { %><svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#<%= icon %>"/></svg><% } %><input class="input<% if (icon) { %> has-ico<% } %>" id="<%= id %>" name="<%= locals.name %>" type="<%= type %>"<% if (locals.autocomplete) { %> autocomplete="<%= locals.autocomplete %>"<% } %><% if (locals.placeholder) { %> placeholder="<%= locals.placeholder %>"<% } %><% if (locals.value != null) { %> value="<%= locals.value %>"<% } %><% if (locals.minlength != null) { %> minlength="<%= locals.minlength %>"<% } %><% if (error) { %> aria-invalid="true" aria-describedby="<%= errId %>"<% } %><% if (locals.required) { %> required<% } %>></div>
+<% if (hint) { -%>
+  <span class="field-hint"><%= hint %></span>
+<% } -%>
+<% if (error) { -%>
+  <p class="field-error" id="<%= errId %>" role="alert"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-alert"/></svg><span><% if (error.html != null) { %><%- error.html %><% } else { %><%= typeof error === "string" ? error : error.text %><% } %></span></p>
+<% } -%>
+</div>
