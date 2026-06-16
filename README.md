@@ -46,11 +46,12 @@ makes **semantic, accessible markup** a priority: real landmarks, one `<h1>` per
 lists and tables with proper headers, a skip link, and ARIA (`aria-current`/`aria-sort`)
 only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 
-> **Status.** This README describes the target architecture. What exists today is the
-> **scaffold** — a Node 24 + EJS HTTP server with static serving — plus the **design
-> foundation** in `html-css-foundation/` (a complete zero-JS app shell + auth screens).
-> The plugin host and Ory integration (Kratos/Keto/Hydra + their Postgres) are the
-> roadmap below. Sections marked _(planned)_ are not built yet.
+> **Status.** This README describes the target architecture. Built today (see `todo.md`):
+> the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data table,
+> filters, pagination, forms — extracted from `html-css-foundation/`), and the **plugin host**
+> (discovery, router, per-plugin views + static, the `config/menu.ts` override + branding). The
+> **Ory integration** (Kratos/Keto/Hydra + Postgres) and **auth** are the roadmap; sections marked
+> _(planned)_ are not built yet.
 
 ## The MVP — "clone, one command, hack on a plugin" _(planned)_
 
@@ -162,7 +163,7 @@ Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Every user-
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
 ([AGENTS.md](AGENTS.md) §6) — keep new tests side-effect-free so the suite stays fast.
 
-## Building a plugin _(planned)_
+## Building a plugin
 
 A plugin is a folder under `plugins/`. The host discovers it at boot — no
 registration step, no central wiring. The full, authoritative API surface —
@@ -276,20 +277,18 @@ nav tree from the design foundation (header/leaf × clickable/static, counts,
 arbitrary depth). Branding (name, logo, default theme) renders in the app shell — the sidebar
 brand shows the configured logo (else a default mark), and the theme sets the theme-switch default.
 
-## Building blocks _(partly designed, planned to extract)_
+## Building blocks
 
-Plainpages is a **component library, not a page generator** — you assemble pages
-from partials and helpers rather than declaring a schema and getting magic. The
-vocabulary already exists, fully styled and zero-JS, in `html-css-foundation/`;
-the work is extracting it into reusable EJS partials + TS helpers:
+Plainpages is a **component library, not a page generator** — you assemble pages from partials
+and helpers rather than declaring a schema and getting magic. The vocabulary is extracted from
+`html-css-foundation/` into reusable EJS partials + TS helpers, fully styled and zero-JS:
 
 - **Partials:** app shell, nav tree, filter bar, data table (sort / select / row
   actions), pagination, form fields, badges, menus, auth cards.
-- **Helpers:** compose nav from config, parse a list-page query
-  (`?q=…&status=…&sort=…&page=…`) into filter/sort/pagination, pagination math,
-  guards — `requireSession` (validate the JWT), `can(role)` (read a claim,
-  in-process), and `check(relation, object)` (a live Keto call, for the rare
-  fine-grained case).
+- **Helpers:** `composeNav` (menu from config), `parseListQuery`
+  (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math). Auth
+  guards — `requireSession` (validate the JWT), `can(role)` (read a claim, in-process),
+  `check(relation, object)` (a live Keto call) — land with §4.
 
 ## Interactivity: zero-JS spine, opt-in enhancement
 

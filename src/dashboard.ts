@@ -1,8 +1,7 @@
-// Dashboard view model (todo §1): the app-shell "People" list that replaces the placeholder
-// index. Pure — turns a request URL into the data the building-block partials render, wiring
-// the §1 helpers end-to-end: parseListQuery → filter/sort/paginate the mock dataset →
-// composeNav. The dataset stands in for upstream data until plugins/§4 land; everything below
-// is real, so the filter form, sortable headers and pager round-trip through the URL (zero-JS).
+// Dashboard view model (todo §1): the home "/" app-shell "People" list. Pure — turns a request
+// URL into the data the building-block partials render, wiring the §1 helpers end-to-end:
+// parseListQuery → filter/sort/paginate a mock dataset → composeNav. Mock data stands in for
+// upstream until §4; the filter form, sortable headers and pager all round-trip the URL (zero-JS).
 
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode, type NavOverride } from "./nav.ts";

@@ -1,12 +1,9 @@
-// The plugin contract (todo §2) — the product's main API surface. This module is the
-// authoritative, machine-readable shape; `docs/plugin-contract.md` is the prose reference.
-// It only declares types + pure rules; the §2 discovery/router wire them to the filesystem
-// and HTTP. Philosophy: a powerful, predictable, overload-friendly API that fails loud at
-// boot/discovery rather than sandboxing at runtime.
+// The plugin contract (todo §2) — the product's main API surface: the machine-readable types +
+// pure rules; `docs/plugin-contract.md` is the prose reference, discovery/router wire it to FS+HTTP.
+// Powerful, predictable, fails loud at boot/discovery rather than sandboxing at runtime.
 //
-// A plugin's identity comes from its folder under plugins/: the folder name is the `id`
-// (validated by isValidPluginId) and the mount path is `/<id>`. Neither is written in the
-// manifest — the host derives them at discovery, so they can't drift or be claimed twice.
+// A plugin's identity is its folder under plugins/: folder name = `id` (isValidPluginId), mount =
+// `/<id>`. Neither is in the manifest — the host derives them, so they can't drift or be claimed twice.
 
 import type { RequestContext } from "./context.ts";
 import type { NavNode } from "./nav.ts";
@@ -106,11 +103,9 @@ export interface VersionCheck {
   message: string;
 }
 
-// The versioning rule (provider/consumer semver): the host provides a contract version, the
-// plugin pins the one it targets. Different major → refuse (breaking either way). Same major,
-// plugin minor > host → refuse (needs a newer host). Same major, plugin minor < host → warn
-// (additive, still runs — nudge to update). Equal major/minor (patch ignored) → ok. Malformed →
-// refuse. Discovery maps refuse→throw, warn→log.
+// Provider/consumer semver check (full table in docs/plugin-contract.md): same major+minor → ok,
+// plugin minor < host → warn, else (newer minor, major mismatch, malformed) → refuse. Patch is
+// ignored. Discovery maps refuse→throw, warn→log.
 export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HOST_API_VERSION): VersionCheck {
   const plugin = parseSemver(pluginVersion);
   const host = parseSemver(hostVersion);

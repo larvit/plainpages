@@ -1,9 +1,7 @@
-// Router (todo §2): the pure core that maps an incoming method + pathname to a discovered
-// plugin route. I/O-free — app.ts is the imperative shell that builds the context, runs the
-// gate, calls the handler, and turns its RouteResult into an HTTP response. A route is mounted
-// at `/<id>` + its path (fullPath, shared with conflict detection); `:name` segments become
-// path params. Specificity: a literal segment beats a `:param`, so /users/new wins over
-// /users/:id regardless of declaration order.
+// Router (todo §2): pure core mapping method + pathname → a discovered plugin route. I/O-free;
+// app.ts is the shell (build context, gate, call handler, render RouteResult). A route mounts at
+// `/<id>` + its path (fullPath, shared with conflict detection); `:name` segments → path params.
+// Specificity: a literal segment beats a `:param` (/users/new wins /users/:id), order-independent.
 
 import { fullPath, type Plugin, type Route } from "./plugin.ts";
 

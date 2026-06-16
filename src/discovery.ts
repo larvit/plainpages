@@ -1,9 +1,8 @@
 // Plugin discovery (todo §2): scan plugins/, import each folder's plugin.ts default export,
-// validate it, assemble the loaded Plugin[]. The imperative shell over the pure rules in
-// plugin.ts (isValidPluginId, checkApiVersion, findConflicts). Fails loud: every per-plugin
-// problem and every error-level conflict is collected and thrown as one boot-stopping Error;
-// warn-level diagnostics (older-minor apiVersion, shared permission token) are logged, load
-// continues. The folder name is the id; mount/router wiring is the next §2 item.
+// validate it, assemble the loaded Plugin[]. The imperative shell over plugin.ts's pure rules
+// (isValidPluginId, checkApiVersion, findConflicts). Fails loud: every per-plugin problem and
+// error-level conflict is collected into one boot-stopping Error; warn-level diagnostics
+// (older-minor apiVersion, shared permission token) log and load continues. Folder name = id.
 
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";

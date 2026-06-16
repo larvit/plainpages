@@ -12,7 +12,7 @@ import type { NavOverride } from "./nav.ts";
 export type Theme = "auto" | "dark" | "light";
 
 export interface Branding {
-  logo?: string; // optional logo asset path/URL (rendered in the shell — next §2 branding item)
+  logo?: string; // optional logo asset path/URL, rendered in the sidebar brand
   name: string; // app name shown in the sidebar brand
   sub?: string; // optional brand subtitle
   theme?: Theme; // default color theme for the theme-switch
