@@ -112,7 +112,8 @@ docker compose up            # http://localhost:3000, live reload via `node --wa
 
 `docker compose up` merges `compose.override.yml`, which mounts the source and
 restarts the server on change. _(The Ory + Postgres services join this compose
-file as they land — planned.)_
+file as they land — planned.)_ To work on your own plugin, see
+[Where plugins live](#where-plugins-live-and-how-to-mount-them).
 
 ## Configuration
 
@@ -212,6 +213,45 @@ The handler (`listShifts`) fetches its data from an upstream service and renders
 it — the plugin holds no state of its own (see below). Each plugin is
 **self-contained** (its own nav, routes, views, CSS), so installing one is "drop
 the folder, restart." An operator stays in control via a central override.
+
+### Where plugins live (and how to mount them)
+
+The host scans **`/app/plugins/`** inside the `web` container — so "installing a
+plugin" means getting its folder there. There are two ways, depending on where the
+plugin's source lives:
+
+**1. In your clone (the default dev loop).** Create `plugins/<id>/` in the working
+tree. `docker compose up` already bind-mounts the whole tree (`compose.override.yml`:
+`.:/app`), so the folder is live in the container — restart to pick it up. This is the
+"copy the example plugin and go" path.
+
+**2. A plugin kept in its own repo, or added to a prebuilt image.** Bind-mount the
+plugin folder onto `/app/plugins/<id>` with a small compose override. Plugins are
+stateless, so mount it read-only:
+
+```yaml
+# compose.plugins.yml — mount external plugin folders into the host
+services:
+  web:
+    volumes:
+      - ../scheduling-plugin:/app/plugins/scheduling:ro   # host path : /app/plugins/<id>
+```
+
+```bash
+# Dev: list the files explicitly (a third file disables the implicit override merge)
+docker compose -f compose.yml -f compose.override.yml -f compose.plugins.yml up
+# Prod (image already built, no source mount):
+docker compose -f compose.yml -f compose.plugins.yml up -d
+```
+
+A named volume or volume container works the same way (target `/app/plugins/<id>`),
+but a bind mount matches the edit-and-reload loop. For a **baked** production image,
+just keep the plugin in the build context and it's `COPY`'d in at build time — pinned
+and reproducible; mount a volume only to add plugins to an already-built image.
+
+> _(Planned, §2.)_ Discovery — scanning `plugins/`, importing each `plugin.ts`, and
+> validating it — is the next plugin-host work. The mount mechanics above are how the
+> files get into the container regardless of how discovery lands.
 
 ## The menu system _(planned)_
 
@@ -393,7 +433,7 @@ src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + 
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
-plugins/             Drop-in plugin folders, auto-discovered               (planned)
+plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
 html-css-foundation/ HTML design mockups — the source for the building-block

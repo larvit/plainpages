@@ -234,10 +234,12 @@ A plugin is a normal folder of TypeScript, so an author tests it the same way th
    docker compose run --rm web npm test
    ```
 
-2. **Run one plugin against the host.** Drop the folder in `plugins/` and `docker compose up`;
-   the host discovers it. For an isolated harness, the §2 host exposes plugin injection
-   (`createApp({ plugins: [myPlugin] })`) so a test can mount a single manifest and assert its
-   routes, nav, and gating without the rest of the stack.
+2. **Run one plugin against the host.** Get the folder into the container's `/app/plugins/<id>`
+   — either in your clone (the dev compose bind-mounts the tree) or by bind-mounting an external
+   folder (README → *Where plugins live*) — and `docker compose up`; the host discovers it. For
+   an isolated harness, the §2 host exposes plugin injection (`createApp({ plugins: [myPlugin] })`)
+   so a test can mount a single manifest and assert its routes, nav, and gating without the rest
+   of the stack.
 
 3. **E2E the user-facing flow.** Per AGENTS.md §6, every plugin page/form ships *with* a
    Playwright test in `e2e/`, side-effect-free so the suite stays `fullyParallel`. The test runs
