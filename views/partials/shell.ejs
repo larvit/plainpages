@@ -1,8 +1,9 @@
 <%#
   App shell: sidebar (brand + nav slot + footer) · topbar · content slot.
   Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
-  `actions` (topbar buttons), `body` (page content). Text locals: `title`, `brand`,
-  `user`, `breadcrumbs`. Real `user`/branding arrive with §4 auth / §2 menu config.
+  `actions` (topbar buttons), `body` (page content). Text locals: `title`, `brand`
+  ({ name, logo?, sub? } — logo image else the default mark), `theme` (default for the
+  theme-switch), `user`, `breadcrumbs`. Branding comes from config/menu.ts; `user` from §4 auth.
 %><%
   const title = locals.title || "Plainpages";
   const brand = locals.brand || { name: "Plainpages" };
@@ -29,7 +30,7 @@
     <div class="app">
       <aside class="sidebar" aria-label="Primary">
         <div class="brand">
-          <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span>
+          <% if (brand.logo) { %><img class="brand-logo" src="<%= brand.logo %>" alt="" /><% } else { %><span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span><% } %>
           <span class="brand-name"><%= brand.name %></span>
           <% if (brand.sub) { %><span class="brand-sub"><%= brand.sub %></span><% } %>
         </div>

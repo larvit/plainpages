@@ -59,11 +59,12 @@ test("dashboard sorts by a column, reflects direction, and the header toggles", 
 
 test("dashboard applies the central menu config: branding + nav override (rename/hide)", () => {
   const m = buildDashboardModel(new URL("http://x/"), [], {
-    branding: { name: "Acme Ops", sub: "Admin" },
+    branding: { logo: "/public/logo.svg", name: "Acme Ops", sub: "Admin", theme: "dark" },
     override: { hide: ["teams"], rename: { people: "Staff" } },
   });
 
-  assert.deepEqual(m.shell.brand, { name: "Acme Ops", sub: "Admin" });
+  assert.deepEqual(m.shell.brand, { logo: "/public/logo.svg", name: "Acme Ops", sub: "Admin" });
+  assert.equal(m.shell.theme, "dark");
   const labels = m.nav.map((n) => n.label);
   assert.ok(labels.includes("Staff")); // "People" renamed
   assert.ok(!labels.includes("Teams")); // "Teams" hidden

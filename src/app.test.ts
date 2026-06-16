@@ -40,6 +40,17 @@ test("serves the home page: the app-shell People dashboard, filterable via the U
   assert.doesNotMatch(await empty.text(), /Avery Kline/);
 });
 
+test("renders branding from the menu config into the shell: logo + default theme", async (t) => {
+  const app = createApp({ menu: { branding: { logo: "/public/brand/logo.svg", name: "Acme Ops", theme: "dark" }, override: {} } });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const html = await (await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`)).text();
+
+  assert.match(html, /<img class="brand-logo" src="\/public\/brand\/logo\.svg"/);
+  assert.match(html, /Acme Ops/);
+  assert.match(html, /id="theme-dark"\s+checked/); // config default theme reaches the switch
+});
+
 test("serves a static file: GET sends body + content-type, HEAD sends headers only", async () => {
   const get = await fetch(base + "/public/css/styles.css");
   assert.equal(get.status, 200);

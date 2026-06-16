@@ -106,8 +106,13 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
     nav: nav(roles, menu.override),
     pagination: pagination(state, page),
     shell: {
-      brand: { name: menu.branding.name, ...(menu.branding.sub != null ? { sub: menu.branding.sub } : {}) },
+      brand: {
+        ...(menu.branding.logo != null ? { logo: menu.branding.logo } : {}),
+        name: menu.branding.name,
+        ...(menu.branding.sub != null ? { sub: menu.branding.sub } : {}),
+      },
       breadcrumbs: [{ href: "?", label: "Directory" }, { label: "People" }],
+      ...(menu.branding.theme != null ? { theme: menu.branding.theme } : {}),
       title: "People",
       user: { email: "sam.rivers@example.com", initials: "SR", name: "Sam Rivers" }, // demo until §4
     },

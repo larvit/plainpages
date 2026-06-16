@@ -273,7 +273,8 @@ user** by reading the roles in the session JWT (no per-request authz call — se
 [Auth, sessions & permissions](#auth-sessions--permissions-planned)), so the menu
 only ever shows what that person can reach. The markup is the recursive, zero-JS
 nav tree from the design foundation (header/leaf × clickable/static, counts,
-arbitrary depth). _(Branding values are wired into the app shell — logo + default theme — next.)_
+arbitrary depth). Branding (name, logo, default theme) renders in the app shell — the sidebar
+brand shows the configured logo (else a default mark), and the theme sets the theme-switch default.
 
 ## Building blocks _(partly designed, planned to extract)_
 

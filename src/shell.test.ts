@@ -37,6 +37,17 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<use href="#i-menu"\s*\/?>/); // hamburger references the menu icon
 });
 
+test("app shell renders a configured logo + default theme, falls back to the brand mark", async () => {
+  const branded = await render({ brand: { logo: "/public/brand/logo.svg", name: "Acme" }, theme: "dark" });
+  assert.match(branded, /<img class="brand-logo" src="\/public\/brand\/logo\.svg"/);
+  assert.doesNotMatch(branded, /brand-mark/); // a logo replaces the default mark
+  assert.match(branded, /id="theme-dark"\s+checked/); // default theme applied to the switch
+
+  const plain = await render({ brand: { name: "Acme" } }); // no logo, no theme
+  assert.match(plain, /<span class="brand-mark">/); // default mark
+  assert.match(plain, /id="theme-auto"\s+checked/); // theme-switch default
+});
+
 test("app shell escapes text but passes slot HTML through, and renders with defaults", async () => {
   const escaped = await render({ title: "<x>", body: "<p>raw</p>" });
   assert.match(escaped, /<title>&lt;x&gt;<\/title>/); // user text is escaped

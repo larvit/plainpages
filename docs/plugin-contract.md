@@ -20,8 +20,9 @@ time, not in production.
 > (`src/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
 > reachable via `include()`), **per-plugin static serving** (`/public/<id>/` → the plugin's
 > `public/`, `routePublic` in `src/static.ts`), and the **central menu override + branding**
-> (`config/menu.ts`, loaded by `src/menu-config.ts`) are wired. Rendering branding (logo, default
-> theme) into the app shell is the next §2 item.
+> (`config/menu.ts`, loaded by `src/menu-config.ts`, with branding — name, logo, default theme —
+> rendered in the app shell) are wired. The §2 plugin host is feature-complete; the remaining §2
+> items are a project-wide review and comment/test cleanup.
 
 ## Anatomy of a plugin
 
