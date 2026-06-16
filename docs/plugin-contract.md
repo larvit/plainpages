@@ -33,8 +33,8 @@ plugins/scheduling/      # folder name = the plugin id → mounted at /schedulin
 
 **Identity comes from the folder.** The folder name *is* the plugin `id`, and the mount path is
 `/<id>` — neither is written in the manifest, so they can't drift or be claimed twice. The id
-must be **kebab-case** (`isValidPluginId`: lowercase letters in dash-separated segments — no
-digits, uppercase, or leading/trailing/double dashes); the host rejects a malformed folder name
+must be **URL/path-safe** (`isValidPluginId`: lowercase `a–z`, digits, and dashes — dashes
+anywhere; no uppercase, underscores, dots, or slashes); the host rejects a malformed folder name
 at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
 convention) its nav/permission tokens.
 

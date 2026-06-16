@@ -71,10 +71,10 @@ export function definePlugin(manifest: PluginManifest): PluginManifest {
   return manifest;
 }
 
-// A plugin id (its folder name) — lowercase letters in dash-separated segments: no digits,
-// uppercase, or leading/trailing/double dashes. Tight on purpose: the id forms the mount path
-// `/<id>`, the view/static namespace, and the central-override target.
-const PLUGIN_ID = /^[a-z]+(?:-[a-z]+)*$/;
+// A plugin id (its folder name) — lowercase a–z, digits, and dashes, dashes allowed anywhere.
+// Rejects uppercase, underscores, dots, slashes, spaces: the id forms the mount path `/<id>`,
+// the view/static namespace, and the central-override target, so it must stay URL/path-safe.
+const PLUGIN_ID = /^[a-z0-9-]+$/;
 
 export function isValidPluginId(id: string): boolean {
   return PLUGIN_ID.test(id);

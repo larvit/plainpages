@@ -36,9 +36,11 @@ test("definePlugin returns the manifest unchanged — id/mount come from the fol
   assert.equal(scheduling.routes?.length, 3);
 });
 
-test("isValidPluginId accepts kebab-case folder names and rejects everything else", () => {
-  for (const ok of ["scheduling", "people", "people-directory"]) assert.ok(isValidPluginId(ok), ok);
-  for (const bad of ["People", "people_dir", "people-", "-people", "people--dir", "people1", "", "a/b"]) {
+test("isValidPluginId accepts lowercase/digits/dashes anywhere and rejects everything else", () => {
+  for (const ok of ["scheduling", "people-directory", "people2", "v2", "people--dir", "-people", "people-", "a-1-b", "1"]) {
+    assert.ok(isValidPluginId(ok), ok);
+  }
+  for (const bad of ["People", "people_dir", "a/b", "a.b", "a b", ""]) {
     assert.ok(!isValidPluginId(bad), bad);
   }
 });
