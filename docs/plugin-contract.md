@@ -70,7 +70,7 @@ plain typed object. All validation happens at discovery.
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `apiVersion` | yes | Host contract major version the plugin targets — see [Versioning](#contract-versioning). |
+| `apiVersion` | yes | Semver of the host contract the plugin targets (e.g. `"1.0.0"`) — see [Versioning](#contract-versioning). |
 | `basePath` | yes | Absolute, no trailing slash (`/scheduling`). Unique; must not prefix-overlap another plugin's. |
 | `id` | yes | Globally unique slug. Namespaces `views/`, `/public/<id>/`, and (by convention) nav/permission tokens. |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Node `id`s must be globally unique. |
@@ -156,19 +156,24 @@ optional but recommended (it documents them and lets the bootstrap seed Keto, §
 
 ## Contract versioning
 
-Each manifest declares `apiVersion` — the host contract major version it targets — and the host
-exposes the current `HOST_API_VERSION`. At discovery the host runs `checkApiVersion`:
+Each manifest declares `apiVersion` — a **semver** string naming the host contract it was built
+against — and the host exposes the current `HOST_API_VERSION` (e.g. `"1.0.0"`). The host bumps
+**major** on a breaking manifest/handler change and **minor** on an additive one. At discovery
+the host parses both with `parseSemver` (the official semver core regex — strict: no ranges,
+`v` prefixes, or leading zeros) and applies provider/consumer semantics in `checkApiVersion`:
 
 | Plugin `apiVersion` vs host | Result | Host action |
 | --- | --- | --- |
-| equal | `ok` | load |
-| less than host | `warn` | load, log — review for deprecated behaviour |
-| greater than host | `refuse` | **abort boot** — the plugin needs a newer host |
-| missing / not a positive integer | `refuse` | **abort boot** — must be declared |
+| same major, same minor (patch ignored) | `ok` | load |
+| same major, plugin minor **<** host minor | `warn` | load, log — additive-compatible, newer features exist |
+| same major, plugin minor **>** host minor | `refuse` | **abort boot** — plugin needs a newer host |
+| different major | `refuse` | **abort boot** — incompatible contract |
+| missing / not a valid semver | `refuse` | **abort boot** — must be declared |
 
-The version is a single integer bumped only on a **breaking** manifest/handler change; additive
-changes don't bump it (hence "older → warn, still load"). There are no semver ranges — pinned,
-explicit, in keeping with the project's versioning rules.
+The plugin pins one exact version (no ranges — in keeping with the project's pinning rules); the
+*host* supplies the caret-style compatibility. `parseSemver`/`checkApiVersion` are tight,
+dependency-free functions (the `semver` package's ranges/coercion/prerelease-precedence are more
+than the contract needs).
 
 ## Conflict rules
 

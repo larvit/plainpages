@@ -5,6 +5,7 @@ import {
   definePlugin,
   findConflicts,
   HOST_API_VERSION,
+  parseSemver,
   type Plugin,
 } from "./plugin.ts";
 
@@ -28,16 +29,27 @@ const scheduling: Plugin = definePlugin({
 });
 
 test("definePlugin returns the manifest unchanged — it only types; validation is at discovery (§2)", () => {
-  const m: Plugin = { apiVersion: 1, basePath: "/x", id: "x" };
+  const m: Plugin = { apiVersion: "1.0.0", basePath: "/x", id: "x" };
   assert.equal(definePlugin(m), m); // identity, not a copy
   assert.equal(scheduling.routes?.length, 3);
 });
 
-test("checkApiVersion: match ok, older warns, newer/malformed refuses (host refuses or warns, never silent)", () => {
-  assert.equal(checkApiVersion(HOST_API_VERSION).level, "ok");
-  assert.equal(checkApiVersion(1, 2).level, "warn"); // plugin targets an older host
-  assert.equal(checkApiVersion(HOST_API_VERSION + 1).level, "refuse"); // needs a newer host
-  for (const bad of [0, -1, 1.5, "1", undefined, null, Number.NaN]) {
+test("parseSemver follows the semver core, rejecting ranges, prefixes, leading zeros and missing parts", () => {
+  assert.deepEqual(parseSemver("1.2.3"), { major: 1, minor: 2, patch: 3 });
+  assert.deepEqual(parseSemver("1.2.3-rc.1+build.5"), { major: 1, minor: 2, patch: 3 }); // prerelease/build tolerated, ignored
+  for (const bad of ["1", "1.2", "1.2.3.4", "v1.2.3", "^1.2.3", "01.2.3", "1.2.x", "1.2.3 ", "", 3, null, undefined]) {
+    assert.equal(parseSemver(bad), null, `${String(bad)} is not a semver`);
+  }
+});
+
+test("checkApiVersion: semver compat — equal/patch ok, older minor warns, newer-minor/major-mismatch/malformed refuse", () => {
+  assert.equal(checkApiVersion(HOST_API_VERSION).level, "ok"); // "1.0.0" vs "1.0.0"
+  assert.equal(checkApiVersion("1.0.5", "1.0.0").level, "ok"); // patch never affects compatibility
+  assert.equal(checkApiVersion("1.0.0", "1.2.0").level, "warn"); // older minor still runs (additive), nudge to update
+  assert.equal(checkApiVersion("1.3.0", "1.2.0").level, "refuse"); // needs features a newer host has
+  assert.equal(checkApiVersion("2.0.0", "1.5.0").level, "refuse"); // incompatible major (newer)
+  assert.equal(checkApiVersion("1.0.0", "2.0.0").level, "refuse"); // incompatible major (older)
+  for (const bad of ["1", "1.2", "v1.2.3", "01.2.3", "1.2.x", "", 1, undefined, null]) {
     assert.equal(checkApiVersion(bad).level, "refuse", `${String(bad)} must refuse`);
   }
 });

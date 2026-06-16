@@ -186,7 +186,7 @@ import { definePlugin } from "../../src/plugin.ts";
 import { listShifts } from "./shifts.ts";
 
 export default definePlugin({
-  apiVersion: 1,            // host contract this plugin targets; mismatch fails loud at boot
+  apiVersion: "1.0.0",      // semver of the host contract this targets; mismatch fails loud at boot
   id: "scheduling",
   basePath: "/scheduling",
 

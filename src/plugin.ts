@@ -7,9 +7,10 @@
 import type { RequestContext } from "./context.ts";
 import type { NavNode } from "./nav.ts";
 
-// Host contract major version. Bump on a breaking manifest/handler change; a plugin pins the
-// version it targets via `apiVersion` and the host refuses/warns on mismatch (checkApiVersion).
-export const HOST_API_VERSION = 1;
+// Host contract version (semver). Bump major on a breaking manifest/handler change, minor on an
+// additive one. A plugin pins the version it targets via `apiVersion`; the host applies
+// provider/consumer semver semantics in checkApiVersion (refuse/warn on mismatch).
+export const HOST_API_VERSION = "1.0.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";
 
@@ -45,7 +46,7 @@ export interface PluginHooks {
 }
 
 export interface Plugin {
-  apiVersion: number; // host contract version this plugin targets (= HOST_API_VERSION)
+  apiVersion: string; // semver of the host contract this plugin targets (e.g. HOST_API_VERSION)
   basePath: string; // unique mount prefix, e.g. "/scheduling"; must not overlap another plugin's
   hooks?: PluginHooks;
   id: string; // globally unique; namespaces views, /public/<id>/, and nav/permission tokens
@@ -60,22 +61,52 @@ export function definePlugin(plugin: Plugin): Plugin {
   return plugin;
 }
 
+export interface Semver {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+// The official semver.org 2.0.0 core regex (major.minor.patch, optional prerelease/build) — a
+// standardized parse with no dependency. We compare only major/minor for compatibility, so the
+// prerelease/build groups are matched (to accept valid input) but otherwise ignored.
+const SEMVER =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(?:\+[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*)?$/;
+
+// Parse a strict semver string → {major, minor, patch}, or null. Rejects ranges/prefixes
+// (`^1.2.3`, `v1`), leading zeros, whitespace and missing parts — fail loud over coerce.
+export function parseSemver(version: unknown): Semver | null {
+  if (typeof version !== "string") return null;
+  const m = SEMVER.exec(version);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
+}
+
 export interface VersionCheck {
   level: "ok" | "refuse" | "warn";
   message: string;
 }
 
-// The versioning rule: equal → ok; plugin older than host → warn (load, review); plugin newer
-// or not a positive integer → refuse. Discovery maps refuse→throw, warn→log.
-export function checkApiVersion(pluginVersion: unknown, hostVersion: number = HOST_API_VERSION): VersionCheck {
-  if (typeof pluginVersion !== "number" || !Number.isInteger(pluginVersion) || pluginVersion < 1) {
-    return { level: "refuse", message: `apiVersion must be a positive integer; got ${JSON.stringify(pluginVersion)}` };
+// The versioning rule (provider/consumer semver): the host provides a contract version, the
+// plugin pins the one it targets. Different major → refuse (breaking either way). Same major,
+// plugin minor > host → refuse (needs a newer host). Same major, plugin minor < host → warn
+// (additive, still runs — nudge to update). Equal major/minor (patch ignored) → ok. Malformed →
+// refuse. Discovery maps refuse→throw, warn→log.
+export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HOST_API_VERSION): VersionCheck {
+  const plugin = parseSemver(pluginVersion);
+  const host = parseSemver(hostVersion);
+  if (!host) throw new Error(`hostVersion is not a semver: ${JSON.stringify(hostVersion)}`); // invariant, not user input
+  if (!plugin) {
+    return { level: "refuse", message: `apiVersion must be a semver string (e.g. "${hostVersion}"); got ${JSON.stringify(pluginVersion)}` };
   }
-  if (pluginVersion > hostVersion) {
+  if (plugin.major !== host.major) {
+    return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — incompatible major` };
+  }
+  if (plugin.minor > host.minor) {
     return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion} but host is ${hostVersion}; upgrade the host` };
   }
-  if (pluginVersion < hostVersion) {
-    return { level: "warn", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — review for deprecated behaviour` };
+  if (plugin.minor < host.minor) {
+    return { level: "warn", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — newer features available` };
   }
   return { level: "ok", message: `apiVersion ${pluginVersion}` };
 }
