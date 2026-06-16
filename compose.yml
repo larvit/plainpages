@@ -11,3 +11,25 @@ services:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
     restart: unless-stopped
+
+  # Ory's storage only (Kratos/Keto/Hydra) — the web app never connects here.
+  # init/init.sql creates one database per service. Dev defaults below; supply
+  # POSTGRES_USER/PASSWORD via env in production.
+  postgres:
+    image: postgres:18.4-alpine3.23
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ory}
+      POSTGRES_DB: ory
+    volumes:
+      - ./ory/postgres/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql   # PG18+: mount the parent, not /data (version-subdir layout)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ory} -d ory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
