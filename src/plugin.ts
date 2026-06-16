@@ -3,6 +3,10 @@
 // It only declares types + pure rules; the §2 discovery/router wire them to the filesystem
 // and HTTP. Philosophy: a powerful, predictable, overload-friendly API that fails loud at
 // boot/discovery rather than sandboxing at runtime.
+//
+// A plugin's identity comes from its folder under plugins/: the folder name is the `id`
+// (validated by isValidPluginId) and the mount path is `/<id>`. Neither is written in the
+// manifest — the host derives them at discovery, so they can't drift or be claimed twice.
 
 import type { RequestContext } from "./context.ts";
 import type { NavNode } from "./nav.ts";
@@ -27,7 +31,7 @@ export type RouteHandler = (ctx: RequestContext) => Promise<RouteResult | void> 
 export interface Route {
   handler: RouteHandler;
   method: HttpMethod;
-  path: string; // relative to basePath; ":name" segments become ctx.params.name
+  path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
   permission?: string; // coarse gate (a role token); checked before the handler runs
 }
 
@@ -45,20 +49,35 @@ export interface PluginHooks {
   onResponse?: (ctx: RequestContext, result: RouteResult | null) => Promise<void> | void;
 }
 
-export interface Plugin {
-  apiVersion: string; // semver of the host contract this plugin targets (e.g. HOST_API_VERSION)
-  basePath: string; // unique mount prefix, e.g. "/scheduling"; must not overlap another plugin's
+// The authored manifest — a plugin's `plugin.ts` default-exports this. No `id`/mount path: the
+// host derives them from the folder name at discovery (see Plugin).
+export interface PluginManifest {
+  apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
   hooks?: PluginHooks;
-  id: string; // globally unique; namespaces views, /public/<id>/, and nav/permission tokens
-  nav?: NavNode[]; // fragment merged into the global menu (composeNav); ids must be globally unique
+  nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
   routes?: Route[];
 }
 
+// A discovered plugin: the manifest plus the `id` the host read from the folder name. Mounted
+// at `/<id>`, with views/static namespaced under the id.
+export interface Plugin extends PluginManifest {
+  id: string;
+}
+
 // Identity helper: types the manifest, returns it unchanged. Validation happens at discovery
 // (§2), so a plugin may equally be a plain typed object. Mirrors Vite's `defineConfig`.
-export function definePlugin(plugin: Plugin): Plugin {
-  return plugin;
+export function definePlugin(manifest: PluginManifest): PluginManifest {
+  return manifest;
+}
+
+// A plugin id (its folder name) — lowercase letters in dash-separated segments: no digits,
+// uppercase, or leading/trailing/double dashes. Tight on purpose: the id forms the mount path
+// `/<id>`, the view/static namespace, and the central-override target.
+const PLUGIN_ID = /^[a-z]+(?:-[a-z]+)*$/;
+
+export function isValidPluginId(id: string): boolean {
+  return PLUGIN_ID.test(id);
 }
 
 export interface Semver {
@@ -112,15 +131,16 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
 }
 
 export interface PluginConflict {
-  kind: "basePath" | "id" | "nav-id" | "permission" | "route";
+  kind: "id" | "nav-id" | "permission" | "route";
   level: "error" | "warn";
   message: string;
   plugins: string[]; // unique ids involved
 }
 
 // The conflict rules: defined, loud resolution — never last-write-wins. Pure over the discovered
-// manifests; discovery throws on any "error" and logs every "warn". Shared permission tokens are
-// the one intentional overlap, so they warn rather than error.
+// plugins; discovery throws on any "error" and logs every "warn". Mount-path (`/<id>`) uniqueness
+// is structural — it follows from the id check, so it needs no rule of its own. Shared permission
+// tokens are the one intentional overlap, so they warn rather than error.
 export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   const out: PluginConflict[] = [];
 
@@ -130,18 +150,8 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     if (n > 1) out.push({ kind: "id", level: "error", message: `${n} plugins share id "${id}"; ids must be globally unique`, plugins: [id] });
   }
 
-  for (let i = 0; i < plugins.length; i++) {
-    for (let j = i + 1; j < plugins.length; j++) {
-      const a = plugins[i] as Plugin;
-      const b = plugins[j] as Plugin;
-      if (basePathOverlap(a.basePath, b.basePath)) {
-        out.push({ kind: "basePath", level: "error", message: `basePath "${a.basePath}" (${a.id}) overlaps "${b.basePath}" (${b.id})`, plugins: uniq([a.id, b.id]) });
-      }
-    }
-  }
-
   collect(plugins, (plugin, push) => {
-    for (const route of plugin.routes ?? []) push(`${route.method} ${joinPath(plugin.basePath, route.path)}`);
+    for (const route of plugin.routes ?? []) push(`${route.method} ${fullPath(plugin.id, route.path)}`);
   }).forEach((owners, key) => {
     if (owners.length > 1) out.push({ kind: "route", level: "error", message: `${owners.length} routes resolve to "${key}"`, plugins: uniq(owners) });
   });
@@ -173,16 +183,9 @@ function collectNavIds(nodes: NavNode[] | undefined, push: (id: string) => void)
   }
 }
 
-const trimSlash = (s: string): string => s.replace(/\/+$/, "");
-
-function basePathOverlap(a: string, b: string): boolean {
-  const x = trimSlash(a);
-  const y = trimSlash(b);
-  return x === y || y.startsWith(`${x}/`) || x.startsWith(`${y}/`);
-}
-
-function joinPath(basePath: string, path: string): string {
-  return `${trimSlash(basePath)}${path.startsWith("/") ? path : `/${path}`}`;
+// A route's full path = the plugin's mount path `/<id>` + the route path.
+function fullPath(id: string, path: string): string {
+  return `/${id}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function uniq(xs: string[]): string[] {

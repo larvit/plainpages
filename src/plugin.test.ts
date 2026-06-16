@@ -5,17 +5,19 @@ import {
   definePlugin,
   findConflicts,
   HOST_API_VERSION,
+  isValidPluginId,
   parseSemver,
   type Plugin,
+  type PluginManifest,
 } from "./plugin.ts";
 
-// A representative manifest exercising every field — its existence type-checks the contract
-// (handler return variants, nav fragment, permission decls, hooks). The README example.
-const scheduling: Plugin = definePlugin({
-  apiVersion: HOST_API_VERSION,
-  basePath: "/scheduling",
+// A representative manifest exercising every field — its existence type-checks the contract.
+// `apiVersion` is a literal: a plugin pins the version it was built against, so importing
+// HOST_API_VERSION would always equal the host and defeat the check. No `id`/`basePath` — the
+// host derives both from the plugin's folder name.
+const scheduling: PluginManifest = definePlugin({
+  apiVersion: "1.0.0",
   hooks: { onBoot: () => {} },
-  id: "scheduling",
   nav: [{
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
     icon: "i-cal", id: "scheduling:root", label: "Scheduling",
@@ -28,10 +30,17 @@ const scheduling: Plugin = definePlugin({
   ],
 });
 
-test("definePlugin returns the manifest unchanged — it only types; validation is at discovery (§2)", () => {
-  const m: Plugin = { apiVersion: "1.0.0", basePath: "/x", id: "x" };
+test("definePlugin returns the manifest unchanged — id/mount come from the folder, not the manifest", () => {
+  const m: PluginManifest = { apiVersion: "1.0.0" };
   assert.equal(definePlugin(m), m); // identity, not a copy
   assert.equal(scheduling.routes?.length, 3);
+});
+
+test("isValidPluginId accepts kebab-case folder names and rejects everything else", () => {
+  for (const ok of ["scheduling", "people", "people-directory"]) assert.ok(isValidPluginId(ok), ok);
+  for (const bad of ["People", "people_dir", "people-", "-people", "people--dir", "people1", "", "a/b"]) {
+    assert.ok(!isValidPluginId(bad), bad);
+  }
 });
 
 test("parseSemver follows the semver core, rejecting ranges, prefixes, leading zeros and missing parts", () => {
@@ -54,44 +63,37 @@ test("checkApiVersion: semver compat — equal/patch ok, older minor warns, newe
   }
 });
 
-// Minimal valid plugin, overridable per case.
-const p = (over: Partial<Plugin> & Pick<Plugin, "id" | "basePath">): Plugin =>
-  definePlugin({ apiVersion: HOST_API_VERSION, ...over });
+// A minimal discovered plugin (id = folder name; mount path is the derived `/<id>`), per case.
+const p = (over: Partial<Plugin> & Pick<Plugin, "id">): Plugin => ({ apiVersion: "1.0.0", ...over });
 
 test("findConflicts: a clean set has none", () => {
-  assert.deepEqual(findConflicts([p({ basePath: "/a", id: "a" }), p({ basePath: "/b", id: "b" })]), []);
+  assert.deepEqual(findConflicts([p({ id: "a" }), p({ id: "b" })]), []);
 });
 
-test("findConflicts: duplicate id, overlapping basePath, and colliding route are loud errors", () => {
-  const dupId = findConflicts([p({ basePath: "/a", id: "a" }), p({ basePath: "/b", id: "a" })]);
+test("findConflicts: a duplicate id and a colliding route are loud errors", () => {
+  const dupId = findConflicts([p({ id: "a" }), p({ id: "a" })]);
   assert.ok(dupId.some((c) => c.kind === "id" && c.level === "error"));
 
-  const sameBase = findConflicts([p({ basePath: "/x", id: "a" }), p({ basePath: "/x", id: "b" })]);
-  assert.ok(sameBase.some((c) => c.kind === "basePath" && c.level === "error"));
-
-  // A basePath that is a path-prefix of another also overlaps (routes would shadow).
-  const prefix = findConflicts([p({ basePath: "/x", id: "a" }), p({ basePath: "/x/y", id: "b" })]);
-  assert.ok(prefix.some((c) => c.kind === "basePath" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
-
+  // Cross-plugin routes can't collide (unique `/<id>` prefix); two identical routes in one can.
   const noop = () => {};
   const dupRoute = findConflicts([p({
-    basePath: "/a", id: "a",
+    id: "a",
     routes: [{ handler: noop, method: "GET", path: "/t" }, { handler: noop, method: "GET", path: "/t" }],
   })]);
-  assert.ok(dupRoute.some((c) => c.kind === "route" && c.level === "error"));
+  assert.ok(dupRoute.some((c) => c.kind === "route" && c.level === "error" && c.message.includes("/a/t")));
 });
 
 test("findConflicts: duplicate nav id is an error, a shared permission token only warns", () => {
   const navDup = findConflicts([
-    p({ basePath: "/a", id: "a", nav: [{ id: "dup", label: "A" }] }),
-    p({ basePath: "/b", id: "b", nav: [{ id: "dup", label: "B" }] }),
+    p({ id: "a", nav: [{ id: "dup", label: "A" }] }),
+    p({ id: "b", nav: [{ id: "dup", label: "B" }] }),
   ]);
   assert.ok(navDup.some((c) => c.kind === "nav-id" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
 
   // Sharing a permission across plugins is legitimate (shared role) → warn, not error.
   const permDup = findConflicts([
-    p({ basePath: "/a", id: "a", permissions: [{ token: "shared:read" }] }),
-    p({ basePath: "/b", id: "b", permissions: [{ token: "shared:read" }] }),
+    p({ id: "a", permissions: [{ token: "shared:read" }] }),
+    p({ id: "b", permissions: [{ token: "shared:read" }] }),
   ]);
   assert.ok(permDup.some((c) => c.kind === "permission" && c.level === "warn"));
 });

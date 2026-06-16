@@ -170,28 +170,27 @@ hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-con
 (`src/plugin.ts` holds the types). The sketch below is the shape.
 
 ```
-plugins/scheduling/
-  plugin.ts            # default export: the typed manifest (see below)
-  views/               # EJS templates for this plugin's pages
+plugins/scheduling/      # folder name = the plugin id; mounted at /scheduling
+  plugin.ts              # default export: the typed manifest (see below)
+  views/                 # EJS templates for this plugin's pages
     shifts.ejs
-  public/              # CSS / assets, served under /public/scheduling/
+  public/                # CSS / assets, served under /public/scheduling/
     scheduling.css
 ```
 
 The manifest is **TypeScript** — typed, commented, no separate schema to keep in
-sync:
+sync. The `id` and mount path are **derived from the folder name**, not declared:
 
 ```ts
 import { definePlugin } from "../../src/plugin.ts";
 import { listShifts } from "./shifts.ts";
 
 export default definePlugin({
-  apiVersion: "1.0.0",      // semver of the host contract this targets; mismatch fails loud at boot
-  id: "scheduling",
-  basePath: "/scheduling",
+  apiVersion: "1.0.0",      // semver of the host contract this was built against (a literal — see docs)
 
   // Nav fragment, composed into the global menu. Permission-gated via Keto:
   // items the current user can't access are hidden. Arbitrary depth.
+  // `icon` is a Lucide icon by its sprite id (src/icons.ts).
   nav: [
     {
       label: "Scheduling", icon: "i-cal",
@@ -201,8 +200,8 @@ export default definePlugin({
     },
   ],
 
-  // Route handlers. The host's hand-rolled router mounts them under basePath
-  // and enforces `permission` (a Keto check) before the handler runs.
+  // Route handlers, mounted under the plugin's path (/scheduling). `permission`
+  // (a Keto check) is enforced before the handler runs.
   routes: [
     { method: "GET", path: "/shifts", permission: "scheduling:read", handler: listShifts },
   ],

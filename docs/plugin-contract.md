@@ -14,21 +14,29 @@ crash-isolation (one bad plugin can't take the host down) is a *non-goal* — di
 time, not in production.
 
 > **Status.** This is the contract the §2 host implements. The types and the pure rules
-> (`checkApiVersion`, `findConflicts`) exist today in `src/plugin.ts`; discovery, the router,
-> the per-plugin view resolver, and static serving are the next §2 items and wire this contract
-> to the filesystem and HTTP. Behaviour described as the host's is the target those items meet.
+> (`checkApiVersion`, `findConflicts`, `isValidPluginId`) exist today in `src/plugin.ts`;
+> discovery, the router, the per-plugin view resolver, and static serving are the next §2 items
+> and wire this contract to the filesystem and HTTP. Behaviour described as the host's is the
+> target those items meet.
 
 ## Anatomy of a plugin
 
 ```
-plugins/scheduling/
-  plugin.ts            # default export: the manifest (definePlugin(...))
-  shifts.ts            # handlers, helpers — plain modules
-  views/               # EJS templates for this plugin's pages
+plugins/scheduling/      # folder name = the plugin id → mounted at /scheduling
+  plugin.ts              # default export: the manifest (definePlugin(...))
+  shifts.ts              # handlers, helpers — plain modules
+  views/                 # EJS templates for this plugin's pages
     shifts.ejs
-  public/              # static assets, served at /public/scheduling/
+  public/                # static assets, served at /public/scheduling/
     scheduling.css
 ```
+
+**Identity comes from the folder.** The folder name *is* the plugin `id`, and the mount path is
+`/<id>` — neither is written in the manifest, so they can't drift or be claimed twice. The id
+must be **kebab-case** (`isValidPluginId`: lowercase letters in dash-separated segments — no
+digits, uppercase, or leading/trailing/double dashes); the host rejects a malformed folder name
+at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
+convention) its nav/permission tokens.
 
 Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
 Nothing else references it; the operator stays in control through the central menu override
@@ -37,15 +45,14 @@ Nothing else references it; the operator stays in control through the central me
 ## The manifest
 
 ```ts
-import { definePlugin, HOST_API_VERSION } from "../../src/plugin.ts";
+import { definePlugin } from "../../src/plugin.ts";
 import { listShifts, createShift } from "./shifts.ts";
 
 export default definePlugin({
-  apiVersion: HOST_API_VERSION,       // the host contract this plugin targets
-  basePath: "/scheduling",            // unique mount prefix
-  id: "scheduling",                   // globally unique; namespaces views/static/tokens
+  apiVersion: "1.0.0",                // semver of the host contract this was built against (a literal — see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
+  // `icon` is a Lucide icon by its sprite id (src/icons.ts).
   nav: [{
     icon: "i-cal", id: "scheduling:root", label: "Scheduling",
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
@@ -57,7 +64,7 @@ export default definePlugin({
     { token: "scheduling:write", description: "Create and edit shifts" },
   ],
 
-  // Route handlers, mounted under basePath. `permission` gates before the handler runs.
+  // Route handlers, mounted under the plugin's path (/scheduling). `permission` gates first.
   routes: [
     { method: "GET",  path: "/shifts", permission: "scheduling:read",  handler: listShifts },
     { method: "POST", path: "/shifts", permission: "scheduling:write", handler: createShift },
@@ -66,14 +73,15 @@ export default definePlugin({
 ```
 
 `definePlugin()` only types the object and returns it unchanged — a manifest may equally be a
-plain typed object. All validation happens at discovery.
+plain typed object. It types the authored shape (`PluginManifest`); the host attaches the
+folder-derived `id` to produce the loaded `Plugin`. All validation happens at discovery. Note
+there is **no `id` or `basePath`** in the manifest — both come from the folder
+([Anatomy](#anatomy-of-a-plugin)).
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `apiVersion` | yes | Semver of the host contract the plugin targets (e.g. `"1.0.0"`) — see [Versioning](#contract-versioning). |
-| `basePath` | yes | Absolute, no trailing slash (`/scheduling`). Unique; must not prefix-overlap another plugin's. |
-| `id` | yes | Globally unique slug. Namespaces `views/`, `/public/<id>/`, and (by convention) nav/permission tokens. |
-| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Node `id`s must be globally unique. |
+| `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/icons.ts`); node `id`s must be globally unique. |
 | `permissions` | no | Tokens this plugin introduces; declared for documentation and seeding. |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
@@ -82,10 +90,11 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 
 ## Routes & handlers
 
-A route is `{ method, path, permission?, handler }`. `path` is **relative to `basePath`**; the
-host matches `method` + the resolved full path, extracts `:name` segments into
-`ctx.params.name`, runs the `permission` gate (a coarse JWT-claim check — see the README), and
-only then calls the handler with the [request context](#requestcontext).
+A route is `{ method, path, permission?, handler }`. `path` is **relative to the plugin's mount
+path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
+matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
+runs the `permission` gate (a coarse JWT-claim check — see the README), and only then calls the
+handler with the [request context](#requestcontext).
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 
@@ -147,7 +156,9 @@ from the §4 JWT middleware and are `null`/`[]` until a session exists.
 A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/nav.ts`), which
 applies the central override and then **filters per user** by the roles in the session JWT — a
 node shows iff it declares no `permission` or the user's roles include that token. Use arbitrary
-depth, counts, and icons; see `composeNav` for the node shape.
+depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a **Lucide
+icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids are
+`ICON_NAMES` in `src/icons.ts`, and adding one means registering its lucide name there.
 
 Permission tokens are a **shared global namespace** — that's deliberate, so an operator grants
 `scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
@@ -175,22 +186,26 @@ The plugin pins one exact version (no ranges — in keeping with the project's p
 dependency-free functions (the `semver` package's ranges/coercion/prerelease-precedence are more
 than the contract needs).
 
+**Write a literal, never `HOST_API_VERSION`.** `apiVersion` records the version the plugin was
+*built against*. Importing the host's current constant would make every plugin always equal the
+host — the check could never fire, and a future breaking change would slip through silently.
+
 ## Conflict rules
 
-Plugins are independent folders, so the host detects collisions across all discovered manifests
+Plugins are independent folders, so the host detects collisions across all discovered plugins
 with `findConflicts` and resolves them **loudly — never last-write-wins**. `error` aborts boot;
 `warn` logs and continues.
 
 | Kind | Level | Rule |
 | --- | --- | --- |
-| `id` | error | Two plugins share an `id`. Ids must be globally unique (they namespace views/static/tokens). |
-| `basePath` | error | Two `basePath`s are equal, or one is a path-prefix of the other (`/x` vs `/x/y`) — routes would shadow. |
-| `route` | error | Two routes resolve to the same `method` + full path (within or across plugins). |
+| `id` | error | Two plugins share an `id` (folder name). Ids must be globally unique — they namespace the mount path, views/static, and the override target. |
+| `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
 | `permission` | warn | A permission token is declared by more than one plugin. Sharing is legitimate (shared role); namespace as `<id>:<action>` if unintended. |
 
-`permission` is the one intentional overlap, so it warns rather than aborts; everything else is
-an error an author fixes before the host will start.
+There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its
+uniqueness follows from the id check. `permission` is the one intentional overlap, so it warns
+rather than aborts; everything else is an error an author fixes before the host will start.
 
 ## Hooks
 
