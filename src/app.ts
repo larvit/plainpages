@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
+import { PLUGINS_DIR } from "./discovery.ts";
+import type { Plugin, RouteResult } from "./plugin.ts";
+import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
 import { serveStatic } from "./static.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -12,17 +15,26 @@ export interface AppOptions {
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
+  pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
   publicDir?: string;
   viewsDir?: string;
 }
 
 export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
+  const plugins = options.plugins ?? [];
+  const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
 
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
     ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache });
+
+  // A `view` RouteResult resolves against the plugin's own views/ (the richer per-plugin
+  // resolver — core-partial includes, subfolders — is the next §2 item).
+  const renderPluginView = (plugin: Plugin) => (view: string, data: Record<string, unknown>): Promise<string> =>
+    ejs.renderFile(join(pluginsDir, plugin.id, "views", `${view}.ejs`), data, { cache });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -31,27 +43,40 @@ export function createApp(options: AppOptions = {}): Server {
 
   return createServer(async (req, res) => {
     try {
-      if (req.method !== "GET" && req.method !== "HEAD") {
-        res.writeHead(405, { "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
-        return;
-      }
-
-      // The request shape handlers receive (§2/§4 router passes it on); routing
-      // reuses its parsed URL instead of building a throwaway.
+      const method = req.method ?? "GET";
       const { url } = buildContext(req, res);
       const pathname = url.pathname;
 
-      if (pathname.startsWith("/public/")) {
-        await serveStatic(publicDir, pathname.slice("/public/".length), res, req.method === "HEAD");
+      if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
+        await serveStatic(publicDir, pathname.slice("/public/".length), res, method === "HEAD");
         return;
       }
 
-      if (pathname === "/") {
-        // Mock data + no roles until the plugin host (§2) and auth (§4) land.
+      // Plugin routes (any method): gate on the route's permission, then run the handler.
+      const match = matchRoute(plugins, method, pathname);
+      if (match) {
+        const ctx = buildContext(req, res, { params: match.params });
+        if (!isAuthorized(match.route, ctx.roles)) {
+          sendHtml(res, 403, await render("403", { title: "Forbidden" }));
+          return;
+        }
+        const result = await match.route.handler(ctx);
+        await sendResult(res, result ?? null, renderPluginView(match.plugin));
+        return;
+      }
+
+      if (pathname === "/" && (method === "GET" || method === "HEAD")) {
+        // Mock data + no roles until auth (§4) lands.
         sendHtml(res, 200, await render("index", { model: buildDashboardModel(url) }));
         return;
       }
 
+      // Known path, wrong method → 405 with Allow; otherwise nothing here → 404.
+      const allow = allowedMethods(plugins, pathname);
+      if (allow.length) {
+        res.writeHead(405, { allow: allow.join(", "), "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
+        return;
+      }
       sendHtml(res, 404, await render("404", { title: "Not found" }));
     } catch (err) {
       console.error(err);
@@ -66,4 +91,24 @@ export function createApp(options: AppOptions = {}): Server {
       }
     }
   });
+}
+
+type ViewRenderer = (view: string, data: Record<string, unknown>) => Promise<string>;
+
+// Turn a handler's RouteResult into the HTTP response. `null` = the handler took over `ctx.res`
+// itself (the void escape hatch). Author `headers` override the content-type default.
+async function sendResult(res: ServerResponse, result: RouteResult | null, renderView: ViewRenderer): Promise<void> {
+  if (result == null || res.writableEnded) return;
+  if ("redirect" in result) {
+    res.writeHead(result.status ?? 303, { location: result.redirect }).end();
+    return;
+  }
+  if ("json" in result) {
+    res.writeHead(result.status ?? 200, { "content-type": "application/json; charset=utf-8", ...result.headers });
+    res.end(JSON.stringify(result.json));
+    return;
+  }
+  const body = "html" in result ? result.html : await renderView(result.view, result.data ?? {});
+  res.writeHead(result.status ?? 200, { "content-type": "text/html; charset=utf-8", ...result.headers });
+  res.end(body); // Node suppresses the body for HEAD automatically
 }

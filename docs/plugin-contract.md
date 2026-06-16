@@ -13,11 +13,11 @@ manifest, a version mismatch, or a conflict stops startup with a clear message. 
 crash-isolation (one bad plugin can't take the host down) is a *non-goal* — diagnose at deploy
 time, not in production.
 
-> **Status.** This is the contract the §2 host implements. The types and the pure rules
-> (`checkApiVersion`, `findConflicts`, `isValidPluginId`) exist today in `src/plugin.ts`;
-> discovery, the router, the per-plugin view resolver, and static serving are the next §2 items
-> and wire this contract to the filesystem and HTTP. Behaviour described as the host's is the
-> target those items meet.
+> **Status.** This is the contract the §2 host implements. The types and pure rules
+> (`checkApiVersion`, `findConflicts`, `isValidPluginId`) live in `src/plugin.ts`; **discovery**
+> (`src/discovery.ts`) and the **router** (`src/router.ts` — method+path match, `:name` params,
+> permission gate, `RouteResult` → response) are wired. The **per-plugin view resolver** (core
+> partials in plugin views) and **static serving** are the next §2 items.
 
 ## Anatomy of a plugin
 

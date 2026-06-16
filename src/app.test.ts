@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { after, before, test } from "node:test";
+import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
 import { createApp } from "./app.ts";
+import type { Plugin } from "./plugin.ts";
 import { contentTypeFor, resolveStaticPath } from "./static.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
@@ -95,6 +96,61 @@ test("renders the 403 error page as HTML", async () => {
   const html = await ejs.renderFile(join(viewsDir, "403.ejs"), { title: "Forbidden" });
   assert.match(html, /403/);
   assert.match(html, /styles\.css/);
+});
+
+// A test plugin exercising each RouteResult shape, a path param, and the permission gate.
+const demoPlugin: Plugin = {
+  apiVersion: "1.0.0",
+  id: "demo",
+  routes: [
+    { handler: (ctx) => ({ html: `<p>Hi ${ctx.params.name}</p>` }), method: "GET", path: "/hello/:name" },
+    { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data" },
+    { handler: () => ({ redirect: "/demo/hello/world" }), method: "POST", path: "/go" },
+    { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", permission: "demo:read" },
+    { handler: () => ({ data: { who: "Plainpages" }, view: "page" }), method: "GET", path: "/page" },
+  ],
+};
+
+async function startApp(t: TestContext, plugins: Plugin[], pluginsDir?: string): Promise<string> {
+  const app = createApp(pluginsDir ? { plugins, pluginsDir } : { plugins });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  return `http://localhost:${(app.address() as AddressInfo).port}`;
+}
+
+test("mounts plugin routes: params, html/json/redirect/view results, and the permission gate", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
+  mkdirSync(join(dir, "demo", "views"), { recursive: true });
+  writeFileSync(join(dir, "demo", "views", "page.ejs"), "<h1>Hello <%= who %></h1>");
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const url = await startApp(t, [demoPlugin], dir);
+
+  // Path param + html
+  const hi = await fetch(url + "/demo/hello/world");
+  assert.equal(hi.status, 200);
+  assert.match(await hi.text(), /Hi world/);
+
+  // json
+  const data = await fetch(url + "/demo/data");
+  assert.match(data.headers.get("content-type") ?? "", /application\/json/);
+  assert.deepEqual(await data.json(), { ok: true });
+
+  // redirect (POST → 303 Location)
+  const go = await fetch(url + "/demo/go", { method: "POST", redirect: "manual" });
+  assert.equal(go.status, 303);
+  assert.equal(go.headers.get("location"), "/demo/hello/world");
+
+  // view rendered from the plugin's own views/
+  assert.match(await (await fetch(url + "/demo/page")).text(), /Hello Plainpages/);
+
+  // gated route with no session → 403
+  assert.equal((await fetch(url + "/demo/secret")).status, 403);
+
+  // known path + wrong method → 405 with Allow; unknown path → 404
+  const wrong = await fetch(url + "/demo/data", { method: "DELETE" });
+  assert.equal(wrong.status, 405);
+  assert.match(wrong.headers.get("allow") ?? "", /GET/);
+  assert.equal((await fetch(url + "/demo/nope")).status, 404);
 });
 
 test("rejects unsafe static request paths (encoded traversal, NUL) with 403", async () => {

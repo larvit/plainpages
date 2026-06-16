@@ -4,10 +4,10 @@ import { discoverPlugins } from "./discovery.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 
-const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin (router wiring is next §2)
+const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
 
-const server = createApp({ cache: config.cacheTemplates }).listen(config.port, () => {
+const server = createApp({ cache: config.cacheTemplates, plugins }).listen(config.port, () => {
   console.log(`Listening on http://localhost:${config.port}`);
 });
 

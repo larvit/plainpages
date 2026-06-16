@@ -183,8 +183,9 @@ function collectNavIds(nodes: NavNode[] | undefined, push: (id: string) => void)
   }
 }
 
-// A route's full path = the plugin's mount path `/<id>` + the route path.
-function fullPath(id: string, path: string): string {
+// A route's full path = the plugin's mount path `/<id>` + the route path. The single source of
+// truth for both conflict detection (here) and the §2 router, so they can't disagree.
+export function fullPath(id: string, path: string): string {
   return `/${id}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
