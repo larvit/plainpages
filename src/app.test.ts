@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import * as ejs from "ejs";
 import { createApp } from "./app.ts";
 import type { Plugin } from "./plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
@@ -51,7 +50,7 @@ test("renders branding from the menu config into the shell: logo + default theme
   assert.match(html, /id="theme-dark"\s+checked/); // config default theme reaches the switch
 });
 
-test("serves a static file: GET sends body + content-type, HEAD sends headers only", async () => {
+test("static serving: GET sends body + content-type, HEAD headers only, unsafe paths → 403", async () => {
   const get = await fetch(base + "/public/css/styles.css");
   assert.equal(get.status, 200);
   assert.match(get.headers.get("content-type") ?? "", /text\/css/);
@@ -60,6 +59,10 @@ test("serves a static file: GET sends body + content-type, HEAD sends headers on
   assert.equal(head.status, 200);
   assert.ok(Number(head.headers.get("content-length")) > 0);
   assert.equal((await head.text()).length, 0);
+
+  // Encoded traversal and a NUL byte are refused before touching the filesystem.
+  assert.equal((await fetch(base + "/public/..%2f..%2fapp.ts")).status, 403);
+  assert.equal((await fetch(base + "/public/%00")).status, 403);
 });
 
 // Production caches compiled templates; rendering must stay correct across repeated requests.
@@ -100,13 +103,6 @@ test("renders the 500 HTML page when a handler throws", async () => {
     app.close();
     rmSync(dir, { force: true, recursive: true });
   }
-});
-
-// 403 has no first-party route yet (guards land in §4), so assert the template renders.
-test("renders the 403 error page as HTML", async () => {
-  const html = await ejs.renderFile(join(viewsDir, "403.ejs"), { title: "Forbidden" });
-  assert.match(html, /403/);
-  assert.match(html, /styles\.css/);
 });
 
 // A test plugin exercising each RouteResult shape, a path param, and the permission gate.
@@ -166,8 +162,12 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.match(await css.text(), /\.demo/);
   assert.equal((await fetch(url + "/public/demo/..%2f..%2fplugin.ts")).status, 403); // traversal still blocked
 
-  // gated route with no session → 403
-  assert.equal((await fetch(url + "/demo/secret")).status, 403);
+  // gated route with no session → the rendered 403 page (covers the gate + 403.ejs over HTTP)
+  const denied = await fetch(url + "/demo/secret");
+  assert.equal(denied.status, 403);
+  const deniedBody = await denied.text();
+  assert.match(deniedBody, /403/);
+  assert.match(deniedBody, /styles\.css/);
 
   // known path + wrong method → 405 with Allow; unknown path → 404
   const wrong = await fetch(url + "/demo/data", { method: "DELETE" });
@@ -197,11 +197,6 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
   // A normal route runs the handler; onResponse observed its result.
   assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);
   assert.ok(seen.includes("/hooked/ok:handler ran"));
-});
-
-test("rejects unsafe static request paths (encoded traversal, NUL) with 403", async () => {
-  assert.equal((await fetch(base + "/public/..%2f..%2fapp.ts")).status, 403);
-  assert.equal((await fetch(base + "/public/%00")).status, 403);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

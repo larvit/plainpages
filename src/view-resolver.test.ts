@@ -8,16 +8,13 @@ import { renderPluginView, resolveViewPath } from "./view-resolver.ts";
 
 const coreViewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
 
-test("resolveViewPath resolves names + nested subfolders within the plugin's views dir", () => {
+test("resolveViewPath resolves names/nested subfolders within the views dir, rejects traversal + control chars", () => {
   const dir = "/srv/plugins";
   assert.equal(resolveViewPath(dir, "demo", "page"), "/srv/plugins/demo/views/page.ejs");
   assert.equal(resolveViewPath(dir, "demo", "shifts/edit"), "/srv/plugins/demo/views/shifts/edit.ejs");
   assert.equal(resolveViewPath(dir, "demo", "page.ejs"), "/srv/plugins/demo/views/page.ejs"); // extension not doubled
-});
-
-test("resolveViewPath rejects traversal and control chars", () => {
-  assert.equal(resolveViewPath("/srv/plugins", "demo", "../../secret"), null);
-  assert.equal(resolveViewPath("/srv/plugins", "demo", "a\x00b"), null);
+  assert.equal(resolveViewPath(dir, "demo", "../../secret"), null); // traversal escapes the dir
+  assert.equal(resolveViewPath(dir, "demo", "a\x00b"), null); // control char
 });
 
 test("renderPluginView: a (nested) view includes a core building-block partial and its own partial", async (t: TestContext) => {
