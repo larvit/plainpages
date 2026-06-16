@@ -249,9 +249,10 @@ but a bind mount matches the edit-and-reload loop. For a **baked** production im
 just keep the plugin in the build context and it's `COPY`'d in at build time — pinned
 and reproducible; mount a volume only to add plugins to an already-built image.
 
-> _(Planned, §2.)_ Discovery — scanning `plugins/`, importing each `plugin.ts`, and
-> validating it — is the next plugin-host work. The mount mechanics above are how the
-> files get into the container regardless of how discovery lands.
+> Discovery — scanning `plugins/`, importing each `plugin.ts` default export, and validating
+> it (id, `apiVersion`, conflicts) — runs at boot (`src/discovery.ts`); a bad plugin stops
+> startup with a precise message. _(Planned, §2:)_ the router that mounts the discovered routes
+> is next. The mount mechanics above are how the files get into the container either way.
 
 ## The menu system _(planned)_
 
@@ -429,7 +430,8 @@ src/icons.ts         Used-icon registry + sprite builder from lucide-static (reg
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
 src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
-src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules (discovery/router planned, §2)
+src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules (router planned, §2)
+src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot (§2)
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding                      (planned)
