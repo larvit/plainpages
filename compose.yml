@@ -31,5 +31,31 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Ory Kratos — identity & self-service auth. Config + identity schema in ory/kratos/.
+  # DSN is the per-service `kratos` DB (init.sql); supply POSTGRES_* via env in prod.
+  kratos-migrate:
+    image: oryd/kratos:v26.2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/kratos?sslmode=disable
+    volumes:
+      - ./ory/kratos:/etc/config/kratos:ro
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    restart: on-failure
+
+  kratos:
+    image: oryd/kratos:v26.2.0
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/kratos?sslmode=disable
+    volumes:
+      - ./ory/kratos:/etc/config/kratos:ro
+    command: serve -c /etc/config/kratos/kratos.yml
+    restart: unless-stopped
+
 volumes:
   pgdata:

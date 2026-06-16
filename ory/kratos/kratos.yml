@@ -1,0 +1,48 @@
+# Ory Kratos — identity & self-service auth. Bootable baseline (§3): identity
+# schema (email, name) + password login. DSN comes from the env (compose), so it
+# is absent here. Self-service UIs point at the web app's routes; theming those
+# pages, SSO, session tuning, and the JWT tokenizer land in later §3/§4 items.
+serve:
+  public:
+    base_url: http://127.0.0.1:4433/
+    cors:
+      enabled: false
+  admin:
+    base_url: http://kratos:4434/
+
+selfservice:
+  default_browser_return_url: http://127.0.0.1:3000/
+  allowed_return_urls:
+    - http://127.0.0.1:3000
+  methods:
+    password:
+      enabled: true
+  flows:
+    error:
+      ui_url: http://127.0.0.1:3000/error
+    login:
+      ui_url: http://127.0.0.1:3000/login
+    registration:
+      ui_url: http://127.0.0.1:3000/registration
+    settings:
+      ui_url: http://127.0.0.1:3000/settings
+    logout:
+      after:
+        default_browser_return_url: http://127.0.0.1:3000/login
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/identity.schema.json
+
+# Dev throwaways — production supplies real secrets via env (§3). cipher = 32 chars.
+secrets:
+  cookie:
+    - PLEASE-CHANGE-ME-dev-kratos-cookie-secret
+  cipher:
+    - 0123456789abcdef0123456789abcdef
+
+log:
+  level: info
+  format: text
