@@ -5,6 +5,7 @@ import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
+import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
 import { routePublic, serveStatic } from "./static.ts";
@@ -16,6 +17,7 @@ export interface AppOptions {
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  menu?: MenuConfig; // central override + branding (config/menu.ts); defaults to DEFAULT_MENU
   plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
   publicDir?: string;
@@ -24,6 +26,7 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
+  const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
@@ -69,8 +72,8 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // Mock data + no roles until auth (§4) lands.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(url) }));
+        // Mock data + no roles until auth (§4) lands; branding/override come from config/menu.ts.
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(url, [], menu) }));
         return;
       }
 

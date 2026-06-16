@@ -57,6 +57,18 @@ test("dashboard sorts by a column, reflects direction, and the header toggles", 
   assert.equal(col0(bad).sort, undefined);
 });
 
+test("dashboard applies the central menu config: branding + nav override (rename/hide)", () => {
+  const m = buildDashboardModel(new URL("http://x/"), [], {
+    branding: { name: "Acme Ops", sub: "Admin" },
+    override: { hide: ["teams"], rename: { people: "Staff" } },
+  });
+
+  assert.deepEqual(m.shell.brand, { name: "Acme Ops", sub: "Admin" });
+  const labels = m.nav.map((n) => n.label);
+  assert.ok(labels.includes("Staff")); // "People" renamed
+  assert.ok(!labels.includes("Teams")); // "Teams" hidden
+});
+
 test("dashboard paginates: page 2 slices the next rows and preserves state in links", () => {
   const p2 = buildDashboardModel(new URL("http://x/?sort=-name&page=2"));
   assert.equal(p2.pagination.summary.from, 13); // 30 rows / 12 per page → page 2 starts at 13

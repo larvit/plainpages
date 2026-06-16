@@ -258,21 +258,22 @@ and reproducible; mount a volume only to add plugins to an already-built image.
 > at `/public/<id>/` (`src/static.ts`). The mount mechanics above are how the files get into the
 > container either way.
 
-## The menu system _(planned)_
+## The menu system
 
 The menu is **driven entirely by config** and assembled from two sources:
 
 1. **Plugin fragments** — each plugin contributes its own `nav` (above).
-2. **A central override** — `config/menu.ts` — where the operator reorders,
-   renames, groups, or hides items, and sets branding (app name, logo, default
-   theme). The override always wins.
+2. **A central override** — `config/menu.ts` (loaded by `src/menu-config.ts`, validated at boot)
+   — where the operator reorders, renames, groups, or hides items (by node `id`), and sets
+   branding (app name, logo, default theme). The override always wins, applied before the
+   per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
 
 Every nav item may carry a `permission`; the rendered tree is **filtered per
 user** by reading the roles in the session JWT (no per-request authz call — see
 [Auth, sessions & permissions](#auth-sessions--permissions-planned)), so the menu
 only ever shows what that person can reach. The markup is the recursive, zero-JS
 nav tree from the design foundation (header/leaf × clickable/static, counts,
-arbitrary depth).
+arbitrary depth). _(Branding values are wired into the app shell — logo + default theme — next.)_
 
 ## Building blocks _(partly designed, planned to extract)_
 
@@ -438,9 +439,10 @@ src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + 
 src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot (§2)
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
+src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
-config/menu.ts       Central menu override + branding                      (planned)
+config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)

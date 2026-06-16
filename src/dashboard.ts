@@ -4,7 +4,8 @@
 // composeNav. The dataset stands in for upstream data until plugins/§4 land; everything below
 // is real, so the filter form, sortable headers and pager round-trip through the URL (zero-JS).
 
-import { composeNav, type NavNode } from "./nav.ts";
+import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
+import { composeNav, type NavNode, type NavOverride } from "./nav.ts";
 import { parseListQuery } from "./list-query.ts";
 import { paginate } from "./paginate.ts";
 
@@ -77,7 +78,7 @@ function href(state: State, overrides: Partial<State> = {}): string {
   return qs ? `?${qs}` : "?";
 }
 
-export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = []) {
+export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU) {
   const query = parseListQuery(url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const status = query.filters.status?.[0] ?? "all";
   const team = query.filters.team?.[0] ?? "";
@@ -102,10 +103,10 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
 
   return {
     filterBar: filterBar(state),
-    nav: nav(roles),
+    nav: nav(roles, menu.override),
     pagination: pagination(state, page),
     shell: {
-      brand: { name: "Plainpages", sub: "Console" },
+      brand: { name: menu.branding.name, ...(menu.branding.sub != null ? { sub: menu.branding.sub } : {}) },
       breadcrumbs: [{ href: "?", label: "Directory" }, { label: "People" }],
       title: "People",
       user: { email: "sam.rivers@example.com", initials: "SR", name: "Sam Rivers" }, // demo until §4
@@ -116,7 +117,7 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
 
 export type DashboardModel = ReturnType<typeof buildDashboardModel>;
 
-function nav(roles: string[]): NavNode[] {
+function nav(roles: string[], override: NavOverride): NavNode[] {
   return composeNav([[
     { count: PEOPLE.length, current: true, href: "/", icon: "i-users", id: "people", label: "People" },
     { href: "#teams", icon: "i-grid", id: "teams", label: "Teams" },
@@ -125,7 +126,7 @@ function nav(roles: string[]): NavNode[] {
       { href: "#exports", id: "exports", label: "Exports" },
     ], icon: "i-chart", id: "reports", label: "Reports", open: true },
     { href: "#settings", icon: "i-gear", id: "settings", label: "Settings", permission: "admin" },
-  ]], {}, roles);
+  ]], override, roles);
 }
 
 function table(rows: Person[], state: State, sort: { dir: "asc" | "desc"; field: string } | null) {

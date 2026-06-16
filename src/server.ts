@@ -1,13 +1,15 @@
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { discoverPlugins } from "./discovery.ts";
+import { loadMenuConfig } from "./menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
+const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
 
-const server = createApp({ cache: config.cacheTemplates, plugins }).listen(config.port, () => {
+const server = createApp({ cache: config.cacheTemplates, menu, plugins }).listen(config.port, () => {
   console.log(`Listening on http://localhost:${config.port}`);
 });
 

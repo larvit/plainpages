@@ -1,0 +1,23 @@
+// Central menu override + branding (todo §2). Brand the app and reorder/rename/group/hide nav
+// nodes (by their `id`) across all plugins — the override always wins, applied before the
+// per-user permission filter. Every field is optional; delete one to fall back to the default.
+// See src/menu-config.ts (types), src/nav.ts (NavOverride), docs/plugin-contract.md.
+
+import { defineMenu } from "../src/menu-config.ts";
+
+export default defineMenu({
+  branding: {
+    name: "Plainpages", // app name shown in the sidebar
+    sub: "Console", // optional subtitle under the name
+    // logo: "/public/logo.svg", // optional logo asset (rendered in the shell — next §2 item)
+    // theme: "auto",            // default color theme: auto | light | dark
+  },
+
+  // Operator override (rename → group → order → hide), keyed by node id.
+  override: {
+    // rename: { people: "Staff" },                                       // node id → new label
+    // groups: [{ id: "admin", label: "Admin", children: ["users", "roles"] }],
+    // order: ["people", "reports"],                                      // top-level order by id
+    // hide: ["teams"],                                                    // remove nodes (any depth)
+  },
+});

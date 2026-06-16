@@ -18,9 +18,10 @@ time, not in production.
 > (`src/discovery.ts`), the **router** (`src/router.ts` — method+path match, `:name` params,
 > permission gate, `RouteResult` → response), and the **per-plugin view resolver**
 > (`src/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
-> reachable via `include()`), and **per-plugin static serving** (`/public/<id>/` → the plugin's
-> `public/`, `routePublic` in `src/static.ts`) are wired. The central menu override + branding
-> (`config/menu.ts`) is the next §2 item.
+> reachable via `include()`), **per-plugin static serving** (`/public/<id>/` → the plugin's
+> `public/`, `routePublic` in `src/static.ts`), and the **central menu override + branding**
+> (`config/menu.ts`, loaded by `src/menu-config.ts`) are wired. Rendering branding (logo, default
+> theme) into the app shell is the next §2 item.
 
 ## Anatomy of a plugin
 
@@ -43,7 +44,7 @@ convention) its nav/permission tokens.
 
 Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
 Nothing else references it; the operator stays in control through the central menu override
-(`config/menu.ts`, §2).
+(`config/menu.ts`).
 
 ## The manifest
 
