@@ -31,6 +31,24 @@ export function resolveStaticPath(dir: string, requestedPath: string): string | 
   return rel.startsWith("..") || isAbsolute(rel) ? null : filePath;
 }
 
+export interface StaticRoute {
+  dir: string;
+  subPath: string;
+}
+
+// Route a `/public/<rest>` request to a base dir + sub-path: a leading segment naming a discovered
+// plugin serves from plugins/<id>/public/, anything else from the core public/. Plugin ids are
+// URL-safe (no %-encoding), so the raw segment compares directly to the id set; serveStatic decodes
+// and traversal-guards the sub-path as before.
+export function routePublic(restPath: string, publicDir: string, pluginsDir: string, pluginIds: Set<string>): StaticRoute {
+  const slash = restPath.indexOf("/");
+  const first = slash === -1 ? restPath : restPath.slice(0, slash);
+  if (pluginIds.has(first)) {
+    return { dir: join(pluginsDir, first, "public"), subPath: slash === -1 ? "" : restPath.slice(slash + 1) };
+  }
+  return { dir: publicDir, subPath: restPath };
+}
+
 function plain(res: ServerResponse, status: number, body: string): void {
   res.writeHead(status, { "content-type": "text/plain; charset=utf-8" }).end(body);
 }

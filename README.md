@@ -254,8 +254,9 @@ and reproducible; mount a volume only to add plugins to an already-built image.
 > startup with a precise message. The router (`src/router.ts`) then mounts each route at `/<id>`,
 > resolves `:name` params, runs the permission gate, and turns the handler's `RouteResult` into
 > the response; a `view` result renders `plugins/<id>/views/<view>.ejs` (`src/view-resolver.ts`),
-> which may `include()` the core building-block partials. _(Planned, §2:)_ per-plugin static
-> serving is next. The mount mechanics above are how the files get into the container either way.
+> which may `include()` the core building-block partials. A plugin's `public/` assets are served
+> at `/public/<id>/` (`src/static.ts`). The mount mechanics above are how the files get into the
+> container either way.
 
 ## The menu system _(planned)_
 
@@ -423,7 +424,7 @@ mid-response, so container restarts are clean.
 ```
 src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
 src/app.ts           Request routing + EJS rendering
-src/static.ts        Static file serving with path-traversal protection
+src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/context.ts       RequestContext handed to handlers + buildContext()

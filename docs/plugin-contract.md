@@ -18,7 +18,9 @@ time, not in production.
 > (`src/discovery.ts`), the **router** (`src/router.ts` — method+path match, `:name` params,
 > permission gate, `RouteResult` → response), and the **per-plugin view resolver**
 > (`src/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
-> reachable via `include()`) are wired. **Per-plugin static serving** is the next §2 item.
+> reachable via `include()`), and **per-plugin static serving** (`/public/<id>/` → the plugin's
+> `public/`, `routePublic` in `src/static.ts`) are wired. The central menu override + branding
+> (`config/menu.ts`) is the next §2 item.
 
 ## Anatomy of a plugin
 

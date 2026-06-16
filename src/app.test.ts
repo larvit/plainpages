@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
 import { createApp } from "./app.ts";
 import type { Plugin } from "./plugin.ts";
-import { contentTypeFor, resolveStaticPath } from "./static.ts";
+import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
 
@@ -121,8 +121,10 @@ async function startApp(t: TestContext, plugins: Plugin[], pluginsDir?: string):
 test("mounts plugin routes: params, html/json/redirect/view results, and the permission gate", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "demo", "views"), { recursive: true });
+  mkdirSync(join(dir, "demo", "public"), { recursive: true });
   // The view also include()s a core building-block partial, proving plugin views reuse them.
   writeFileSync(join(dir, "demo", "views", "page.ejs"), `<h1>Hello <%= who %></h1><%- include("partials/theme-switch") %>`);
+  writeFileSync(join(dir, "demo", "public", "app.css"), ".demo{color:red}");
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const url = await startApp(t, [demoPlugin], dir);
 
@@ -145,6 +147,13 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   const page = await (await fetch(url + "/demo/page")).text();
   assert.match(page, /Hello Plainpages/);
   assert.match(page, /role="radiogroup"/); // core partials/theme-switch resolved
+
+  // static asset served from the plugin's own public/ at /public/<id>/
+  const css = await fetch(url + "/public/demo/app.css");
+  assert.equal(css.status, 200);
+  assert.match(css.headers.get("content-type") ?? "", /text\/css/);
+  assert.match(await css.text(), /\.demo/);
+  assert.equal((await fetch(url + "/public/demo/..%2f..%2fplugin.ts")).status, 403); // traversal still blocked
 
   // gated route with no session → 403
   assert.equal((await fetch(url + "/demo/secret")).status, 403);
@@ -170,4 +179,12 @@ test("resolveStaticPath blocks traversal and control chars, allows nested files"
 test("contentTypeFor maps known and unknown extensions", () => {
   assert.match(contentTypeFor("a.css"), /text\/css/);
   assert.equal(contentTypeFor("a.bin"), "application/octet-stream");
+});
+
+test("routePublic sends a plugin-id segment to its public/ dir, everything else to core", () => {
+  const ids = new Set(["scheduling"]);
+  assert.deepEqual(routePublic("scheduling/app.css", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "app.css" });
+  assert.deepEqual(routePublic("scheduling/img/logo.svg", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "img/logo.svg" });
+  assert.deepEqual(routePublic("scheduling", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "" }); // bare /public/<id>, no file
+  assert.deepEqual(routePublic("css/styles.css", "/core", "/plugins", ids), { dir: "/core", subPath: "css/styles.css" }); // not a plugin → core
 });

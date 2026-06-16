@@ -7,7 +7,7 @@ import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
-import { serveStatic } from "./static.ts";
+import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "./view-resolver.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,6 +25,7 @@ export interface AppOptions {
 export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
   const plugins = options.plugins ?? [];
+  const pluginIds = new Set(plugins.map((p) => p.id));
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
@@ -48,7 +49,9 @@ export function createApp(options: AppOptions = {}): Server {
       const pathname = url.pathname;
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
-        await serveStatic(publicDir, pathname.slice("/public/".length), res, method === "HEAD");
+        // /public/<id>/… serves a plugin's public/; everything else the core public/.
+        const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
+        await serveStatic(dir, subPath, res, method === "HEAD");
         return;
       }
 
