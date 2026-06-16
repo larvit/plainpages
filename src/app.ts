@@ -8,6 +8,7 @@ import { PLUGINS_DIR } from "./discovery.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
 import { serveStatic } from "./static.ts";
+import { renderPluginView } from "./view-resolver.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,10 +32,9 @@ export function createApp(options: AppOptions = {}): Server {
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
     ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache });
 
-  // A `view` RouteResult resolves against the plugin's own views/ (the richer per-plugin
-  // resolver — core-partial includes, subfolders — is the next §2 item).
-  const renderPluginView = (plugin: Plugin) => (view: string, data: Record<string, unknown>): Promise<string> =>
-    ejs.renderFile(join(pluginsDir, plugin.id, "views", `${view}.ejs`), data, { cache });
+  // A `view` RouteResult renders plugins/<id>/views/<view>.ejs; such views may include() the core
+  // building-block partials (resolved from viewsDir) and their own partials/subfolders.
+  const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -61,7 +61,7 @@ export function createApp(options: AppOptions = {}): Server {
           return;
         }
         const result = await match.route.handler(ctx);
-        await sendResult(res, result ?? null, renderPluginView(match.plugin));
+        await sendResult(res, result ?? null, (view, data) => renderView(match.plugin.id, view, data));
         return;
       }
 

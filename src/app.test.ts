@@ -121,7 +121,8 @@ async function startApp(t: TestContext, plugins: Plugin[], pluginsDir?: string):
 test("mounts plugin routes: params, html/json/redirect/view results, and the permission gate", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "demo", "views"), { recursive: true });
-  writeFileSync(join(dir, "demo", "views", "page.ejs"), "<h1>Hello <%= who %></h1>");
+  // The view also include()s a core building-block partial, proving plugin views reuse them.
+  writeFileSync(join(dir, "demo", "views", "page.ejs"), `<h1>Hello <%= who %></h1><%- include("partials/theme-switch") %>`);
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const url = await startApp(t, [demoPlugin], dir);
 
@@ -140,8 +141,10 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal(go.status, 303);
   assert.equal(go.headers.get("location"), "/demo/hello/world");
 
-  // view rendered from the plugin's own views/
-  assert.match(await (await fetch(url + "/demo/page")).text(), /Hello Plainpages/);
+  // view rendered from the plugin's own views/, including a core partial
+  const page = await (await fetch(url + "/demo/page")).text();
+  assert.match(page, /Hello Plainpages/);
+  assert.match(page, /role="radiogroup"/); // core partials/theme-switch resolved
 
   // gated route with no session → 403
   assert.equal((await fetch(url + "/demo/secret")).status, 403);

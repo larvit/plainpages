@@ -15,9 +15,10 @@ time, not in production.
 
 > **Status.** This is the contract the §2 host implements. The types and pure rules
 > (`checkApiVersion`, `findConflicts`, `isValidPluginId`) live in `src/plugin.ts`; **discovery**
-> (`src/discovery.ts`) and the **router** (`src/router.ts` — method+path match, `:name` params,
-> permission gate, `RouteResult` → response) are wired. The **per-plugin view resolver** (core
-> partials in plugin views) and **static serving** are the next §2 items.
+> (`src/discovery.ts`), the **router** (`src/router.ts` — method+path match, `:name` params,
+> permission gate, `RouteResult` → response), and the **per-plugin view resolver**
+> (`src/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
+> reachable via `include()`) are wired. **Per-plugin static serving** is the next §2 item.
 
 ## Anatomy of a plugin
 
@@ -121,9 +122,10 @@ export async function listShifts(ctx: RequestContext) {
 }
 ```
 
-- **`view`** resolves against the plugin's own `views/` (the per-plugin view resolver, §2). The
-  template may `include()` the core building-block partials (app shell, nav tree, data table, …)
-  to render a full page — exactly as the built-in screens do.
+- **`view`** resolves against the plugin's own `views/` (`src/view-resolver.ts`) — nested names
+  like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
+  the core building-block partials (app shell, nav tree, data table, …) and its own
+  partials/subfolders to render a full page — exactly as the built-in screens do.
 - The handler **fetches its own data** from upstream and renders it; plugins hold no state
   (see the README's *Stateless* section). The partials only need rows.
 - `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.
