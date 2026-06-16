@@ -134,6 +134,21 @@ export async function listShifts(ctx: RequestContext) {
   (see the README's *Stateless* section). The partials only need rows.
 - `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.
 
+### Escaping & the trust boundary
+
+The host does not sandbox plugin output (crash-isolation is a non-goal), so a handler **owns the
+safety of the data it renders**:
+
+- **Raw HTML is raw.** An `{ html }` result and the `*.html` partial fields (`cell.html`,
+  `error.html`, a menu `trigger.html`) are emitted **unescaped** — that's their purpose (slot
+  composition). Escape any untrusted content yourself before putting it there.
+- **Text is auto-escaped; URLs are not scheme-checked.** Partials escape text fields (labels,
+  names), so those are injection-safe. But a URL field — nav `href`, a table cell link, a menu
+  item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
+  `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
+  control, restrict it to a relative (`/`, `?`, `#`) or `http(s):` URL before handing it to a
+  partial. (A shared `safeUrl()` helper lands with the data-driven plugins in §4.)
+
 ## RequestContext
 
 Every handler receives one argument, the `RequestContext` (`src/context.ts`), built once per
@@ -223,9 +238,14 @@ Optional, for reacting to system actions. A plugin's `hooks` may implement:
 | `onRequest(ctx)` | before route matching | inspect, or **short-circuit** by returning a `RouteResult` |
 | `onResponse(ctx, result)` | after the handler | observe/log; cannot change the response |
 
-Hooks run with no sandbox — a throwing hook fails loud (boot for `onBoot`, the request for the
-others). Keep them cheap; `onRequest` is on the hot path. This surface is intentionally small and
-may grow additively within the major version.
+Hooks run in **discovery order** (plugins sorted by id). `onRequest` fires on every request that
+reaches routing (static assets bypass it); the **first** hook to return a `RouteResult` wins and
+short-circuits — later `onRequest` hooks and the route handler are skipped, and that result renders
+against its own plugin's views. `onResponse` runs for a matched route after its handler, with the
+handler's result; its return value is ignored. Hooks run with no sandbox — a throwing hook fails
+loud (boot for `onBoot`, the request for the others). Keep them cheap; `onRequest` is on the hot
+path (the host skips the pipeline entirely when no plugin declares a hook). This surface is
+intentionally small and may grow additively within the major version.
 
 ## Local dev & test story
 

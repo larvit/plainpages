@@ -29,7 +29,7 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
   const plugins: Plugin[] = [];
 
   for (const id of pluginFolders(dir)) {
-    const fail = (msg: string): number => errors.push(`plugins/${id}: ${msg}`);
+    const fail = (msg: string): void => void errors.push(`plugins/${id}: ${msg}`);
 
     if (!isValidPluginId(id)) {
       errors.push(`"${id}" is not a valid plugin folder name (lowercase a–z, digits, dashes)`);

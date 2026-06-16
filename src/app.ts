@@ -5,6 +5,7 @@ import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
+import { runRequestHooks, runResponseHooks } from "./hooks.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -29,6 +30,9 @@ export function createApp(options: AppOptions = {}): Server {
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
+  // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
+  const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
+  const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
@@ -48,8 +52,8 @@ export function createApp(options: AppOptions = {}): Server {
   return createServer(async (req, res) => {
     try {
       const method = req.method ?? "GET";
-      const { url } = buildContext(req, res);
-      const pathname = url.pathname;
+      const ctx = buildContext(req, res); // base context (no route params yet); reused for onRequest
+      const pathname = ctx.url.pathname;
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.
@@ -58,22 +62,32 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
+      // Plugin onRequest hooks run before routing and may short-circuit the request.
+      if (anyRequestHooks) {
+        const short = await runRequestHooks(plugins, ctx);
+        if (short) {
+          await sendResult(res, short.result, (view, data) => renderView(short.plugin.id, view, data));
+          return;
+        }
+      }
+
       // Plugin routes (any method): gate on the route's permission, then run the handler.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const ctx = buildContext(req, res, { params: match.params });
-        if (!isAuthorized(match.route, ctx.roles)) {
+        const routeCtx = buildContext(req, res, { params: match.params });
+        if (!isAuthorized(match.route, routeCtx.roles)) {
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
-        const result = await match.route.handler(ctx);
-        await sendResult(res, result ?? null, (view, data) => renderView(match.plugin.id, view, data));
+        const result = (await match.route.handler(routeCtx)) ?? null;
+        if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
+        await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
         return;
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
         // Mock data + no roles until auth (§4) lands; branding/override come from config/menu.ts.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(url, [], menu) }));
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, [], menu) }));
         return;
       }
 

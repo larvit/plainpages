@@ -176,6 +176,29 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal((await fetch(url + "/demo/nope")).status, 404);
 });
 
+test("plugin hooks: onRequest can short-circuit a request and onResponse observes the handler result", async (t) => {
+  const seen: string[] = [];
+  const hooked: Plugin = {
+    apiVersion: "1.0.0",
+    hooks: {
+      onRequest: (c) => (c.url.pathname === "/hooked/blocked" ? { html: "blocked by hook", status: 403 } : undefined),
+      onResponse: (c, r) => void seen.push(`${c.url.pathname}:${r && "html" in r ? r.html : "?"}`),
+    },
+    id: "hooked",
+    routes: [{ handler: () => ({ html: "handler ran" }), method: "GET", path: "/ok" }],
+  };
+  const url = await startApp(t, [hooked]);
+
+  // onRequest short-circuits before routing — handler never runs.
+  const blocked = await fetch(url + "/hooked/blocked");
+  assert.equal(blocked.status, 403);
+  assert.match(await blocked.text(), /blocked by hook/);
+
+  // A normal route runs the handler; onResponse observed its result.
+  assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);
+  assert.ok(seen.includes("/hooked/ok:handler ran"));
+});
+
 test("rejects unsafe static request paths (encoded traversal, NUL) with 403", async () => {
   assert.equal((await fetch(base + "/public/..%2f..%2fapp.ts")).status, 403);
   assert.equal((await fetch(base + "/public/%00")).status, 403);
