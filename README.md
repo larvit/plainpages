@@ -151,6 +151,26 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `JWKS_URL` | Kratos tokenizer JWKS | verifies the session JWT (§4) |
 | `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
+### What you must supply (the only manual prep)
+
+A clean clone needs **none** of the above — `docker compose up` brings up the whole
+stack with dev-throwaway secrets, an auto-generated signing key, and a seeded admin
+(see [Development](#development)). Exactly **two** things can't be auto-generated, and
+**both are production-only** — neither blocks a clean clone:
+
+1. **Production secrets** — replace the committed dev throwaways: `COOKIE_SECRET` and
+   `CSRF_SECRET` (env), plus the **JWT signing key** (mount a real `jwks.json` or set
+   `…_JWKS_URL` — see [JWT signing key & rotation](#jwt-signing-key--rotation)). Set
+   `REQUIRE_SECURE_SECRETS=true` and the app refuses to boot until the two secrets are
+   supplied and differ from the throwaways.
+2. **SSO provider client id/secret** — **optional**; password login works without them.
+   Supplying a provider's creds via env activates it; no creds ⇒ no SSO button (see
+   [Social sign-in (SSO)](#social-sign-in-sso)).
+
+Everything else is generated or seeded on first boot — Ory migrations, the dev signing
+key, the demo admin identity and its Keto roles, the Keto OPL model — so there is nothing
+else to hand-configure.
+
 ### Social sign-in (SSO)
 
 Off by default — a clean clone is password-only. Kratos activates a provider purely
@@ -458,6 +478,10 @@ docker compose -f compose.yml up --build -d   # base config only, no source moun
 ```
 
 _(Production compose grows to include the Ory services and Postgres — planned.)_
+
+Before going live, supply the production secrets and any SSO credentials — the **only**
+manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)); the rest
+is auto-generated.
 
 The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting them
 mid-response, so container restarts are clean.
