@@ -54,7 +54,7 @@ services:
       DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/kratos?sslmode=disable
     volumes:
       - ./ory/kratos:/etc/config/kratos:ro
-    command: serve -c /etc/config/kratos/kratos.yml
+    command: serve -c /etc/config/kratos/kratos.yml --watch-courier
     restart: unless-stopped
 
 volumes:

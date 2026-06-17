@@ -45,3 +45,26 @@ test("kratos config wires the identity schema", () => {
   assert.match(kratosYml, /default_schema_id:\s*default/);
   assert.match(kratosYml, /identity\.schema\.json/);
 });
+
+// The five self-service flows return the browser to our own themed routes (§4 renders them).
+const FLOW_PAGES = ["login", "registration", "recovery", "verification", "settings"];
+
+test("self-service flows return to our themed pages", () => {
+  for (const flow of FLOW_PAGES)
+    assert.match(kratosYml, new RegExp(`ui_url:\\s*http://127\\.0\\.0\\.1:3000/${flow}\\b`),
+      `${flow} flow points at our /${flow} page`);
+});
+
+test("recovery + verification run on email code, delivered by a courier", () => {
+  assert.ok((kratosYml.match(/use:\s*code/g) ?? []).length >= 2,
+    "recovery + verification both use the email-code method");
+  assert.match(kratosYml, /connection_uri:\s*smtp:\/\/mailpit:1025/, "courier sends via the dev mail catcher");
+  assert.match(compose, /--watch-courier/, "kratos dispatches queued mail (else codes never send)");
+});
+
+test("compose pins the dev mail catcher to an exact version", () => {
+  const tag = read("compose.override.yml").match(/image:\s*axllent\/mailpit:(\S+)/)?.[1];
+  assert.ok(tag, "compose.override.yml pins a mailpit image");
+  assert.match(tag, /^v\d+\.\d+\.\d+$/, `${tag} is an exact version`);
+  assert.doesNotMatch(tag, /latest|edge|[\^~*]/, `${tag} is exact, not floating`);
+});

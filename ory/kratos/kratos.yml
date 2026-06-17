@@ -1,7 +1,8 @@
-# Ory Kratos — identity & self-service auth. Bootable baseline (§3): identity
-# schema (email, name) + password login. DSN comes from the env (compose), so it
-# is absent here. Self-service UIs point at the web app's routes; theming those
-# pages, SSO, session tuning, and the JWT tokenizer land in later §3/§4 items.
+# Ory Kratos — identity & self-service auth. Identity schema (email, name) +
+# password login; recovery & verification run on email codes. Every self-service
+# flow returns the browser to our own themed routes (§4 renders the fields). DSN +
+# prod courier/secrets come from the env. SSO, session tuning, and the JWT
+# tokenizer land in later §3/§4 items.
 serve:
   public:
     base_url: http://127.0.0.1:4433/
@@ -17,6 +18,8 @@ selfservice:
   methods:
     password:
       enabled: true
+    code: # email one-time code — powers recovery + verification (not login)
+      enabled: true
   flows:
     error:
       ui_url: http://127.0.0.1:3000/error
@@ -24,11 +27,35 @@ selfservice:
       ui_url: http://127.0.0.1:3000/login
     registration:
       ui_url: http://127.0.0.1:3000/registration
+      after:
+        password:
+          hooks:
+            - hook: session # log in immediately after sign-up
+            - hook: show_verification_ui
     settings:
       ui_url: http://127.0.0.1:3000/settings
+      privileged_session_max_age: 15m
+      required_aal: highest_available
+    recovery:
+      enabled: true
+      use: code
+      ui_url: http://127.0.0.1:3000/recovery
+    verification:
+      enabled: true
+      use: code
+      ui_url: http://127.0.0.1:3000/verification
+      after:
+        default_browser_return_url: http://127.0.0.1:3000/
     logout:
       after:
         default_browser_return_url: http://127.0.0.1:3000/login
+
+# Dev mail catcher (compose.override.yml). Prod overrides via COURIER_SMTP_CONNECTION_URI.
+courier:
+  smtp:
+    connection_uri: smtp://mailpit:1025/?disable_starttls=true
+    from_address: no-reply@plainpages.local
+    from_name: Plainpages
 
 identity:
   default_schema_id: default
