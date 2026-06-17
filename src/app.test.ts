@@ -213,6 +213,7 @@ const loginFlow = (id: string): Flow => ({
       node({ name: "identifier", required: true, type: "email" }, "E-Mail"),
       node({ name: "password", required: true, type: "password" }, "Password"),
       node({ name: "method", type: "submit", value: "password" }, "Sign in"),
+      { attributes: { name: "provider", type: "submit", value: "google" }, group: "oidc", messages: [], meta: { label: { id: 1, text: "Sign in with Google", type: "info" } }, type: "input" },
     ],
   },
 });
@@ -256,6 +257,9 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
   assert.match(html, /name="password"[^>]*type="password"/);
   assert.match(html, /<button type="submit"[^>]*name="method" value="password">Sign in<\/button>/);
   assert.match(html, /<a href="\/registration">Create one<\/a>/); // alt link to register
+  // Configured OIDC provider → an SSO submit button in the same form (posts provider=google).
+  assert.match(html, /<div class="sso"/);
+  assert.match(html, /<button type="submit" class="sso-btn" name="provider" value="google">.*Sign in with Google<\/span><\/button>/s);
   // The flow-level error renders as an alert.
   assert.match(html, /class="alert alert-neg"/);
   assert.match(html, /The provided credentials are invalid\./);

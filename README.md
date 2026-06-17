@@ -177,10 +177,12 @@ Off by default — a clean clone is password-only. Kratos activates a provider p
 from the environment (no code, no rebuild): set `SELFSERVICE_METHODS_OIDC_ENABLED=true`
 and `SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS` to a JSON array of providers (`google`,
 `microsoft`, …), each carrying its `client_id`/`client_secret` and referencing the
-committed claims mapper `ory/kratos/oidc/claims.jsonnet`. No creds ⇒ no provider ⇒ no
-SSO button (§4 derives the buttons from this list). Open-source Kratos has **no native
-SAML** — front it with an OIDC bridge (Ory Polis) and register that bridge as a generic
-OIDC provider the same way.
+committed claims mapper `ory/kratos/oidc/claims.jsonnet`. The themed sign-in/register
+pages derive one button per provider from the live flow's `oidc` nodes, so no creds ⇒ no
+provider ⇒ no button, and the whole SSO section disappears when none are configured — no
+code change to add or remove one. Open-source Kratos has **no native SAML** — front it
+with an OIDC bridge (Ory Polis) and register that bridge as a generic OIDC provider the
+same way.
 
 ### JWT signing key & rotation
 

@@ -14,6 +14,7 @@ test("auth-card renders head, SSO providers (text logo + icon link), body slot a
     sso: { providers: [
       { label: "Continue with Google", logo: "G" },
       { label: "Continue with SAML SSO", icon: "i-shield", href: "/sso/saml" },
+      { label: "Sign in with Microsoft", logo: "M", name: "provider", value: "microsoft" },
     ] },
     body: '<div id="fields">FORM</div><button class="btn btn-primary btn-block">Sign in</button>',
     alt: { text: "Don't have an account?", href: "/register", label: "Create one" },
@@ -25,6 +26,8 @@ test("auth-card renders head, SSO providers (text logo + icon link), body slot a
   assert.match(html, /<div class="sso" aria-label="Single sign-on options"><ul class="sso-list">/);
   assert.match(html, /<li><button type="button" class="sso-btn"><span class="sso-logo" aria-hidden="true">G<\/span><span class="sso-label">Continue with Google<\/span><\/button><\/li>/);
   assert.match(html, /<li><a class="sso-btn" href="\/sso\/saml"><span class="sso-logo" aria-hidden="true"><svg class="ico ico-sm"><use href="#i-shield"\s*\/?><\/svg><\/span><span class="sso-label">Continue with SAML SSO<\/span><\/a><\/li>/);
+  // A provider with name/value submits to the form (Kratos OIDC) — type="submit", not a decorative button.
+  assert.match(html, /<li><button type="submit" class="sso-btn" name="provider" value="microsoft"><span class="sso-logo" aria-hidden="true">M<\/span><span class="sso-label">Sign in with Microsoft<\/span><\/button><\/li>/);
   assert.match(html, /<\/ul><div class="auth-divider">or<\/div><\/div>/);
 
   // Body slot lands inside .auth-form; alt footer renders text + link.

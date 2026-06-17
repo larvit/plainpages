@@ -43,6 +43,9 @@ test("maps a password login flow: csrf hidden, themed email/password fields, a s
   // One submit button carrying its method name/value.
   assert.deepEqual(view.buttons, [{ label: "Sign in", name: "method", value: "password" }]);
 
+  // No OIDC providers configured ⇒ no SSO buttons.
+  assert.deepEqual(view.sso, []);
+
   // Chrome derived from the flow type.
   assert.equal(view.title, "Sign in");
   assert.equal(view.alt?.href, "/registration");
@@ -72,15 +75,22 @@ test("maps field errors and flow-level messages by tone", () => {
   ]);
 });
 
-test("skips oidc (SSO) nodes but keeps the default-group csrf — SSO buttons are a later item", () => {
+test("collects oidc nodes as SSO providers (text logo = initial), keeping csrf and the password submit separate", () => {
   const view = buildFlowView(
     flow([
       node({ name: "csrf_token", type: "hidden", value: "tok" }),
       node({ name: "provider", type: "submit", value: "google" }, { label: "Sign in with Google", group: "oidc" }),
+      node({ name: "provider", type: "submit", value: "microsoft" }, { label: "Sign in with Microsoft", group: "oidc" }),
       node({ name: "method", type: "submit", value: "password" }, { label: "Sign in", group: "password" }),
     ]),
     "login",
   );
+  // One provider button per oidc node — a submit (name/value) posting to the same Kratos form.
+  assert.deepEqual(view.sso, [
+    { label: "Sign in with Google", logo: "G", name: "provider", value: "google" },
+    { label: "Sign in with Microsoft", logo: "M", name: "provider", value: "microsoft" },
+  ]);
+  // SSO nodes don't leak into hidden/buttons.
   assert.deepEqual(view.hidden, [{ name: "csrf_token", value: "tok" }]);
   assert.deepEqual(view.buttons, [{ label: "Sign in", name: "method", value: "password" }]);
 });

@@ -1,8 +1,8 @@
 // Kratos flow → themed view model (todo §4). Pure: turns a fetched self-service Flow
 // (src/kratos-public.ts) into the data views/auth.ejs renders — hidden inputs (incl. the
-// CSRF token), themed fields, submit buttons, and tone-mapped messages. The form posts
-// straight back to `flow.ui.action`, so Kratos owns its CSRF; we only render and map errors.
-// SSO/oidc buttons are skipped here — they're derived per provider in the next §4 item.
+// CSRF token), themed fields, submit buttons, tone-mapped messages, and one SSO button per
+// configured `oidc` provider. The form posts straight back to `flow.ui.action`, so Kratos
+// owns its CSRF; we only render and map errors. No providers configured ⇒ no SSO buttons.
 
 import type { Flow, FlowType, UiNode } from "./kratos-public.ts";
 
@@ -24,6 +24,14 @@ export interface FlowButton {
   value?: string;
 }
 
+// An OIDC provider, rendered as a submit button (name/value) posting to the same Kratos form.
+export interface SsoProvider {
+  label: string; // Kratos' own label, e.g. "Sign in with Google"
+  logo: string; // text logo (provider initial) — lucide ships no brand marks
+  name: string; // submit field (Kratos: "provider")
+  value: string; // provider id (Kratos: "google")
+}
+
 export interface FlowMessage {
   text: string;
   tone: "info" | "neg" | "pos" | "warn";
@@ -43,6 +51,7 @@ export interface FlowView extends FlowChrome {
   hidden: { name: string; value: string }[];
   messages: FlowMessage[];
   method: string;
+  sso: SsoProvider[]; // one per configured oidc provider; empty ⇒ no SSO section
 }
 
 // Themed route → Kratos flow type. The routes mirror kratos.yml's flow ui_urls.
@@ -79,6 +88,8 @@ function tone(type: string): FlowMessage["tone"] {
   return "info";
 }
 
+const ssoLogo = (value: string): string => (value.charAt(0) || "?").toUpperCase();
+
 function toField(node: UiNode, name: string, type: string): FlowField {
   const value = str(node.attributes["value"]);
   const autocomplete = str(node.attributes["autocomplete"]);
@@ -101,12 +112,19 @@ export function buildFlowView(flow: Flow, type: FlowType): FlowView {
   const hidden: { name: string; value: string }[] = [];
   const fields: FlowField[] = [];
   const buttons: FlowButton[] = [];
+  const sso: SsoProvider[] = [];
 
   for (const node of flow.ui.nodes) {
-    if (node.type !== "input" || node.group === "oidc") continue; // SSO buttons: next §4 item
+    if (node.type !== "input") continue;
     const name = str(node.attributes["name"]) ?? "";
     const inputType = str(node.attributes["type"]) ?? "text";
-    if (inputType === "hidden") {
+    if (node.group === "oidc") {
+      // One submit button per configured provider; posts provider=<value> to the same form.
+      if (inputType === "submit" || inputType === "button") {
+        const value = str(node.attributes["value"]) ?? "";
+        sso.push({ label: node.meta.label?.text ?? value, logo: ssoLogo(value), name, value });
+      }
+    } else if (inputType === "hidden") {
       hidden.push({ name, value: str(node.attributes["value"]) ?? "" });
     } else if (inputType === "submit" || inputType === "button") {
       const value = str(node.attributes["value"]);
@@ -123,6 +141,7 @@ export function buildFlowView(flow: Flow, type: FlowType): FlowView {
     hidden,
     messages: (flow.ui.messages ?? []).map((m) => ({ text: m.text, tone: tone(m.type) })),
     method: flow.ui.method || "post",
+    sso,
     ...CHROME[type],
   };
 }

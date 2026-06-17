@@ -49,9 +49,8 @@ body:has(#forgot:target) #login { display: none; }
 }
 .auth-back:hover { color: var(--text); }
 
-/* ---- SSO section (toggle on/off via #sso-toggle) ---- */
+/* ---- SSO section (rendered server-side only when providers are configured) ---- */
 .sso { display: flex; flex-direction: column; gap: 10px; }
-body:not(:has(#sso-toggle:checked)) .sso { display: none; }
 
 .sso-list { display: flex; flex-direction: column; gap: 8px; }
 .sso-btn {
