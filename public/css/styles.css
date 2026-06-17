@@ -592,6 +592,20 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .badge.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-bd); }
 .badge.info { color: var(--info); background: var(--info-bg); border-color: var(--info-bd); }
 
+/* alert / notice banner (tone tokens) — auth flows + admin screens */
+.alert {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px; border-radius: var(--radius);
+  border: 1px solid var(--border); font-size: var(--fz-sm);
+}
+.alert > .ico { flex: 0 0 auto; margin-top: 1px; }
+.alert-body { display: flex; flex-direction: column; gap: 2px; }
+.alert-body strong { font-weight: 600; }
+.alert.alert-pos  { color: var(--pos);  background: var(--pos-bg);  border-color: var(--pos-bd); }
+.alert.alert-neg  { color: var(--neg);  background: var(--neg-bg);  border-color: var(--neg-bd); }
+.alert.alert-warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-bd); }
+.alert.alert-info { color: var(--info); background: var(--info-bg); border-color: var(--info-bd); }
+
 /* row kebab */
 .col-actions { width: 44px; text-align: center; }
 .kebab summary { width: 26px; height: 26px; border-radius: var(--radius);

@@ -1,0 +1,8 @@
+<%#
+  Inline alert / notice banner (design-system tone tokens). Config:
+    text, tone? ∈ pos|neg|info|warn (default info), title?
+%><%
+  const tone = locals.tone || "info";
+  const icon = tone === "pos" ? "i-check-circle" : "i-alert";
+-%>
+<div class="alert alert-<%= tone %>" role="<%= tone === "neg" ? "alert" : "status" %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#<%= icon %>"/></svg><div class="alert-body"><% if (locals.title) { %><strong><%= locals.title %></strong><% } %><span><%= locals.text %></span></div></div>

@@ -1,0 +1,39 @@
+<%#
+  Themed Kratos self-service page (todo §4): sign-in / register / reset / verify / settings.
+  Renders a FlowView (src/flow-view.ts) into the html-css-foundation auth layout, reusing the
+  auth-card + field partials. The form posts straight to flow.ui.action — Kratos owns its CSRF.
+  Auto theme follows the OS (styles.css), so no theme switch is shown here.
+%><%
+  const brand = locals.brand || "Plainpages";
+  const body = include("partials/flow-body", { flow });
+%><!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= flow.title %></title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+    <link rel="stylesheet" href="/public/css/auth.css" />
+    <link rel="icon" href="/public/favicon.svg" />
+  </head>
+  <body>
+    <%- include("partials/icons") %>
+    <main class="auth-stage">
+      <div class="auth">
+        <div class="auth-brand">
+          <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span>
+          <span class="brand-name"><%= brand %></span>
+        </div>
+        <%- include("partials/auth-card", {
+          action: flow.action,
+          alt: flow.alt,
+          back: flow.back,
+          body,
+          method: flow.method,
+          sub: flow.sub,
+          title: flow.title,
+        }) %>
+      </div>
+    </main>
+  </body>
+</html>

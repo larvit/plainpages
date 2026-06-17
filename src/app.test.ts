@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
+import { KratosError, type Flow, type FlowType, type KratosPublic, type UiNode } from "./kratos-public.ts";
 import type { Plugin } from "./plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
@@ -197,6 +198,67 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
   // A normal route runs the handler; onResponse observed its result.
   assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);
   assert.ok(seen.includes("/hooked/ok:handler ran"));
+});
+
+// A re-rendered login flow: csrf hidden, themed fields, a submit, and a failed-attempt message.
+const node = (attrs: Record<string, unknown>, label?: string): UiNode => ({ attributes: attrs, group: "default", messages: [], meta: label ? { label: { id: 1, text: label, type: "info" } } : {}, type: "input" });
+const loginFlow = (id: string): Flow => ({
+  id,
+  ui: {
+    action: `http://127.0.0.1:4433/self-service/login?flow=${id}`,
+    messages: [{ id: 4000006, text: "The provided credentials are invalid.", type: "error" }],
+    method: "post",
+    nodes: [
+      node({ name: "csrf_token", type: "hidden", value: "tok" }),
+      node({ name: "identifier", required: true, type: "email" }, "E-Mail"),
+      node({ name: "password", required: true, type: "password" }, "Password"),
+      node({ name: "method", type: "submit", value: "password" }, "Sign in"),
+    ],
+  },
+});
+
+function mockKratos(getFlow: KratosPublic["getFlow"]): KratosPublic {
+  return {
+    getFlow,
+    initBrowserFlow: async (_t: FlowType) => ({ flow: { id: "new1", ui: { action: "", method: "post", nodes: [] } }, setCookie: ["csrf_token=abc; Path=/; HttpOnly"] }),
+    submitFlow: async () => { throw new Error("unused"); },
+    whoami: async () => null,
+  };
+}
+
+test("themed flow init: no ?flow= initialises one, relays Kratos' CSRF cookie, and an expired flow restarts", async (t) => {
+  const app = createApp({ kratos: mockKratos(async (_t, id) => { if (id === "stale") throw new KratosError("gone", 410, ""); return loginFlow(id); }) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const init = await fetch(url + "/login", { redirect: "manual" });
+  assert.equal(init.status, 303);
+  assert.equal(init.headers.get("location"), "/login?flow=new1");
+  assert.match(init.headers.get("set-cookie") ?? "", /csrf_token=abc/);
+
+  // A stale flow id (Kratos 410) bounces back to a fresh init.
+  const stale = await fetch(url + "/login?flow=stale", { redirect: "manual" });
+  assert.equal(stale.status, 303);
+  assert.equal(stale.headers.get("location"), "/login");
+});
+
+test("renders a fetched flow as the themed auth page: fields post straight to Kratos, errors surface", async (t) => {
+  const app = createApp({ kratos: mockKratos(async (_t, id) => loginFlow(id)) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const html = await (await fetch(`http://localhost:${(app.address() as AddressInfo).port}/login?flow=f1`)).text();
+
+  // The form posts to flow.ui.action (Kratos owns CSRF); csrf rides as a hidden input.
+  assert.match(html, /<form class="auth-card" method="post" action="http:\/\/127\.0\.0\.1:4433\/self-service\/login\?flow=f1"/);
+  assert.match(html, /<input type="hidden" name="csrf_token" value="tok">/);
+  assert.match(html, /name="identifier"/);
+  assert.match(html, /name="password"[^>]*type="password"/);
+  assert.match(html, /<button type="submit"[^>]*name="method" value="password">Sign in<\/button>/);
+  assert.match(html, /<a href="\/registration">Create one<\/a>/); // alt link to register
+  // The flow-level error renders as an alert.
+  assert.match(html, /class="alert alert-neg"/);
+  assert.match(html, /The provided credentials are invalid\./);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

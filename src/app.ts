@@ -5,7 +5,9 @@ import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
+import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
+import { KratosError, type KratosPublic } from "./kratos-public.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -18,6 +20,7 @@ export interface AppOptions {
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
   menu?: MenuConfig; // central override + branding (config/menu.ts); defaults to DEFAULT_MENU
   plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
@@ -27,6 +30,7 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
+  const kratos = options.kratos;
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
@@ -82,6 +86,29 @@ export function createApp(options: AppOptions = {}): Server {
         const result = (await match.route.handler(routeCtx)) ?? null;
         if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
         await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
+        return;
+      }
+
+      // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
+      const flowType = AUTH_FLOWS[pathname];
+      if (kratos && flowType && (method === "GET" || method === "HEAD")) {
+        const cookie = req.headers.cookie;
+        const flowId = ctx.url.searchParams.get("flow");
+        if (!flowId) {
+          // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
+          const { flow, setCookie } = await kratos.initBrowserFlow(flowType, cookie ? { cookie } : {});
+          res.writeHead(303, { location: `${pathname}?flow=${flow.id}`, ...(setCookie.length ? { "set-cookie": setCookie } : {}) }).end();
+          return;
+        }
+        try {
+          const flow = await kratos.getFlow(flowType, flowId, cookie ? { cookie } : {});
+          sendHtml(res, 200, await render("auth", { brand: menu.branding.name, flow: buildFlowView(flow, flowType) }));
+        } catch (err) {
+          // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
+          if (err instanceof KratosError && [403, 404, 410].includes(err.status)) {
+            res.writeHead(303, { location: pathname }).end();
+          } else throw err;
+        }
         return;
       }
 

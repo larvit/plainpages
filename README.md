@@ -493,12 +493,13 @@ mid-response, so container restarts are clean.
 
 ```
 src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
-src/app.ts           Request routing + EJS rendering
+src/app.ts           Request routing + EJS rendering (incl. the themed Kratos self-service routes, §4)
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_admin update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
+src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
@@ -514,7 +515,7 @@ src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each pl
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates (index = the app-shell People dashboard, auth = themed Kratos self-service page, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, alert, flow body, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs) + storage init (postgres/init/init.sql: one DB per service)

@@ -1,0 +1,128 @@
+// Kratos flow → themed view model (todo §4). Pure: turns a fetched self-service Flow
+// (src/kratos-public.ts) into the data views/auth.ejs renders — hidden inputs (incl. the
+// CSRF token), themed fields, submit buttons, and tone-mapped messages. The form posts
+// straight back to `flow.ui.action`, so Kratos owns its CSRF; we only render and map errors.
+// SSO/oidc buttons are skipped here — they're derived per provider in the next §4 item.
+
+import type { Flow, FlowType, UiNode } from "./kratos-public.ts";
+
+export interface FlowField {
+  autocomplete?: string;
+  error?: { text: string };
+  icon?: string; // Lucide sprite id for the input
+  id: string;
+  label: string;
+  name: string;
+  required?: boolean;
+  type: string;
+  value?: string;
+}
+
+export interface FlowButton {
+  label: string;
+  name?: string;
+  value?: string;
+}
+
+export interface FlowMessage {
+  text: string;
+  tone: "info" | "neg" | "pos" | "warn";
+}
+
+interface FlowChrome {
+  alt?: { href: string; label: string; text: string };
+  back?: { href: string; label: string };
+  sub?: string;
+  title: string;
+}
+
+export interface FlowView extends FlowChrome {
+  action: string;
+  buttons: FlowButton[];
+  fields: FlowField[];
+  hidden: { name: string; value: string }[];
+  messages: FlowMessage[];
+  method: string;
+}
+
+// Themed route → Kratos flow type. The routes mirror kratos.yml's flow ui_urls.
+export const AUTH_FLOWS: Record<string, FlowType> = {
+  "/login": "login",
+  "/recovery": "recovery",
+  "/registration": "registration",
+  "/settings": "settings",
+  "/verification": "verification",
+};
+
+const CHROME: Record<FlowType, FlowChrome> = {
+  login: { alt: { href: "/registration", label: "Create one", text: "Don't have an account?" }, sub: "Welcome back. Enter your details to continue.", title: "Sign in" },
+  recovery: { alt: { href: "/login", label: "Sign in", text: "Remembered it?" }, back: { href: "/login", label: "Back to sign in" }, sub: "Enter your email and we'll send you a recovery code.", title: "Reset password" },
+  registration: { alt: { href: "/login", label: "Sign in", text: "Already have an account?" }, sub: "Get started — it only takes a minute.", title: "Create account" },
+  settings: { sub: "Update your account details.", title: "Account settings" },
+  verification: { back: { href: "/login", label: "Back to sign in" }, sub: "Enter the code we sent you.", title: "Verify your email" },
+};
+
+const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+
+// Themed input icon by field semantics; undefined ⇒ no icon.
+function iconFor(name: string, type: string): string | undefined {
+  if (type === "email" || name === "identifier" || name.endsWith(".email")) return "i-mail";
+  if (type === "password") return "i-lock";
+  if (name.includes("name")) return "i-user";
+  if (name === "code") return "i-shield";
+  return undefined;
+}
+
+function tone(type: string): FlowMessage["tone"] {
+  if (type === "error") return "neg";
+  if (type === "success") return "pos";
+  return "info";
+}
+
+function toField(node: UiNode, name: string, type: string): FlowField {
+  const value = str(node.attributes["value"]);
+  const autocomplete = str(node.attributes["autocomplete"]);
+  const icon = iconFor(name, type);
+  const errorMsg = node.messages.find((m) => m.type === "error");
+  return {
+    id: "field-" + name.replace(/[^a-z0-9]+/gi, "-"),
+    label: node.meta.label?.text ?? name,
+    name,
+    type,
+    ...(autocomplete ? { autocomplete } : {}),
+    ...(errorMsg ? { error: { text: errorMsg.text } } : {}),
+    ...(icon ? { icon } : {}),
+    ...(node.attributes["required"] === true ? { required: true } : {}),
+    ...(value ? { value } : {}),
+  };
+}
+
+export function buildFlowView(flow: Flow, type: FlowType): FlowView {
+  const hidden: { name: string; value: string }[] = [];
+  const fields: FlowField[] = [];
+  const buttons: FlowButton[] = [];
+
+  for (const node of flow.ui.nodes) {
+    if (node.type !== "input" || node.group === "oidc") continue; // SSO buttons: next §4 item
+    const name = str(node.attributes["name"]) ?? "";
+    const inputType = str(node.attributes["type"]) ?? "text";
+    if (inputType === "hidden") {
+      hidden.push({ name, value: str(node.attributes["value"]) ?? "" });
+    } else if (inputType === "submit" || inputType === "button") {
+      const value = str(node.attributes["value"]);
+      buttons.push({ label: node.meta.label?.text ?? "Continue", ...(name ? { name } : {}), ...(value != null ? { value } : {}) });
+    } else {
+      fields.push(toField(node, name, inputType));
+    }
+  }
+
+  return {
+    action: flow.ui.action,
+    buttons,
+    fields,
+    hidden,
+    messages: (flow.ui.messages ?? []).map((m) => ({ text: m.text, tone: tone(m.type) })),
+    method: flow.ui.method || "post",
+    ...CHROME[type],
+  };
+}
