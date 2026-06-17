@@ -37,7 +37,7 @@ export interface Flow {
 export interface Session {
   active?: boolean;
   expires_at?: string;
-  identity?: { id: string; metadata_admin?: unknown; traits?: Record<string, unknown> };
+  identity?: { id: string; metadata_public?: unknown; traits?: Record<string, unknown> }; // whoami strips metadata_admin
   tokenized?: string; // the signed JWT — present only when `tokenize_as` was requested
 }
 

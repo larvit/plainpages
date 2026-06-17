@@ -407,10 +407,12 @@ session cookie.
 (e.g. `role:admin#members@user:alice`); the admin screens write them *only* to Keto.
 But the tokenizer's claims mapper can read only the **identity**, not call Keto — so at
 login the app reads the roles from Keto and refreshes a **derived projection**: a
-read-only copy written onto the identity's `metadata_admin` for the tokenizer to see,
-which the template maps into the JWT `roles` claim. That projection is a per-login
-cache, authoritative nowhere; nothing edits it by hand, and a stale one self-heals on
-the next login.
+read-only copy written onto the identity's `metadata_public` for the tokenizer to see,
+which the template maps into the JWT `roles` claim. (It must be `metadata_public`, not
+`metadata_admin`: the session Kratos hands the tokenizer carries only *public* metadata —
+and the user can already read these coarse roles in their own JWT, so nothing is leaked.)
+That projection is a per-login cache, authoritative nowhere; nothing edits it by hand, and
+a stale one self-heals on the next login.
 
 Cost: **one Keto read + one identity refresh per login** — never per request. JWKS
 is cached, so even signature verification hits the network only on key rotation. The
@@ -499,9 +501,10 @@ src/app.ts           Request routing + EJS rendering (incl. the themed Kratos se
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, whoami, session→JWT tokenize (§4)
-src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_admin update (login role projection, §4)
+src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
+src/login.ts         completeLogin(): /auth/complete login completion — roles from Keto → metadata_public projection → tokenize → session JWT cookie (§4)
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)

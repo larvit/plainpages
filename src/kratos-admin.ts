@@ -1,5 +1,5 @@
 // Kratos admin-API client (todo §4): typed `fetch` wrappers over Ory Kratos' admin
-// endpoints — identity CRUD and the surgical `metadata_admin` update login completion
+// endpoints — identity CRUD and the surgical `metadata_public` update login completion
 // projects Keto roles into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable like kratos-public.ts. Reuses that module's `KratosError` so a
 // caller can branch on `.status`. Admin endpoints listen on the internal-only admin port.
@@ -32,7 +32,7 @@ export interface KratosAdmin {
   getIdentity(id: string): Promise<Identity | null>;
   listIdentities(opts?: ListOptions): Promise<IdentityList>;
   updateIdentity(id: string, payload: unknown): Promise<Identity>;
-  updateMetadataAdmin(id: string, metadata: unknown): Promise<Identity>;
+  updateMetadataPublic(id: string, metadata: unknown): Promise<Identity>;
 }
 
 // Kratos paginates with a Link header; pull the page_token of rel="next" (the href is a
@@ -88,12 +88,13 @@ export function createKratosAdmin(config: { baseUrl: string; fetchImpl?: typeof 
       return (await res.json()) as Identity;
     },
 
-    // JSON Patch `add` sets metadata_admin whether it's currently absent, null, or set, and
+    // JSON Patch `add` sets metadata_public whether it's currently absent, null, or set, and
     // touches nothing else — so the login role projection never clobbers traits/state.
-    async updateMetadataAdmin(id, metadata) {
-      const patch = [{ op: "add", path: "/metadata_admin", value: metadata }];
+    // (metadata_public, not _admin: the session the tokenizer sees carries only public metadata.)
+    async updateMetadataPublic(id, metadata) {
+      const patch = [{ op: "add", path: "/metadata_public", value: metadata }];
       const res = await http(identity(id), { body: JSON.stringify(patch), headers: json, method: "PATCH" });
-      if (res.status !== 200) return fail("update metadata_admin", res);
+      if (res.status !== 200) return fail("update metadata_public", res);
       return (await res.json()) as Identity;
     },
   };

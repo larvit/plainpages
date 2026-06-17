@@ -6,7 +6,9 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
-import { KratosError, type Flow, type FlowType, type KratosPublic, type UiNode } from "./kratos-public.ts";
+import type { KetoClient } from "./keto-client.ts";
+import type { Identity, KratosAdmin } from "./kratos-admin.ts";
+import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "./kratos-public.ts";
 import type { Plugin } from "./plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
@@ -263,6 +265,55 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
   // The flow-level error renders as an alert.
   assert.match(html, /class="alert alert-neg"/);
   assert.match(html, /The provided credentials are invalid\./);
+});
+
+// Login completion (§4): /auth/complete is where Kratos lands the browser after login.
+const stubAdmin = (over: Partial<KratosAdmin>): KratosAdmin => ({
+  createIdentity: async () => { throw new Error("unused"); },
+  deleteIdentity: async () => {},
+  getIdentity: async () => null,
+  listIdentities: async () => ({ identities: [], nextPageToken: null }),
+  updateIdentity: async () => { throw new Error("unused"); },
+  updateMetadataPublic: async () => ({ id: "x" }),
+  ...over,
+});
+const stubKeto = (over: Partial<KetoClient>): KetoClient => ({
+  check: async () => false,
+  deleteTuple: async () => {},
+  expand: async () => ({ type: "leaf" }),
+  listRelations: async () => ({ nextPageToken: null, tuples: [] }),
+  writeTuple: async () => {},
+  ...over,
+});
+const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
+
+test("login completion: mints the session JWT (roles from Keto → projection → tokenize) and sets the cookie", async (t) => {
+  const identity: Identity = { id: "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55", traits: { email: "admin@plainpages.local" } };
+  let projected: unknown;
+  const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
+  const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
+  const keto = stubKeto({ listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
+
+  const app = createApp({ keto, kratos, kratosAdmin });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { headers: { cookie: "plainpages_session=s" }, redirect: "manual" });
+
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "/");
+  assert.match(res.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
+  assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
+});
+
+test("login completion with no Kratos session redirects to /login and sets no cookie", async (t) => {
+  const app = createApp({ keto: stubKeto({}), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { redirect: "manual" });
+
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "/login");
+  assert.equal(res.headers.get("set-cookie"), null);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

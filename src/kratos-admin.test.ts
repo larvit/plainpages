@@ -1,5 +1,5 @@
 // Kratos admin-API client (§4): typed fetch wrappers over Ory Kratos' admin endpoints —
-// identity CRUD + the surgical metadata_admin update the login flow projects roles into.
+// identity CRUD + the surgical metadata_public update the login flow projects roles into.
 // Guards the request contracts (URLs, method, JSON-Patch body, query/pagination) and the
 // result mapping (201/200/404/4xx). Live wiring is verified by login completion (§4).
 import { test } from "node:test";
@@ -89,14 +89,14 @@ test("updateIdentity PUTs the full body to /admin/identities/<id> and returns th
   assert.equal(calls[0]!.body, JSON.stringify(body));
 });
 
-test("updateMetadataAdmin PATCHes a JSON-Patch `add /metadata_admin` so it never clobbers traits", async () => {
-  const identity = { id: ID, metadata_admin: { roles: ["admin"] } };
+test("updateMetadataPublic PATCHes a JSON-Patch `add /metadata_public` so it never clobbers traits", async () => {
+  const identity = { id: ID, metadata_public: { roles: ["admin"] } };
   const { calls, fetchImpl } = recorder(() => res(200, identity));
-  const out = await createKratosAdmin({ baseUrl: BASE, fetchImpl }).updateMetadataAdmin(ID, { roles: ["admin"] });
+  const out = await createKratosAdmin({ baseUrl: BASE, fetchImpl }).updateMetadataPublic(ID, { roles: ["admin"] });
   assert.deepEqual(out, identity);
   assert.equal(calls[0]!.method, "PATCH");
   assert.match(calls[0]!.url, new RegExp(`/admin/identities/${ID}$`));
-  assert.deepEqual(JSON.parse(calls[0]!.body!), [{ op: "add", path: "/metadata_admin", value: { roles: ["admin"] } }]);
+  assert.deepEqual(JSON.parse(calls[0]!.body!), [{ op: "add", path: "/metadata_public", value: { roles: ["admin"] } }]);
 });
 
 test("deleteIdentity DELETEs by id (204 resolves; non-204 throws a KratosError)", async () => {

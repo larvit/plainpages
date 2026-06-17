@@ -7,7 +7,10 @@ import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
+import type { KetoClient } from "./keto-client.ts";
+import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
+import { completeLogin, sessionCookie } from "./login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -20,7 +23,9 @@ export interface AppOptions {
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
+  kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion (§4)
   menu?: MenuConfig; // central override + branding (config/menu.ts); defaults to DEFAULT_MENU
   plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
@@ -30,7 +35,9 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
+  const keto = options.keto;
   const kratos = options.kratos;
+  const kratosAdmin = options.kratosAdmin;
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
@@ -109,6 +116,20 @@ export function createApp(options: AppOptions = {}): Server {
             res.writeHead(303, { location: pathname }).end();
           } else throw err;
         }
+        return;
+      }
+
+      // Login completion: where Kratos lands the browser after authenticating (kratos.yml).
+      // Mint our session JWT — read roles from Keto, project onto the identity, tokenize —
+      // and store it as the cookie; no active session bounces back to sign in (§4).
+      if (pathname === "/auth/complete" && method === "GET" && kratos && kratosAdmin && keto) {
+        const completed = await completeLogin({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie);
+        if (!completed) {
+          res.writeHead(303, { location: "/login" }).end();
+          return;
+        }
+        // secure: off in dev http; the §9 cookie hardening toggles it on for prod.
+        res.writeHead(303, { location: "/", "set-cookie": sessionCookie(completed.jwt) }).end();
         return;
       }
 
