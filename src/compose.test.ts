@@ -1,8 +1,9 @@
-// Guards the dev/prod compose split + stack ordering (§3): long-running Ory services
-// carry readiness healthchecks so `depends_on: service_healthy` works, the web app waits
-// for the services it talks to (kratos + keto, per config.ts), prod publishes no internal
-// Ory ports while dev exposes the ones a browser must reach, and the visual E2E stays
-// Ory-free. Real boot is verified by running the stack; this catches edits.
+// Guards the dev/prod compose split + stack ordering (§3): every image is pinned to an
+// exact version (AGENTS.md), long-running Ory services carry readiness healthchecks so
+// `depends_on: service_healthy` works, the web app waits for the services it talks to
+// (kratos + keto, per config.ts), prod publishes no internal Ory ports while dev exposes
+// the ones a browser must reach, and the visual E2E stays Ory-free. Real boot is verified
+// by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,6 +15,24 @@ const e2e = read("compose.e2e.yml");
 
 // compose.yml lists web first, postgres second — slice the web service block.
 const webBlock = compose.slice(compose.indexOf("\n  web:"), compose.indexOf("\n  postgres:"));
+
+test("every image is pinned to an exact version, never a floating tag", () => {
+  // One scan over all compose files (postgres, the three Ory pairs, mailpit); web/e2e build.
+  const images = [...[compose, override, e2e].join("\n").matchAll(/image:\s*(\S+)/g)].map((m) => m[1]!);
+  assert.ok(images.length >= 8, "scans the pinned images");
+  for (const img of images) {
+    assert.match(img.split(":").at(-1)!, /^v?\d+\.\d+/, `${img} pins a version-like tag`);
+    assert.doesNotMatch(img, /latest|edge|[\^~*]/, `${img} is exact, not floating`);
+  }
+});
+
+test("each Ory service and its migrate sidecar share one pinned version", () => {
+  for (const svc of ["hydra", "keto", "kratos"]) {
+    const tags = [...compose.matchAll(new RegExp(`image:\\s*oryd/${svc}:(\\S+)`, "g"))].map((m) => m[1]);
+    assert.equal(tags.length, 2, `${svc} + ${svc}-migrate both present`);
+    assert.equal(tags[0], tags[1], `${svc} server + migrate pinned to the same version`);
+  }
+});
 
 test("long-running Ory services declare readiness healthchecks", () => {
   for (const [svc, port] of [["kratos", 4433], ["keto", 4466], ["hydra", 4444]] as const)

@@ -1,8 +1,7 @@
-// Guards the Ory Keto config (§3): image pinned to an exact version (AGENTS.md),
-// migrations run before the server (keto-migrate → keto), the DSN targets the keto
-// database, read/write APIs serve on the ports config.ts points at, and the OPL
-// declares the role/group/resource namespaces. Real boot is verified by running the
-// stack; this catches edits.
+// Guards the Ory Keto config (§3): migrations run before the server (keto-migrate →
+// keto), the DSN targets the keto database, read/write APIs serve on the ports config.ts
+// points at, and the OPL declares the role/group/resource namespaces. Version pinning is
+// in compose.test.ts. Real boot is verified by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -11,15 +10,6 @@ const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "u
 const compose = read("compose.yml");
 const ketoYml = read("ory/keto/keto.yml");
 const opl = read("ory/keto/namespaces.keto.ts");
-
-test("compose pins both keto services to one exact version", () => {
-  const tags = [...compose.matchAll(/image:\s*oryd\/keto:(\S+)/g)].map((m) => m[1]);
-  assert.equal(tags.length, 2, "keto + keto-migrate both present");
-  assert.equal(tags[0], tags[1], "both pinned to the same version");
-  const tag = tags[0]!;
-  assert.match(tag, /^v\d+\.\d+\.\d+$/, `${tag} is an exact vMAJOR.MINOR.PATCH`);
-  assert.doesNotMatch(tag, /latest|[\^~*]/, `${tag} is exact, not floating`);
-});
 
 test("keto migrations run once before the server starts", () => {
   assert.match(compose, /migrate\s+up\s+-y/, "keto-migrate runs migrations");

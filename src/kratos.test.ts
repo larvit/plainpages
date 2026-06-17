@@ -1,7 +1,7 @@
-// Guards the Ory Kratos config (§3): image pinned to an exact version (AGENTS.md),
-// migrations run before the server (kratos-migrate → kratos), the DSN targets the
-// kratos database, and the identity schema carries email (password identifier) +
-// name traits. Real boot is verified by running the stack; this catches edits.
+// Guards the Ory Kratos config (§3): migrations run before the server (kratos-migrate →
+// kratos), the DSN targets the kratos database, and the identity schema carries email
+// (password identifier) + name traits. Version pinning is in compose.test.ts. Real boot
+// is verified by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,15 +10,6 @@ const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "u
 const compose = read("compose.yml");
 const kratosYml = read("ory/kratos/kratos.yml");
 const schema = JSON.parse(read("ory/kratos/identity.schema.json"));
-
-test("compose pins both kratos services to one exact version", () => {
-  const tags = [...compose.matchAll(/image:\s*oryd\/kratos:(\S+)/g)].map((m) => m[1]);
-  assert.equal(tags.length, 2, "kratos + kratos-migrate both present");
-  assert.equal(tags[0], tags[1], "both pinned to the same version");
-  const tag = tags[0]!;
-  assert.match(tag, /^v\d+\.\d+\.\d+$/, `${tag} is an exact vMAJOR.MINOR.PATCH`);
-  assert.doesNotMatch(tag, /latest|[\^~*]/, `${tag} is exact, not floating`);
-});
 
 test("migrations run once before the server starts", () => {
   assert.match(compose, /migrate sql -e --yes/, "kratos-migrate runs SQL migrations");
@@ -97,11 +88,4 @@ test("the committed OIDC claims mapper maps email + name", () => {
   assert.match(mapper, /email:\s*claims\.email/, "provider email → email trait");
   assert.match(mapper, /given_name/, "given name → name.first");
   assert.match(mapper, /family_name/, "family name → name.last");
-});
-
-test("compose pins the dev mail catcher to an exact version", () => {
-  const tag = read("compose.override.yml").match(/image:\s*axllent\/mailpit:(\S+)/)?.[1];
-  assert.ok(tag, "compose.override.yml pins a mailpit image");
-  assert.match(tag, /^v\d+\.\d+\.\d+$/, `${tag} is an exact version`);
-  assert.doesNotMatch(tag, /latest|edge|[\^~*]/, `${tag} is exact, not floating`);
 });
