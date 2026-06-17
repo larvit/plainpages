@@ -498,6 +498,7 @@ src/static.ts        Static file serving (path-traversal protection) + routePubl
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_admin update (login role projection, §4)
+src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
