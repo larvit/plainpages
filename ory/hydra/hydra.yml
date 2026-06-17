@@ -1,0 +1,28 @@
+# Ory Hydra — OAuth2/OIDC provider, so other apps can authenticate *through*
+# plainpages (README: "OAuth2 provider"). The web app implements Hydra's login &
+# consent steps at the URLs below, authenticating the user via their Kratos session;
+# Hydra mints the tokens. DSN comes from the env (the per-service hydra DB). Only
+# relevant when external apps log in through us — nothing first-party needs it (§6).
+serve:
+  public:
+    port: 4444
+  admin:
+    port: 4445
+
+# issuer = the public OAuth2 URL clients use; login/consent/logout hand the browser to
+# our themed handlers (§6). Dev defaults (http) — prod overrides issuer via env (https).
+urls:
+  self:
+    issuer: http://127.0.0.1:4444/
+  login: http://127.0.0.1:3000/oauth2/login
+  consent: http://127.0.0.1:3000/oauth2/consent
+  logout: http://127.0.0.1:3000/oauth2/logout
+
+# Dev throwaway — production supplies a real system secret via env (SECRETS_SYSTEM).
+secrets:
+  system:
+    - PLEASE-CHANGE-ME-dev-hydra-system-secret
+
+log:
+  level: info
+  format: text

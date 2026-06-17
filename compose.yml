@@ -83,5 +83,34 @@ services:
     command: serve -c /etc/config/keto/keto.yml
     restart: unless-stopped
 
+  # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
+  # DSN is the per-service `hydra` DB (init.sql). Issuer + login/consent/logout run at
+  # our app routes (ory/hydra/hydra.yml); the handlers that drive them are §6. Dev
+  # permits the http issuer via --dev (compose.override.yml); prod supplies an https
+  # issuer via env (URLS_SELF_ISSUER).
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/hydra?sslmode=disable
+    volumes:
+      - ./ory/hydra:/etc/config/hydra:ro
+    command: -c /etc/config/hydra/hydra.yml migrate sql -e --yes
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v26.2.0
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/hydra?sslmode=disable
+    volumes:
+      - ./ory/hydra:/etc/config/hydra:ro
+    command: serve all -c /etc/config/hydra/hydra.yml
+    restart: unless-stopped
+
 volumes:
   pgdata:

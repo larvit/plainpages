@@ -18,3 +18,10 @@ services:
     ports:
       - "8025:8025"
     restart: unless-stopped
+
+  # Ory Hydra dev: --dev permits the http issuer/redirect URLs; expose the public port
+  # so OAuth2 flows reach the host. Prod (§3 dev/prod split) drops --dev for https.
+  hydra:
+    command: serve all --dev -c /etc/config/hydra/hydra.yml
+    ports:
+      - "4444:4444"

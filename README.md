@@ -51,7 +51,8 @@ only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 > filters, pagination, forms — extracted from `html-css-foundation/`), the **plugin host**
 > (discovery, router, per-plugin views + static, the `config/menu.ts` override + branding), and the
 > **Ory stack** wiring — Postgres, Kratos (+ session→JWT tokenizer) and Keto (authorization, OPL
-> namespaces). Hydra and the **auth** wiring that consumes these are the roadmap; sections marked
+> namespaces) and Hydra (OAuth2 provider: issuer + login/consent URLs). The **auth** wiring that
+> consumes these — and Hydra's login/consent handlers — are the roadmap; sections marked
 > _(planned)_ are not built yet.
 
 ## The MVP — "clone, one command, hack on a plugin" _(planned)_
@@ -475,7 +476,7 @@ src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
-ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource) + storage init (postgres/init/init.sql: one DB per service)
+ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
