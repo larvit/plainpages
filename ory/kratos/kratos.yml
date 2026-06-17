@@ -1,8 +1,8 @@
 # Ory Kratos — identity & self-service auth. Identity schema (email, name) +
 # password login; recovery & verification run on email codes. Every self-service
-# flow returns the browser to our own themed routes (§4 renders the fields). DSN +
-# prod courier/secrets come from the env. The session→JWT tokenizer is wired below;
-# its JWKS signing key is generated/mounted by the next §3 item.
+# flow returns to our own themed routes (§4 renders the fields). DSN + prod
+# courier/secrets come from the env. Session→JWT tokenizer wired below (signing
+# key in tokenizer/jwks.json).
 serve:
   public:
     base_url: http://127.0.0.1:4433/
@@ -20,11 +20,9 @@ selfservice:
       enabled: true
     code: # email one-time code — powers recovery + verification (not login)
       enabled: true
-    # Social sign-in (Google, Microsoft, or SAML via an OIDC bridge like Ory Polis —
-    # OSS Kratos has no native SAML). OFF by default → a clean clone is password-only.
-    # Activate WITHOUT code changes by supplying env (the whole-array form is the only
-    # env-settable one Kratos offers); providers reference the committed claims mapper,
-    # and §4 derives the buttons from this list:
+    # Social sign-in, OFF by default → clean clone is password-only. Activate via env only
+    # (no code; the whole-array form is the only env-settable one Kratos offers); §4 derives
+    # the buttons from this list. SAML isn't in OSS Kratos — bridge it as OIDC (README).
     #   SELFSERVICE_METHODS_OIDC_ENABLED=true
     #   SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS=[{"id":"google","provider":"google",
     #     "client_id":"…","client_secret":"…","scope":["openid","email","profile"],
@@ -90,7 +88,7 @@ session:
   # Session→JWT tokenizer (§4): whoami(tokenize_as: plainpages) mints a short-lived,
   # locally-verifiable JWT so the hot path never calls Ory. Claims come from the
   # committed Jsonnet mapper (sub = identity id, email from traits, roles from the
-  # metadata_admin projection); signed with the JWKS the next §3 item generates/mounts.
+  # metadata_admin projection); signed with tokenizer/jwks.json.
   whoami:
     tokenizer:
       templates:

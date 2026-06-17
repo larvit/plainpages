@@ -68,10 +68,9 @@ export function loadConfig(env: Env = process.env): Config {
     cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
     cookieSecret: readSecret(env, "COOKIE_SECRET", "dev-insecure-cookie-secret", requireSecure),
     csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
-    // The session JWT is signed by the Kratos tokenizer key (kratos.yml jwks_url); the §4
-    // verifier reads that same key. Kratos does not republish it over HTTP, so default to a
-    // file:// of the tokenizer JWKS mounted into the web container (compose.yml) — not a
-    // well-known endpoint. Prod overrides with a real key (README: JWT signing key & rotation).
+    // §4 verifier reads the same key the Kratos tokenizer signs with (kratos.yml jwks_url).
+    // Kratos doesn't republish it over HTTP, so default to a file:// of the tokenizer JWKS
+    // mounted into web (compose.yml). Prod overrides with a real key (README: rotation).
     jwksUrl: readUrl(env, "JWKS_URL", "file:///etc/config/kratos/tokenizer/jwks.json"),
     ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),

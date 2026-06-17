@@ -1,11 +1,9 @@
-// One-command bootstrap (todo §3, the MVP bar). Runs as the one-shot `bootstrap` compose
-// service after kratos+keto are healthy; `web` waits for it to finish. Idempotent — safe
-// to re-run on every `docker compose up`:
+// One-command bootstrap (todo §3, the MVP bar). One-shot compose service: runs after
+// kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
-//   2. seed a demo admin identity (admin@plainpages.local / admin) in Kratos;
+//   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
 //   3. grant it the `admin` role in Keto so menu/permission checks resolve out of the box.
-// On finish it prints a first-run banner (login URL + creds + change-before-prod warning).
-// Fails loud on any unexpected upstream error.
+// Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";

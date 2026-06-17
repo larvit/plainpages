@@ -10,9 +10,8 @@ services:
     environment:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
-    # Wait for the identity/permission services the app talks to (config.ts: kratos + keto)
-    # and for the one-shot bootstrap to seed the admin + JWKS. Hydra is post-MVP (§6) and
-    # absent from config.ts, so web doesn't gate on it.
+    # Wait for the services config.ts talks to (kratos + keto) + the one-shot bootstrap
+    # (admin + JWKS seed). Hydra is post-MVP (§6), not in config.ts, so web skips it.
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -20,8 +19,8 @@ services:
         condition: service_healthy
       keto:
         condition: service_healthy
-    # Read the session-JWT verify key from the same tokenizer JWKS Kratos signs with
-    # (config.ts JWKS_URL default; §4 verifier). Read-only — bootstrap is the only writer.
+    # §4 verifier reads the same tokenizer JWKS Kratos signs with (config.ts JWKS_URL).
+    # Read-only — bootstrap is the only writer.
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer:ro
     restart: unless-stopped
@@ -45,8 +44,8 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # Ory Kratos — identity & self-service auth. Config + identity schema in ory/kratos/.
-  # DSN is the per-service `kratos` DB (init.sql); supply POSTGRES_* via env in prod.
+  # Ory Kratos — identity & self-service auth. Config + schema in ory/kratos/; DSN is
+  # its own `kratos` DB (init.sql), POSTGRES_* via env in prod.
   kratos-migrate:
     image: oryd/kratos:v26.2.0
     depends_on:
@@ -76,8 +75,8 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # Ory Keto — authorization (ReBAC). Permission model in ory/keto/namespaces.keto.ts (OPL).
-  # DSN is the per-service `keto` DB (init.sql). The web app calls its read/write APIs (config.ts).
+  # Ory Keto — authorization (ReBAC); OPL model in ory/keto/namespaces.keto.ts. DSN is
+  # its own `keto` DB (init.sql). web calls its read/write APIs (config.ts).
   keto-migrate:
     image: oryd/keto:v26.2.0
     depends_on:
@@ -107,11 +106,9 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # One-command bootstrap (§3, the MVP bar): a one-shot that seeds first-boot state, then
-  # exits — generate the JWKS if absent, create the demo admin (admin@plainpages.local /
-  # admin) in Kratos, grant it the `admin` role in Keto. Idempotent, so it re-runs cleanly.
-  # Runs once kratos+keto are healthy; web waits for it to complete. Tokenizer dir is
-  # mounted read-write (the only writer) so the absent-JWKS safety net can land the key.
+  # One-shot first-boot seed (§3, the MVP bar); see src/bootstrap.ts. Idempotent, re-runs
+  # cleanly. Runs once kratos+keto are healthy; web waits for it. Tokenizer dir mounted
+  # read-write (the only writer) so the absent-JWKS safety net can land the key.
   bootstrap:
     build: .
     depends_on:
@@ -129,15 +126,13 @@ services:
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
     command: node src/bootstrap.ts
-    # Bounded retry: the seed is idempotent (409-create + idempotent PUT), so transient Ory
-    # blips recover — but a permanent error must give up, not loop forever and hang `web`
-    # (which gates on service_completed_successfully).
+    # Bounded retry: the seed is idempotent, so transient Ory blips recover — but a permanent
+    # error must give up, not loop forever and hang `web` (gates on completion).
     restart: "on-failure:5"
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
-  # DSN is the per-service `hydra` DB (init.sql). Issuer + login/consent/logout run at
-  # our app routes (ory/hydra/hydra.yml); the handlers that drive them are §6. Dev
-  # permits the http issuer via --dev (compose.override.yml); prod supplies an https
+  # DSN is its own `hydra` DB (init.sql); config in ory/hydra/hydra.yml, handlers are §6.
+  # Dev permits the http issuer via --dev (compose.override.yml); prod sets an https
   # issuer via env (URLS_SELF_ISSUER).
   hydra-migrate:
     image: oryd/hydra:v26.2.0

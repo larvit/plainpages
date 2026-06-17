@@ -70,7 +70,7 @@ test("session settings: branded cookie, bounded lifespan, sliding refresh", () =
 
 test("session tokenizer template 'plainpages' mints a short-lived signed JWT", () => {
   // whoami(tokenize_as: plainpages) → a locally-verifiable JWT, so the hot path never
-  // calls Ory (§4). The JWKS signer is generated/mounted by the next §3 item.
+  // calls Ory (§4). Signed with the committed tokenizer/jwks.json (gen-jwks.ts).
   assert.match(kratosYml, /tokenizer:\s*\n\s*templates:\s*\n\s*plainpages:/, "plainpages template defined");
   assert.match(kratosYml, /ttl:\s*10m/, "~10m TTL — re-minted on refresh");
   assert.match(kratosYml, /subject_source:\s*id/, "sub = the Kratos identity id");

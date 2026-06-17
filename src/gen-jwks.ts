@@ -1,12 +1,10 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-// ES256 signing JWKS for the Kratos session tokenizer (§3). Ory recommends ES* over the
-// symmetric HS family; ES256 is also our verifier's preferred alg (src/jwt.ts). Kratos
-// signs with the FIRST key in the set and the app verifies by `kid` (§4) — so rotation is
-// prepend a fresh key, keep the old one ~one TTL (10m) for in-flight tokens, then drop it.
-// (Re)generate the committed dev key (prod supplies its own — see README):
-//   docker compose run --rm -T web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+// ES256 signing JWKS for the Kratos session tokenizer (§3) — Ory-recommended and the
+// verifier's preferred alg (src/jwt.ts). Rotation runbook: README, JWT signing key.
+// (Re)generate the committed dev key (prod supplies its own):
+//   docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
 
 export interface SigningJwk {
   kid: string;
