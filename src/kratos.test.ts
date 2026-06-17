@@ -68,6 +68,23 @@ test("session settings: branded cookie, bounded lifespan, sliding refresh", () =
   assert.match(kratosYml, /earliest_possible_extend:\s*24h/, "sliding-refresh window is set");
 });
 
+test("session tokenizer template 'plainpages' mints a short-lived signed JWT", () => {
+  // whoami(tokenize_as: plainpages) → a locally-verifiable JWT, so the hot path never
+  // calls Ory (§4). The JWKS signer is generated/mounted by the next §3 item.
+  assert.match(kratosYml, /tokenizer:\s*\n\s*templates:\s*\n\s*plainpages:/, "plainpages template defined");
+  assert.match(kratosYml, /ttl:\s*10m/, "~10m TTL — re-minted on refresh");
+  assert.match(kratosYml, /subject_source:\s*id/, "sub = the Kratos identity id");
+  assert.match(kratosYml, /jwks_url:\s*file:\/\/\/etc\/config\/kratos\/tokenizer\/jwks\.json/, "signs with the mounted JWKS");
+  assert.match(kratosYml, /claims_mapper_url:\s*file:\/\/\/etc\/config\/kratos\/tokenizer\/plainpages\.jsonnet/,
+    "claims via the committed mapper");
+});
+
+test("the tokenizer claims mapper emits email + roles from the metadata_admin projection", () => {
+  const mapper = read("ory/kratos/tokenizer/plainpages.jsonnet");
+  assert.match(mapper, /email:\s*session\.identity\.traits\.email/, "email ← identity trait");
+  assert.match(mapper, /metadata_admin/, "roles ← metadata_admin (the per-login Keto projection, §4)");
+});
+
 test("social sign-in is off by default — a clean clone stays password-only", () => {
   // The oidc method ships present-but-disabled with no providers; operators activate it
   // purely via env (SELFSERVICE_METHODS_OIDC_*) — no code change, no baked-in creds.

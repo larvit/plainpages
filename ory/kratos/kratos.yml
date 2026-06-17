@@ -1,8 +1,8 @@
 # Ory Kratos — identity & self-service auth. Identity schema (email, name) +
 # password login; recovery & verification run on email codes. Every self-service
 # flow returns the browser to our own themed routes (§4 renders the fields). DSN +
-# prod courier/secrets come from the env. SSO, session tuning, and the JWT
-# tokenizer land in later §3/§4 items.
+# prod courier/secrets come from the env. The session→JWT tokenizer is wired below;
+# its JWKS signing key is generated/mounted by the next §3 item.
 serve:
   public:
     base_url: http://127.0.0.1:4433/
@@ -87,6 +87,18 @@ session:
     name: plainpages_session
     persistent: true # survive browser restarts
     same_site: Lax
+  # Session→JWT tokenizer (§4): whoami(tokenize_as: plainpages) mints a short-lived,
+  # locally-verifiable JWT so the hot path never calls Ory. Claims come from the
+  # committed Jsonnet mapper (sub = identity id, email from traits, roles from the
+  # metadata_admin projection); signed with the JWKS the next §3 item generates/mounts.
+  whoami:
+    tokenizer:
+      templates:
+        plainpages:
+          ttl: 10m
+          subject_source: id
+          claims_mapper_url: file:///etc/config/kratos/tokenizer/plainpages.jsonnet
+          jwks_url: file:///etc/config/kratos/tokenizer/jwks.json
 
 # Dev throwaways — production supplies real secrets via env (§3). cipher = 32 chars.
 secrets:
