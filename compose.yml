@@ -20,6 +20,10 @@ services:
         condition: service_healthy
       keto:
         condition: service_healthy
+    # Read the session-JWT verify key from the same tokenizer JWKS Kratos signs with
+    # (config.ts JWKS_URL default; §4 verifier). Read-only — bootstrap is the only writer.
+    volumes:
+      - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer:ro
     restart: unless-stopped
 
   # Ory's storage only (Kratos/Keto/Hydra) — the web app never connects here.
@@ -125,7 +129,10 @@ services:
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
     command: node src/bootstrap.ts
-    restart: on-failure
+    # Bounded retry: the seed is idempotent (409-create + idempotent PUT), so transient Ory
+    # blips recover — but a permanent error must give up, not loop forever and hang `web`
+    # (which gates on service_completed_successfully).
+    restart: "on-failure:5"
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
   # DSN is the per-service `hydra` DB (init.sql). Issuer + login/consent/logout run at

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.ts";
 
 // Explicit secure-secret enforcement (no environment sniffing): secrets are the only
@@ -18,9 +20,24 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.kratosAdminUrl, "http://kratos:4434");
   assert.equal(c.ketoReadUrl, "http://keto:4466");
   assert.equal(c.ketoWriteUrl, "http://keto:4467");
-  assert.match(c.jwksUrl, /jwks/);
   assert.match(c.cookieSecret, /dev-insecure/);
   assert.match(c.csrfSecret, /dev-insecure/);
+});
+
+test("JWKS_URL defaults to the committed Kratos tokenizer signing key, not an http endpoint", () => {
+  // The session JWT is signed by the tokenizer key (kratos.yml jwks_url); Kratos does NOT
+  // republish it at /.well-known/jwks.json, so the §4 verifier reads that same file://.
+  const url = new URL(loadConfig({}).jwksUrl);
+  assert.equal(url.protocol, "file:");
+  assert.match(url.pathname, /tokenizer\/jwks\.json$/);
+
+  // And that file is a real ES256 signing JWKS carrying a kid (what the verifier resolves by).
+  const path = fileURLToPath(new URL("../ory/kratos/tokenizer/jwks.json", import.meta.url));
+  const key = (JSON.parse(readFileSync(path, "utf8")) as { keys: { alg: string; kid: string; kty: string }[] }).keys[0];
+  assert.ok(key, "tokenizer JWKS must have a key");
+  assert.equal(key.alg, "ES256");
+  assert.equal(key.kty, "EC");
+  assert.ok(key.kid, "tokenizer JWKS key must carry a kid");
 });
 
 test("parses explicit boolean toggles and rejects non-boolean values", () => {

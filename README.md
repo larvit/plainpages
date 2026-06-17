@@ -148,7 +148,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `REQUIRE_SECURE_SECRETS` | `false` | when `true`, the two secrets must be supplied and differ from the dev throwaways |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
-| `JWKS_URL` | Kratos tokenizer JWKS | verifies the session JWT (§4) |
+| `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT (§4) |
 | `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
 ### What you must supply (the only manual prep)
@@ -190,7 +190,7 @@ cookie/cipher secrets in `kratos.yml`) — a clean clone works; **never run it i
 production**. (Re)generate with the bundled generator:
 
 ```bash
-docker compose run --rm -T web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
 ```
 
 **Production:** mount a real key over that path, or set
@@ -203,9 +203,12 @@ one for ~one token TTL (10m) so in-flight JWTs still verify, then drop it.
 ## Type check & tests
 
 ```bash
-docker compose run --rm web npm run typecheck   # strict tsc --noEmit
-docker compose run --rm web npm test            # node --test (units)
+docker compose run --rm --no-deps web npm run typecheck   # strict tsc --noEmit
+docker compose run --rm --no-deps web npm test            # node --test (units)
 ```
+
+`--no-deps` keeps these off the Ory stack — units need no Postgres/Kratos/Keto, and `web`
+otherwise drags up its `depends_on` services.
 
 ### End-to-end (Playwright)
 
