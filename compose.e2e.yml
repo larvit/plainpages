@@ -6,6 +6,9 @@
 # Screenshots + HTML report land in ./e2e/artifacts/ (git-ignored).
 services:
   web:
+    # The dashboard renders mock data — no Ory needed. Drop the base file's kratos/keto
+    # dependency so the visual suite stays fast and doesn't boot Postgres + the Ory stack.
+    depends_on: !reset []
     # Dev throwaways are fine for tests; cache templates for production-like rendering.
     environment:
       CACHE_TEMPLATES: "true"

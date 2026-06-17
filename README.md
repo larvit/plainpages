@@ -113,11 +113,15 @@ That's it. Do not install or run Node/npm on the host — use the commands below
 docker compose up            # http://localhost:3000, live reload via `node --watch`
 ```
 
-`docker compose up` merges `compose.override.yml`, which mounts the source and
-restarts the server on change. _(The Ory + Postgres services join this compose
-file as they land — planned.)_ Kratos recovery/verification emails are caught by
-**mailpit** in dev — read the codes at http://localhost:8025. To work on your own
-plugin, see [Where plugins live](#where-plugins-live-and-how-to-mount-them).
+`docker compose up` brings up the full stack — web + Postgres + Kratos/Keto/Hydra —
+merging `compose.override.yml`, which mounts the source and restarts the server on
+change. The web app waits for Kratos + Keto to be healthy before starting (each Ory
+service has a readiness healthcheck). Dev publishes the host-facing Ory ports —
+Kratos public `4433` (the browser POSTs self-service flows there) and Hydra public
+`4444`; prod (`docker compose -f compose.yml up`) keeps them internal. Kratos
+recovery/verification emails are caught by **mailpit** in dev — read the codes at
+http://localhost:8025. To work on your own plugin, see
+[Where plugins live](#where-plugins-live-and-how-to-mount-them).
 
 ## Configuration
 

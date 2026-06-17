@@ -19,8 +19,15 @@ services:
       - "8025:8025"
     restart: unless-stopped
 
+  # Ory Kratos dev: expose the public API so the browser can POST self-service flows to
+  # flow.ui.action (kratos.yml base_url = 127.0.0.1:4433). Prod fronts Ory same-origin,
+  # so the base file publishes no Ory ports.
+  kratos:
+    ports:
+      - "4433:4433"
+
   # Ory Hydra dev: --dev permits the http issuer/redirect URLs; expose the public port
-  # so OAuth2 flows reach the host. Prod (§3 dev/prod split) drops --dev for https.
+  # so OAuth2 flows reach the host. Prod (base file) drops --dev for an https issuer.
   hydra:
     command: serve all --dev -c /etc/config/hydra/hydra.yml
     ports:

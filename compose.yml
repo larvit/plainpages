@@ -10,6 +10,13 @@ services:
     environment:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
+    # Wait for the identity/permission services the app talks to (config.ts: kratos + keto).
+    # Hydra is post-MVP (§6) and absent from config.ts, so web doesn't gate on it.
+    depends_on:
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
     restart: unless-stopped
 
   # Ory's storage only (Kratos/Keto/Hydra) — the web app never connects here.
@@ -55,6 +62,11 @@ services:
     volumes:
       - ./ory/kratos:/etc/config/kratos:ro
     command: serve -c /etc/config/kratos/kratos.yml --watch-courier
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4433/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   # Ory Keto — authorization (ReBAC). Permission model in ory/keto/namespaces.keto.ts (OPL).
@@ -81,6 +93,11 @@ services:
     volumes:
       - ./ory/keto:/etc/config/keto:ro
     command: serve -c /etc/config/keto/keto.yml
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4466/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
@@ -110,6 +127,11 @@ services:
     volumes:
       - ./ory/hydra:/etc/config/hydra:ro
     command: serve all -c /etc/config/hydra/hydra.yml
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4444/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
 volumes:
