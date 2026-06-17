@@ -150,6 +150,24 @@ SSO button (§4 derives the buttons from this list). Open-source Kratos has **no
 SAML** — front it with an OIDC bridge (Ory Polis) and register that bridge as a generic
 OIDC provider the same way.
 
+### JWT signing key & rotation
+
+The session tokenizer (§3) signs each session→JWT with an **ES256** key at
+`ory/kratos/tokenizer/jwks.json`. The committed one is a **dev throwaway** (like the
+cookie/cipher secrets in `kratos.yml`) — a clean clone works; **never run it in
+production**. (Re)generate with the bundled generator:
+
+```bash
+docker compose run --rm -T web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+```
+
+**Production:** mount a real key over that path, or set
+`SESSION_WHOAMI_TOKENIZER_TEMPLATES_PLAINPAGES_JWKS_URL=base64://<the JWKS JSON, base64>`.
+
+**Rotation (zero downtime):** Kratos signs with the **first** key in the set; the app
+selects the verify key by `kid` (§4). So prepend a freshly generated key, keep the old
+one for ~one token TTL (10m) so in-flight JWTs still verify, then drop it.
+
 ## Type check & tests
 
 ```bash
@@ -439,6 +457,7 @@ src/server.ts        Entry point — starts the HTTP server (reads PORT, default
 src/app.ts           Request routing + EJS rendering
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
+src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
@@ -455,7 +474,7 @@ src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
-ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper) + storage init (postgres/init/init.sql: one DB per service)
+ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
