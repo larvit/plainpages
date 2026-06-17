@@ -10,9 +10,12 @@ services:
     environment:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
-    # Wait for the identity/permission services the app talks to (config.ts: kratos + keto).
-    # Hydra is post-MVP (§6) and absent from config.ts, so web doesn't gate on it.
+    # Wait for the identity/permission services the app talks to (config.ts: kratos + keto)
+    # and for the one-shot bootstrap to seed the admin + JWKS. Hydra is post-MVP (§6) and
+    # absent from config.ts, so web doesn't gate on it.
     depends_on:
+      bootstrap:
+        condition: service_completed_successfully
       kratos:
         condition: service_healthy
       keto:
@@ -99,6 +102,29 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+
+  # One-command bootstrap (§3, the MVP bar): a one-shot that seeds first-boot state, then
+  # exits — generate the JWKS if absent, create the demo admin (admin@plainpages.local /
+  # admin) in Kratos, grant it the `admin` role in Keto. Idempotent, so it re-runs cleanly.
+  # Runs once kratos+keto are healthy; web waits for it to complete. Tokenizer dir is
+  # mounted read-write (the only writer) so the absent-JWKS safety net can land the key.
+  bootstrap:
+    build: .
+    depends_on:
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
+    environment:
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@plainpages.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      JWKS_FILE: /etc/config/kratos/tokenizer/jwks.json
+      KETO_WRITE_URL: http://keto:4467
+      KRATOS_ADMIN_URL: http://kratos:4434
+    volumes:
+      - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
+    command: node src/bootstrap.ts
+    restart: on-failure
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
   # DSN is the per-service `hydra` DB (init.sql). Issuer + login/consent/logout run at

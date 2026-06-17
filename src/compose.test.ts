@@ -37,6 +37,21 @@ test("prod base publishes no internal Ory ports; dev exposes the host-facing one
   assert.match(override, /"4444:4444"/, "dev publishes hydra public");
 });
 
+test("a one-shot bootstrap seeds the stack before web starts", () => {
+  // §3 MVP bar: `bootstrap` runs after kratos+keto are healthy, seeds the admin +
+  // JWKS, then exits; web waits for it to complete. Live seeding is boot-verified.
+  const boot = compose.slice(compose.indexOf("\n  bootstrap:"));
+  assert.match(boot, /node src\/bootstrap\.ts/, "bootstrap runs the seed script");
+  for (const svc of ["kratos", "keto"])
+    assert.match(boot, new RegExp(`${svc}:\\s*\\n\\s*condition:\\s*service_healthy`),
+      `bootstrap waits for ${svc} healthy`);
+  // Generates the JWKS into the committed tokenizer dir if absent → needs it writable (no :ro).
+  assert.match(boot, /\.\/ory\/kratos\/tokenizer:\/etc\/config\/kratos\/tokenizer(?!:ro)/,
+    "bootstrap mounts the tokenizer dir read-write");
+  assert.match(webBlock, /bootstrap:\s*\n\s*condition:\s*service_completed_successfully/,
+    "web waits for bootstrap to finish");
+});
+
 test("the visual E2E does not drag in the Ory stack", () => {
   // web's Ory deps are reset for E2E (the dashboard is mock data — no Ory needed).
   assert.match(e2e, /depends_on:\s*!reset\b/, "E2E resets web's depends_on");

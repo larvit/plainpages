@@ -115,8 +115,13 @@ docker compose up            # http://localhost:3000, live reload via `node --wa
 
 `docker compose up` brings up the full stack — web + Postgres + Kratos/Keto/Hydra —
 merging `compose.override.yml`, which mounts the source and restarts the server on
-change. The web app waits for Kratos + Keto to be healthy before starting (each Ory
-service has a readiness healthcheck). Dev publishes the host-facing Ory ports —
+change. A one-shot `bootstrap` service then seeds first-boot state with **zero manual
+prep** — it generates the JWT signing key if absent, creates a demo admin
+(`admin@plainpages.local` / `admin`) in Kratos, and grants it the `admin` role in Keto
+so permission checks resolve out of the box; it is idempotent, so every `up` re-runs it
+safely. **Change the demo admin before production.** The web app waits for Kratos + Keto
+to be healthy *and* the bootstrap to finish before starting (each Ory service has a
+readiness healthcheck). Dev publishes the host-facing Ory ports —
 Kratos public `4433` (the browser POSTs self-service flows there) and Hydra public
 `4444`; prod (`docker compose -f compose.yml up`) keeps them internal. Kratos
 recovery/verification emails are caught by **mailpit** in dev — read the codes at
@@ -464,6 +469,7 @@ src/app.ts           Request routing + EJS rendering
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
+src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
