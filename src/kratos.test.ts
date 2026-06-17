@@ -62,6 +62,20 @@ test("recovery + verification run on email code, delivered by a courier", () => 
   assert.match(compose, /--watch-courier/, "kratos dispatches queued mail (else codes never send)");
 });
 
+test("social sign-in is off by default — a clean clone stays password-only", () => {
+  // The oidc method ships present-but-disabled with no providers; operators activate it
+  // purely via env (SELFSERVICE_METHODS_OIDC_*) — no code change, no baked-in creds.
+  assert.match(kratosYml, /oidc:\s*\n\s*enabled:\s*false/, "oidc method is disabled by default");
+  assert.match(kratosYml, /providers:\s*\[\]/, "no providers baked in");
+});
+
+test("the committed OIDC claims mapper maps email + name", () => {
+  const mapper = read("ory/kratos/oidc/claims.jsonnet");
+  assert.match(mapper, /email:\s*claims\.email/, "provider email → email trait");
+  assert.match(mapper, /given_name/, "given name → name.first");
+  assert.match(mapper, /family_name/, "family name → name.last");
+});
+
 test("compose pins the dev mail catcher to an exact version", () => {
   const tag = read("compose.override.yml").match(/image:\s*axllent\/mailpit:(\S+)/)?.[1];
   assert.ok(tag, "compose.override.yml pins a mailpit image");

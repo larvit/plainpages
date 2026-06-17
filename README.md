@@ -139,6 +139,17 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `JWKS_URL` | Kratos tokenizer JWKS | verifies the session JWT (§4) |
 | `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
+### Social sign-in (SSO)
+
+Off by default — a clean clone is password-only. Kratos activates a provider purely
+from the environment (no code, no rebuild): set `SELFSERVICE_METHODS_OIDC_ENABLED=true`
+and `SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS` to a JSON array of providers (`google`,
+`microsoft`, …), each carrying its `client_id`/`client_secret` and referencing the
+committed claims mapper `ory/kratos/oidc/claims.jsonnet`. No creds ⇒ no provider ⇒ no
+SSO button (§4 derives the buttons from this list). Open-source Kratos has **no native
+SAML** — front it with an OIDC bridge (Ory Polis) and register that bridge as a generic
+OIDC provider the same way.
+
 ## Type check & tests
 
 ```bash
@@ -444,7 +455,7 @@ src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
-ory/                 Ory service config (kratos/: identity schema + kratos.yml) + storage init (postgres/init/init.sql: one DB per service)
+ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)

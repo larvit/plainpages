@@ -20,6 +20,19 @@ selfservice:
       enabled: true
     code: # email one-time code — powers recovery + verification (not login)
       enabled: true
+    # Social sign-in (Google, Microsoft, or SAML via an OIDC bridge like Ory Polis —
+    # OSS Kratos has no native SAML). OFF by default → a clean clone is password-only.
+    # Activate WITHOUT code changes by supplying env (the whole-array form is the only
+    # env-settable one Kratos offers); providers reference the committed claims mapper,
+    # and §4 derives the buttons from this list:
+    #   SELFSERVICE_METHODS_OIDC_ENABLED=true
+    #   SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS=[{"id":"google","provider":"google",
+    #     "client_id":"…","client_secret":"…","scope":["openid","email","profile"],
+    #     "mapper_url":"file:///etc/config/kratos/oidc/claims.jsonnet"}]
+    oidc:
+      enabled: false
+      config:
+        providers: []
   flows:
     error:
       ui_url: http://127.0.0.1:3000/error
