@@ -62,6 +62,12 @@ test("recovery + verification run on email code, delivered by a courier", () => 
   assert.match(compose, /--watch-courier/, "kratos dispatches queued mail (else codes never send)");
 });
 
+test("session settings: branded cookie, bounded lifespan, sliding refresh", () => {
+  assert.match(kratosYml, /name:\s*plainpages_session/, "branded session cookie name");
+  assert.match(kratosYml, /lifespan:\s*720h/, "session has a bounded lifespan");
+  assert.match(kratosYml, /earliest_possible_extend:\s*24h/, "sliding-refresh window is set");
+});
+
 test("social sign-in is off by default — a clean clone stays password-only", () => {
   // The oidc method ships present-but-disabled with no providers; operators activate it
   // purely via env (SELFSERVICE_METHODS_OIDC_*) — no code change, no baked-in creds.

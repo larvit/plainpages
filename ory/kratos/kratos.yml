@@ -76,6 +76,18 @@ identity:
     - id: default
       url: file:///etc/config/kratos/identity.schema.json
 
+# "Stay signed in" backbone: a long-lived Kratos session that the app re-mints the
+# short-lived (~10m) JWT off (§4). Sliding refresh — an active session is extended
+# back to full lifespan only once it's within earliest_possible_extend of expiry,
+# so frequent users never lapse without a DB write per request.
+session:
+  lifespan: 720h # 30 days
+  earliest_possible_extend: 24h
+  cookie:
+    name: plainpages_session
+    persistent: true # survive browser restarts
+    same_site: Lax
+
 # Dev throwaways — production supplies real secrets via env (§3). cipher = 32 chars.
 secrets:
   cookie:
