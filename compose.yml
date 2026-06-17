@@ -57,5 +57,31 @@ services:
     command: serve -c /etc/config/kratos/kratos.yml --watch-courier
     restart: unless-stopped
 
+  # Ory Keto — authorization (ReBAC). Permission model in ory/keto/namespaces.keto.ts (OPL).
+  # DSN is the per-service `keto` DB (init.sql). The web app calls its read/write APIs (config.ts).
+  keto-migrate:
+    image: oryd/keto:v26.2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/keto?sslmode=disable
+    volumes:
+      - ./ory/keto:/etc/config/keto:ro
+    command: -c /etc/config/keto/keto.yml migrate up -y
+    restart: on-failure
+
+  keto:
+    image: oryd/keto:v26.2.0
+    depends_on:
+      keto-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/keto?sslmode=disable
+    volumes:
+      - ./ory/keto:/etc/config/keto:ro
+    command: serve -c /etc/config/keto/keto.yml
+    restart: unless-stopped
+
 volumes:
   pgdata:

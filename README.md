@@ -48,9 +48,10 @@ only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 
 > **Status.** This README describes the target architecture. Built today (see `todo.md`):
 > the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data table,
-> filters, pagination, forms — extracted from `html-css-foundation/`), and the **plugin host**
-> (discovery, router, per-plugin views + static, the `config/menu.ts` override + branding). The
-> **Ory integration** (Kratos/Keto/Hydra + Postgres) and **auth** are the roadmap; sections marked
+> filters, pagination, forms — extracted from `html-css-foundation/`), the **plugin host**
+> (discovery, router, per-plugin views + static, the `config/menu.ts` override + branding), and the
+> **Ory stack** wiring — Postgres, Kratos (+ session→JWT tokenizer) and Keto (authorization, OPL
+> namespaces). Hydra and the **auth** wiring that consumes these are the roadmap; sections marked
 > _(planned)_ are not built yet.
 
 ## The MVP — "clone, one command, hack on a plugin" _(planned)_
@@ -367,7 +368,7 @@ session cookie.
 ```
 
 **Keto is the single source of truth for roles.** Coarse roles are Keto relations
-(e.g. `role:admin#member@user:alice`); the admin screens write them *only* to Keto.
+(e.g. `role:admin#members@user:alice`); the admin screens write them *only* to Keto.
 But the tokenizer's claims mapper can read only the **identity**, not call Keto — so at
 login the app reads the roles from Keto and refreshes a **derived projection**: a
 read-only copy written onto the identity's `metadata_admin` for the tokenizer to see,
@@ -474,7 +475,7 @@ src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central
 views/               Core EJS templates (index = the app-shell People dashboard, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
-ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS) + storage init (postgres/init/init.sql: one DB per service)
+ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)

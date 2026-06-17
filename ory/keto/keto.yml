@@ -1,0 +1,19 @@
+# Ory Keto — authorization (ReBAC), the source of truth for roles/groups and the rare
+# fine-grained check (README: three tiers of "may I?"). The permission model lives in
+# namespaces.keto.ts (OPL); DSN comes from the env (the per-service keto DB). The web
+# app never connects directly — it calls the read (4466) / write (4467) APIs, the ports
+# config.ts points at.
+namespaces:
+  location: file:///etc/config/keto/namespaces.keto.ts
+
+serve:
+  read:
+    host: 0.0.0.0
+    port: 4466
+  write:
+    host: 0.0.0.0
+    port: 4467
+
+log:
+  level: info
+  format: text

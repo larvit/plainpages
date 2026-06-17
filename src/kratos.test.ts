@@ -27,7 +27,7 @@ test("migrations run once before the server starts", () => {
 });
 
 test("kratos DSN targets the per-service kratos database", () => {
-  const dsns = [...compose.matchAll(/DSN:\s*(\S+)/g)].map((m) => m[1]);
+  const dsns = [...compose.matchAll(/DSN:\s*(\S+)/g)].map((m) => m[1]).filter((d) => /\/kratos\b/.test(d!));
   assert.ok(dsns.length >= 2, "both kratos services set DSN");
   for (const dsn of dsns) assert.match(dsn!, /@postgres:5432\/kratos\b/, `${dsn} hits the kratos DB`);
 });
