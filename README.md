@@ -119,7 +119,8 @@ change. A one-shot `bootstrap` service then seeds first-boot state with **zero m
 prep** — it generates the JWT signing key if absent, creates a demo admin
 (`admin@plainpages.local` / `admin`) in Kratos, and grants it the `admin` role in Keto
 so permission checks resolve out of the box; it is idempotent, so every `up` re-runs it
-safely. **Change the demo admin before production.** The web app waits for Kratos + Keto
+safely. It finishes by printing a banner with the login URL and seeded credentials.
+**Change the demo admin before production.** The web app waits for Kratos + Keto
 to be healthy *and* the bootstrap to finish before starting (each Ory service has a
 readiness healthcheck). Dev publishes the host-facing Ory ports —
 Kratos public `4433` (the browser POSTs self-service flows there) and Hydra public

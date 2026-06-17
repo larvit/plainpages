@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { ensureJwks, identityPayload, roleTuple, seedAdmin } from "./bootstrap.ts";
+import { ensureJwks, firstRunBanner, identityPayload, roleTuple, seedAdmin } from "./bootstrap.ts";
 
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), {
@@ -96,6 +96,14 @@ test("seedAdmin fails loud on an unexpected Kratos error", async () => {
     }),
     /Kratos/,
   );
+});
+
+test("firstRunBanner prints the login URL, seeded creds, and a change-before-production warning", () => {
+  const banner = firstRunBanner({ appUrl: "http://localhost:3000", email: "admin@plainpages.local", password: "admin" });
+  assert.match(banner, /http:\/\/localhost:3000/);
+  assert.match(banner, /admin@plainpages\.local/);
+  assert.match(banner, /admin/); // the password
+  assert.match(banner, /before production/i);
 });
 
 test("ensureJwks generates a key only when the file is absent", () => {

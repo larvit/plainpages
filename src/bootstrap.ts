@@ -4,6 +4,7 @@
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin identity (admin@plainpages.local / admin) in Kratos;
 //   3. grant it the `admin` role in Keto so menu/permission checks resolve out of the box.
+// On finish it prints a first-run banner (login URL + creds + change-before-prod warning).
 // Fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -100,6 +101,22 @@ async function findIdentityId(http: typeof fetch, adminUrl: string, email: strin
   return found.id;
 }
 
+// --- First-run banner ----------------------------------------------------------------
+
+// Loud, scannable block in the compose logs: where to log in + the seeded demo creds +
+// the "change before production" warning. Pure so it's testable; main() console.logs it.
+export function firstRunBanner(opts: { appUrl: string; email: string; password: string }): string {
+  const rule = "─".repeat(58);
+  return [
+    `┌${rule}`,
+    `│ Plainpages is ready — log in at ${opts.appUrl}`,
+    `│   email:    ${opts.email}`,
+    `│   password: ${opts.password}`,
+    `│ ⚠ Demo admin credentials — change them before production.`,
+    `└${rule}`,
+  ].join("\n");
+}
+
 // --- CLI (the bootstrap container entrypoint) ----------------------------------------
 
 async function main() {
@@ -107,14 +124,17 @@ async function main() {
   if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) console.log("bootstrap: generated a JWKS signing key");
 
   const role = env["ADMIN_ROLE"] ?? "admin";
+  const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
+  const password = env["ADMIN_PASSWORD"] ?? "admin";
   const result = await seedAdmin({
-    email: env["ADMIN_EMAIL"] ?? "admin@plainpages.local",
+    email,
     ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
     kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
-    password: env["ADMIN_PASSWORD"] ?? "admin",
+    password,
     role,
   });
   console.log(`bootstrap: admin ${result.created ? "created" : "already present"} (${result.id}); role "${role}" granted`);
+  console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
