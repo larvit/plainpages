@@ -6,6 +6,7 @@
 //   4. whoami(tokenize_as)       → the signed JWT { sub, email, roles }, stored as our cookie
 // Order matters: the projection is written before tokenizing, because the claims mapper
 // reads only the identity, never Keto.
+import type { User } from "./context.ts";
 import { serializeCookie, type CookieOptions } from "./cookie.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
@@ -16,7 +17,7 @@ import type { KratosPublic } from "./kratos-public.ts";
 export const SESSION_COOKIE = "plainpages_jwt";
 
 // Mirrors kratos.yml session.lifespan (30d) so the cookie survives browser restarts; the
-// JWT inside is short-lived (~10m) and re-minted by the §4 middleware on expiry.
+// JWT inside is short-lived (~10m) and re-minted on expiry by the §4 hot path (remintSession).
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 // The tokenizer template (kratos.yml session.whoami.tokenizer.templates.plainpages).
@@ -67,9 +68,32 @@ export async function completeLogin(deps: LoginDeps, cookie: string | undefined)
   return { email, identityId, jwt, roles };
 }
 
+export interface Reminted {
+  setCookie: string; // a fresh JWT cookie on success, else a cookie that clears the stale one
+  user: User | null;
+}
+
+// Re-mint the session JWT on TTL expiry — "stay signed in" (README): the ~10m token lapsed but
+// the long-lived Kratos session may still be live. A live session ⇒ re-read roles from Keto,
+// re-tokenize, fresh cookie + the refreshed user (the one moment authz recomputes). A dead
+// session ⇒ a cookie that *clears* the stale JWT, so later requests fall straight through to
+// anonymous instead of re-hitting Ory on every one.
+export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
+  const completed = await completeLogin(deps, cookie);
+  if (!completed) return { setCookie: clearSessionCookie(options), user: null };
+  return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email ?? "", id: completed.identityId, roles: completed.roles } };
+}
+
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is
 // supplied by the caller (off in dev http; the §9 cookie hardening toggles it on for prod).
 export function sessionCookie(jwt: string, options: { secure?: boolean } = {}): string {
   const opts: CookieOptions = { httpOnly: true, maxAge: COOKIE_MAX_AGE, path: "/", sameSite: "Lax", ...(options.secure ? { secure: true } : {}) };
   return serializeCookie(SESSION_COOKIE, jwt, opts);
+}
+
+// Expire our session cookie (Max-Age=0), with the same attributes sessionCookie sets so the
+// browser deletes the right one.
+export function clearSessionCookie(options: { secure?: boolean } = {}): string {
+  const opts: CookieOptions = { httpOnly: true, maxAge: 0, path: "/", sameSite: "Lax", ...(options.secure ? { secure: true } : {}) };
+  return serializeCookie(SESSION_COOKIE, "", opts);
 }

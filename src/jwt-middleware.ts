@@ -20,8 +20,15 @@ export interface VerifyOptions {
 }
 
 // A rejected token (bad signature, expired, wrong iss/aud, malformed claims). `authenticate`
-// swallows it to anonymous; a caller wanting the reason can catch it.
-export class TokenError extends Error {}
+// swallows it to anonymous; a caller wanting the reason can catch it. `expired` is set only for
+// a lapsed-but-otherwise-intact token — the §4 re-mint trigger (see resolveSession).
+export class TokenError extends Error {
+  expired: boolean;
+  constructor(message: string, expired = false) {
+    super(message);
+    this.expired = expired;
+  }
+}
 
 function num(payload: Record<string, unknown>, claim: string): number | undefined {
   const v = payload[claim];
@@ -35,7 +42,7 @@ export function validateClaims(payload: Record<string, unknown>, options: Verify
 
   const exp = num(payload, "exp");
   if (exp === undefined) throw new TokenError("token missing exp");
-  if (now > exp + skew) throw new TokenError("token expired");
+  if (now > exp + skew) throw new TokenError("token expired", true);
 
   const nbf = num(payload, "nbf");
   if (nbf !== undefined && now < nbf - skew) throw new TokenError("token not yet valid");
@@ -71,14 +78,26 @@ export async function verifyToken(token: string, jwks: JwksProvider, options: Ve
   return claimsToUser(verified.payload);
 }
 
-// The request middleware: read our session cookie, verify it → the User, or null for no
-// cookie / any invalid token (fail-closed; the route then renders anonymous and gates deny).
-export async function authenticate(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<User | null> {
+export interface SessionAuth {
+  expired: boolean; // a token was present but rejected as *expired* → a re-mint candidate (§4)
+  user: User | null;
+}
+
+// The request middleware: read our session cookie, verify it → the User (fail-closed: any
+// bad/expired/missing token ⇒ null). `expired` distinguishes a lapsed-but-intact token from
+// no-cookie / tampered ones, so app.ts only pays an Ory round-trip to re-mint a genuinely
+// expired session, never for anonymous or garbage requests.
+export async function resolveSession(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<SessionAuth> {
   const token = parseCookies(cookieHeader)[SESSION_COOKIE];
-  if (!token) return null;
+  if (!token) return { expired: false, user: null };
   try {
-    return await verifyToken(token, jwks, options);
-  } catch {
-    return null;
+    return { expired: false, user: await verifyToken(token, jwks, options) };
+  } catch (err) {
+    return { expired: err instanceof TokenError && err.expired, user: null };
   }
+}
+
+// Convenience for callers that don't re-mint: just the User, or null.
+export async function authenticate(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<User | null> {
+  return (await resolveSession(cookieHeader, jwks, options)).user;
 }

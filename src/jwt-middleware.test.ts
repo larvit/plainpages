@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type JsonWebKey, type KeyObject } from "node:crypto";
 import { test } from "node:test";
 import { staticJwks } from "./jwks.ts";
-import { authenticate, claimsToUser, verifyToken } from "./jwt-middleware.ts";
+import { authenticate, claimsToUser, resolveSession, verifyToken } from "./jwt-middleware.ts";
 import { SESSION_COOKIE } from "./login.ts";
 
 const b64url = (input: Buffer | string): string => Buffer.from(input).toString("base64url");
@@ -71,4 +71,18 @@ test("authenticate: a valid cookie → User; no cookie / invalid / expired → n
   assert.equal(await authenticate("other=1", jwks, { now: NOW }), null);
   assert.equal(await authenticate(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), null);
   assert.equal(await authenticate(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, exp: NOW - 999 })}`, jwks, { now: NOW }), null);
+});
+
+test("resolveSession flags a lapsed token for re-mint, but not no-cookie / tampered tokens", async () => {
+  const ok = await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", valid)}`, jwks, { now: NOW });
+  assert.deepEqual(ok, { expired: false, user: { email: "a@b.c", id: "u1", roles: ["admin"] } });
+
+  // Present but past exp → the §4 re-mint trigger.
+  const lapsed = await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, exp: NOW - 999 })}`, jwks, { now: NOW });
+  assert.deepEqual(lapsed, { expired: true, user: null });
+
+  // No cookie / garbage / bad-signature are NOT re-mint candidates (no Ory round-trip).
+  assert.deepEqual(await resolveSession(undefined, jwks, { now: NOW }), { expired: false, user: null });
+  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), { expired: false, user: null });
+  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "nope", valid)}`, jwks, { now: NOW }), { expired: false, user: null });
 });

@@ -2,18 +2,18 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { buildContext } from "./context.ts";
+import { buildContext, type User } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import { GuardError } from "./guards.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
 import type { JwksProvider } from "./jwks.ts";
-import { authenticate, type VerifyOptions } from "./jwt-middleware.ts";
+import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
-import { completeLogin, sessionCookie } from "./login.ts";
+import { completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -81,7 +81,20 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       // Verify the session JWT once (cached JWKS) → ctx.user/roles; none/invalid ⇒ anonymous.
-      const user = jwks ? await authenticate(req.headers.cookie, jwks, authOptions) : null;
+      // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
+      // clients), silently re-mint it — "stay signed in" (§4): re-read roles from Keto, re-tokenize,
+      // and set the fresh cookie via setHeader so it rides whatever response this request produces
+      // (a dead session clears the stale cookie). This is the only place the hot path touches Ory.
+      let user: User | null = null;
+      if (jwks) {
+        const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
+        user = auth.user;
+        if (!user && auth.expired && keto && kratos && kratosAdmin) {
+          const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie);
+          user = reminted.user;
+          res.setHeader("set-cookie", reminted.setCookie);
+        }
+      }
       const ctx = buildContext(req, res, { user }); // base context (no route params yet); reused for onRequest
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.

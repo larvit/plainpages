@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import type { KetoClient, RelationTuple } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
 import type { KratosPublic, Session } from "./kratos-public.ts";
-import { completeLogin, readRoles, SESSION_COOKIE, sessionCookie } from "./login.ts";
+import { completeLogin, readRoles, remintSession, SESSION_COOKIE, sessionCookie } from "./login.ts";
 
 const ID = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
 const roleTuple = (object: string): RelationTuple => ({ namespace: "Role", object, relation: "members", subject_id: `user:${ID}` });
@@ -83,6 +83,22 @@ test("completeLogin maps a missing email trait to null and throws if the tokeniz
   const identity: Identity = { id: ID, traits: {} };
   const kratosPublic = publicStub({ whoami: async () => ({ active: true, identity }) as Session }); // never returns a tokenized JWT
   await assert.rejects(completeLogin({ keto: ketoStub(), kratosAdmin: adminStub(), kratosPublic }, "c"), /tokenizer returned no JWT/);
+});
+
+test("remintSession: a live Kratos session → fresh cookie + refreshed user; a dead session → a clearing cookie + null", async () => {
+  const identity: Identity = { id: ID, traits: { email: "admin@plainpages.local" } };
+  const kratosPublic = publicStub({ whoami: async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session });
+  const keto = ketoStub({ listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
+
+  // TTL lapsed but the Kratos session lives → re-read roles from Keto, re-tokenize, fresh cookie.
+  const live = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic }, "plainpages_session=s");
+  assert.deepEqual(live.user, { email: "admin@plainpages.local", id: ID, roles: ["admin"] });
+  assert.match(live.setCookie, /^plainpages_jwt=h\.p\.s;.*Max-Age=2592000.*HttpOnly/);
+
+  // Kratos session also gone → clear the stale JWT so the next request falls through to anonymous.
+  const dead = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic: publicStub() }, undefined);
+  assert.equal(dead.user, null);
+  assert.match(dead.setCookie, /^plainpages_jwt=;.*Max-Age=0/);
 });
 
 test("sessionCookie builds the HttpOnly/Lax JWT cookie; secure opt-in; JWT chars stay readable", () => {

@@ -210,6 +210,32 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 403);
 });
 
+test("session re-mint: an expired JWT backed by a live Kratos session is silently re-minted; a dead session clears it", async (t) => {
+  const identity: Identity = { id: "u1", traits: { email: "a@b.c" } };
+  const nowSec = Math.floor(Date.now() / 1000);
+  const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" });
+  const live = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session);
+  const keto = stubKeto({ listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
+  const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
+
+  // Live Kratos session: the lapsed token is re-minted — the gated route runs AND a fresh cookie rides the response.
+  const app = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: live, kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const ok = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
+  assert.equal(ok.status, 200);
+  assert.equal(await ok.text(), "secret");
+  assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=/);
+
+  // Kratos session gone: no re-mint, the stale cookie is cleared, the gate denies.
+  const dead = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
+  await new Promise<void>((r) => dead.listen(0, r));
+  t.after(() => dead.close());
+  const denied = await fetch(`http://localhost:${(dead.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
+  assert.equal(denied.status, 403);
+  assert.match(denied.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
+});
+
 test("guards map to responses: requireSession → /login, a failed can/check → 403, success runs the handler", async (t) => {
   const keto = { check: async (tuple: { object: string }) => tuple.object === "open" } as unknown as Parameters<typeof check>[0];
   const guarded: Plugin = {
