@@ -1,9 +1,8 @@
-// Built-in Users admin screen (todo §5): list Kratos identities (filter/sort/paginate) and
-// create / edit / deactivate / delete / trigger-recovery them. Writes go only to Kratos via the
-// admin client (README "stateless"); the app holds no user store. The pure builders here turn
-// identities + the request URL into the building-block view models; `handleAdminUsers` is the
-// imperative shell app.ts dispatches to — it gates (admin only), CSRF-guards every mutation, and
-// maps each action to a RouteResult (render a page, or redirect after a write — PRG).
+// Built-in Users admin screen (todo §5): list Kratos identities (filter/sort/paginate) +
+// create/edit/deactivate/delete/trigger-recovery. Writes go only to Kratos via the admin client
+// (README "stateless"). Pure builders turn identities + the request URL into building-block view
+// models; `handleAdminUsers` is the imperative shell app.ts dispatches to — gated admin-only,
+// CSRF-guarded, each action mapped to a RouteResult (render, or redirect after a write — PRG).
 
 import { ADMIN_USERS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { RequestContext, User } from "./context.ts";

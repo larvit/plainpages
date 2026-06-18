@@ -1,13 +1,12 @@
 // Built-in Roles & permissions admin screen (todo §5): list / create / delete Keto roles and assign
-// them to users and groups. A role is a Keto subject set `Role:<name>#members` (OPL: members are
-// users or groups, resolved transitively) — the source of truth for the JWT `roles` claim. It shares
-// the user|group membership model of the Groups screen, so the pure helpers (parseSubject, member
-// pickers, tuple paging) are reused from admin-groups. The one role-specific piece is the **effective
-// access** view: `keto.expand(Role:<name>#members)` returns the membership tree, which we flatten to
-// the distinct set of users who hold the role directly or transitively via a group. Login resolves
-// the same transitive membership into the JWT `roles` (login.ts readRoles), so this view matches what
-// a user's token actually grants. Writes go only to Keto; Kratos is read only to label members.
-// `handleAdminRoles` is the imperative shell app.ts dispatches to — gated admin-only, CSRF-guarded.
+// them to users and groups. A role is a Keto subject set `Role:<name>#members` (OPL: members are users
+// or groups, resolved transitively) — the source of truth for the JWT `roles` claim. It shares the
+// Groups screen's membership model, so the pure helpers (parseSubject, member pickers, tuple paging)
+// are reused from admin-groups. The role-specific piece is the **effective access** view:
+// `keto.expand(Role:<name>#members)` flattened to the distinct users who hold the role directly or via
+// a group — matching what login projects into the JWT (login.ts readRoles). Writes go only to Keto;
+// Kratos is read only to label members. `handleAdminRoles` is the imperative shell app.ts dispatches
+// to — gated admin-only, CSRF-guarded.
 
 import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import {

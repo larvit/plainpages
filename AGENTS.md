@@ -58,3 +58,4 @@ docker compose -f compose.yml up --build -d              # production
   `node:24.16.0-alpine3.24`).
 - Run the stability reviewer agent after every implementation of something that can be like
   a PR. That includes an implementation from the todo file that is pushed directly to master.
+  Skip this if the changes are purely documentation and/or comments.

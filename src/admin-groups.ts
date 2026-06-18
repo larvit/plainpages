@@ -1,11 +1,10 @@
-// Built-in Groups admin screen (todo §5): list / create / delete Keto groups and manage their
-// membership. A group is a Keto subject set `Group:<name>#members`; a membership tuple's subject is
-// a user (`subject_id = user:<id>`) or a nested group (`subject_set = Group:<other>#members`). Writes
-// go only to Keto (README "stateless"); there is no group store. Keto has no "create object" — a
-// group exists exactly while it has ≥1 member, so creating one writes its first-member tuple and
-// deleting one removes every member tuple. The pure builders turn tuples + the request URL into the
-// building-block view models; `handleAdminGroups` is the imperative shell app.ts dispatches to — it
-// gates (admin only), CSRF-guards every mutation, and maps each action to a RouteResult.
+// Built-in Groups admin screen (todo §5): list / create / delete Keto groups and manage membership.
+// A group is a Keto subject set `Group:<name>#members`; a member is a user or a nested group (see
+// parseSubject). Writes go only to Keto (README "stateless"). Keto has no "create object" — a group
+// exists exactly while it has ≥1 member, so create writes its first-member tuple and delete removes
+// every member tuple. Pure builders turn tuples + the request URL into view models; `handleAdminGroups`
+// is the imperative shell app.ts dispatches to — gated admin-only, CSRF-guarded, mapping each action
+// to a RouteResult.
 
 import { ADMIN_GROUPS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { FieldConfig } from "./admin-users.ts";
