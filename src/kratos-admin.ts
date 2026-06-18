@@ -1,8 +1,7 @@
-// Kratos admin-API client (todo §4): typed `fetch` wrappers over Ory Kratos' admin
-// endpoints — identity CRUD and the surgical `metadata_public` update login completion
-// projects Keto roles into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
-// `fetchImpl`-injectable like kratos-public.ts. Reuses that module's `KratosError` so a
-// caller can branch on `.status`. Admin endpoints listen on the internal-only admin port.
+// Kratos admin-API client (todo §4): typed `fetch` wrappers over Ory Kratos' admin endpoints
+// (internal-only admin port) — identity CRUD + the surgical `metadata_public` update login
+// completion projects Keto roles into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
+// `fetchImpl`-injectable, reuses kratos-public.ts's `KratosError` (branch on `.status`).
 import { KratosError } from "./kratos-public.ts";
 
 export interface Identity {

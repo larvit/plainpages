@@ -1,8 +1,7 @@
 // Kratos public-API client (todo §4): typed `fetch` wrappers over Ory Kratos' public
 // endpoints — self-service flow init/get/submit, browser logout, session `whoami`, and the
-// session→JWT tokenizer (`whoami?tokenize_as`). Built-in `fetch` only, no SDK dep (AGENTS.md). The
-// themed flow pages and login completion (§4) build on this; rendering flow `ui.nodes`
-// and mapping field errors is the renderer's job (§4), so we keep those types loose.
+// session→JWT tokenizer (`whoami?tokenize_as`). Built-in `fetch` only, no SDK dep (AGENTS.md).
+// Flow `ui.nodes` types stay loose — rendering + field-error mapping is flow-view.ts's job.
 
 export type FlowType = "login" | "recovery" | "registration" | "settings" | "verification";
 
