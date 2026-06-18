@@ -3,6 +3,7 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
+import { ADMIN_USERS_BASE, type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
 import { readFormBody } from "./body.ts";
 import { buildContext, type User } from "./context.ts";
 import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
@@ -62,12 +63,18 @@ export function createApp(options: AppOptions = {}): Server {
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
 
+  // `views: [viewsDir]` lets a view in a subfolder (e.g. admin/users.ejs) include() the shared
+  // partials/ by the same root-relative name top-level views use (EJS tries relative first).
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
-    ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache });
+    ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache, views: [viewsDir] });
 
   // A `view` RouteResult renders plugins/<id>/views/<view>.ejs; such views may include() the core
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
+
+  // Built-in admin screens (§5) — wired only when the Kratos admin client is present (the writes
+  // go there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
+  const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -136,6 +143,18 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
+      // Built-in Users admin screens (§5). The handler gates (admin only; throws GuardError the
+      // catch maps), CSRF-guards mutations, and returns html/redirect. Set the page's CSRF cookie
+      // when freshly minted (its forms carry the matching token); null ⇒ unknown subpath → 404.
+      if (adminDeps && pathname.startsWith(ADMIN_USERS_BASE)) {
+        const result = await handleAdminUsers(ctx, csrf.token, adminDeps);
+        if (result) {
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
+          return;
+        }
+      }
+
       // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
       const flowType = AUTH_FLOWS[pathname];
       if (kratos && flowType && (method === "GET" || method === "HEAD")) {
@@ -194,7 +213,7 @@ export function createApp(options: AppOptions = {}): Server {
         // Roles from the verified JWT (anonymous ⇒ []); branding/override come from config/menu.ts.
         // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token) }));
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token, user) }));
         return;
       }
 

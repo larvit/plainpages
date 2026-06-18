@@ -3,10 +3,12 @@
 // parseListQuery → filter/sort/paginate a mock dataset → composeNav. Mock data stands in for
 // upstream until §4; the filter form, sortable headers and pager all round-trip the URL (zero-JS).
 
+import type { User } from "./context.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode, type NavOverride } from "./nav.ts";
 import { parseListQuery } from "./list-query.ts";
 import { paginate } from "./paginate.ts";
+import { buildShellContext } from "./shell-context.ts";
 
 interface Person {
   id: string;
@@ -77,7 +79,7 @@ function href(state: State, overrides: Partial<State> = {}): string {
   return qs ? `?${qs}` : "?";
 }
 
-export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU, csrfToken = "") {
+export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU, csrfToken = "", user: User | null = null) {
   const query = parseListQuery(url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const status = query.filters.status?.[0] ?? "all";
   const team = query.filters.team?.[0] ?? "";
@@ -104,18 +106,13 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
     filterBar: filterBar(state),
     nav: nav(roles, menu.override),
     pagination: pagination(state, page),
-    shell: {
-      brand: {
-        ...(menu.branding.logo != null ? { logo: menu.branding.logo } : {}),
-        name: menu.branding.name,
-        ...(menu.branding.sub != null ? { sub: menu.branding.sub } : {}),
-      },
+    shell: buildShellContext({
       breadcrumbs: [{ href: "?", label: "Directory" }, { label: "People" }],
       csrfToken, // hidden field for the shell's Sign-out POST form (§4)
-      ...(menu.branding.theme != null ? { theme: menu.branding.theme } : {}),
+      menu,
       title: "People",
-      user: { email: "sam.rivers@example.com", initials: "SR", name: "Sam Rivers" }, // demo until §4
-    },
+      user, // real signed-in identity (§4); anonymous ⇒ Guest
+    }),
     table: table(rows, state, sort),
   };
 }

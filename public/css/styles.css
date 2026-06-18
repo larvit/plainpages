@@ -664,3 +664,17 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 
 /* the nav-toggle checkbox itself is visually hidden but focusable */
 #nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+
+/* admin forms (§5): create/edit user, account actions */
+.form-page { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+.form-card {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 18px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.admin-actions { flex-flow: row wrap; gap: 10px; align-items: center; }
+.admin-actions form { margin: 0; }
+.btn-danger { color: var(--neg); border-color: var(--neg-bd); }
+.btn-danger:hover { background: var(--neg-bg); }
+.recovery-link { word-break: break-all; }

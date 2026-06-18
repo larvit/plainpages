@@ -22,6 +22,7 @@ const ketoStub = (over: Partial<KetoClient> = {}): KetoClient => ({
 
 const adminStub = (over: Partial<KratosAdmin> = {}): KratosAdmin => ({
   createIdentity: async () => { throw new Error("unused"); },
+  createRecoveryCode: async () => ({ code: "000000", link: "http://kratos/recover" }),
   deleteIdentity: async () => {},
   getIdentity: async () => null,
   listIdentities: async () => ({ identities: [], nextPageToken: null }),

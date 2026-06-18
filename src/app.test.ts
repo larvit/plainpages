@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync, sign, type JsonWebKey } from "node:crypto";
+import { generateKeyPairSync, randomUUID, sign, type JsonWebKey } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -380,6 +380,7 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
 // Login completion (§4): /auth/complete is where Kratos lands the browser after login.
 const stubAdmin = (over: Partial<KratosAdmin>): KratosAdmin => ({
   createIdentity: async () => { throw new Error("unused"); },
+  createRecoveryCode: async () => ({ code: "000000", link: "http://kratos/recover" }),
   deleteIdentity: async () => {},
   getIdentity: async () => null,
   listIdentities: async () => ({ identities: [], nextPageToken: null }),
@@ -452,6 +453,83 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
   assert.equal((await post(`${CSRF_COOKIE}=${token}`, "")).status, 403);
   assert.equal((await post(`${CSRF_COOKIE}=${token}`, "_csrf=forged.sig")).status, 403);
   assert.equal((await post("", `_csrf=${token}`)).status, 403); // no cookie to match
+});
+
+// Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.
+test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, recovery (CSRF-guarded)", async (t) => {
+  const mk = (email: string, over: Partial<Identity> = {}): Identity =>
+    ({ id: randomUUID(), schema_id: "default", state: "active", traits: { email, name: { first: "Ada", last: "Lovelace" } }, ...over });
+  const store: Identity[] = [mk("ada@example.com"), mk("babbage@example.com", { state: "inactive" })];
+  let lastCreate: { traits?: unknown } | undefined;
+  const kratosAdmin = stubAdmin({
+    createIdentity: async (payload) => { lastCreate = payload as { traits?: unknown }; const created = mk("grace@example.com"); store.push(created); return created; },
+    createRecoveryCode: async (id) => ({ code: "123456", link: `http://kratos/self-service/recovery?code=123456&id=${id}` }),
+    deleteIdentity: async (id) => { const i = store.findIndex((x) => x.id === id); if (i >= 0) store.splice(i, 1); },
+    getIdentity: async (id) => store.find((x) => x.id === id) ?? null,
+    listIdentities: async () => ({ identities: store, nextPageToken: null }),
+    updateIdentity: async (id, payload) => { const it = store.find((x) => x.id === id)!; Object.assign(it, payload); return it; },
+  });
+  const csrfSecret = "admin-secret";
+  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), kratosAdmin });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const token = issueCsrfToken(csrfSecret);
+  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
+  const post = (path: string, body: string) =>
+    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+
+  // Gate: anonymous → /login; a signed-in non-admin → 403.
+  const anon = await fetch(url + "/admin/users", { redirect: "manual" });
+  assert.equal(anon.status, 303);
+  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal((await get("/admin/users", [])).status, 403);
+
+  // List: the admin sees the rows + the "add" link; the status filter narrows server-side.
+  const listHtml = await (await get("/admin/users")).text();
+  assert.match(listHtml, /ada@example\.com/);
+  assert.match(listHtml, /href="\/admin\/users\/new"/);
+  assert.doesNotMatch(await (await get("/admin/users?status=inactive")).text(), /ada@example\.com/);
+
+  // Create: the form renders; a valid post creates the identity and redirects to the list.
+  assert.match(await (await get("/admin/users/new")).text(), /Create user/);
+  const created = await post("/admin/users", `_csrf=${token}&email=grace%40example.com&first=Grace&last=Hopper&password=`);
+  assert.equal(created.status, 303);
+  assert.equal(created.headers.get("location"), "/admin/users");
+  assert.deepEqual(lastCreate?.traits, { email: "grace@example.com", name: { first: "Grace", last: "Hopper" } });
+
+  // A create with no CSRF token is refused and creates nothing.
+  const before = store.length;
+  assert.equal((await post("/admin/users", "email=x%40y.z")).status, 403);
+  assert.equal(store.length, before);
+
+  // Edit: email is read-only + prefilled; a post rewrites the name.
+  const target = store[0]!;
+  const editHtml = await (await get(`/admin/users/${target.id}`)).text();
+  assert.match(editHtml, /name="email"[^>]*readonly/);
+  assert.match(editHtml, /value="ada@example\.com"/);
+  const updated = await post(`/admin/users/${target.id}`, `_csrf=${token}&first=Ada&last=King`);
+  assert.equal(updated.status, 303);
+  assert.deepEqual((target.traits as { name: unknown }).name, { first: "Ada", last: "King" });
+
+  // Deactivate (state toggle): active → inactive.
+  await post(`/admin/users/${target.id}/state`, `_csrf=${token}`);
+  assert.equal(target.state, "inactive");
+
+  // Recovery: renders the edit page (200) carrying the generated link.
+  const rec = await post(`/admin/users/${target.id}/recovery`, `_csrf=${token}`);
+  assert.equal(rec.status, 200);
+  assert.match(await rec.text(), /self-service\/recovery\?code=123456/);
+
+  // Delete: removes the identity, back to the list.
+  const del = await post(`/admin/users/${target.id}/delete`, `_csrf=${token}`);
+  assert.equal(del.status, 303);
+  assert.ok(!store.some((x) => x.id === target.id));
+
+  // Unknown id → 404.
+  assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

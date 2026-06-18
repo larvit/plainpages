@@ -78,10 +78,11 @@ export function isValidPluginId(id: string): boolean {
 }
 
 // Ids the host reserves for its own first-party mount segments (the auth flows, /auth/complete,
-// /logout, the dashboard's /public/ static). Plugin routes resolve before these, so a folder named
-// one of them would silently shadow a built-in route — discovery refuses it, loud like any conflict.
+// /logout, the /admin screens, the dashboard's /public/ static). Plugin routes resolve before
+// these, so a folder named one of them would silently shadow a built-in route — discovery refuses
+// it, loud like any conflict.
 export const RESERVED_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  "auth", "login", "logout", "public", "recovery", "registration", "settings", "verification",
+  "admin", "auth", "login", "logout", "public", "recovery", "registration", "settings", "verification",
 ]);
 
 export interface Semver {
