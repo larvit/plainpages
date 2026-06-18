@@ -2,7 +2,7 @@ import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { discoverPlugins } from "./discovery.ts";
 import { runBootHooks } from "./hooks.ts";
-import { loadJwks, staticJwks } from "./jwks.ts";
+import { createJwksProvider } from "./jwks.ts";
 import { createKetoClient } from "./keto-client.ts";
 import { createKratosAdmin } from "./kratos-admin.ts";
 import { createKratosPublic } from "./kratos-public.ts";
@@ -14,9 +14,9 @@ const menu = await loadMenuConfig(); // config/menu.ts override + branding — f
 const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl });
 const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl });
 const keto = createKetoClient({ readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
-// Session-JWT verify key, loaded once from the mounted tokenizer JWKS (§4). HTTP fetch +
-// TTL refresh + rotation-on-miss replace this static set in the next §4 item.
-const jwks = staticJwks(loadJwks(config.jwksUrl));
+// Session-JWT verify key: primed at boot from the configured JWKS (file mount, base64 inline,
+// or fetched http), then served from cache with TTL refresh + rotation-on-miss (§4).
+const jwks = await createJwksProvider(config.jwksUrl);
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
