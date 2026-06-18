@@ -7,6 +7,8 @@ import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
+import type { JwksProvider } from "./jwks.ts";
+import { authenticate, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
@@ -20,9 +22,11 @@ import { renderPluginView } from "./view-resolver.ts";
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppOptions {
+  auth?: VerifyOptions; // expected JWT issuer/audience + clock skew (config); used with jwks
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  jwks?: JwksProvider; // verify the session JWT → ctx.user/roles (§4); absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
   kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion (§4)
@@ -34,7 +38,9 @@ export interface AppOptions {
 }
 
 export function createApp(options: AppOptions = {}): Server {
+  const authOptions = options.auth ?? {};
   const cache = options.cache ?? false;
+  const jwks = options.jwks;
   const keto = options.keto;
   const kratos = options.kratos;
   const kratosAdmin = options.kratosAdmin;
@@ -63,15 +69,19 @@ export function createApp(options: AppOptions = {}): Server {
   return createServer(async (req, res) => {
     try {
       const method = req.method ?? "GET";
-      const ctx = buildContext(req, res); // base context (no route params yet); reused for onRequest
-      const pathname = ctx.url.pathname;
+      const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.
+        // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
         const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
         await serveStatic(dir, subPath, res, method === "HEAD");
         return;
       }
+
+      // Verify the session JWT once (cached JWKS) → ctx.user/roles; none/invalid ⇒ anonymous.
+      const user = jwks ? await authenticate(req.headers.cookie, jwks, authOptions) : null;
+      const ctx = buildContext(req, res, { user }); // base context (no route params yet); reused for onRequest
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -85,7 +95,7 @@ export function createApp(options: AppOptions = {}): Server {
       // Plugin routes (any method): gate on the route's permission, then run the handler.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { params: match.params });
+        const routeCtx = buildContext(req, res, { params: match.params, user });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
@@ -134,8 +144,8 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // Mock data + no roles until auth (§4) lands; branding/override come from config/menu.ts.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, [], menu) }));
+        // Roles from the verified JWT (anonymous ⇒ []); branding/override come from config/menu.ts.
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu) }));
         return;
       }
 

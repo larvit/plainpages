@@ -149,6 +149,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
 | `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT (§4) |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
 | `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
 ### What you must supply (the only manual prep)
@@ -499,7 +500,9 @@ mid-response, so container restarts are clean.
 src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
 src/app.ts           Request routing + EJS rendering (incl. the themed Kratos self-service routes, §4)
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
-src/jwt.ts           JWS signature verify via node:crypto, no jose; claims+JWKS are §4
+src/jwt.ts           JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
+src/jwt-middleware.ts authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles (§4)
+src/jwks.ts          JwksProvider — loadJwks() (file://, base64://) + staticJwks(): resolve the verify key by kid; HTTP fetch/cache/rotation is the next §4 item
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)

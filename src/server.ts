@@ -2,6 +2,7 @@ import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { discoverPlugins } from "./discovery.ts";
 import { runBootHooks } from "./hooks.ts";
+import { loadJwks, staticJwks } from "./jwks.ts";
 import { createKetoClient } from "./keto-client.ts";
 import { createKratosAdmin } from "./kratos-admin.ts";
 import { createKratosPublic } from "./kratos-public.ts";
@@ -13,12 +14,24 @@ const menu = await loadMenuConfig(); // config/menu.ts override + branding — f
 const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl });
 const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl });
 const keto = createKetoClient({ readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
+// Session-JWT verify key, loaded once from the mounted tokenizer JWKS (§4). HTTP fetch +
+// TTL refresh + rotation-on-miss replace this static set in the next §4 item.
+const jwks = staticJwks(loadJwks(config.jwksUrl));
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
 await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
-const server = createApp({ cache: config.cacheTemplates, keto, kratos, kratosAdmin, menu, plugins }).listen(config.port, () => {
+const server = createApp({
+  auth: { audience: config.jwtAudience, issuer: config.jwtIssuer },
+  cache: config.cacheTemplates,
+  jwks,
+  keto,
+  kratos,
+  kratosAdmin,
+  menu,
+  plugins,
+}).listen(config.port, () => {
   console.log(`Listening on http://localhost:${config.port}`);
 });
 

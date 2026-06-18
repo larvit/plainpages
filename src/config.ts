@@ -13,6 +13,8 @@ export interface Config {
   cookieSecret: string;
   csrfSecret: string;
   jwksUrl: string;
+  jwtAudience: string | undefined;
+  jwtIssuer: string | undefined;
   ketoReadUrl: string;
   ketoWriteUrl: string;
   kratosAdminUrl: string;
@@ -39,6 +41,12 @@ function readBool(env: Env, key: string, devDefault: boolean): boolean {
   if (value === "true") return true;
   if (value === "false") return false;
   throw new Error(`config: ${key} must be "true" or "false", got "${value}"`);
+}
+
+// An optional pinned value: present only when set non-empty. Unset ⇒ the matching claim
+// check is skipped (clean clone — the dev tokenizer sets no iss/aud; §4 verifier).
+function readOptional(env: Env, key: string): string | undefined {
+  return env[key] || undefined;
 }
 
 // An absolute URL: defaults to the Ory service; validated so a typo fails at boot.
@@ -72,6 +80,9 @@ export function loadConfig(env: Env = process.env): Config {
     // Kratos doesn't republish it over HTTP, so default to a file:// of the tokenizer JWKS
     // mounted into web (compose.yml). Prod overrides with a real key (README: rotation).
     jwksUrl: readUrl(env, "JWKS_URL", "file:///etc/config/kratos/tokenizer/jwks.json"),
+    // Optional, off by default: pin the session-JWT issuer/audience for a hardened deploy.
+    jwtAudience: readOptional(env, "JWT_AUDIENCE"),
+    jwtIssuer: readOptional(env, "JWT_ISSUER"),
     ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),

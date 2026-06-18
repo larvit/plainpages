@@ -31,6 +31,15 @@ test("JWKS_URL defaults to the committed Kratos tokenizer signing key, not an ht
   assert.match(url.pathname, /tokenizer\/jwks\.json$/);
 });
 
+test("JWT issuer/audience are optional: unset by default, pinned from the env", () => {
+  const def = loadConfig({});
+  assert.equal(def.jwtIssuer, undefined);
+  assert.equal(def.jwtAudience, undefined);
+  const c = loadConfig({ JWT_AUDIENCE: "plainpages", JWT_ISSUER: "https://id.example.com" });
+  assert.equal(c.jwtIssuer, "https://id.example.com");
+  assert.equal(c.jwtAudience, "plainpages");
+});
+
 test("parses explicit boolean toggles and rejects non-boolean values", () => {
   assert.equal(loadConfig({ CACHE_TEMPLATES: "true" }).cacheTemplates, true);
   assert.equal(loadConfig({ CACHE_TEMPLATES: "false" }).cacheTemplates, false);

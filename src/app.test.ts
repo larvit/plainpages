@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync, sign, type JsonWebKey } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -6,9 +7,11 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
+import { staticJwks } from "./jwks.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "./kratos-public.ts";
+import { SESSION_COOKIE } from "./login.ts";
 import type { Plugin } from "./plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
@@ -177,6 +180,33 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal(wrong.status, 405);
   assert.match(wrong.headers.get("allow") ?? "", /GET/);
   assert.equal((await fetch(url + "/demo/nope")).status, 404);
+});
+
+// JWT middleware (§4): a verified session cookie populates ctx.user/roles, which the gate reads.
+const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const ecJwk: JsonWebKey = { ...(ec.publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid: "test-kid" };
+const b64url = (i: Buffer | string): string => Buffer.from(i).toString("base64url");
+function mintJwt(payload: Record<string, unknown>): string {
+  const input = `${b64url(JSON.stringify({ alg: "ES256", kid: "test-kid", typ: "JWT" }))}.${b64url(JSON.stringify(payload))}`;
+  return `${input}.${b64url(sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key: ec.privateKey }))}`;
+}
+
+test("a verified session JWT authorizes a role-gated route; no cookie / expired token → 403", async (t) => {
+  const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const secret = (cookie?: string) => fetch(url + "/demo/secret", cookie ? { headers: { cookie } } : {});
+
+  // Token carrying the gating role → the handler runs (200).
+  const ok = await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" })}`);
+  assert.equal(ok.status, 200);
+  assert.equal(await ok.text(), "secret");
+
+  // No cookie and an expired token both render anonymous → the gate denies (403).
+  assert.equal((await secret()).status, 403);
+  assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 403);
 });
 
 test("plugin hooks: onRequest can short-circuit a request and onResponse observes the handler result", async (t) => {
