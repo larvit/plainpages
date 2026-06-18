@@ -151,6 +151,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
 | `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT (§4) |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
+| `JWT_CLOCK_SKEW_SEC` | `60` | exp/nbf leeway (s) for Kratos↔web clock drift (the auth E2E sets `0`) |
 | `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
 
 ### What you must supply (the only manual prep)
@@ -217,13 +218,27 @@ otherwise drags up its `depends_on` services.
 ### End-to-end (Playwright)
 
 E2E runs in the official Playwright image (browsers preinstalled) against the live `web`
-service — no Node/browsers on the host. It screenshots the live pages **and** the
-`html-css-foundation` mockups, then asserts the live DOM computes the **same design-system
-styles** as the reference (so a styling regression fails the build, independent of the row data).
+service — no Node/browsers on the host. There are two suites:
+
+**Visual + design system** (`visual.spec.ts`) — Ory-free (mock-data dashboard), so it stays fast.
+It screenshots the live pages **and** the `html-css-foundation` mockups, then asserts the live DOM
+computes the **same design-system styles** as the reference (so a styling regression fails the
+build, independent of the row data).
 
 ```bash
 docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e   # run the suite
 docker compose -f compose.yml -f compose.e2e.yml down -v                 # tear down after
+```
+
+**Auth — token timeout + refresh** (`auth-refresh.spec.ts`) — the full-stack counterpart: it
+boots the real Ory stack (Postgres + Kratos + Keto + bootstrap), shortens the session→JWT TTL to
+8s (`ory/kratos/e2e.yml`) and sets `JWT_CLOCK_SKEW_SEC=0`, then logs in the seeded admin and proves
+the §4 "stay signed in" hot path: the lapsed JWT is silently **re-minted** from the live Kratos
+session (roles re-read from Keto), and once that session is revoked the stale cookie is **cleared**.
+
+```bash
+docker compose -f compose.yml -f compose.e2e-auth.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f compose.e2e-auth.yml down -v                 # tear down after
 ```
 
 `--build` rebuilds the runner so spec edits are always picked up (the image bakes in `e2e/`).
@@ -533,7 +548,7 @@ config/menu.ts       Central menu override + branding (optional; defaults apply 
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
-e2e/                 Playwright visual + functional E2E (Dockerfile.e2e + compose.e2e.yml run it)
+e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint, full Ory stack); Dockerfile.e2e + compose.e2e[-auth].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
 ```

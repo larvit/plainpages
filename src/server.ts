@@ -23,7 +23,7 @@ console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugi
 await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
 const server = createApp({
-  auth: { audience: config.jwtAudience, issuer: config.jwtIssuer },
+  auth: { audience: config.jwtAudience, clockSkewSec: config.jwtClockSkewSec, issuer: config.jwtIssuer },
   cache: config.cacheTemplates,
   csrfSecret: config.csrfSecret,
   jwks,

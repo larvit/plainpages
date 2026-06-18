@@ -1,0 +1,19 @@
+# E2E overlay (compose.e2e-auth.yml) — merged after kratos.yml via a second `-c`. Two changes
+# that let the auth-refresh suite exercise token timeout + re-mint in seconds:
+#   1. A very short session→JWT tokenizer TTL, so the JWT lapses while the Kratos session lives.
+#   2. A public base_url on the compose-network hostname, so the Playwright runner can drive the
+#      self-service flow over `kratos:4433` (the default 127.0.0.1 base_url only works host-side).
+# The full template is repeated (not just `ttl`) so it stays valid regardless of merge semantics.
+serve:
+  public:
+    base_url: http://kratos:4433/
+
+session:
+  whoami:
+    tokenizer:
+      templates:
+        plainpages:
+          ttl: 8s
+          subject_source: id
+          claims_mapper_url: file:///etc/config/kratos/tokenizer/plainpages.jsonnet
+          jwks_url: file:///etc/config/kratos/tokenizer/jwks.json

@@ -14,6 +14,7 @@ export interface Config {
   csrfSecret: string;
   jwksUrl: string;
   jwtAudience: string | undefined;
+  jwtClockSkewSec: number;
   jwtIssuer: string | undefined;
   ketoReadUrl: string;
   ketoWriteUrl: string;
@@ -71,6 +72,15 @@ function readPort(env: Env): number {
   return port;
 }
 
+// A non-negative integer count of seconds, with a default. Used for the JWT exp/nbf leeway.
+function readNonNegInt(env: Env, key: string, devDefault: number): number {
+  const raw = env[key];
+  if (raw === undefined) return devDefault;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`config: ${key} must be a non-negative integer, got "${raw}"`);
+  return n;
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
@@ -83,6 +93,8 @@ export function loadConfig(env: Env = process.env): Config {
     jwksUrl: readUrl(env, "JWKS_URL", "file:///etc/config/kratos/tokenizer/jwks.json"),
     // Optional, off by default: pin the session-JWT issuer/audience for a hardened deploy.
     jwtAudience: readOptional(env, "JWT_AUDIENCE"),
+    // exp/nbf leeway (s) for Kratos↔web clock drift; the auth E2E sets 0 to time tokens out fast.
+    jwtClockSkewSec: readNonNegInt(env, "JWT_CLOCK_SKEW_SEC", 60),
     jwtIssuer: readOptional(env, "JWT_ISSUER"),
     ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),

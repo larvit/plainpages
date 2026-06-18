@@ -24,6 +24,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.e2e
+    # Just the Ory-free visual suite; the full-stack auth spec runs via compose.e2e-auth.yml.
+    command: ["npx", "playwright", "test", "visual.spec.ts"]
     depends_on:
       web:
         condition: service_healthy

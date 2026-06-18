@@ -21,6 +21,7 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.ketoWriteUrl, "http://keto:4467");
   assert.match(c.cookieSecret, /dev-insecure/);
   assert.match(c.csrfSecret, /dev-insecure/);
+  assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift
 });
 
 test("JWKS_URL defaults to the committed Kratos tokenizer signing key, not an http endpoint", () => {
@@ -57,6 +58,12 @@ test("reads overrides from the environment", () => {
 
 test("rejects an invalid PORT", () => {
   for (const PORT of ["0", "70000", "abc", "3000.5"]) assert.throws(() => loadConfig({ PORT }), /PORT/);
+});
+
+test("JWT_CLOCK_SKEW_SEC: parses a non-negative integer, rejects junk (E2E shortens it to 0)", () => {
+  assert.equal(loadConfig({ JWT_CLOCK_SKEW_SEC: "0" }).jwtClockSkewSec, 0);
+  assert.equal(loadConfig({ JWT_CLOCK_SKEW_SEC: "120" }).jwtClockSkewSec, 120);
+  for (const v of ["-1", "1.5", "abc"]) assert.throws(() => loadConfig({ JWT_CLOCK_SKEW_SEC: v }), /JWT_CLOCK_SKEW_SEC/);
 });
 
 test("rejects a malformed Ory URL", () => {
