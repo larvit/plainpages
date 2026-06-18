@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createApp } from "./app.ts";
+import { createApp, type AppOptions } from "./app.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { staticJwks } from "./jwks.ts";
@@ -228,7 +228,7 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   const nowSec = Math.floor(Date.now() / 1000);
   const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" });
   const live = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session);
-  const keto = stubKeto({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
   const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
 
   // Live Kratos session: the lapsed token is re-minted — the gated route runs AND a fresh cookie rides the response.
@@ -393,22 +393,55 @@ const stubAdmin = (over: Partial<KratosAdmin>): KratosAdmin => ({
   updateMetadataPublic: async () => ({ id: "x" }),
   ...over,
 });
-const stubKeto = (over: Partial<KetoClient>): KetoClient => ({
+const sameSet = (a?: SubjectSet, b?: SubjectSet): boolean =>
+  (!a && !b) || (!!a && !!b && a.namespace === b.namespace && a.object === b.object && a.relation === b.relation);
+const matchesTuple = (t: RelationTuple, f: Partial<RelationTuple>): boolean =>
+  (f.namespace === undefined || t.namespace === f.namespace) &&
+  (f.object === undefined || t.object === f.object) &&
+  (f.relation === undefined || t.relation === f.relation) &&
+  (f.subject_id === undefined || t.subject_id === f.subject_id) &&
+  (f.subject_set === undefined || sameSet(t.subject_set, f.subject_set));
+// A stateful in-memory KetoClient over a tuple array (writes mutate it); used by login + the admin screens.
+const fakeKeto = (tuples: RelationTuple[] = [], over: Partial<KetoClient> = {}): KetoClient => ({
   check: async () => false,
-  deleteTuple: async () => {},
+  deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
   expand: async () => ({ type: "leaf" }),
-  listRelations: async () => ({ nextPageToken: null, tuples: [] }),
-  writeTuple: async () => {},
+  listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((t) => matchesTuple(t, q)) }),
+  writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
   ...over,
 });
 const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
+
+// Shared harness for the §5 admin-screen HTTP tests: an app on a random port with an admin JWT +
+// CSRF cookie. get(path, roles)/post(path, body) carry them; `token` is the matching CSRF field.
+const ADMIN_CSRF = "admin-secret";
+async function adminHarness(t: TestContext, opts: AppOptions = {}) {
+  const app = createApp({ csrfSecret: ADMIN_CSRF, jwks: staticJwks([ecJwk]), ...opts });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const token = issueCsrfToken(ADMIN_CSRF);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
+  const post = (path: string, body: string) =>
+    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+  return { get, post, token, url };
+}
+// Every admin route is gated: anonymous → /login, a signed-in non-admin → 403.
+async function assertAdminGate(url: string, get: (path: string, roles?: string[]) => Promise<Response>, path: string) {
+  const anon = await fetch(url + path, { redirect: "manual" });
+  assert.equal(anon.status, 303);
+  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal((await get(path, [])).status, 403);
+}
 
 test("login completion (/auth/complete): a live session mints the JWT cookie; no session → /login, no cookie", async (t) => {
   const identity: Identity = { id: "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55", traits: { email: "admin@plainpages.local" } };
   let projected: unknown;
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
-  const keto = stubKeto({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
   const complete = async (app: ReturnType<typeof createApp>, cookie?: string) => {
     await new Promise<void>((r) => app.listen(0, r));
     t.after(() => app.close());
@@ -423,7 +456,7 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
 
   // No Kratos session: nothing minted, bounce to /login with no cookie.
-  const none = await complete(createApp({ keto: stubKeto({}), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) }));
+  const none = await complete(createApp({ keto: fakeKeto(), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) }));
   assert.equal(none.status, 303);
   assert.equal(none.headers.get("location"), "/login");
   assert.equal(none.headers.get("set-cookie"), null);
@@ -474,23 +507,9 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
     listIdentities: async () => ({ identities: store, nextPageToken: null }),
     updateIdentity: async (id, payload) => { const it = store.find((x) => x.id === id)!; Object.assign(it, payload); return it; },
   });
-  const csrfSecret = "admin-secret";
-  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), kratosAdmin });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const token = issueCsrfToken(csrfSecret);
-  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
-  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
-  const post = (path: string, body: string) =>
-    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+  const { get, post, token, url } = await adminHarness(t, { kratosAdmin });
 
-  // Gate: anonymous → /login; a signed-in non-admin → 403.
-  const anon = await fetch(url + "/admin/users", { redirect: "manual" });
-  assert.equal(anon.status, 303);
-  assert.equal(anon.headers.get("location"), "/login");
-  assert.equal((await get("/admin/users", [])).status, 403);
+  await assertAdminGate(url, get, "/admin/users");
 
   // List: the admin sees the rows + the "add" link; the status filter narrows server-side.
   const listHtml = await (await get("/admin/users")).text();
@@ -547,16 +566,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
 });
 
 // Built-in Groups admin screen (§5): gate + list/create/membership/delete over HTTP against a
-// fake in-memory Keto (tuples are the only state) and a stub Kratos admin (resolves member emails).
-const sameSet = (a?: SubjectSet, b?: SubjectSet): boolean =>
-  (!a && !b) || (!!a && !!b && a.namespace === b.namespace && a.object === b.object && a.relation === b.relation);
-const matchesTuple = (t: RelationTuple, f: Partial<RelationTuple>): boolean =>
-  (f.namespace === undefined || t.namespace === f.namespace) &&
-  (f.object === undefined || t.object === f.object) &&
-  (f.relation === undefined || t.relation === f.relation) &&
-  (f.subject_id === undefined || t.subject_id === f.subject_id) &&
-  (f.subject_set === undefined || sameSet(t.subject_set, f.subject_set));
-
+// fakeKeto (tuples are the only state) and a stub Kratos admin (resolves member emails).
 test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-guarded)", async (t) => {
   const ada = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b01";
   const grace = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b02";
@@ -565,31 +575,11 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
     { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
   ];
   const tuples: RelationTuple[] = [{ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` }];
-  const keto: KetoClient = {
-    check: async () => false,
-    deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
-    expand: async () => ({ type: "leaf" }),
-    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((t) => matchesTuple(t, q)) }),
-    writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
-  };
+  const keto = fakeKeto(tuples);
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const csrfSecret = "groups-secret";
-  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), keto, kratosAdmin });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const token = issueCsrfToken(csrfSecret);
-  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
-  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
-  const post = (path: string, body: string) =>
-    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+  const { get, post, token, url } = await adminHarness(t, { keto, kratosAdmin });
 
-  // Gate: anonymous → /login; a signed-in non-admin → 403.
-  const anon = await fetch(url + "/admin/groups", { redirect: "manual" });
-  assert.equal(anon.status, 303);
-  assert.equal(anon.headers.get("location"), "/login");
-  assert.equal((await get("/admin/groups", [])).status, 403);
+  await assertAdminGate(url, get, "/admin/groups");
 
   // List: the existing group shows + the "add" link.
   const listHtml = await (await get("/admin/groups")).text();
@@ -654,31 +644,11 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
     tuple: { namespace: "", object: "", relation: "", subject_set: set },
     type: "union",
   });
-  const keto: KetoClient = {
-    check: async () => false,
-    deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
-    expand: async (set) => expandSet(set),
-    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((tp) => matchesTuple(tp, q)) }),
-    writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
-  };
+  const keto = fakeKeto(tuples, { expand: async (set) => expandSet(set) });
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const csrfSecret = "roles-secret";
-  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), keto, kratosAdmin });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const token = issueCsrfToken(csrfSecret);
-  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
-  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
-  const post = (path: string, body: string) =>
-    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+  const { get, post, token, url } = await adminHarness(t, { keto, kratosAdmin });
 
-  // Gate: anonymous → /login; a signed-in non-admin → 403.
-  const anon = await fetch(url + "/admin/roles", { redirect: "manual" });
-  assert.equal(anon.status, 303);
-  assert.equal(anon.headers.get("location"), "/login");
-  assert.equal((await get("/admin/roles", [])).status, 403);
+  await assertAdminGate(url, get, "/admin/roles");
 
   // List: the existing role shows + the "add" link.
   const listHtml = await (await get("/admin/roles")).text();
