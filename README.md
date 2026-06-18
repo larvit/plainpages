@@ -504,7 +504,7 @@ src/static.ts        Static file serving (path-traversal protection) + routePubl
 src/jwt.ts           JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
 src/jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint (§4)
 src/jwks.ts          JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
-src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, whoami, session→JWT tokenize (§4)
+src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)

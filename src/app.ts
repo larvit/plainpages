@@ -13,7 +13,7 @@ import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
-import { completeLogin, remintSession, sessionCookie } from "./login.ts";
+import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -154,6 +154,16 @@ export function createApp(options: AppOptions = {}): Server {
         }
         // secure: off in dev http; the §9 cookie hardening toggles it on for prod.
         res.writeHead(303, { location: "/", "set-cookie": sessionCookie(completed.jwt) }).end();
+        return;
+      }
+
+      // Logout: clear our local JWT and revoke the Kratos session. Kratos' own cookie lives on
+      // its origin, so we can't clear it here — redirect the browser to Kratos' logout URL (it
+      // revokes the session, clears plainpages_session, then lands on /login per kratos.yml).
+      // No active session ⇒ just clear our cookie and go to /login.
+      if (pathname === "/logout" && (method === "GET" || method === "HEAD") && kratos) {
+        const flow = await kratos.createLogoutFlow(req.headers.cookie ? { cookie: req.headers.cookie } : {});
+        res.writeHead(303, { location: flow?.logoutUrl ?? "/login", "set-cookie": clearSessionCookie() }).end();
         return;
       }
 

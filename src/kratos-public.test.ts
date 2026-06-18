@@ -109,3 +109,13 @@ test("whoami throws on an unexpected upstream error", async () => {
   const { fetchImpl } = recorder(() => res(500, { error: "boom" }));
   await assert.rejects(createKratosPublic({ baseUrl: BASE, fetchImpl }).whoami(), KratosError);
 });
+
+test("createLogoutFlow returns the logout URL/token on 200 (cookie forwarded) and null on 401 (no session)", async () => {
+  const flow = { logout_token: "lt", logout_url: `${BASE}/self-service/logout?token=lt` };
+  const { calls, fetchImpl } = recorder((url) => (url.endsWith("/self-service/logout/browser") ? res(200, flow) : res(401)));
+  const out = await createKratosPublic({ baseUrl: BASE, fetchImpl }).createLogoutFlow({ cookie: "plainpages_session=s" });
+  assert.deepEqual(out, { logoutToken: "lt", logoutUrl: flow.logout_url });
+  assert.match(calls[0]!.url, /\/self-service\/logout\/browser$/);
+  assert.equal(calls[0]!.headers.get("cookie"), "plainpages_session=s");
+  assert.equal(await createKratosPublic({ baseUrl: BASE, fetchImpl: (async () => res(401)) as typeof fetch }).createLogoutFlow(), null);
+});

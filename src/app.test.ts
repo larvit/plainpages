@@ -314,6 +314,7 @@ const loginFlow = (id: string): Flow => ({
 
 function mockKratos(getFlow: KratosPublic["getFlow"]): KratosPublic {
   return {
+    createLogoutFlow: async () => null,
     getFlow,
     initBrowserFlow: async (_t: FlowType) => ({ flow: { id: "new1", ui: { action: "", method: "post", nodes: [] } }, setCookie: ["csrf_token=abc; Path=/; HttpOnly"] }),
     submitFlow: async () => { throw new Error("unused"); },
@@ -406,6 +407,27 @@ test("login completion with no Kratos session redirects to /login and sets no co
   assert.equal(res.status, 303);
   assert.equal(res.headers.get("location"), "/login");
   assert.equal(res.headers.get("set-cookie"), null);
+});
+
+test("logout: bounces to Kratos to revoke the session and clears our JWT cookie; no session → /login", async (t) => {
+  const logoutUrl = "http://127.0.0.1:4433/self-service/logout?token=lt";
+  const kratos: KratosPublic = { ...mockKratos(async () => { throw new Error("unused"); }), createLogoutFlow: async (o) => (o?.cookie ? { logoutToken: "lt", logoutUrl } : null) };
+  const app = createApp({ kratos });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  // Active session → redirect to Kratos' logout URL (it revokes + clears plainpages_session, then → /login).
+  const out = await fetch(url + "/logout", { headers: { cookie: `${SESSION_COOKIE}=x; plainpages_session=s` }, redirect: "manual" });
+  assert.equal(out.status, 303);
+  assert.equal(out.headers.get("location"), logoutUrl);
+  assert.match(out.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
+
+  // No active Kratos session → clear our cookie and land on /login ourselves.
+  const none = await fetch(url + "/logout", { redirect: "manual" });
+  assert.equal(none.status, 303);
+  assert.equal(none.headers.get("location"), "/login");
+  assert.match(none.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

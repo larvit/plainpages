@@ -1,6 +1,6 @@
 // Kratos public-API client (todo §4): typed `fetch` wrappers over Ory Kratos' public
-// endpoints — self-service flow init/get/submit, session `whoami`, and the session→JWT
-// tokenizer (`whoami?tokenize_as`). Built-in `fetch` only, no SDK dep (AGENTS.md). The
+// endpoints — self-service flow init/get/submit, browser logout, session `whoami`, and the
+// session→JWT tokenizer (`whoami?tokenize_as`). Built-in `fetch` only, no SDK dep (AGENTS.md). The
 // themed flow pages and login completion (§4) build on this; rendering flow `ui.nodes`
 // and mapping field errors is the renderer's job (§4), so we keep those types loose.
 
@@ -46,6 +46,11 @@ export interface FlowInit {
   setCookie: string[]; // Kratos' CSRF cookie(s) to relay to the browser
 }
 
+export interface LogoutFlow {
+  logoutToken: string; // CSRF token Kratos embeds in logoutUrl
+  logoutUrl: string; // send the browser here to revoke the session + clear Kratos' cookie
+}
+
 export interface FlowSubmission {
   body: unknown; // parsed JSON: the re-rendered flow on 400, the success payload on 200
   location: string | null; // redirect target (Location header, or a 422 redirect_browser_to)
@@ -67,6 +72,7 @@ export class KratosError extends Error {
 }
 
 export interface KratosPublic {
+  createLogoutFlow(opts?: { cookie?: string }): Promise<LogoutFlow | null>; // null ⇒ no active session (401)
   getFlow(type: FlowType, id: string, opts?: { cookie?: string }): Promise<Flow>;
   initBrowserFlow(type: FlowType, opts?: { cookie?: string; returnTo?: string }): Promise<FlowInit>;
   submitFlow(action: string, opts: { body: string; contentType?: string; cookie?: string }): Promise<FlowSubmission>;
@@ -99,6 +105,15 @@ export function createKratosPublic(config: { baseUrl: string; fetchImpl?: typeof
   }
 
   return {
+    async createLogoutFlow(opts = {}) {
+      // Browser logout: get the logout URL (carrying a CSRF token) to send the browser to.
+      const res = await http(new URL(`${base}/self-service/logout/browser`), { headers: headers(opts.cookie), redirect: "manual" });
+      if (res.status === 401) return null; // no active session to revoke
+      if (res.status !== 200) throw new KratosError(`Kratos logout flow failed (${res.status})`, res.status, await res.text());
+      const body = (await res.json()) as { logout_token: string; logout_url: string };
+      return { logoutToken: body.logout_token, logoutUrl: body.logout_url };
+    },
+
     async initBrowserFlow(type, opts = {}) {
       const url = new URL(`${base}/self-service/${type}/browser`);
       if (opts.returnTo) url.searchParams.set("return_to", opts.returnTo);

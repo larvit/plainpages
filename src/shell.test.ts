@@ -30,6 +30,9 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<section id="body-marker">page<\/section>/); // content slot
   assert.match(html, /<button id="action-marker"/); // topbar actions slot
 
+  // Sign out is wired to the logout route (the side-footer profile menu).
+  assert.match(html, /<a class="menu-item danger" href="\/logout">/);
+
   // Branding, document title, and the inlined icon sprite (so <use> resolves).
   assert.match(html, /Acme Console/);
   assert.match(html, /<title>People<\/title>/);

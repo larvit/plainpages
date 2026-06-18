@@ -31,6 +31,7 @@ const adminStub = (over: Partial<KratosAdmin> = {}): KratosAdmin => ({
 });
 
 const publicStub = (over: Partial<KratosPublic> = {}): KratosPublic => ({
+  createLogoutFlow: async () => null,
   getFlow: async () => { throw new Error("unused"); },
   initBrowserFlow: async () => { throw new Error("unused"); },
   submitFlow: async () => { throw new Error("unused"); },
