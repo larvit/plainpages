@@ -5,8 +5,8 @@
     caption?, selectable?, actions?       sr-only caption; toggle the check / kebab columns
     columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
     rows:    { name?, cells: Cell[], actions?: Action[] }[]
-  Cell ∈ string | { text, className? } | { user:{name,initials} } | { badge:{tone,label} } | { html, className? }
-    user cells render as <th scope="row"> — they identify the row (the row header).
+  Cell ∈ string | { text, className? } | { user:{name,initials} } | { rowHeader:{text,href?} } | { badge:{tone,label} } | { html, className? }
+    user + rowHeader cells render as <th scope="row"> — they identify the row (the row header).
   Action = { label, icon?, href?, danger?, separatorBefore? }
 %><%
   const caption = locals.caption;
@@ -48,6 +48,8 @@
         <td><%= cell %></td>
 <% } else if (cell.user) { -%>
         <th scope="row"><span class="cell-user"><span class="avatar" aria-hidden="true"><%= cell.user.initials %></span><span class="cell-strong"><%= cell.user.name %></span></span></th>
+<% } else if (cell.rowHeader) { -%>
+        <th scope="row"><% if (cell.rowHeader.href) { %><a class="cell-strong" href="<%= cell.rowHeader.href %>"><%= cell.rowHeader.text %></a><% } else { %><span class="cell-strong"><%= cell.rowHeader.text %></span><% } %></th>
 <% } else if (cell.badge) { -%>
         <td><span class="badge <%= cell.badge.tone %>"><span class="dot"></span><%= cell.badge.label %></span></td>
 <% } else if (cell.html != null) { -%>

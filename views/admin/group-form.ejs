@@ -1,0 +1,16 @@
+<%#
+  Group admin create page (todo §5): the group-form body captured into the app shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: model.nav });
+  const body = include("partials/group-form-body", { error: model.error, form: model.form });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: model.shell.brand,
+  breadcrumbs: model.shell.breadcrumbs,
+  csrfToken: model.shell.csrfToken,
+  nav,
+  theme: model.shell.theme,
+  title: model.shell.title,
+  user: model.shell.user,
+}) %>

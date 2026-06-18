@@ -1,0 +1,21 @@
+<%#
+  Groups admin list (todo §5): the same building blocks as the Users screen, around the shell, but
+  backed by live Keto subject sets (src/admin-groups.ts). Filter/sort/page round-trip the URL.
+%><%
+  const nav = include("partials/nav-tree", { nodes: model.nav });
+  const filters = include("partials/filter-bar", model.filterBar);
+  const table = include("partials/data-table", model.table);
+  const pager = include("partials/pagination", model.pagination);
+  const actions = '<a class="btn btn-primary" href="/admin/groups/new"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add group</a>';
+-%>
+<%- include("partials/shell", {
+  actions,
+  body: filters + table + pager,
+  brand: model.shell.brand,
+  breadcrumbs: model.shell.breadcrumbs,
+  csrfToken: model.shell.csrfToken,
+  nav,
+  theme: model.shell.theme,
+  title: model.shell.title,
+  user: model.shell.user,
+}) %>

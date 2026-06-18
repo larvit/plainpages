@@ -3,7 +3,9 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { ADMIN_USERS_BASE, type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
+import { ADMIN_GROUPS_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
+import { type AdminGroupsDeps, handleAdminGroups } from "./admin-groups.ts";
+import { type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
 import { readFormBody } from "./body.ts";
 import { buildContext, type User } from "./context.ts";
 import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
@@ -72,9 +74,11 @@ export function createApp(options: AppOptions = {}): Server {
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
-  // Built-in admin screens (§5) — wired only when the Kratos admin client is present (the writes
-  // go there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
+  // Built-in admin screens (§5) — wired only when their Ory clients are present (the writes go
+  // there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
+  // Users writes to Kratos; Groups writes to Keto and reads users from Kratos for the pickers.
   const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render } : null;
+  const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -143,11 +147,19 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      // Built-in Users admin screens (§5). The handler gates (admin only; throws GuardError the
-      // catch maps), CSRF-guards mutations, and returns html/redirect. Set the page's CSRF cookie
-      // when freshly minted (its forms carry the matching token); null ⇒ unknown subpath → 404.
+      // Built-in admin screens (§5). Each handler gates (admin only; throws GuardError the catch
+      // maps), CSRF-guards mutations, and returns html/redirect. Set the page's CSRF cookie when
+      // freshly minted (its forms carry the matching token); null ⇒ unknown subpath → 404.
       if (adminDeps && pathname.startsWith(ADMIN_USERS_BASE)) {
         const result = await handleAdminUsers(ctx, csrf.token, adminDeps);
+        if (result) {
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
+          return;
+        }
+      }
+      if (adminGroupsDeps && pathname.startsWith(ADMIN_GROUPS_BASE)) {
+        const result = await handleAdminGroups(ctx, csrf.token, adminGroupsDeps);
         if (result) {
           if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
           await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));

@@ -5,6 +5,7 @@
 // imperative shell app.ts dispatches to — it gates (admin only), CSRF-guards every mutation, and
 // maps each action to a RouteResult (render a page, or redirect after a write — PRG).
 
+import { ADMIN_PERMISSION, ADMIN_USERS_BASE, adminNav } from "./admin-nav.ts";
 import { readFormBody } from "./body.ts";
 import type { RequestContext, User } from "./context.ts";
 import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
@@ -13,13 +14,10 @@ import type { Identity, KratosAdmin, RecoveryCode } from "./kratos-admin.ts";
 import { KratosError } from "./kratos-public.ts";
 import { parseListQuery } from "./list-query.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
-import { composeNav, type NavNode } from "./nav.ts";
 import { paginate } from "./paginate.ts";
 import type { RouteResult } from "./plugin.ts";
 import { buildShellContext } from "./shell-context.ts";
 
-export const ADMIN_USERS_BASE = "/admin/users";
-export const ADMIN_PERMISSION = "admin"; // role token gating every admin screen
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];
@@ -105,13 +103,6 @@ const COLUMNS = [
   { key: "email", label: "Email" },
   { key: "status", label: "Status" },
 ];
-
-function adminNav(roles: string[], menu: MenuConfig, currentId: string): NavNode[] {
-  return composeNav([[
-    { href: "/", icon: "i-grid", id: "dashboard", label: "Dashboard" },
-    { ...(currentId === "users" ? { current: true } : {}), href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "Users", permission: ADMIN_PERMISSION },
-  ]], menu.override, roles);
-}
 
 // Canonical list URL from the current state + per-link overrides; omits defaults so links stay tidy.
 function listHref(state: ListState, overrides: Partial<ListState> = {}): string {

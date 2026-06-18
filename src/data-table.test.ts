@@ -68,6 +68,13 @@ test("data-table renders sortable headers, row-select, typed cells, badges and k
   assert.match(html, /<div class="menu-sep"><\/div><button class="menu-item danger" type="button"><svg class="ico"><use href="#i-trash"\s*\/?><\/svg>Delete<\/button>/);
 });
 
+test("data-table rowHeader cell is a <th scope=row> identifier — a link when given href, else plain text", async () => {
+  const linked = flat(await render({ columns: [{ label: "Group" }], rows: [{ cells: [{ rowHeader: { href: "/admin/groups/eng", text: "eng" } }] }] }));
+  assert.match(linked, /<th scope="row"><a class="cell-strong" href="\/admin\/groups\/eng">eng<\/a><\/th>/);
+  const plain = flat(await render({ columns: [{ label: "Group" }], rows: [{ cells: [{ rowHeader: { text: "eng" } }] }] }));
+  assert.match(plain, /<th scope="row"><span class="cell-strong">eng<\/span><\/th>/);
+});
+
 test("data-table renders a minimal table (plain string cells, no select/actions) and never throws", async () => {
   const html = flat(await render({ columns: [{ label: "Name" }], rows: [{ cells: ["Plain"] }] }));
   assert.match(html, /<table class="table"><thead><tr><th scope="col">Name<\/th><\/tr><\/thead><tbody><tr><td>Plain<\/td><\/tr><\/tbody><\/table>/);

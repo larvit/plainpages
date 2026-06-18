@@ -10,7 +10,7 @@ import { createApp } from "./app.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { staticJwks } from "./jwks.ts";
-import type { KetoClient } from "./keto-client.ts";
+import type { KetoClient, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "./kratos-public.ts";
 import { SESSION_COOKIE } from "./login.ts";
@@ -530,6 +530,90 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
 
   // Unknown id → 404.
   assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
+});
+
+// Built-in Groups admin screen (§5): gate + list/create/membership/delete over HTTP against a
+// fake in-memory Keto (tuples are the only state) and a stub Kratos admin (resolves member emails).
+const sameSet = (a?: SubjectSet, b?: SubjectSet): boolean =>
+  (!a && !b) || (!!a && !!b && a.namespace === b.namespace && a.object === b.object && a.relation === b.relation);
+const matchesTuple = (t: RelationTuple, f: Partial<RelationTuple>): boolean =>
+  (f.namespace === undefined || t.namespace === f.namespace) &&
+  (f.object === undefined || t.object === f.object) &&
+  (f.relation === undefined || t.relation === f.relation) &&
+  (f.subject_id === undefined || t.subject_id === f.subject_id) &&
+  (f.subject_set === undefined || sameSet(t.subject_set, f.subject_set));
+
+test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-guarded)", async (t) => {
+  const ada = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b01";
+  const grace = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b02";
+  const identities: Identity[] = [
+    { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
+    { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
+  ];
+  const tuples: RelationTuple[] = [{ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` }];
+  const keto: KetoClient = {
+    check: async () => false,
+    deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
+    expand: async () => ({ type: "leaf" }),
+    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((t) => matchesTuple(t, q)) }),
+    writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
+  };
+  const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const csrfSecret = "groups-secret";
+  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), keto, kratosAdmin });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const token = issueCsrfToken(csrfSecret);
+  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
+  const post = (path: string, body: string) =>
+    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+
+  // Gate: anonymous → /login; a signed-in non-admin → 403.
+  const anon = await fetch(url + "/admin/groups", { redirect: "manual" });
+  assert.equal(anon.status, 303);
+  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal((await get("/admin/groups", [])).status, 403);
+
+  // List: the existing group shows + the "add" link.
+  const listHtml = await (await get("/admin/groups")).text();
+  assert.match(listHtml, /href="\/admin\/groups\/eng"/);
+  assert.match(listHtml, /href="\/admin\/groups\/new"/);
+
+  // Create: the form renders; a valid post writes the first-member tuple and redirects to the detail.
+  assert.match(await (await get("/admin/groups/new")).text(), /Create group/);
+  const created = await post("/admin/groups", `_csrf=${token}&name=design&member=user:${grace}`);
+  assert.equal(created.status, 303);
+  assert.equal(created.headers.get("location"), "/admin/groups/design");
+  assert.ok(tuples.some((tp) => tp.object === "design" && tp.subject_id === `user:${grace}`));
+
+  // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
+  const before = tuples.length;
+  assert.equal((await post("/admin/groups", `_csrf=${token}&name=Bad Name&member=user:${grace}`)).status, 400);
+  assert.equal((await post("/admin/groups", `_csrf=${token}&name=eng&member=user:${grace}`)).status, 400); // already exists
+  assert.equal((await post("/admin/groups", `name=x&member=user:${grace}`)).status, 403);
+  assert.equal(tuples.length, before);
+
+  // Detail: lists the current member by email.
+  assert.match(await (await get("/admin/groups/eng")).text(), /ada@example\.com/);
+
+  // Add a member, then remove it.
+  await post("/admin/groups/eng/members", `_csrf=${token}&member=user:${grace}`);
+  assert.ok(tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
+  await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
+  assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
+
+  // Delete the group: removes every member tuple, back to the list.
+  const del = await post("/admin/groups/eng/delete", `_csrf=${token}`);
+  assert.equal(del.status, 303);
+  assert.equal(del.headers.get("location"), "/admin/groups");
+  assert.ok(!tuples.some((tp) => tp.object === "eng"));
+
+  // An invalid group name in the path → 404; malformed %-encoding doesn't 500.
+  assert.equal((await get("/admin/groups/Bad%20Name")).status, 404);
+  assert.equal((await get("/admin/groups/%ZZ")).status, 404);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {
