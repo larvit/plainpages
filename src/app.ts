@@ -15,12 +15,14 @@ import { PLUGINS_DIR } from "./discovery.ts";
 import { GuardError } from "./guards.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
+import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
 import type { JwksProvider } from "./jwks.ts";
 import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
 import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
+import { resolveLoginChallenge } from "./oauth-login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -35,6 +37,7 @@ export interface AppOptions {
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
+  hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge (§6)
   jwks?: JwksProvider; // verify the session JWT → ctx.user/roles (§4); absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
@@ -52,6 +55,7 @@ export function createApp(options: AppOptions = {}): Server {
   const cache = options.cache ?? false;
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
+  const hydra = options.hydra;
   const jwks = options.jwks;
   const keto = options.keto;
   const kratos = options.kratos;
@@ -184,7 +188,10 @@ export function createApp(options: AppOptions = {}): Server {
         const flowId = ctx.url.searchParams.get("flow");
         if (!flowId) {
           // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
-          const { flow, setCookie } = await kratos.initBrowserFlow(flowType, cookie ? { cookie } : {});
+          // A `return_to` (e.g. the OAuth2 login challenge bouncing here, §6) is baked into the
+          // flow so Kratos lands back there after login instead of the default completion route.
+          const returnTo = ctx.url.searchParams.get("return_to") ?? undefined;
+          const { flow, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });
           if (setCookie.length) res.appendHeader("set-cookie", setCookie);
           res.writeHead(303, { location: `${pathname}?flow=${flow.id}` }).end();
           return;
@@ -196,6 +203,34 @@ export function createApp(options: AppOptions = {}): Server {
           // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
           if (err instanceof KratosError && [403, 404, 410].includes(err.status)) {
             res.writeHead(303, { location: pathname }).end();
+          } else throw err;
+        }
+        return;
+      }
+
+      // OAuth2 login challenge (§6): Hydra hands the browser here when another app logs in
+      // *through* us. Resolve it via the Kratos session and accept; an unauthenticated user
+      // bounces to our themed login and returns here once signed in. Challenge looked up over
+      // Hydra's admin API. Nothing first-party needs this — it's the OAuth2-provider role only.
+      if (hydra && kratos && pathname === "/oauth2/login" && (method === "GET" || method === "HEAD")) {
+        const challenge = ctx.url.searchParams.get("login_challenge");
+        if (!challenge) {
+          res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing login_challenge");
+          return;
+        }
+        // Absolute return target so Kratos lands back here post-login. Host reflects what the
+        // browser used (so it matches Kratos' allowed_return_urls); scheme follows SECURE_COOKIES.
+        // A spoofed Host can't escape — Kratos validates return_to against its allow-list.
+        const origin = `${secureCookies ? "https" : "http"}://${req.headers.host ?? "127.0.0.1:3000"}`;
+        const selfUrl = `${origin}/oauth2/login?login_challenge=${encodeURIComponent(challenge)}`;
+        try {
+          const { redirect } = await resolveLoginChallenge({ hydra, kratos }, challenge, req.headers.cookie, selfUrl);
+          res.writeHead(303, { location: redirect }).end();
+        } catch (err) {
+          // A stale/invalid/consumed challenge (Hydra 4xx — back button, slow login, re-used URL) is
+          // user-reachable: tell them to restart rather than 500. A 5xx (Hydra down) rethrows → 500.
+          if (err instanceof HydraError && err.status < 500) {
+            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This sign-in request has expired. Please start again from the application you were signing in to.");
           } else throw err;
         }
         return;

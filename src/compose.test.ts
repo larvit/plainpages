@@ -1,7 +1,7 @@
 // Guards the dev/prod compose split + stack ordering (§3): every image is pinned to an
 // exact version (AGENTS.md), long-running Ory services carry readiness healthchecks so
 // `depends_on: service_healthy` works, the web app waits for the services it talks to
-// (kratos + keto, per config.ts), prod publishes no internal Ory ports while dev exposes
+// (kratos + keto + hydra), prod publishes no internal Ory ports while dev exposes
 // the ones a browser must reach, and the visual E2E stays Ory-free. Real boot is verified
 // by running the stack; this catches edits.
 import { test } from "node:test";
@@ -40,9 +40,10 @@ test("long-running Ory services declare readiness healthchecks", () => {
       `${svc} probes :${port}/health/ready`);
 });
 
-test("web waits for kratos and keto to be healthy before starting", () => {
+test("web waits for kratos, keto and hydra to be healthy before starting", () => {
   assert.match(webBlock, /depends_on:/, "web declares dependencies");
-  for (const svc of ["kratos", "keto"])
+  // hydra: the §6 OAuth2 login/consent handler talks to its admin API.
+  for (const svc of ["kratos", "keto", "hydra"])
     assert.match(webBlock, new RegExp(`${svc}:\\s*\\n\\s*condition:\\s*service_healthy`),
       `web waits for ${svc} healthy`);
 });

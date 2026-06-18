@@ -241,6 +241,16 @@ docker compose -f compose.yml -f compose.e2e-auth.yml run --build --rm e2e   # r
 docker compose -f compose.yml -f compose.e2e-auth.yml down -v                 # tear down after
 ```
 
+**OAuth2 login challenge** (`oauth-login.spec.ts`) — another app logs in *through* us: it boots the
+real stack (incl. Hydra), registers an OAuth2 client, starts an authorization flow, and proves the
+§6 `/oauth2/login` handler bounces an unauthenticated user to the themed login and **accepts** the
+challenge once a Kratos session exists.
+
+```bash
+docker compose -f compose.yml -f compose.e2e-oauth.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f compose.e2e-oauth.yml down -v                 # tear down after
+```
+
 `--build` rebuilds the runner so spec edits are always picked up (the image bakes in `e2e/`).
 
 Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Every user-facing flow
@@ -483,8 +493,12 @@ authors them anywhere else.
 Only relevant when **other apps** authenticate *through* plainpages. The app
 implements Hydra's login & consent steps — authenticating the user via their Kratos
 session — and Hydra issues the access / refresh / id tokens those apps use. Nothing
-in the menu or first-party pages needs Hydra; it can be added later without
-touching them.
+in the menu or first-party pages needs Hydra.
+
+The **login challenge** is wired (`src/oauth-login.ts` at `/oauth2/login`): Hydra hands
+the browser here, the app resolves it against the Kratos session and accepts (or bounces
+an unauthenticated user to the themed login, returning here once signed in). The **consent
+challenge** is next.
 
 ## Stateless — no application database
 
@@ -527,6 +541,8 @@ src/jwks.ts          JwksProvider — resolve the verify key by kid; createJwksP
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
+src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login challenge get/accept/reject (§6)
+src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login (§6)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
 src/login.ts         completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie (§4)
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
@@ -554,10 +570,10 @@ src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central
 views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), 403/404/500, partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
-ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs) + storage init (postgres/init/init.sql: one DB per service)
+ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
-e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint, full Ory stack); Dockerfile.e2e + compose.e2e[-auth].yml run them
+e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login challenge), full Ory stack; Dockerfile.e2e + compose.e2e[-auth|-oauth].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
 ```

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createApp, type AppOptions } from "./app.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
+import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
 import { staticJwks } from "./jwks.ts";
 import type { ExpandTree, KetoClient, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
@@ -491,6 +492,72 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
   assert.equal((await post(`${CSRF_COOKIE}=${token}`, "")).status, 403);
   assert.equal((await post(`${CSRF_COOKIE}=${token}`, "_csrf=forged.sig")).status, 403);
   assert.equal((await post("", `_csrf=${token}`)).status, 403); // no cookie to match
+});
+
+// OAuth2 login challenge (§6): another app logs in *through* us; Hydra hands the browser here.
+const stubHydra = (over: Partial<HydraAdmin> = {}): HydraAdmin => ({
+  acceptLoginRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }),
+  getLoginRequest: async () => ({ challenge: "chal1", skip: false, subject: "" }),
+  rejectLoginRequest: async () => { throw new Error("unused"); },
+  ...over,
+});
+
+test("OAuth2 login challenge (/oauth2/login): a Kratos session accepts via Hydra; no session bounces to /login; missing challenge → 400", async (t) => {
+  const identity = { id: "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55" };
+  let acceptedSubject: string | undefined;
+  const hydra = stubHydra({ acceptLoginRequest: async (_c, b) => { acceptedSubject = b.subject; return { redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }; } });
+
+  const signedIn = createApp({ hydra, kratos: withWhoami(async () => ({ active: true, identity }) as Session) });
+  await new Promise<void>((r) => signedIn.listen(0, r));
+  t.after(() => signedIn.close());
+  const base = `http://localhost:${(signedIn.address() as AddressInfo).port}`;
+
+  // Signed in: accept the challenge with the Kratos identity → 303 to Hydra's resume URL.
+  const accept = await fetch(base + "/oauth2/login?login_challenge=chal1", { headers: { cookie: "plainpages_session=s" }, redirect: "manual" });
+  assert.equal(accept.status, 303);
+  assert.match(accept.headers.get("location") ?? "", /\/oauth2\/auth\?login_verifier=v/);
+  assert.equal(acceptedSubject, identity.id);
+
+  // Missing login_challenge → 400 (someone hit the endpoint directly).
+  assert.equal((await fetch(base + "/oauth2/login", { redirect: "manual" })).status, 400);
+
+  // A stale/invalid/consumed challenge (Hydra 4xx — back button, slow login) degrades to a
+  // recoverable 400, not a 500. A genuine Hydra outage (5xx) still surfaces as a 500.
+  const staleHydra = stubHydra({ getLoginRequest: async () => { throw new HydraError("gone", 410, ""); } });
+  const stale = createApp({ hydra: staleHydra, kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => stale.listen(0, r));
+  t.after(() => stale.close());
+  const staleBase = `http://localhost:${(stale.address() as AddressInfo).port}`;
+  assert.equal((await fetch(staleBase + "/oauth2/login?login_challenge=gone", { redirect: "manual" })).status, 400);
+  const downHydra = stubHydra({ getLoginRequest: async () => { throw new HydraError("down", 503, ""); } });
+  const down = createApp({ hydra: downHydra, kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => down.listen(0, r));
+  t.after(() => down.close());
+  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/login?login_challenge=x`, { redirect: "manual" })).status, 500);
+
+  // Not signed in: bounce to the themed login, return_to carrying an absolute URL back to here.
+  const anon = createApp({ hydra: stubHydra(), kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => anon.listen(0, r));
+  t.after(() => anon.close());
+  const bounce = await fetch(`http://localhost:${(anon.address() as AddressInfo).port}/oauth2/login?login_challenge=chal1`, { redirect: "manual" });
+  assert.equal(bounce.status, 303);
+  const loc = bounce.headers.get("location") ?? "";
+  assert.match(loc, /^\/login\?return_to=/);
+  assert.match(decodeURIComponent(loc.split("return_to=")[1]!), /^http:\/\/[^/]+\/oauth2\/login\?login_challenge=chal1$/);
+});
+
+test("/login?return_to=… bakes the return target into the Kratos flow init (§6 OAuth bounce)", async (t) => {
+  let seenReturnTo: string | undefined;
+  const kratos: KratosPublic = {
+    ...mockKratos(async () => { throw new Error("unused"); }),
+    initBrowserFlow: async (_t, opts) => { seenReturnTo = opts?.returnTo; return { flow: { id: "f1", ui: { action: "", method: "post", nodes: [] } }, setCookie: [] }; },
+  };
+  const app = createApp({ kratos });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const returnTo = "http://127.0.0.1:3000/oauth2/login?login_challenge=c";
+  await fetch(`http://localhost:${(app.address() as AddressInfo).port}/login?return_to=${encodeURIComponent(returnTo)}`, { redirect: "manual" });
+  assert.equal(seenReturnTo, returnTo);
 });
 
 // Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.

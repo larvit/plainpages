@@ -1,0 +1,45 @@
+# Full-stack OAuth2 E2E — the §6 login-challenge handler. Another app logs in *through* us:
+# Hydra starts an authorization flow and hands the browser to web's /oauth2/login; web resolves
+# it via the Kratos session and accepts. Runs against the real stack (Postgres + Kratos + Keto +
+# Hydra + bootstrap + web). The runner drives the flow over HTTP (fetch, manual cookies), so it
+# reaches the Ory services by their compose-network names.
+#   docker compose -f compose.yml -f compose.e2e-oauth.yml run --build --rm e2e
+#   docker compose -f compose.yml -f compose.e2e-oauth.yml down -v   # tear down after
+services:
+  web:
+    # Dev throwaways are fine for the test stack; the runner hits web over http.
+    environment:
+      CACHE_TEMPLATES: "true"
+      REQUIRE_SECURE_SECRETS: "false"
+      SECURE_COOKIES: "false"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 2s
+      timeout: 4s
+      retries: 30
+
+  # --dev permits the http issuer (the base file drops it for an https prod issuer).
+  hydra:
+    command: serve all --dev -c /etc/config/hydra/hydra.yml
+
+  # Point the public base_url at the compose-network host so the runner can drive the Kratos
+  # login flow over `kratos:4433` (kratos.yml's default 127.0.0.1 base_url only resolves host-side).
+  kratos:
+    environment:
+      SERVE_PUBLIC_BASE_URL: http://kratos:4433/
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://web:3000
+      HYDRA_ADMIN_URL: http://hydra:4445
+      HYDRA_PUBLIC_URL: http://hydra:4444
+      KRATOS_PUBLIC_URL: http://kratos:4433
+    command: ["npx", "playwright", "test", "oauth-login.spec.ts"]
+    volumes:
+      - ./e2e/artifacts:/e2e/artifacts

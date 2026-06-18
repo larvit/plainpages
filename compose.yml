@@ -11,14 +11,16 @@ services:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
       SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
-    # Wait for the services config.ts talks to (kratos + keto) + the one-shot bootstrap
-    # (admin + JWKS seed). Hydra is post-MVP (§6), not in config.ts, so web skips it.
+    # Wait for the services the app talks to (kratos + keto + hydra for the §6 OAuth2 login/
+    # consent handler) + the one-shot bootstrap (admin + JWKS seed).
     depends_on:
       bootstrap:
         condition: service_completed_successfully
       kratos:
         condition: service_healthy
       keto:
+        condition: service_healthy
+      hydra:
         condition: service_healthy
     # §4 verifier reads the same tokenizer JWKS Kratos signs with (config.ts JWKS_URL).
     # Read-only — bootstrap is the only writer.
@@ -132,9 +134,9 @@ services:
     restart: "on-failure:5"
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
-  # DSN is its own `hydra` DB (init.sql); config in ory/hydra/hydra.yml, handlers are §6.
-  # Dev permits the http issuer via --dev (compose.override.yml); prod sets an https
-  # issuer via env (URLS_SELF_ISSUER).
+  # DSN is its own `hydra` DB (init.sql); config in ory/hydra/hydra.yml. web implements the
+  # login challenge at /oauth2/login (§6, consent next). Dev permits the http issuer via --dev
+  # (compose.override.yml); prod sets an https issuer via env (URLS_SELF_ISSUER).
   hydra-migrate:
     image: oryd/hydra:v26.2.0
     depends_on:

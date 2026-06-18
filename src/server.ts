@@ -2,6 +2,7 @@ import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { discoverPlugins } from "./discovery.ts";
 import { runBootHooks } from "./hooks.ts";
+import { createHydraAdmin } from "./hydra-admin.ts";
 import { createJwksProvider } from "./jwks.ts";
 import { createKetoClient } from "./keto-client.ts";
 import { createKratosAdmin } from "./kratos-admin.ts";
@@ -14,6 +15,8 @@ const menu = await loadMenuConfig(); // config/menu.ts override + branding — f
 const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl });
 const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl });
 const keto = createKetoClient({ readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
+// Hydra admin client for the OAuth2 login/consent challenge handshake (§6).
+const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl });
 // Session-JWT verify key: primed at boot from the configured JWKS (file mount, base64 inline,
 // or fetched http), then served from cache with TTL refresh + rotation-on-miss (§4).
 const jwks = await createJwksProvider(config.jwksUrl);
@@ -26,6 +29,7 @@ const server = createApp({
   auth: { audience: config.jwtAudience, clockSkewSec: config.jwtClockSkewSec, issuer: config.jwtIssuer },
   cache: config.cacheTemplates,
   csrfSecret: config.csrfSecret,
+  hydra,
   jwks,
   keto,
   kratos,

@@ -19,6 +19,7 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.kratosAdminUrl, "http://kratos:4434");
   assert.equal(c.ketoReadUrl, "http://keto:4466");
   assert.equal(c.ketoWriteUrl, "http://keto:4467");
+  assert.equal(c.hydraAdminUrl, "http://hydra:4445");
   assert.match(c.cookieSecret, /dev-insecure/);
   assert.match(c.csrfSecret, /dev-insecure/);
   assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift

@@ -12,6 +12,7 @@ export interface Config {
   cacheTemplates: boolean;
   cookieSecret: string;
   csrfSecret: string;
+  hydraAdminUrl: string;
   jwksUrl: string;
   jwtAudience: string | undefined;
   jwtClockSkewSec: number;
@@ -87,6 +88,8 @@ export function loadConfig(env: Env = process.env): Config {
     cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
     cookieSecret: readSecret(env, "COOKIE_SECRET", "dev-insecure-cookie-secret", requireSecure),
     csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
+    // Hydra admin API — the OAuth2 login/consent challenge handshake (§6); not on the first-party path.
+    hydraAdminUrl: readUrl(env, "HYDRA_ADMIN_URL", "http://hydra:4445"),
     // §4 verifier reads the same key the Kratos tokenizer signs with (kratos.yml jwks_url).
     // Kratos doesn't republish it over HTTP, so default to a file:// of the tokenizer JWKS
     // mounted into web (compose.yml). Prod overrides with a real key (README: rotation).
