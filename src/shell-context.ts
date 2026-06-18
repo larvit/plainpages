@@ -2,7 +2,8 @@
 // (the home dashboard, the built-in admin screens) hands to shell.ejs. Pure. Extracted so the
 // shell user is the *real* signed-in identity (§4) — no hardcoded demo profile — and branding is
 // read from one place. The User carries no display name (the JWT holds only id/email/roles), so
-// the profile shows the email with initials derived from its local part; anonymous ⇒ "Guest".
+// the profile shows the email's local part as the name with the full email beneath, initials from
+// the local part; anonymous ⇒ "Guest".
 
 import type { User } from "./context.ts";
 import { type MenuConfig } from "./menu-config.ts";
@@ -25,7 +26,7 @@ export interface ShellModel {
 export function shellUser(user: User | null | undefined): ShellUser {
   if (!user) return { email: "", initials: "G", name: "Guest" };
   const local = user.email.split("@")[0] || user.email;
-  return { email: "", initials: (local.slice(0, 2) || "U").toUpperCase(), name: user.email };
+  return { email: user.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };
 }
 
 export function buildShellContext(opts: {

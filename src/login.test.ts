@@ -40,18 +40,29 @@ const publicStub = (over: Partial<KratosPublic> = {}): KratosPublic => ({
   ...over,
 });
 
-test("readRoles reads direct Role memberships from Keto — paged, de-duped, sorted", async () => {
-  const calls: unknown[] = [];
+test("readRoles returns roles held directly OR transitively (enumerate defined roles → Keto-check each)", async () => {
+  const listQ: unknown[] = [];
+  const checked: string[] = [];
+  const role = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Role", object, relation: "members", ...subject });
   const keto = ketoStub({
+    // Enumerate every Role tuple (paged, no subject filter) to find the distinct role names —
+    // subjects vary (a direct user, a group) and a name repeats across pages → de-duped.
     listRelations: async (q) => {
-      calls.push(q);
-      if (!q?.pageToken) return { nextPageToken: "p2", tuples: [roleTuple("editor"), roleTuple("admin")] };
-      return { nextPageToken: null, tuples: [roleTuple("admin")] }; // duplicate across pages
+      listQ.push(q);
+      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [role("editor", { subject_id: "user:other" })] };
+      return { nextPageToken: "p2", tuples: [
+        role("editor", { subject_set: { namespace: "Group", object: "eng", relation: "members" } }),
+        role("admin", { subject_id: `user:${ID}` }),
+        role("viewer", { subject_id: "user:stranger" }),
+      ] };
     },
+    // Keto resolves transitively: the user holds editor (via a group) + admin (direct), not viewer.
+    check: async (t) => { checked.push(t.object); return t.object === "admin" || t.object === "editor"; },
   });
   assert.deepEqual(await readRoles(keto, ID), ["admin", "editor"]);
-  assert.deepEqual(calls[0], { namespace: "Role", relation: "members", subject_id: `user:${ID}` });
-  assert.equal((calls[1] as { pageToken?: string }).pageToken, "p2"); // second page follows the cursor
+  assert.deepEqual(listQ[0], { namespace: "Role", relation: "members" }); // enumerate, not subject-filtered
+  assert.equal((listQ[1] as { pageToken?: string }).pageToken, "p2"); // second page follows the cursor
+  assert.deepEqual(checked.sort(), ["admin", "editor", "viewer"]); // every distinct role checked for the user
 });
 
 test("completeLogin: read roles → project onto metadata_public → tokenize → JWT (in that order)", async () => {
@@ -65,7 +76,7 @@ test("completeLogin: read roles → project onto metadata_public → tokenize �
     },
   });
   const kratosAdmin = adminStub({ updateMetadataPublic: async (_id, meta) => { events.push("project"); projected = meta; return identity; } });
-  const keto = ketoStub({ listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
+  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
 
   const out = await completeLogin({ keto, kratosAdmin, kratosPublic }, "plainpages_session=s");
   assert.deepEqual(out, { email: "admin@plainpages.local", identityId: ID, jwt: "h.p.s", roles: ["admin"] });
@@ -90,7 +101,7 @@ test("completeLogin maps a missing email trait to null and throws if the tokeniz
 test("remintSession: a live Kratos session → fresh cookie + refreshed user; a dead session → a clearing cookie + null", async () => {
   const identity: Identity = { id: ID, traits: { email: "admin@plainpages.local" } };
   const kratosPublic = publicStub({ whoami: async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session });
-  const keto = ketoStub({ listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
+  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
 
   // TTL lapsed but the Kratos session lives → re-read roles from Keto, re-tokenize, fresh cookie.
   const live = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic }, "plainpages_session=s");

@@ -30,7 +30,7 @@
   <section class="form-card admin-actions" aria-label="Account actions">
     <form method="post" action="<%= edit.recoveryAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-mail"/></svg>Send recovery link</button></form>
     <form method="post" action="<%= edit.stateAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><%= edit.nextLabel %></button></form>
-    <form method="post" action="<%= edit.deleteAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn btn-danger" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete user</button></form>
+    <a class="btn btn-danger" href="<%= edit.deleteAction %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete user</a>
   </section>
 <% } -%>
 </div>

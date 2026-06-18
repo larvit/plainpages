@@ -36,19 +36,23 @@ export interface CompletedLogin {
   roles: string[];
 }
 
-// The coarse roles Keto grants a subject directly: `Role:<name>#members@user:<id>`. Returns
-// the de-duped, sorted role names (the tuple `object`). One logical read, paged defensively.
-// Group→role inheritance lands with the Groups screen (§5); MVP grants are direct.
+// The coarse roles a user holds — directly (`Role:<name>#members@user:<id>`) or transitively via a
+// group that is a member of the role. Enumerates the defined roles (the distinct objects in the Role
+// namespace) and asks Keto to resolve each membership, so a role granted to a group reaches the JWT —
+// matching the OPL model and the admin "Effective access" view. At login/refresh only, never per
+// request; role count is small, so the per-role checks are cheap and run in parallel.
 export async function readRoles(keto: KetoClient, identityId: string): Promise<string[]> {
   const subject_id = `user:${identityId}`;
-  const roles = new Set<string>();
+  const names = new Set<string>();
   let pageToken: string | undefined;
   do {
-    const page = await keto.listRelations({ namespace: "Role", relation: "members", subject_id, ...(pageToken ? { pageToken } : {}) });
-    for (const t of page.tuples) roles.add(t.object);
+    const page = await keto.listRelations({ namespace: "Role", relation: "members", ...(pageToken ? { pageToken } : {}) });
+    for (const t of page.tuples) names.add(t.object);
     pageToken = page.nextPageToken ?? undefined;
   } while (pageToken);
-  return [...roles].sort();
+  const roles = [...names];
+  const held = await Promise.all(roles.map((object) => keto.check({ namespace: "Role", object, relation: "members", subject_id })));
+  return roles.filter((_, i) => held[i]).sort();
 }
 
 export async function completeLogin(deps: LoginDeps, cookie: string | undefined): Promise<CompletedLogin | null> {

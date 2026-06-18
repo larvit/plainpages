@@ -4,8 +4,13 @@
 // for a non-admin), and `adminNav()` is the in-screen sidebar each admin screen renders (a link home
 // + the same section, with the active item marked `current`).
 
+import { readFormBody } from "./body.ts";
+import type { RequestContext, User } from "./context.ts";
+import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
+import { GuardError } from "./guards.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
+import { buildShellContext } from "./shell-context.ts";
 
 export const ADMIN_PERMISSION = "admin"; // role token gating the admin section
 export const ADMIN_USERS_BASE = "/admin/users";
@@ -39,4 +44,46 @@ export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen
     { href: "/", icon: "i-grid", id: "dashboard", label: "Dashboard" },
     adminSection(current),
   ]], menu.override, roles);
+}
+
+// The shared gate for every admin screen: a signed-in admin only. Throws GuardError that app.ts maps
+// (anonymous → /login, non-admin → 403). Returns the (non-null) user for the handler to thread on.
+export function requireAdmin(ctx: RequestContext): User {
+  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
+  if (!ctx.roles.includes(ADMIN_PERMISSION)) throw new GuardError(403, "admin role required");
+  return ctx.user;
+}
+
+// Read + CSRF-verify a mutation's form body once. Every admin write is a first-party POST form, so a
+// POST without a valid double-submit token is refused (GuardError → 403); non-POST ⇒ undefined.
+export async function guardedForm(ctx: RequestContext, csrfSecret: string): Promise<URLSearchParams | undefined> {
+  if ((ctx.req.method ?? "GET").toUpperCase() !== "POST") return undefined;
+  const form = await readFormBody(ctx.req);
+  if (!verifyCsrfRequest({ cookieHeader: ctx.req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
+    throw new GuardError(403, "invalid CSRF token");
+  }
+  return form;
+}
+
+// Build the model for the shared destructive-action confirm page (views/admin/confirm.ejs): a single
+// danger action behind a deliberate second step, plus a cancel link. Reused by all three screens.
+export function buildConfirmModel(opts: {
+  breadcrumbs: { href?: string; label: string }[];
+  cancelHref: string;
+  confirmAction: string;
+  confirmLabel: string;
+  csrfToken: string;
+  current: AdminScreen;
+  menu: MenuConfig;
+  message: string;
+  title: string;
+  user: User | null;
+}) {
+  return {
+    cancelHref: opts.cancelHref,
+    confirm: { action: opts.confirmAction, label: opts.confirmLabel },
+    message: opts.message,
+    nav: adminNav(opts.user?.roles ?? [], opts.menu, opts.current),
+    shell: buildShellContext({ breadcrumbs: opts.breadcrumbs, csrfToken: opts.csrfToken, menu: opts.menu, title: opts.title, user: opts.user }),
+  };
 }

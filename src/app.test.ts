@@ -228,7 +228,7 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   const nowSec = Math.floor(Date.now() / 1000);
   const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" });
   const live = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session);
-  const keto = stubKeto({ listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
+  const keto = stubKeto({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
   const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
 
   // Live Kratos session: the lapsed token is re-minted — the gated route runs AND a fresh cookie rides the response.
@@ -408,7 +408,7 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   let projected: unknown;
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
-  const keto = stubKeto({ listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
+  const keto = stubKeto({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
   const complete = async (app: ReturnType<typeof createApp>, cookie?: string) => {
     await new Promise<void>((r) => app.listen(0, r));
     t.after(() => app.close());
@@ -464,7 +464,7 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
 test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, recovery (CSRF-guarded)", async (t) => {
   const mk = (email: string, over: Partial<Identity> = {}): Identity =>
     ({ id: randomUUID(), schema_id: "default", state: "active", traits: { email, name: { first: "Ada", last: "Lovelace" } }, ...over });
-  const store: Identity[] = [mk("ada@example.com"), mk("babbage@example.com", { state: "inactive" })];
+  const store: Identity[] = [mk("ada@example.com"), mk("babbage@example.com", { state: "inactive" }), mk("you@example.com", { id: "admin1" })];
   let lastCreate: { traits?: unknown } | undefined;
   const kratosAdmin = stubAdmin({
     createIdentity: async (payload) => { lastCreate = payload as { traits?: unknown }; const created = mk("grace@example.com"); store.push(created); return created; },
@@ -528,10 +528,19 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal(rec.status, 200);
   assert.match(await rec.text(), /self-service\/recovery\?code=123456/);
 
-  // Delete: removes the identity, back to the list.
+  // Delete needs a deliberate confirm step (zero-JS): GET renders the interstitial, POST performs it.
+  const confirm = await (await get(`/admin/users/${target.id}/delete`)).text();
+  assert.match(confirm, /Cancel/);
+  assert.match(confirm, new RegExp(`action="/admin/users/${target.id}/delete"`));
   const del = await post(`/admin/users/${target.id}/delete`, `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.ok(!store.some((x) => x.id === target.id));
+
+  // Self-protection: an admin can't delete or deactivate their own account (JWT sub = admin1).
+  assert.equal((await post(`/admin/users/admin1/delete`, `_csrf=${token}`)).status, 400);
+  assert.ok(store.some((x) => x.id === "admin1"));
+  assert.equal((await post(`/admin/users/admin1/state`, `_csrf=${token}`)).status, 400);
+  assert.equal(store.find((x) => x.id === "admin1")!.state, "active");
 
   // Unknown id → 404.
   assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
@@ -610,7 +619,8 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
   assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
 
-  // Delete the group: removes every member tuple, back to the list.
+  // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
+  assert.match(await (await get("/admin/groups/eng/delete")).text(), /Cancel/);
   const del = await post("/admin/groups/eng/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.equal(del.headers.get("location"), "/admin/groups");
@@ -706,11 +716,19 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=group:eng`);
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
 
-  // Delete the role: removes every member tuple, back to the list.
+  // Delete the role: a confirm step (GET) then the POST removes every member tuple, back to the list.
+  assert.match(await (await get("/admin/roles/editor/delete")).text(), /Cancel/);
   const del = await post("/admin/roles/editor/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.equal(del.headers.get("location"), "/admin/roles");
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor"));
+
+  // Self-protection: the admin role can't be deleted, nor can you revoke your own admin (sub admin1).
+  tuples.push({ namespace: "Role", object: "admin", relation: "members", subject_id: "user:admin1" });
+  assert.equal((await post("/admin/roles/admin/delete", `_csrf=${token}`)).status, 400);
+  assert.ok(tuples.some((tp) => tp.object === "admin"));
+  assert.equal((await post("/admin/roles/admin/members/delete", `_csrf=${token}&member=user:admin1`)).status, 400);
+  assert.ok(tuples.some((tp) => tp.object === "admin" && tp.subject_id === "user:admin1"));
 
   // An invalid role name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/roles/Bad%20Name")).status, 404);

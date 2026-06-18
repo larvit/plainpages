@@ -409,7 +409,7 @@ session cookie.
 ```
   ── AT LOGIN / REFRESH  (the only time Ory is on the path) ──────────
    Kratos verifies credentials
-     └─► app reads the user's roles from Keto       (Keto = source of truth)
+     └─► app reads the user's roles from Keto       (direct + transitive via groups)
      └─► app writes them as a derived projection on the identity (admin API)
      └─► whoami(tokenize_as: "plainpages")  ─►  signed JWT
            claims: { sub, email, roles:[…from Keto], exp ≈ 10m }
@@ -432,7 +432,11 @@ and the user can already read these coarse roles in their own JWT, so nothing is
 That projection is a per-login cache, authoritative nowhere; nothing edits it by hand, and
 a stale one self-heals on the next login.
 
-Cost: **one Keto read + one identity refresh per login** — never per request. JWKS
+A role can be granted to a user directly or to a **group** the user belongs to; login
+resolves both (enumerate the defined roles, ask Keto to resolve each membership), so the
+JWT `roles` match what the admin **Effective access** view shows.
+
+Cost: **a handful of Keto reads + one identity refresh per login** — never per request. JWKS
 is cached, so even signature verification hits the network only on key rotation. The
 app stays stateless; "stay signed in" = re-mint the JWT on a short TTL, the one
 moment authz is recomputed from Keto.

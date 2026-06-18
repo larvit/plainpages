@@ -1,0 +1,17 @@
+<%#
+  Destructive-action confirm body (todo §5), captured into the shell content slot. Zero-JS: the
+  delete is a deliberate second step (a POST form), with a cancel link back. Config:
+    message    string
+    confirm    { action, label }   the danger POST endpoint + button label
+    cancelHref string
+    csrfToken
+%>
+<div class="form-page">
+  <section class="form-card admin-actions" aria-label="Confirm action">
+    <p><%= locals.message %></p>
+    <div class="form-actions">
+      <a class="btn" href="<%= locals.cancelHref %>">Cancel</a>
+      <form method="post" action="<%= locals.confirm.action %>"><input type="hidden" name="_csrf" value="<%= locals.csrfToken %>"><button class="btn btn-danger" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg><%= locals.confirm.label %></button></form>
+    </div>
+  </section>
+</div>

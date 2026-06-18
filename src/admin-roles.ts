@@ -4,12 +4,12 @@
 // the user|group membership model of the Groups screen, so the pure helpers (parseSubject, member
 // pickers, tuple paging) are reused from admin-groups. The one role-specific piece is the **effective
 // access** view: `keto.expand(Role:<name>#members)` returns the membership tree, which we flatten to
-// the distinct set of users who hold the role directly or transitively via a group. (The coarse JWT
-// projection reads only direct grants per the README's one-read-per-login design; this view is where
-// group→role inheritance is surfaced.) Writes go only to Keto; Kratos is read only to label members.
+// the distinct set of users who hold the role directly or transitively via a group. Login resolves
+// the same transitive membership into the JWT `roles` (login.ts readRoles), so this view matches what
+// a user's token actually grants. Writes go only to Keto; Kratos is read only to label members.
 // `handleAdminRoles` is the imperative shell app.ts dispatches to — gated admin-only, CSRF-guarded.
 
-import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, adminNav } from "./admin-nav.ts";
+import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -23,10 +23,7 @@ import {
   safeDecode,
 } from "./admin-groups.ts";
 import type { FieldConfig } from "./admin-users.ts";
-import { readFormBody } from "./body.ts";
 import type { RequestContext, User } from "./context.ts";
-import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
-import { GuardError } from "./guards.ts";
 import type { ExpandTree, KetoClient, RelationTuple } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { parseListQuery } from "./list-query.ts";
@@ -298,21 +295,11 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   const path = ctx.url.pathname;
   if (path !== ADMIN_ROLES_BASE && !path.startsWith(`${ADMIN_ROLES_BASE}/`)) return null;
 
-  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
-  if (!ctx.roles.includes(ADMIN_PERMISSION)) throw new GuardError(403, "admin role required");
-
+  const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { keto, kratosAdmin, menu, render } = deps;
-  const user = ctx.user;
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_ROLES_BASE.length).split("/").filter(Boolean);
-
-  let form: URLSearchParams | undefined;
-  if (method === "POST") {
-    form = await readFormBody(ctx.req);
-    if (!verifyCsrfRequest({ cookieHeader: ctx.req.headers.cookie, secret: deps.csrfSecret, submitted: form.get(CSRF_FIELD) })) {
-      throw new GuardError(403, "invalid CSRF token");
-    }
-  }
+  const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const roles = rolesFromTuples(await pagedTuples(keto, { namespace: ROLE_NS, relation: MEMBERS }));
@@ -322,12 +309,13 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     const { options } = await memberCandidates(keto, kratosAdmin);
     return { html: await render("admin/role-form", { model: buildRoleFormModel({ csrfToken, memberOptions: options, menu, user, ...extra }) }) };
   };
-  const renderDetail = async (name: string): Promise<RouteResult> => {
+  const renderDetail = async (name: string, error?: string): Promise<RouteResult> => {
     const { emailById, options } = await memberCandidates(keto, kratosAdmin);
     const tuples = await pagedTuples(keto, { namespace: ROLE_NS, object: name, relation: MEMBERS });
     const members = tuples.map((t) => memberView(t, emailById));
     const effective = await effectiveUsers(keto, name, tuples.length > 0, emailById);
-    return { html: await render("admin/role-detail", { model: buildRoleDetailModel({ candidates: options, csrfToken, effective, members, menu, role: { name }, user }) }) };
+    const html = await render("admin/role-detail", { model: buildRoleDetailModel({ candidates: options, csrfToken, effective, members, menu, role: { name }, user, ...(error ? { error } : {}) }) });
+    return error ? { html, status: 400 } : { html };
   };
 
   // /admin/roles — list (GET) · create (POST)
@@ -362,12 +350,26 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     if (tuple) await keto.writeTuple(tuple); // the picker only offers real users/groups
     return { redirect: base };
   }
+  if (seg.length === 2 && seg[1] === "delete" && method === "GET") {
+    // Self-protection: deleting the admin role removes everyone's admin — refuse it outright.
+    if (name === ADMIN_PERMISSION) return renderDetail(name, "The admin role can't be deleted — it would remove all admin access.");
+    return { html: await render("admin/confirm", { model: buildConfirmModel({
+      breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { href: base, label: name }, { label: "Delete" }],
+      cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete role", csrfToken,
+      current: "roles", menu, message: `Delete role ${name}? This revokes it from everyone it's assigned to.`, title: "Delete role", user,
+    }) }) };
+  }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
+    if (name === ADMIN_PERMISSION) return renderDetail(name, "The admin role can't be deleted — it would remove all admin access.");
     await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS }); // removes every member tuple
     return { redirect: ADMIN_ROLES_BASE };
   }
   if (seg.length === 3 && seg[1] === "members" && seg[2] === "delete" && method === "POST") {
-    const tuple = roleMemberTuple(name, (form!.get("member") ?? "").trim());
+    const member = (form!.get("member") ?? "").trim();
+    // Self-protection: don't let an admin revoke their own *direct* admin grant (would lock them out).
+    // Admin held only via a group isn't covered here — the robust "last effective admin" check is §9.
+    if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return renderDetail(name, "You can't revoke your own admin access.");
+    const tuple = roleMemberTuple(name, member);
     if (tuple) await keto.deleteTuple(tuple);
     return { redirect: base };
   }

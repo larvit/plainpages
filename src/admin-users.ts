@@ -5,11 +5,8 @@
 // imperative shell app.ts dispatches to — it gates (admin only), CSRF-guards every mutation, and
 // maps each action to a RouteResult (render a page, or redirect after a write — PRG).
 
-import { ADMIN_PERMISSION, ADMIN_USERS_BASE, adminNav } from "./admin-nav.ts";
-import { readFormBody } from "./body.ts";
+import { ADMIN_USERS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { RequestContext, User } from "./context.ts";
-import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
-import { GuardError } from "./guards.ts";
 import type { Identity, KratosAdmin, RecoveryCode } from "./kratos-admin.ts";
 import { KratosError } from "./kratos-public.ts";
 import { parseListQuery } from "./list-query.ts";
@@ -306,23 +303,11 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
   const path = ctx.url.pathname;
   if (path !== ADMIN_USERS_BASE && !path.startsWith(`${ADMIN_USERS_BASE}/`)) return null;
 
-  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
-  if (!ctx.roles.includes(ADMIN_PERMISSION)) throw new GuardError(403, "admin role required");
-
+  const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { kratosAdmin, menu, render } = deps;
-  const user = ctx.user;
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_USERS_BASE.length).split("/").filter(Boolean);
-
-  // Every mutation is a first-party form → CSRF-guard it (the host doesn't gate plugin routes,
-  // but it owns these). Reads the body once; the action handlers reuse the parsed form.
-  let form: URLSearchParams | undefined;
-  if (method === "POST") {
-    form = await readFormBody(ctx.req);
-    if (!verifyCsrfRequest({ cookieHeader: ctx.req.headers.cookie, secret: deps.csrfSecret, submitted: form.get(CSRF_FIELD) })) {
-      throw new GuardError(403, "invalid CSRF token");
-    }
-  }
+  const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
@@ -370,18 +355,32 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
     return null;
   }
 
-  if (seg.length === 2 && method === "POST") {
-    if (seg[1] === "state") {
-      await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, identity.state === "inactive" ? "active" : "inactive"));
-      return { redirect: back };
+  if (seg.length === 2) {
+    const isSelf = targetId === user.id; // self-protection: an admin must not lock themselves out
+    if (seg[1] === "delete" && method === "GET") {
+      if (isSelf) return { ...(await renderForm({ error: "You can't delete your own account.", identity })), status: 400 };
+      const view = toUserView(identity);
+      return { html: await render("admin/confirm", { model: buildConfirmModel({
+        breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { href: back, label: view.name }, { label: "Delete" }],
+        cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: "Delete user", csrfToken,
+        current: "users", menu, message: `Delete ${view.email}? This permanently removes the account and can't be undone.`, title: "Delete user", user,
+      }) }) };
     }
-    if (seg[1] === "delete") {
-      await kratosAdmin.deleteIdentity(targetId);
-      return { redirect: ADMIN_USERS_BASE };
-    }
-    if (seg[1] === "recovery") {
-      const recovery = await kratosAdmin.createRecoveryCode(targetId);
-      return renderForm({ identity, recovery });
+    if (method === "POST") {
+      if (seg[1] === "state") {
+        if (isSelf) return { ...(await renderForm({ error: "You can't deactivate your own account.", identity })), status: 400 };
+        await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, identity.state === "inactive" ? "active" : "inactive"));
+        return { redirect: back };
+      }
+      if (seg[1] === "delete") {
+        if (isSelf) return { ...(await renderForm({ error: "You can't delete your own account.", identity })), status: 400 };
+        await kratosAdmin.deleteIdentity(targetId);
+        return { redirect: ADMIN_USERS_BASE };
+      }
+      if (seg[1] === "recovery") {
+        const recovery = await kratosAdmin.createRecoveryCode(targetId);
+        return renderForm({ identity, recovery });
+      }
     }
   }
   return null;

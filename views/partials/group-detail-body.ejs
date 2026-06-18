@@ -37,6 +37,6 @@
 <% } -%>
   </section>
   <section class="form-card admin-actions" aria-label="Group actions">
-    <form method="post" action="<%= del.action %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-danger" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete group</button></form>
+    <a class="btn btn-danger" href="<%= del.action %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete group</a>
   </section>
 </div>

@@ -7,12 +7,9 @@
 // building-block view models; `handleAdminGroups` is the imperative shell app.ts dispatches to — it
 // gates (admin only), CSRF-guards every mutation, and maps each action to a RouteResult.
 
-import { ADMIN_GROUPS_BASE, ADMIN_PERMISSION, adminNav } from "./admin-nav.ts";
+import { ADMIN_GROUPS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { FieldConfig } from "./admin-users.ts";
-import { readFormBody } from "./body.ts";
 import type { RequestContext, User } from "./context.ts";
-import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
-import { GuardError } from "./guards.ts";
 import type { KetoClient, RelationQuery, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { parseListQuery } from "./list-query.ts";
@@ -334,21 +331,11 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
   const path = ctx.url.pathname;
   if (path !== ADMIN_GROUPS_BASE && !path.startsWith(`${ADMIN_GROUPS_BASE}/`)) return null;
 
-  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
-  if (!ctx.roles.includes(ADMIN_PERMISSION)) throw new GuardError(403, "admin role required");
-
+  const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { keto, kratosAdmin, menu, render } = deps;
-  const user = ctx.user;
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_GROUPS_BASE.length).split("/").filter(Boolean);
-
-  let form: URLSearchParams | undefined;
-  if (method === "POST") {
-    form = await readFormBody(ctx.req);
-    if (!verifyCsrfRequest({ cookieHeader: ctx.req.headers.cookie, secret: deps.csrfSecret, submitted: form.get(CSRF_FIELD) })) {
-      throw new GuardError(403, "invalid CSRF token");
-    }
-  }
+  const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
@@ -396,6 +383,13 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
     // Skip an invalid member or a self-nest (the picker already excludes both).
     if (tuple && tuple.subject_set?.object !== name) await keto.writeTuple(tuple);
     return { redirect: base };
+  }
+  if (seg.length === 2 && seg[1] === "delete" && method === "GET") {
+    return { html: await render("admin/confirm", { model: buildConfirmModel({
+      breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { href: base, label: name }, { label: "Delete" }],
+      cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete group", csrfToken,
+      current: "groups", menu, message: `Delete group ${name}? This removes the group and all its memberships.`, title: "Delete group", user,
+    }) }) };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
     await keto.deleteTuple({ namespace: GROUP_NS, object: name, relation: MEMBERS }); // removes every member tuple
