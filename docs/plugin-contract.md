@@ -130,6 +130,12 @@ export async function listShifts(ctx: RequestContext) {
   like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
   the core building-block partials (app shell, nav tree, data table, …) and its own
   partials/subfolders to render a full page — exactly as the built-in screens do.
+- **Finer authorization than the route `permission`** uses the guards in `src/guards.ts`:
+  `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
+  to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
+  {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
+  signed-in user, anonymous ⇒ denied). Throw `new GuardError(403, …)` after a failed `can`/`check`
+  to render the 403 page.
 - The handler **fetches its own data** from upstream and renders it; plugins hold no state
   (see the README's *Stateless* section). The partials only need rows.
 - `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.

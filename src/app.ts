@@ -5,6 +5,7 @@ import * as ejs from "ejs";
 import { buildContext } from "./context.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
+import { GuardError } from "./guards.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
 import type { JwksProvider } from "./jwks.ts";
@@ -157,6 +158,13 @@ export function createApp(options: AppOptions = {}): Server {
       }
       sendHtml(res, 404, await render("404", { title: "Not found" }));
     } catch (err) {
+      // A guard thrown anywhere in handling maps to a response (not a 500): a `location` ⇒ a
+      // redirect (requireSession → /login), otherwise the status renders the error page.
+      if (err instanceof GuardError) {
+        if (res.headersSent) return void res.end();
+        if (err.location) return void res.writeHead(303, { location: err.location }).end();
+        return void sendHtml(res, err.status, await render("403", { title: "Forbidden" }));
+      }
       console.error(err);
       if (res.headersSent) return void res.end(); // a partial body is already on the wire
       try {

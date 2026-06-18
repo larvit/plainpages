@@ -354,9 +354,10 @@ and helpers rather than declaring a schema and getting magic. The vocabulary is 
 - **Partials:** app shell, nav tree, filter bar, data table (sort / select / row
   actions), pagination, form fields, badges, menus, auth cards.
 - **Helpers:** `composeNav` (menu from config), `parseListQuery`
-  (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math). Auth
-  guards — `requireSession` (validate the JWT), `can(role)` (read a claim, in-process),
-  `check(relation, object)` (a live Keto call) — land with §4.
+  (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math), and the auth
+  guards a handler calls to authorize (`src/guards.ts`): `requireSession` (assert a session — a
+  `GuardError` the host turns into a redirect to sign in), `can(role)` (a coarse JWT-claim check,
+  zero I/O), `check(relation, object)` (the one live Keto call, for relationship rules).
 
 ## Interactivity: zero-JS spine, opt-in enhancement
 

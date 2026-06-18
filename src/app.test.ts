@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
+import { can, check, GuardError, requireSession } from "./guards.ts";
 import { staticJwks } from "./jwks.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
@@ -207,6 +208,41 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   // No cookie and an expired token both render anonymous → the gate denies (403).
   assert.equal((await secret()).status, 403);
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 403);
+});
+
+test("guards map to responses: requireSession → /login, a failed can/check → 403, success runs the handler", async (t) => {
+  const keto = { check: async (tuple: { object: string }) => tuple.object === "open" } as unknown as Parameters<typeof check>[0];
+  const guarded: Plugin = {
+    apiVersion: "1.0.0",
+    id: "guarded",
+    routes: [
+      { handler: (ctx) => ({ html: `hi ${requireSession(ctx).email}` }), method: "GET", path: "/me" },
+      { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
+      { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
+    ],
+  };
+  const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [guarded] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const auth = (roles: string[]) => ({ headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles, sub: "u1" })}` } });
+
+  // requireSession: anonymous bounces to /login; a signed-in user reaches the handler.
+  const anon = await fetch(url + "/guarded/me", { redirect: "manual" });
+  assert.equal(anon.status, 303);
+  assert.equal(anon.headers.get("location"), "/login");
+  const me = await fetch(url + "/guarded/me", auth([]));
+  assert.equal(me.status, 200);
+  assert.match(await me.text(), /hi a@b\.c/);
+
+  // can: signed-in but lacking the role → 403 page; carrying it → 200.
+  assert.equal((await fetch(url + "/guarded/admin-only", auth([]))).status, 403);
+  assert.equal((await fetch(url + "/guarded/admin-only", auth(["admin"]))).status, 200);
+
+  // check (live Keto): the keto verdict gates the handler.
+  assert.equal((await fetch(url + "/guarded/doc/open", auth([]))).status, 200);
+  assert.equal((await fetch(url + "/guarded/doc/shut", auth([]))).status, 403);
 });
 
 test("plugin hooks: onRequest can short-circuit a request and onResponse observes the handler result", async (t) => {
