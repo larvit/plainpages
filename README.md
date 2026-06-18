@@ -536,7 +536,7 @@ src/dashboard.ts     buildDashboardModel(): the home "/" People list view model 
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
 src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
-src/admin-nav.ts     adminNav(): the shared sidebar nav for the built-in admin screens (Dashboard · Users · Groups · Roles)
+src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }

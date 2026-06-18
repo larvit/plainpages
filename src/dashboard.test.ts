@@ -72,6 +72,19 @@ test("dashboard applies the central menu config: branding + nav override (rename
   assert.ok(!labels.includes("Teams")); // "Teams" hidden
 });
 
+test("dashboard menu wires in the permission-gated Admin section (only for admins)", () => {
+  // An admin sees the Admin section with the three built-in screens.
+  const admin = buildDashboardModel(new URL("http://x/"), ["admin"]);
+  const adminNode = admin.nav.find((n) => n.label === "Admin");
+  assert.ok(adminNode, "admin role → Admin section present");
+  assert.deepEqual(adminNode!.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles"]);
+
+  // A non-admin (default []) never sees it — composeNav drops the gated header + its subtree.
+  const plain = buildDashboardModel(new URL("http://x/"));
+  assert.equal(plain.nav.find((n) => n.label === "Admin"), undefined);
+  assert.ok(!plain.nav.some((n) => n.children?.some((c) => c.href === "/admin/users")));
+});
+
 test("dashboard paginates: page 2 slices the next rows and preserves state in links", () => {
   const p2 = buildDashboardModel(new URL("http://x/?sort=-name&page=2"));
   assert.equal(p2.pagination.summary.from, 13); // 30 rows / 12 per page → page 2 starts at 13

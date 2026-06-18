@@ -216,6 +216,11 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   // No cookie and an expired token both render anonymous → the gate denies (403).
   assert.equal((await secret()).status, 403);
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 403);
+
+  // The home menu wires in the permission-gated Admin section: an admin's roles surface the links.
+  const home = (cookie?: string) => fetch(url + "/", cookie ? { headers: { cookie } } : {});
+  assert.match(await (await home(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}`)).text(), /href="\/admin\/users"/);
+  assert.doesNotMatch(await (await home()).text(), /href="\/admin\/users"/); // anonymous → no admin section
 });
 
 test("session re-mint: an expired JWT backed by a live Kratos session is silently re-minted; a dead session clears it", async (t) => {

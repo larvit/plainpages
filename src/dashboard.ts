@@ -3,6 +3,7 @@
 // parseListQuery → filter/sort/paginate a mock dataset → composeNav. Mock data stands in for
 // upstream until §4; the filter form, sortable headers and pager all round-trip the URL (zero-JS).
 
+import { adminSection } from "./admin-nav.ts";
 import type { User } from "./context.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode, type NavOverride } from "./nav.ts";
@@ -128,6 +129,7 @@ function nav(roles: string[], override: NavOverride): NavNode[] {
       { href: "#exports", id: "exports", label: "Exports" },
     ], icon: "i-chart", id: "reports", label: "Reports", open: true },
     { href: "#settings", icon: "i-gear", id: "settings", label: "Settings", permission: "admin" },
+    adminSection(), // built-in Users/Groups/Roles screens; gated → invisible to non-admins
   ]], override, roles);
 }
 
