@@ -14,6 +14,7 @@ test("loads dev defaults when the environment is empty", () => {
   const c = loadConfig({});
   assert.equal(c.port, 3000);
   assert.equal(c.cacheTemplates, false);
+  assert.equal(c.secureCookies, false); // dev runs http; prod sets SECURE_COOKIES=true
   assert.equal(c.kratosPublicUrl, "http://kratos:4433");
   assert.equal(c.kratosAdminUrl, "http://kratos:4434");
   assert.equal(c.ketoReadUrl, "http://keto:4466");
@@ -43,6 +44,7 @@ test("JWT issuer/audience are optional: unset by default, pinned from the env", 
 test("parses explicit boolean toggles and rejects non-boolean values", () => {
   assert.equal(loadConfig({ CACHE_TEMPLATES: "true" }).cacheTemplates, true);
   assert.equal(loadConfig({ CACHE_TEMPLATES: "false" }).cacheTemplates, false);
+  assert.equal(loadConfig({ SECURE_COOKIES: "true" }).secureCookies, true);
   assert.throws(() => loadConfig({ CACHE_TEMPLATES: "yes" }), /CACHE_TEMPLATES/);
 });
 

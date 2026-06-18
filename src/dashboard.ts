@@ -77,7 +77,7 @@ function href(state: State, overrides: Partial<State> = {}): string {
   return qs ? `?${qs}` : "?";
 }
 
-export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU) {
+export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU, csrfToken = "") {
   const query = parseListQuery(url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const status = query.filters.status?.[0] ?? "all";
   const team = query.filters.team?.[0] ?? "";
@@ -111,6 +111,7 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
         ...(menu.branding.sub != null ? { sub: menu.branding.sub } : {}),
       },
       breadcrumbs: [{ href: "?", label: "Directory" }, { label: "People" }],
+      csrfToken, // hidden field for the shell's Sign-out POST form (§4)
       ...(menu.branding.theme != null ? { theme: menu.branding.theme } : {}),
       title: "People",
       user: { email: "sam.rivers@example.com", initials: "SR", name: "Sam Rivers" }, // demo until §4

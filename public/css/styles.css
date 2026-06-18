@@ -498,6 +498,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   color: var(--text); background: transparent; border: 0; cursor: pointer;
   text-align: left;
 }
+.menu-item-form { display: contents; } /* form wraps the Sign-out button without changing layout */
 .menu-item:hover { background: var(--surface-2); }
 .menu-item.danger { color: var(--neg); }
 .menu-item .ico { color: var(--text-faint); }

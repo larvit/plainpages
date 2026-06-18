@@ -20,6 +20,7 @@ export interface Config {
   kratosAdminUrl: string;
   kratosPublicUrl: string;
   port: number;
+  secureCookies: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -88,5 +89,7 @@ export function loadConfig(env: Env = process.env): Config {
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
     port: readPort(env),
+    // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
+    secureCookies: readBool(env, "SECURE_COOKIES", false),
   };
 }

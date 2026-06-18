@@ -11,6 +11,7 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   const html = await render({
     title: "People",
     brand: { name: "Acme Console", sub: "v2" },
+    csrfToken: "tok.sig",
     nav: '<a id="nav-marker" href="/x">Overview</a>',
     body: '<section id="body-marker">page</section>',
     actions: '<button id="action-marker">Add</button>',
@@ -30,8 +31,9 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<section id="body-marker">page<\/section>/); // content slot
   assert.match(html, /<button id="action-marker"/); // topbar actions slot
 
-  // Sign out is wired to the logout route (the side-footer profile menu).
-  assert.match(html, /<a class="menu-item danger" href="\/logout">/);
+  // Sign out is a CSRF-guarded POST form (state change, not a GET link), carrying the token.
+  assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
+  assert.match(html, /<input type="hidden" name="_csrf" value="tok\.sig" \/>/);
 
   // Branding, document title, and the inlined icon sprite (so <use> resolves).
   assert.match(html, /Acme Console/);

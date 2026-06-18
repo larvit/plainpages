@@ -102,6 +102,19 @@ test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({
   expect(offCanvas).toBe(true);
 });
 
+test("Sign-out is a CSRF-guarded POST form: the token is issued on the page, a tokenless POST is refused", async ({ page }) => {
+  await page.goto("/");
+  // The page issues a CSRF cookie and embeds the same token in the Sign-out form (double-submit).
+  const cookie = (await page.context().cookies()).find((c) => c.name === "plainpages_csrf");
+  expect(cookie?.value, "GET / issues a plainpages_csrf cookie").toBeTruthy();
+  const field = await page.locator('form[action="/logout"] input[name="_csrf"]').getAttribute("value");
+  expect(field).toBe(cookie!.value);
+
+  // A POST carrying the cookie but no form token is rejected before any Kratos call.
+  const res = await page.request.post("/logout", { form: {}, maxRedirects: 0 });
+  expect(res.status()).toBe(403);
+});
+
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
   const res = await page.goto("/no-such-page");
   expect(res?.status()).toBe(404);

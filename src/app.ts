@@ -1,8 +1,11 @@
+import { randomBytes } from "node:crypto";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
+import { readFormBody } from "./body.ts";
 import { buildContext, type User } from "./context.ts";
+import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import { GuardError } from "./guards.ts";
@@ -27,6 +30,7 @@ export interface AppOptions {
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
+  csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   jwks?: JwksProvider; // verify the session JWT → ctx.user/roles (§4); absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
@@ -35,12 +39,15 @@ export interface AppOptions {
   plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
   publicDir?: string;
+  secureCookies?: boolean; // set Secure on our session/CSRF cookies (config.secureCookies; off in dev http)
   viewsDir?: string;
 }
 
 export function createApp(options: AppOptions = {}): Server {
   const authOptions = options.auth ?? {};
   const cache = options.cache ?? false;
+  const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
+  const secureCookies = options.secureCookies ?? false;
   const jwks = options.jwks;
   const keto = options.keto;
   const kratos = options.kratos;
@@ -90,11 +97,14 @@ export function createApp(options: AppOptions = {}): Server {
         const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
         user = auth.user;
         if (!user && auth.expired && keto && kratos && kratosAdmin) {
-          const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie);
+          const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: secureCookies });
           user = reminted.user;
-          res.setHeader("set-cookie", reminted.setCookie);
+          res.appendHeader("set-cookie", reminted.setCookie);
         }
       }
+      // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
+      // one (the form page below Set-Cookies it). Verified on our own state-changing routes (§4).
+      const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
       const ctx = buildContext(req, res, { user }); // base context (no route params yet); reused for onRequest
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
@@ -128,7 +138,8 @@ export function createApp(options: AppOptions = {}): Server {
         if (!flowId) {
           // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
           const { flow, setCookie } = await kratos.initBrowserFlow(flowType, cookie ? { cookie } : {});
-          res.writeHead(303, { location: `${pathname}?flow=${flow.id}`, ...(setCookie.length ? { "set-cookie": setCookie } : {}) }).end();
+          if (setCookie.length) res.appendHeader("set-cookie", setCookie);
+          res.writeHead(303, { location: `${pathname}?flow=${flow.id}` }).end();
           return;
         }
         try {
@@ -152,24 +163,32 @@ export function createApp(options: AppOptions = {}): Server {
           res.writeHead(303, { location: "/login" }).end();
           return;
         }
-        // secure: off in dev http; the §9 cookie hardening toggles it on for prod.
-        res.writeHead(303, { location: "/", "set-cookie": sessionCookie(completed.jwt) }).end();
+        res.appendHeader("set-cookie", sessionCookie(completed.jwt, { secure: secureCookies }));
+        res.writeHead(303, { location: "/" }).end();
         return;
       }
 
-      // Logout: clear our local JWT and revoke the Kratos session. Kratos' own cookie lives on
-      // its origin, so we can't clear it here — redirect the browser to Kratos' logout URL (it
-      // revokes the session, clears plainpages_session, then lands on /login per kratos.yml).
-      // No active session ⇒ just clear our cookie and go to /login.
-      if (pathname === "/logout" && (method === "GET" || method === "HEAD") && kratos) {
+      // Logout: a state change, so a CSRF-guarded POST (the shell submits a form, not a GET link).
+      // Clear our local JWT and revoke the Kratos session — Kratos' own cookie lives on its origin,
+      // so redirect to its logout URL (it revokes the session, clears plainpages_session, then lands
+      // on /login per kratos.yml). No active session ⇒ just clear our cookie and go to /login.
+      if (pathname === "/logout" && method === "POST" && kratos) {
+        const form = await readFormBody(req);
+        if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
+          sendHtml(res, 403, await render("403", { title: "Forbidden" }));
+          return;
+        }
         const flow = await kratos.createLogoutFlow(req.headers.cookie ? { cookie: req.headers.cookie } : {});
-        res.writeHead(303, { location: flow?.logoutUrl ?? "/login", "set-cookie": clearSessionCookie() }).end();
+        res.appendHeader("set-cookie", clearSessionCookie({ secure: secureCookies }));
+        res.writeHead(303, { location: flow?.logoutUrl ?? "/login" }).end();
         return;
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
         // Roles from the verified JWT (anonymous ⇒ []); branding/override come from config/menu.ts.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu) }));
+        // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
+        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token) }));
         return;
       }
 

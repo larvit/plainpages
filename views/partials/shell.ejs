@@ -3,7 +3,8 @@
   Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
   `actions` (topbar buttons), `body` (page content). Text locals: `title`, `brand`
   ({ name, logo?, sub? } — logo image else the default mark), `theme` (default for the
-  theme-switch), `user`, `breadcrumbs`. Branding comes from config/menu.ts; `user` from §4 auth.
+  theme-switch), `user`, `breadcrumbs`, `csrfToken` (the Sign-out POST form's hidden field).
+  Branding comes from config/menu.ts; `user`/`csrfToken` from §4 auth.
 %><%
   const title = locals.title || "Plainpages";
   const brand = locals.brand || { name: "Plainpages" };
@@ -53,7 +54,11 @@
               <div class="menu-pop left up" style="min-width:220px">
                 <div class="menu-head">Signed in as <%= user.name %></div>
                 <button class="menu-item" type="button"><svg class="ico"><use href="#i-user" /></svg>Profile</button>
-                <a class="menu-item danger" href="/logout"><svg class="ico"><use href="#i-logout" /></svg>Sign out</a>
+                <%# Sign out is a state change → a POST form (not a GET link), CSRF-guarded by app.ts %>
+                <form class="menu-item-form" method="post" action="/logout">
+                  <input type="hidden" name="_csrf" value="<%= locals.csrfToken || '' %>" />
+                  <button class="menu-item danger" type="submit"><svg class="ico"><use href="#i-logout" /></svg>Sign out</button>
+                </form>
               </div>
             </details>
 

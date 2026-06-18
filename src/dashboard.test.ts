@@ -14,6 +14,8 @@ test("dashboard default: page 1, mock data, nav + shell wired", () => {
   const m = buildDashboardModel(new URL("http://x/"));
 
   assert.equal(m.shell.title, "People");
+  assert.equal(m.shell.csrfToken, ""); // default empty; app.ts passes the per-request token
+  assert.equal(buildDashboardModel(new URL("http://x/"), [], undefined, "tok.sig").shell.csrfToken, "tok.sig");
   assert.ok(m.nav.length > 0); // composeNav produced a tree
   assert.equal(col0(m).label, "Name");
   assert.equal(m.pagination.summary.total, 30); // full mock dataset

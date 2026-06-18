@@ -10,6 +10,7 @@ services:
     environment:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
+      SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
     # Wait for the services config.ts talks to (kratos + keto) + the one-shot bootstrap
     # (admin + JWKS seed). Hydra is post-MVP (§6), not in config.ts, so web skips it.
     depends_on:

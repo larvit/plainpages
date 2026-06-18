@@ -25,12 +25,14 @@ await runBootHooks(plugins); // plugin onBoot — after discovery, before listen
 const server = createApp({
   auth: { audience: config.jwtAudience, issuer: config.jwtIssuer },
   cache: config.cacheTemplates,
+  csrfSecret: config.csrfSecret,
   jwks,
   keto,
   kratos,
   kratosAdmin,
   menu,
   plugins,
+  secureCookies: config.secureCookies,
 }).listen(config.port, () => {
   console.log(`Listening on http://localhost:${config.port}`);
 });

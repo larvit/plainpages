@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
+import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { staticJwks } from "./jwks.ts";
 import type { KetoClient } from "./keto-client.ts";
@@ -40,6 +41,13 @@ test("serves the home page: the app-shell People dashboard, filterable via the U
   assert.match(html, /<table class="table"/);
   assert.match(html, /<footer class="pager"/);
   assert.match(html, /Avery Kline/); // a mock person on page 1
+
+  // The Sign-out POST form carries a CSRF token matching the Set-Cookie issued for the page (§4).
+  const csrfCookie = (res.headers.get("set-cookie") ?? "").match(/plainpages_csrf=([^;]+)/)?.[1];
+  assert.ok(csrfCookie, "GET / issues a CSRF cookie");
+  assert.match(res.headers.get("set-cookie") ?? "", /plainpages_csrf=[^;]+;.*HttpOnly/);
+  assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
+  assert.match(html, new RegExp(`name="_csrf" value="${csrfCookie!.replace(/[.]/g, "\\.")}"`));
 
   // A search query filters server-side: a no-match query drops every row.
   const empty = await fetch(base + "/?q=zzz-no-such-person");
@@ -409,25 +417,35 @@ test("login completion with no Kratos session redirects to /login and sets no co
   assert.equal(res.headers.get("set-cookie"), null);
 });
 
-test("logout: bounces to Kratos to revoke the session and clears our JWT cookie; no session → /login", async (t) => {
+test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clears our JWT; bad token → 403", async (t) => {
   const logoutUrl = "http://127.0.0.1:4433/self-service/logout?token=lt";
-  const kratos: KratosPublic = { ...mockKratos(async () => { throw new Error("unused"); }), createLogoutFlow: async (o) => (o?.cookie ? { logoutToken: "lt", logoutUrl } : null) };
-  const app = createApp({ kratos });
+  // Real Kratos keys off its own session cookie (plainpages_session), not our always-present CSRF cookie.
+  const kratos: KratosPublic = { ...mockKratos(async () => { throw new Error("unused"); }), createLogoutFlow: async (o) => (o?.cookie?.includes("plainpages_session") ? { logoutToken: "lt", logoutUrl } : null) };
+  const csrfSecret = "logout-secret";
+  const app = createApp({ csrfSecret, kratos });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const token = issueCsrfToken(csrfSecret);
+  const post = (cookie: string, body: string) =>
+    fetch(url + "/logout", { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie }, method: "POST", redirect: "manual" });
 
-  // Active session → redirect to Kratos' logout URL (it revokes + clears plainpages_session, then → /login).
-  const out = await fetch(url + "/logout", { headers: { cookie: `${SESSION_COOKIE}=x; plainpages_session=s` }, redirect: "manual" });
+  // Valid double-submit (cookie token === form token) + active session → Kratos logout URL, JWT cleared.
+  const out = await post(`${CSRF_COOKIE}=${token}; ${SESSION_COOKIE}=x; plainpages_session=s`, `_csrf=${token}`);
   assert.equal(out.status, 303);
   assert.equal(out.headers.get("location"), logoutUrl);
-  assert.match(out.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
+  assert.match(out.headers.getSetCookie().join("\n"), /plainpages_jwt=;.*Max-Age=0/);
 
   // No active Kratos session → clear our cookie and land on /login ourselves.
-  const none = await fetch(url + "/logout", { redirect: "manual" });
+  const none = await post(`${CSRF_COOKIE}=${token}`, `_csrf=${token}`);
   assert.equal(none.status, 303);
   assert.equal(none.headers.get("location"), "/login");
-  assert.match(none.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
+  assert.match(none.headers.getSetCookie().join("\n"), /plainpages_jwt=;.*Max-Age=0/);
+
+  // Missing field and a forged token are both refused (no Kratos call, no cookie cleared).
+  assert.equal((await post(`${CSRF_COOKIE}=${token}`, "")).status, 403);
+  assert.equal((await post(`${CSRF_COOKIE}=${token}`, "_csrf=forged.sig")).status, 403);
+  assert.equal((await post("", `_csrf=${token}`)).status, 403); // no cookie to match
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

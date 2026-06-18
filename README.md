@@ -145,6 +145,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | --- | --- | --- |
 | `PORT` | `3000` | web listen port |
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
+| `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
 | `REQUIRE_SECURE_SECRETS` | `false` | when `true`, the two secrets must be supplied and differ from the dev throwaways |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
@@ -512,6 +513,8 @@ src/login.ts         completeLogin()/remintSession(): login completion + TTL re-
 src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
+src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
+src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
 src/dashboard.ts     buildDashboardModel(): the home "/" People list view model (mock data, wires the §1 helpers)
