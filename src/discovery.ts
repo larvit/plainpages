@@ -7,7 +7,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkApiVersion, findConflicts, isValidPluginId, type Plugin, type PluginManifest } from "./plugin.ts";
+import { checkApiVersion, findConflicts, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -34,6 +34,7 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
       errors.push(`"${id}" is not a valid plugin folder name (lowercase a–z, digits, dashes)`);
       continue;
     }
+    if (RESERVED_PLUGIN_IDS.has(id)) { fail(`"${id}" is a reserved id — it would shadow a built-in host route`); continue; }
     const file = join(dir, id, "plugin.ts");
     if (!existsSync(file)) { fail("no plugin.ts found"); continue; }
 

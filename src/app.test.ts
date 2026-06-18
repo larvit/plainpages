@@ -242,6 +242,15 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   const denied = await fetch(`http://localhost:${(dead.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
   assert.equal(denied.status, 403);
   assert.match(denied.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
+
+  // Ory unreachable (not a dead session): whoami throws → degrade to anonymous (403, not 500),
+  // and leave the cookie untouched so the token can re-mint once Ory recovers.
+  const down = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: withWhoami(async () => { throw new KratosError("kratos down", 503, ""); }), kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
+  await new Promise<void>((r) => down.listen(0, r));
+  t.after(() => down.close());
+  const outage = await fetch(`http://localhost:${(down.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
+  assert.equal(outage.status, 403);
+  assert.equal(outage.headers.get("set-cookie"), null);
 });
 
 test("guards map to responses: requireSession → /login, a failed can/check → 403, success runs the handler", async (t) => {

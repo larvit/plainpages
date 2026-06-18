@@ -43,6 +43,11 @@ anywhere; no uppercase, underscores, dots, or slashes); the host rejects a malfo
 at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
 convention) its nav/permission tokens.
 
+A handful of ids are **reserved** for the host's own first-party mounts (`auth`, `login`,
+`logout`, `public`, `recovery`, `registration`, `settings`, `verification`); since plugin routes
+resolve first, a folder claiming one would silently shadow a built-in route, so discovery refuses
+it loud (`RESERVED_PLUGIN_IDS`).
+
 Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
 Nothing else references it; the operator stays in control through the central menu override
 (`config/menu.ts`).

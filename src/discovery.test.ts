@@ -39,6 +39,7 @@ test("discovers each folder's manifest, sorted, id derived from the folder name"
 // Every per-plugin problem and every error-level conflict aborts boot with a message naming it.
 const badCases: Array<{ name: string; files: Record<string, string>; match: RegExp }> = [
   { name: "invalid folder name", files: { "Bad_Name/plugin.ts": full("x") }, match: /Bad_Name/ },
+  { name: "reserved id shadows a host route", files: { "login/plugin.ts": full("login") }, match: /login.*reserved/s },
   { name: "missing plugin.ts", files: { "broken/readme.txt": "x" }, match: /broken.*plugin\.ts/s },
   { name: "no default export", files: { "named-only/plugin.ts": "export const x = 1;" }, match: /named-only.*default/s },
   { name: "import throws", files: { "explodes/plugin.ts": "throw new Error('boom');" }, match: /explodes.*boom/s },

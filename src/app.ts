@@ -97,9 +97,15 @@ export function createApp(options: AppOptions = {}): Server {
         const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
         user = auth.user;
         if (!user && auth.expired && keto && kratos && kratosAdmin) {
-          const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: secureCookies });
-          user = reminted.user;
-          res.appendHeader("set-cookie", reminted.setCookie);
+          try {
+            const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: secureCookies });
+            user = reminted.user;
+            res.appendHeader("set-cookie", reminted.setCookie);
+          } catch (err) {
+            // Ory unreachable (Kratos/Keto 5xx, refused, timeout) — degrade to anonymous instead of
+            // 500ing every lapsed request. Leave the cookie alone: it can re-mint once Ory recovers.
+            console.error("session re-mint failed (Ory unreachable?):", err);
+          }
         }
       }
       // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
