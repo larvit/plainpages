@@ -397,33 +397,30 @@ const stubKeto = (over: Partial<KetoClient>): KetoClient => ({
 });
 const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
 
-test("login completion: mints the session JWT (roles from Keto → projection → tokenize) and sets the cookie", async (t) => {
+test("login completion (/auth/complete): a live session mints the JWT cookie; no session → /login, no cookie", async (t) => {
   const identity: Identity = { id: "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55", traits: { email: "admin@plainpages.local" } };
   let projected: unknown;
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
   const keto = stubKeto({ listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
+  const complete = async (app: ReturnType<typeof createApp>, cookie?: string) => {
+    await new Promise<void>((r) => app.listen(0, r));
+    t.after(() => app.close());
+    return fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
+  };
 
-  const app = createApp({ keto, kratos, kratosAdmin });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { headers: { cookie: "plainpages_session=s" }, redirect: "manual" });
-
-  assert.equal(res.status, 303);
-  assert.equal(res.headers.get("location"), "/");
-  assert.match(res.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
+  // Live Kratos session: roles from Keto → projection → tokenize → JWT cookie, land on /.
+  const ok = await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s");
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.get("location"), "/");
+  assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
   assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
-});
 
-test("login completion with no Kratos session redirects to /login and sets no cookie", async (t) => {
-  const app = createApp({ keto: stubKeto({}), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { redirect: "manual" });
-
-  assert.equal(res.status, 303);
-  assert.equal(res.headers.get("location"), "/login");
-  assert.equal(res.headers.get("set-cookie"), null);
+  // No Kratos session: nothing minted, bounce to /login with no cookie.
+  const none = await complete(createApp({ keto: stubKeto({}), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) }));
+  assert.equal(none.status, 303);
+  assert.equal(none.headers.get("location"), "/login");
+  assert.equal(none.headers.get("set-cookie"), null);
 });
 
 test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clears our JWT; bad token → 403", async (t) => {

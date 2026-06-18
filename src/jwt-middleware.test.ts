@@ -64,25 +64,22 @@ test("claimsToUser requires sub + email, defaults roles to [], keeps only string
   assert.deepEqual(claimsToUser({ email: "a@b.c", roles: ["a", 1, "b"], sub: "u" }).roles, ["a", "b"]);
 });
 
-test("authenticate: a valid cookie → User; no cookie / invalid / expired → null (fail-closed)", async () => {
-  const cookie = `${SESSION_COOKIE}=${mint(k1.privateKey, "k1", valid)}`;
-  assert.deepEqual(await authenticate(cookie, jwks, { now: NOW }), { email: "a@b.c", id: "u1", roles: ["admin"] });
-  assert.equal(await authenticate(undefined, jwks, { now: NOW }), null);
-  assert.equal(await authenticate("other=1", jwks, { now: NOW }), null);
-  assert.equal(await authenticate(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), null);
-  assert.equal(await authenticate(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, exp: NOW - 999 })}`, jwks, { now: NOW }), null);
-});
+test("resolveSession classifies the cookie; authenticate is its fail-closed user projection", async () => {
+  const cookie = (extra: Record<string, unknown> = {}, kid = "k1") => `${SESSION_COOKIE}=${mint(k1.privateKey, kid, { ...valid, ...extra })}`;
+  const user = { email: "a@b.c", id: "u1", roles: ["admin"] };
 
-test("resolveSession flags a lapsed token for re-mint, but not no-cookie / tampered tokens", async () => {
-  const ok = await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", valid)}`, jwks, { now: NOW });
-  assert.deepEqual(ok, { expired: false, user: { email: "a@b.c", id: "u1", roles: ["admin"] } });
-
-  // Present but past exp → the §4 re-mint trigger.
-  const lapsed = await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, exp: NOW - 999 })}`, jwks, { now: NOW });
-  assert.deepEqual(lapsed, { expired: true, user: null });
-
-  // No cookie / garbage / bad-signature are NOT re-mint candidates (no Ory round-trip).
+  // A valid token → the user, not expired.
+  assert.deepEqual(await resolveSession(cookie(), jwks, { now: NOW }), { expired: false, user });
+  // Present but past exp → the §4 re-mint trigger (expired flagged, no user).
+  assert.deepEqual(await resolveSession(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), { expired: true, user: null });
+  // No cookie / non-ours / garbage / bad-signature are NOT re-mint candidates (no Ory round-trip).
   assert.deepEqual(await resolveSession(undefined, jwks, { now: NOW }), { expired: false, user: null });
+  assert.deepEqual(await resolveSession("other=1", jwks, { now: NOW }), { expired: false, user: null });
   assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), { expired: false, user: null });
-  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "nope", valid)}`, jwks, { now: NOW }), { expired: false, user: null });
+  assert.deepEqual(await resolveSession(cookie({}, "nope"), jwks, { now: NOW }), { expired: false, user: null });
+
+  // authenticate() is the convenience wrapper — resolveSession(...).user, dropping the flag.
+  assert.deepEqual(await authenticate(cookie(), jwks, { now: NOW }), user);
+  assert.equal(await authenticate(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), null); // expired ⇒ null
+  assert.equal(await authenticate(undefined, jwks, { now: NOW }), null);
 });
