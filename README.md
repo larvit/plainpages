@@ -535,7 +535,8 @@ src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, po
 src/dashboard.ts     buildDashboardModel(): the home "/" People list view model (mock data, wires the §1 helpers)
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
-src/admin-nav.ts     adminNav(): the shared sidebar nav for the built-in admin screens (Dashboard · Users · Groups)
+src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
+src/admin-nav.ts     adminNav(): the shared sidebar nav for the built-in admin screens (Dashboard · Users · Groups · Roles)
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
@@ -546,7 +547,7 @@ src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each pl
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates (index = the app-shell People dashboard, admin/ = the Users list + create/edit form and the Groups list + create form + membership detail, auth = themed Kratos self-service page, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, alert, flow body, user-form/group-form/group-detail bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates (index = the app-shell People dashboard, admin/ = the Users list + create/edit form, the Groups list + create form + membership detail, and the Roles list + create form + assign/effective-access detail, auth = themed Kratos self-service page, 403/404/500, partials/ incl. app shell, nav tree, filter bar, data table, pagination, form field, auth card, alert, flow body, user-form/group-form/group-detail/role-form/role-detail bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs) + storage init (postgres/init/init.sql: one DB per service)

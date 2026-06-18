@@ -1,0 +1,16 @@
+<%#
+  Role admin detail page (todo §5): the role-detail body (members · effective access) in the shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: model.nav });
+  const body = include("partials/role-detail-body", { add: model.add, csrfToken: model.csrfToken, del: model.delete, effective: model.effective, error: model.error, members: model.members, role: model.role });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: model.shell.brand,
+  breadcrumbs: model.shell.breadcrumbs,
+  csrfToken: model.shell.csrfToken,
+  nav,
+  theme: model.shell.theme,
+  title: model.shell.title,
+  user: model.shell.user,
+}) %>

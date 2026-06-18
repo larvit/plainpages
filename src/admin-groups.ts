@@ -291,8 +291,8 @@ export interface AdminGroupsDeps {
   render: (view: string, data: Record<string, unknown>) => Promise<string>;
 }
 
-// Drain every page of a relation-tuple query.
-async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<RelationTuple[]> {
+// Drain every page of a relation-tuple query. (Reused by the Roles screen — same membership model.)
+export async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<RelationTuple[]> {
   const out: RelationTuple[] = [];
   let pageToken: string | undefined;
   do {
@@ -305,7 +305,7 @@ async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<Rela
 
 // Build the member-picker options (every user by email + every existing group) and the id→email map
 // detail rows render with. One Kratos page + one Keto scan; ample for an admin tool.
-async function memberCandidates(keto: KetoClient, kratosAdmin: KratosAdmin): Promise<{ emailById: Map<string, string>; options: MemberOption[] }> {
+export async function memberCandidates(keto: KetoClient, kratosAdmin: KratosAdmin): Promise<{ emailById: Map<string, string>; options: MemberOption[] }> {
   const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
   const emailById = new Map<string, string>();
   const userOptions: MemberOption[] = [];
@@ -326,7 +326,7 @@ async function groupExists(keto: KetoClient, name: string): Promise<boolean> {
 }
 
 // Decode a path segment without letting malformed %-encoding throw (→ caller treats it as not found).
-function safeDecode(seg: string): string | null {
+export function safeDecode(seg: string): string | null {
   try { return decodeURIComponent(seg); } catch { return null; }
 }
 

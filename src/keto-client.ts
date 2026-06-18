@@ -30,12 +30,12 @@ export interface RelationList {
   tuples: RelationTuple[];
 }
 
-// Keto's expand tree: a node is a set operation (union/…) or a leaf, with the resolved
-// subject(s). Shape kept loose — callers walk it as needed (§5 "effective access" view).
+// Keto's expand tree: a node is a set operation (union/…) or a leaf. The resolved subject
+// (subject_id xor subject_set) rides on `tuple`, not the node itself — verified against Keto
+// v26.2.0. A `subject_set` node carries its members as `children` (§5 "effective access" view).
 export interface ExpandTree {
   children?: ExpandTree[];
-  subject_id?: string;
-  subject_set?: SubjectSet;
+  tuple?: RelationTuple;
   type: string;
 }
 

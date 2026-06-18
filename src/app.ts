@@ -3,8 +3,9 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { ADMIN_GROUPS_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
+import { ADMIN_GROUPS_BASE, ADMIN_ROLES_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
 import { type AdminGroupsDeps, handleAdminGroups } from "./admin-groups.ts";
+import { type AdminRolesDeps, handleAdminRoles } from "./admin-roles.ts";
 import { type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
 import { readFormBody } from "./body.ts";
 import { buildContext, type User } from "./context.ts";
@@ -79,6 +80,7 @@ export function createApp(options: AppOptions = {}): Server {
   // Users writes to Kratos; Groups writes to Keto and reads users from Kratos for the pickers.
   const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render } : null;
   const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
+  const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -160,6 +162,14 @@ export function createApp(options: AppOptions = {}): Server {
       }
       if (adminGroupsDeps && pathname.startsWith(ADMIN_GROUPS_BASE)) {
         const result = await handleAdminGroups(ctx, csrf.token, adminGroupsDeps);
+        if (result) {
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
+          return;
+        }
+      }
+      if (adminRolesDeps && pathname.startsWith(ADMIN_ROLES_BASE)) {
+        const result = await handleAdminRoles(ctx, csrf.token, adminRolesDeps);
         if (result) {
           if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
           await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));

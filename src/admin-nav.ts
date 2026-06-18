@@ -9,8 +9,9 @@ import { composeNav, type NavNode } from "./nav.ts";
 export const ADMIN_PERMISSION = "admin"; // role token gating every admin screen
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
+export const ADMIN_ROLES_BASE = "/admin/roles";
 
-type AdminScreen = "dashboard" | "groups" | "users";
+type AdminScreen = "dashboard" | "groups" | "roles" | "users";
 
 export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen): NavNode[] {
   const gated = (id: AdminScreen, href: string, icon: string, label: string): NavNode =>
@@ -19,5 +20,6 @@ export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen
     { href: "/", icon: "i-grid", id: "dashboard", label: "Dashboard" },
     gated("users", ADMIN_USERS_BASE, "i-users", "Users"),
     gated("groups", ADMIN_GROUPS_BASE, "i-layers", "Groups"),
+    gated("roles", ADMIN_ROLES_BASE, "i-shield", "Roles"),
   ]], menu.override, roles);
 }

@@ -1,0 +1,26 @@
+<%#
+  Admin role create form body (todo §5), captured into the shell content slot. Config:
+    form  { action, csrfToken, submitLabel, cancelHref, nameField: field.ejs config,
+            memberOptions: {label,value}[], selectedMember }
+    error?  string  shown when a write was rejected
+%><%
+  const form = locals.form;
+-%>
+<div class="form-page">
+<% if (locals.error) { -%>
+<%- include("alert", { text: locals.error, tone: "neg" }) %>
+<% } -%>
+  <form class="form-card" method="post" action="<%= form.action %>">
+    <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
+    <%- include("field", form.nameField) %>
+    <div class="field">
+      <label for="member">Assign to</label>
+      <span class="select"><select id="member" name="member" required><option value="" disabled<% if (!form.selectedMember) { %> selected<% } %>>Choose a user or group…</option><% form.memberOptions.forEach((o) => { %><option value="<%= o.value %>"<% if (form.selectedMember === o.value) { %> selected<% } %>><%= o.label %></option><% }) %></select></span>
+      <span class="field-hint">A role exists once assigned; add more users or groups after creating it.</span>
+    </div>
+    <div class="form-actions">
+      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
+    </div>
+  </form>
+</div>

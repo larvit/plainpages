@@ -10,7 +10,7 @@ import { createApp } from "./app.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { staticJwks } from "./jwks.ts";
-import type { KetoClient, RelationTuple, SubjectSet } from "./keto-client.ts";
+import type { ExpandTree, KetoClient, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "./kratos-public.ts";
 import { SESSION_COOKIE } from "./login.ts";
@@ -614,6 +614,102 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   // An invalid group name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/groups/Bad%20Name")).status, 404);
   assert.equal((await get("/admin/groups/%ZZ")).status, 404);
+});
+
+// Built-in Roles & permissions admin screen (§5): gate + list/create/assign/revoke/delete over HTTP
+// against a fake in-memory Keto whose `expand` mirrors Keto's transitive resolution, so the
+// effective-access view surfaces a user reachable only through a group.
+test("admin Roles screen: gate, list, create, assign user/group, effective access (expand), revoke, delete", async (t) => {
+  const ada = randomUUID();
+  const grace = randomUUID();
+  const identities: Identity[] = [
+    { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
+    { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
+  ];
+  // grace is in the `eng` group; `editor` is an existing role whose only direct member is ada.
+  const tuples: RelationTuple[] = [
+    { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${grace}` },
+    { namespace: "Role", object: "editor", relation: "members", subject_id: `user:${ada}` },
+  ];
+  // Mirror Keto's expand shape: the subject rides on `tuple`, set nodes carry members as children.
+  const expandSet = (set: SubjectSet): ExpandTree => ({
+    children: tuples
+      .filter((tp) => tp.namespace === set.namespace && tp.object === set.object && tp.relation === set.relation)
+      .map((tp) => (tp.subject_id ? { tuple: { namespace: "", object: "", relation: "", subject_id: tp.subject_id }, type: "leaf" } : expandSet(tp.subject_set!))),
+    tuple: { namespace: "", object: "", relation: "", subject_set: set },
+    type: "union",
+  });
+  const keto: KetoClient = {
+    check: async () => false,
+    deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
+    expand: async (set) => expandSet(set),
+    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((tp) => matchesTuple(tp, q)) }),
+    writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
+  };
+  const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const csrfSecret = "roles-secret";
+  const app = createApp({ csrfSecret, jwks: staticJwks([ecJwk]), keto, kratosAdmin });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const token = issueCsrfToken(csrfSecret);
+  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
+  const post = (path: string, body: string) =>
+    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+
+  // Gate: anonymous → /login; a signed-in non-admin → 403.
+  const anon = await fetch(url + "/admin/roles", { redirect: "manual" });
+  assert.equal(anon.status, 303);
+  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal((await get("/admin/roles", [])).status, 403);
+
+  // List: the existing role shows + the "add" link.
+  const listHtml = await (await get("/admin/roles")).text();
+  assert.match(listHtml, /href="\/admin\/roles\/editor"/);
+  assert.match(listHtml, /href="\/admin\/roles\/new"/);
+
+  // Create: a valid post writes the first-member tuple and redirects to the detail.
+  assert.match(await (await get("/admin/roles/new")).text(), /Create role/);
+  const created = await post("/admin/roles", `_csrf=${token}&name=viewer&member=user:${ada}`);
+  assert.equal(created.status, 303);
+  assert.equal(created.headers.get("location"), "/admin/roles/viewer");
+  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "viewer" && tp.subject_id === `user:${ada}`));
+
+  // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
+  const before = tuples.length;
+  assert.equal((await post("/admin/roles", `_csrf=${token}&name=Bad Name&member=user:${ada}`)).status, 400);
+  assert.equal((await post("/admin/roles", `_csrf=${token}&name=editor&member=user:${ada}`)).status, 400); // already exists
+  assert.equal((await post("/admin/roles", `name=x&member=user:${ada}`)).status, 403);
+  assert.equal(tuples.length, before);
+
+  // Detail: ada (direct) is in the effective-access list; grace (only reachable via a group) is not
+  // yet — though grace appears elsewhere as an assignable candidate, so target the effective <li>.
+  const effectiveLi = (email: string) => new RegExp(`<li><span class="cell-strong">${email.replace(".", "\\.")}`);
+  const detail = await (await get("/admin/roles/editor")).text();
+  assert.match(detail, effectiveLi("ada@example.com"));
+  assert.doesNotMatch(detail, effectiveLi("grace@example.com"));
+
+  // Assign the `eng` group to the role → grace now holds it transitively (effective access via expand).
+  await post("/admin/roles/editor/members", `_csrf=${token}&member=group:eng`);
+  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+  const withGroup = await (await get("/admin/roles/editor")).text();
+  assert.match(withGroup, effectiveLi("grace@example.com"));
+
+  // Revoke the group membership.
+  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=group:eng`);
+  assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+
+  // Delete the role: removes every member tuple, back to the list.
+  const del = await post("/admin/roles/editor/delete", `_csrf=${token}`);
+  assert.equal(del.status, 303);
+  assert.equal(del.headers.get("location"), "/admin/roles");
+  assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor"));
+
+  // An invalid role name in the path → 404; malformed %-encoding doesn't 500.
+  assert.equal((await get("/admin/roles/Bad%20Name")).status, 404);
+  assert.equal((await get("/admin/roles/%ZZ")).status, 404);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

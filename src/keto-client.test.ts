@@ -72,7 +72,7 @@ test("listRelations builds the filter query + pagination and parses next_page_to
 });
 
 test("expand GETs the read API for a subject set and returns the tree (with max-depth)", async () => {
-  const tree = { children: [{ subject_id: USER, type: "leaf" }], subject_set: { namespace: "Role", object: "admin", relation: "members" }, type: "union" };
+  const tree = { children: [{ tuple: { namespace: "", object: "", relation: "", subject_id: USER }, type: "leaf" }], tuple: { namespace: "", object: "", relation: "", subject_set: { namespace: "Role", object: "admin", relation: "members" } }, type: "union" };
   const { calls, fetchImpl } = recorder(() => res(200, tree));
   const out = await keto(fetchImpl).expand({ namespace: "Role", object: "admin", relation: "members" }, { maxDepth: 3 });
   assert.deepEqual(out, tree);

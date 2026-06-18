@@ -56,3 +56,5 @@ docker compose -f compose.yml up --build -d              # production
   versions** — never ranges (`^`, `~`) and never digests/hashes. npm deps are kept
   exact by `.npmrc` (`save-exact=true`) + `npm ci`; the base image by tag (e.g.
   `node:24.16.0-alpine3.24`).
+- Run the stability reviewer agent after every implementation of something that can be like
+  a PR. That includes an implementation from the todo file that is pushed directly to master.
