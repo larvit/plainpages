@@ -72,31 +72,30 @@ test("dashboard applies the central menu config: branding + nav override (rename
   assert.ok(!labels.includes("Teams")); // "Teams" hidden
 });
 
-test("dashboard menu wires in the permission-gated Admin section (only for admins)", () => {
-  // An admin sees the Admin section with the four built-in screens.
-  const admin = buildDashboardModel(new URL("http://x/"), ["admin"]);
-  const adminNode = admin.nav.find((n) => n.label === "Admin");
-  assert.ok(adminNode, "admin role → Admin section present");
-  assert.deepEqual(adminNode!.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles", "/admin/clients"]);
-
-  // A non-admin (default []) never sees it — composeNav drops the gated header + its subtree.
-  const plain = buildDashboardModel(new URL("http://x/"));
-  assert.equal(plain.nav.find((n) => n.label === "Admin"), undefined);
-  assert.ok(!plain.nav.some((n) => n.children?.some((c) => c.href === "/admin/users")));
-});
-
-test("dashboard merges discovered plugin nav fragments, permission-filtered (§7)", () => {
+// The dashboard assembles its nav from two gated sources — the built-in Admin section and each
+// discovered plugin's fragment (§7) — and role-filters both via composeNav. One contract: a section
+// shows only for a holder of its permission, and each source is gated independently.
+test("dashboard role-filters the gated Admin section and plugin fragments, each independently", () => {
   const plugin = {
     apiVersion: "1.0.0", id: "scheduling",
     nav: [{ children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }], icon: "i-cal", id: "scheduling", label: "Scheduling" }],
   };
-  // A holder of the plugin permission sees its section, reachable from "/".
-  const granted = buildDashboardModel(new URL("http://x/"), ["scheduling:read"], undefined, "", null, [plugin]);
-  assert.ok(granted.nav.some((n) => n.children?.some((c) => c.href === "/scheduling/shifts")));
+  const section = (m: ReturnType<typeof buildDashboardModel>, label: string) => m.nav.find((n) => n.label === label);
 
-  // Anonymous: the gated leaf (and so the whole Scheduling header) is filtered out.
+  // An admin sees the Admin section (the four built-in screens) but not the plugin's gated section.
+  const admin = buildDashboardModel(new URL("http://x/"), ["admin"], undefined, "", null, [plugin]);
+  assert.deepEqual(section(admin, "Admin")!.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles", "/admin/clients"]);
+  assert.equal(section(admin, "Scheduling"), undefined);
+
+  // A plugin-permission holder sees the plugin section (reachable from "/") but not Admin.
+  const member = buildDashboardModel(new URL("http://x/"), ["scheduling:read"], undefined, "", null, [plugin]);
+  assert.ok(section(member, "Scheduling")!.children?.some((c) => c.href === "/scheduling/shifts"));
+  assert.equal(section(member, "Admin"), undefined);
+
+  // Anonymous sees neither — composeNav drops a gated header and its whole subtree.
   const anon = buildDashboardModel(new URL("http://x/"), [], undefined, "", null, [plugin]);
-  assert.equal(anon.nav.find((n) => n.label === "Scheduling"), undefined);
+  assert.equal(section(anon, "Admin"), undefined);
+  assert.equal(section(anon, "Scheduling"), undefined);
 });
 
 test("dashboard paginates: page 2 slices the next rows and preserves state in links", () => {
