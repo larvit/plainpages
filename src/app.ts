@@ -222,8 +222,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // OAuth2 login challenge (§6): Hydra hands the browser here when another app logs in
       // *through* us. Resolve it via the Kratos session and accept; an unauthenticated user
-      // bounces to our themed login and returns here once signed in. Challenge looked up over
-      // Hydra's admin API. Nothing first-party needs this — it's the OAuth2-provider role only.
+      // bounces to our themed login and returns here once signed in. Provider-only.
       if (hydra && kratos && pathname === "/oauth2/login" && (method === "GET" || method === "HEAD")) {
         const challenge = ctx.url.searchParams.get("login_challenge");
         if (!challenge) {
@@ -288,8 +287,7 @@ export function createApp(options: AppOptions = {}): Server {
             return;
           }
         } catch (err) {
-          // Stale/invalid/consumed challenge (Hydra 4xx — back button, slow login, re-used URL):
-          // recoverable 400, not a 500. A genuine Hydra outage (5xx) rethrows → 500.
+          // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500 (as /oauth2/login).
           if (err instanceof HydraError && err.status < 500) {
             res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This authorization request has expired. Please start again from the application you were signing in to.");
             return;
