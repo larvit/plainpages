@@ -5,6 +5,7 @@
 // (anonymous), so the route renders signed-out and the permission gate denies.
 import type { User } from "./context.ts";
 import { parseCookies } from "./cookie.ts";
+import type { Denylist } from "./denylist.ts";
 import { decodeJws, verifyJws } from "./jwt.ts";
 import type { JwksProvider } from "./jwks.ts";
 import { SESSION_COOKIE } from "./login.ts";
@@ -15,6 +16,7 @@ const DEFAULT_CLOCK_SKEW_SEC = 60;
 export interface VerifyOptions {
   audience?: string | undefined; // if set, the token `aud` must include it (else skipped)
   clockSkewSec?: number | undefined;
+  denylist?: Pick<Denylist, "isRevoked"> | undefined; // optional instant-revoke (§9); a revoked sub is rejected like an expiry
   issuer?: string | undefined; // if set, the token `iss` must equal it (else skipped)
   now?: number | undefined; // unix seconds; injectable for tests
 }
@@ -75,7 +77,11 @@ export async function verifyToken(token: string, jwks: JwksProvider, options: Ve
   if (!jwk) throw new TokenError(`no JWKS key for kid ${header.kid ?? "(none)"}`);
   const verified = verifyJws(token, jwk); // throws on a bad signature / disallowed alg
   validateClaims(verified.payload, options);
-  return claimsToUser(verified.payload);
+  const user = claimsToUser(verified.payload);
+  // Instant revoke (§9): a denylisted subject's pre-revoke token is rejected as *expired* so
+  // resolveSession routes it through the §4 re-mint (fresh roles from Keto, or a cleared session).
+  if (options.denylist?.isRevoked(user.id, num(verified.payload, "iat"))) throw new TokenError("token revoked", true);
+  return user;
 }
 
 export interface SessionAuth {

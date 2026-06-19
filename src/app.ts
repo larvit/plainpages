@@ -12,6 +12,7 @@ import { readFormBody } from "./body.ts";
 import { buildPluginChrome, type PageChrome } from "./chrome.ts";
 import { buildContext, type User } from "./context.ts";
 import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
+import type { Denylist } from "./denylist.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
 import { GuardError } from "./guards.ts";
@@ -41,6 +42,7 @@ export interface AppOptions {
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
+  denylist?: Denylist; // optional instant-revoke (§9); the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge (§6)
   jwks?: JwksProvider; // verify the session JWT → ctx.user/roles (§4); absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
@@ -55,7 +57,12 @@ export interface AppOptions {
 }
 
 export function createApp(options: AppOptions = {}): Server {
-  const authOptions = options.auth ?? {};
+  // The denylist (when enabled) rides in the verify options so resolveSession rejects a revoked
+  // subject on the hot path; the bound `revoke` is handed to the admin handlers that should
+  // revoke instantly. Both absent ⇒ the feature is fully off (no cost, no behaviour change).
+  const denylist = options.denylist;
+  const authOptions: VerifyOptions = denylist ? { ...(options.auth ?? {}), denylist } : (options.auth ?? {});
+  const revoke = denylist ? (sub: string): void => denylist.revoke(sub) : undefined;
   const cache = options.cache ?? false;
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
@@ -88,9 +95,9 @@ export function createApp(options: AppOptions = {}): Server {
   // Built-in admin screens (§5) — wired only when their Ory clients are present (the writes go
   // there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
   // Users writes to Kratos; Groups writes to Keto and reads users from Kratos for the pickers.
-  const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render } : null;
+  const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
   const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
-  const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
+  const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
   // OAuth2 clients (§6) write to Hydra; wired only when the Hydra admin client is present.
   const adminClientsDeps: AdminClientsDeps | null = hydra ? { csrfSecret, hydra, menu, render } : null;
 

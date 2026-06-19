@@ -83,3 +83,15 @@ test("resolveSession classifies the cookie; authenticate is its fail-closed user
   assert.equal(await authenticate(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), null); // expired ⇒ null
   assert.equal(await authenticate(undefined, jwks, { now: NOW }), null);
 });
+
+test("verifyToken honours an optional denylist: a revoked subject's token rejects like an expiry → re-mint", async () => {
+  // Deny u1's tokens minted at/before NOW; a token minted after passes (a fresh re-login).
+  const denylist = { isRevoked: (sub: string, iat: number | undefined) => sub === "u1" && (iat === undefined || iat <= NOW) };
+
+  // Revoked: thrown as *expired* so resolveSession flags it for the §4 re-mint (re-read Keto / clear).
+  await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 }), jwks, { denylist, now: NOW }), /revoked/);
+  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 })}`, jwks, { denylist, now: NOW }), { expired: true, user: null });
+  // A token minted after the revoke (fresh login) is accepted; a different subject is untouched.
+  assert.deepEqual(await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW + 5 }), jwks, { denylist, now: NOW }), { email: "a@b.c", id: "u1", roles: ["admin"] });
+  await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5, sub: "u2" }), jwks, { denylist, now: NOW });
+});

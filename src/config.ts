@@ -22,6 +22,8 @@ export interface Config {
   kratosPublicUrl: string;
   oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
   port: number;
+  revocationDenylist: boolean; // §9: enable the optional instant role/session revoke denylist
+  revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
 }
 
@@ -112,6 +114,11 @@ export function loadConfig(env: Env = process.env): Config {
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
     port: readPort(env),
+    // Optional instant-revoke (§9), off by default. When on, an admin deactivate/delete or role
+    // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m
+    // tokenizer TTL + skew, so it outlasts any pre-revoke token).
+    revocationDenylist: readBool(env, "REVOCATION_DENYLIST", false),
+    revocationTtlSec: readPosInt(env, "REVOCATION_TTL_SEC", 900),
     // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
     secureCookies: readBool(env, "SECURE_COOKIES", false),
   };

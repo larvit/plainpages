@@ -21,6 +21,15 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.hydraAdminUrl, "http://hydra:4445");
   assert.match(c.csrfSecret, /dev-insecure/);
   assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift
+  assert.equal(c.revocationDenylist, false); // instant-revoke is opt-in (§9)
+  assert.equal(c.revocationTtlSec, 900); // ≥ tokenizer TTL (10m) + skew
+});
+
+test("REVOCATION_DENYLIST: opt-in toggle (off by default) + REVOCATION_TTL_SEC must be a positive integer", () => {
+  assert.equal(loadConfig({ REVOCATION_DENYLIST: "true" }).revocationDenylist, true);
+  assert.throws(() => loadConfig({ REVOCATION_DENYLIST: "on" }), /REVOCATION_DENYLIST/);
+  assert.equal(loadConfig({ REVOCATION_TTL_SEC: "1200" }).revocationTtlSec, 1200);
+  for (const v of ["0", "-1", "1.5", "abc"]) assert.throws(() => loadConfig({ REVOCATION_TTL_SEC: v }), /REVOCATION_TTL_SEC/);
 });
 
 test("JWKS_URL defaults to the committed Kratos tokenizer signing key, not an http endpoint", () => {

@@ -156,6 +156,8 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
 | `JWT_CLOCK_SKEW_SEC` | `60` | exp/nbf leeway (s) for Kratos↔web clock drift (the auth E2E sets `0`) |
 | `ORY_TIMEOUT_SEC` | `5` | per-call timeout for outbound Kratos/Keto/Hydra (and http JWKS) fetches, so a hung Ory can't park a request |
+| `REVOCATION_DENYLIST` | `false` | when `true`, enable the optional [instant role/session revoke denylist](#instant-revoke-the-optional-denylist) |
+| `REVOCATION_TTL_SEC` | `900` | how long a revoke entry lives; keep ≥ tokenizer TTL (10m) + clock skew |
 | `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
 
 ### What you must supply (the only manual prep)
@@ -496,13 +498,32 @@ users** on modest hardware. In return:
 - **Role changes lag by up to one TTL (~10m).** Gating reads the JWT, not Keto, so a
   granted or revoked role only takes effect when the token is next minted (re-login or
   TTL refresh). For an admin tool this is intentional — the alternative is a Keto call
-  per request, which we traded away. For instant revoke, the optional revocation
-  denylist (roadmap) closes the gap for security-critical cases without putting Keto
-  back on the hot path.
+  per request, which we traded away. For instant revoke, turn on the optional
+  [revocation denylist](#instant-revoke-the-optional-denylist) — it closes the gap for
+  security-critical cases without putting Keto back on the hot path.
 - **Ory is on the critical path for sign-in.** If Kratos is down no one can log in; if
   it stays down past the TTL, existing sessions can't refresh and the UI goes dark.
   That's the direct consequence of being stateless and delegating identity — no local
   fallback, by design. Run Ory with the availability you'd give any auth provider.
+
+### Instant revoke — the optional denylist
+
+Off by default; turn it on with `REVOCATION_DENYLIST=true` (`src/denylist.ts`). For
+security-critical revoke (offboarding, a compromised account) the ~10m role/session lag
+above is too long. When enabled, an admin **deactivating** or **deleting** a user, or
+**granting/revoking** a role to a *user*, records that subject as revoked-now; the hot path
+then rejects every token for it minted **before** the revoke and forces a re-mint — which
+re-reads roles from Keto, or clears a now-dead session. A fresh re-login (its JWT issued
+*after* the revoke) passes, so a role downgrade lands immediately without locking the account.
+
+It's an in-memory, auto-evicting map — no database, like the JWKS cache, so it stays inside the
+stateless model. Entries self-evict after `REVOCATION_TTL_SEC` (default 900s ≥ the 10m token TTL
++ skew), by which point any pre-revoke token has expired anyway. The check is pure CPU — **Keto
+stays off the hot path**. Two deliberate bounds: it's instant on the **single instance** that
+handled the revoke (across replicas/restarts the guarantee falls back to the token TTL — back the
+denylist with a shared store for hard multi-instance instant-revoke), and a **group** membership
+change is transitive across many users, so it's left to lag — deactivate the user, or use a direct
+user-role change, for an instant effect.
 
 ### Three tiers of "may I?"
 
@@ -610,6 +631,7 @@ src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer sign
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
+src/denylist.ts      Optional instant-revoke denylist (§9): in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
 src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()

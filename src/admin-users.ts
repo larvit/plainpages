@@ -286,6 +286,7 @@ export interface AdminUsersDeps {
   kratosAdmin: KratosAdmin;
   menu: MenuConfig;
   render: (view: string, data: Record<string, unknown>) => Promise<string>;
+  revoke?: (sub: string) => void; // optional instant-revoke (§9): kill the target's live tokens on deactivate/delete
 }
 
 function readUserInput(form: URLSearchParams): UserInput {
@@ -370,12 +371,15 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
     if (method === "POST") {
       if (seg[1] === "state") {
         if (isSelf) return { ...(await renderForm({ error: "You can't deactivate your own account.", identity })), status: 400 };
-        await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, identity.state === "inactive" ? "active" : "inactive"));
+        const nextState = identity.state === "inactive" ? "active" : "inactive";
+        await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, nextState));
+        if (nextState === "inactive") deps.revoke?.(targetId); // §9: a deactivation takes effect now, not after the JWT TTL
         return { redirect: back };
       }
       if (seg[1] === "delete") {
         if (isSelf) return { ...(await renderForm({ error: "You can't delete your own account.", identity })), status: 400 };
         await kratosAdmin.deleteIdentity(targetId);
+        deps.revoke?.(targetId); // §9: the account is gone — reject its live tokens immediately
         return { redirect: ADMIN_USERS_BASE };
       }
       if (seg[1] === "recovery") {

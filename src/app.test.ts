@@ -8,6 +8,7 @@ import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp, type AppOptions } from "./app.ts";
 import { readFormBody } from "./body.ts";
+import { createDenylist } from "./denylist.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { HydraError, type HydraAdmin, type OAuth2Client } from "./hydra-admin.ts";
@@ -295,6 +296,22 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   const home = (cookie?: string) => fetch(url + "/", cookie ? { headers: { cookie } } : {});
   assert.match(await (await home(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}`)).text(), /href="\/admin\/users"/);
   assert.doesNotMatch(await (await home()).text(), /href="\/admin\/users"/); // anonymous → no admin section
+});
+
+test("revocation denylist (§9): a revoked subject's token stops authorizing on the hot path; a fresh re-login passes", async (t) => {
+  const denylist = createDenylist(); // no Ory clients ⇒ a revoked token drops straight to anonymous (no re-mint)
+  const app = createApp({ denylist, jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const secret = (iat: number) => fetch(url + "/demo/secret", { redirect: "manual", headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, iat, roles: ["demo:read"], sub: "u1" })}` } });
+
+  assert.equal((await secret(nowSec)).status, 200); // before any revoke, the token authorizes
+
+  denylist.revoke("u1");
+  assert.equal((await secret(nowSec - 5)).status, 303); // the pre-revoke token now bounces to /login
+  assert.equal((await secret(nowSec + 5)).status, 200); // a fresh re-login (iat after the revoke) still works
 });
 
 test("session re-mint: an expired JWT backed by a live Kratos session is silently re-minted; a dead session clears it", async (t) => {
@@ -759,7 +776,8 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
     listIdentities: async () => ({ identities: store, nextPageToken: null }),
     updateIdentity: async (id, payload) => { const it = store.find((x) => x.id === id)!; Object.assign(it, payload); return it; },
   });
-  const { get, post, token, url } = await adminHarness(t, { kratosAdmin });
+  const denylist = createDenylist(); // §9: a deactivate/delete should revoke the target's live tokens instantly
+  const { get, post, token, url } = await adminHarness(t, { denylist, kratosAdmin });
 
   await assertAdminGate(url, get, "/admin/users");
 
@@ -790,9 +808,10 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal(updated.status, 303);
   assert.deepEqual((target.traits as { name: unknown }).name, { first: "Ada", last: "King" });
 
-  // Deactivate (state toggle): active → inactive.
+  // Deactivate (state toggle): active → inactive, and the target's live tokens are revoked at once (§9).
   await post(`/admin/users/${target.id}/state`, `_csrf=${token}`);
   assert.equal(target.state, "inactive");
+  assert.equal(denylist.isRevoked(target.id, 0), true);
 
   // Recovery: renders the edit page (200) showing the generated code (code-based; no admin-host link).
   const rec = await post(`/admin/users/${target.id}/recovery`, `_csrf=${token}`);
@@ -902,7 +921,8 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   });
   const keto = fakeKeto(tuples, { expand: async (set) => expandSet(set) });
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const { get, post, token, url } = await adminHarness(t, { keto, kratosAdmin });
+  const denylist = createDenylist(); // §9: granting/revoking a *user's* role revokes their live tokens (a group change is transitive → left to lag)
+  const { get, post, token, url } = await adminHarness(t, { denylist, keto, kratosAdmin });
 
   await assertAdminGate(url, get, "/admin/roles");
 
@@ -917,6 +937,7 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   assert.equal(created.status, 303);
   assert.equal(created.headers.get("location"), "/admin/roles/viewer");
   assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "viewer" && tp.subject_id === `user:${ada}`));
+  assert.equal(denylist.isRevoked(ada, 0), true); // assigning a role to a user revokes their stale token so the grant lands now
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
@@ -941,6 +962,11 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   // Revoke the group membership.
   await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=group:eng`);
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+
+  // Unassigning a *user* membership likewise revokes that user's live token (§9), so the loss of access is immediate.
+  await post("/admin/roles/editor/members", `_csrf=${token}&member=user:${grace}`);
+  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=user:${grace}`);
+  assert.equal(denylist.isRevoked(grace, 0), true);
 
   // Delete the role: a confirm step (GET) then the POST removes every member tuple, back to the list.
   assert.match(await (await get("/admin/roles/editor/delete")).text(), /Cancel/);

@@ -1,5 +1,6 @@
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
+import { createDenylist } from "./denylist.ts";
 import { discoverPlugins } from "./discovery.ts";
 import { withTimeout } from "./fetch-timeout.ts";
 import { runBootHooks } from "./hooks.ts";
@@ -23,6 +24,9 @@ const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl, fetchImpl: oryFe
 // Session-JWT verify key: primed at boot from the configured JWKS (file mount, base64 inline,
 // or fetched http), then served from cache with TTL refresh + rotation-on-miss (§4).
 const jwks = await createJwksProvider(config.jwksUrl, { fetchImpl: oryFetch }); // bound an http JWKS fetch too
+// Optional instant-revoke (§9), off unless REVOCATION_DENYLIST=true: an in-memory denylist the
+// hot path consults and the admin screens populate on deactivate/delete/role-change.
+const denylist = config.revocationDenylist ? createDenylist({ ttlSec: config.revocationTtlSec }) : undefined;
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
@@ -32,6 +36,7 @@ const server = createApp({
   auth: { audience: config.jwtAudience, clockSkewSec: config.jwtClockSkewSec, issuer: config.jwtIssuer },
   cache: config.cacheTemplates,
   csrfSecret: config.csrfSecret,
+  ...(denylist ? { denylist } : {}),
   hydra,
   jwks,
   keto,

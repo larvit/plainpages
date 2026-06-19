@@ -272,6 +272,14 @@ export interface AdminRolesDeps {
   kratosAdmin: KratosAdmin;
   menu: MenuConfig;
   render: (view: string, data: Record<string, unknown>) => Promise<string>;
+  revoke?: (sub: string) => void; // optional instant-revoke (§9): assigning/unassigning a *user* kills their live tokens
+}
+
+// §9 instant-revoke: a role change for a `user:<id>` member must take effect now, so revoke that
+// user's live tokens (a re-mint then re-reads roles from Keto). A `group:<name>` change is
+// transitive across many users — left to lag (documented), so only direct user members revoke.
+function revokeUserMember(deps: AdminRolesDeps, member: string): void {
+  if (deps.revoke && member.startsWith("user:")) deps.revoke(member.slice("user:".length));
 }
 
 // A role exists exactly while it has ≥1 member (Keto has no create-object).
@@ -322,13 +330,15 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     if (method === "GET") return renderList();
     if (method === "POST") {
       const name = (form!.get("name") ?? "").trim();
-      const tuple = roleMemberTuple(name, (form!.get("member") ?? "").trim());
+      const member = (form!.get("member") ?? "").trim();
+      const tuple = roleMemberTuple(name, member);
       const reject = (error: string): Promise<RouteResult> =>
-        renderForm({ error, values: { member: form!.get("member") ?? "", name } }).then((r) => ({ ...r, status: 400 }));
+        renderForm({ error, values: { member, name } }).then((r) => ({ ...r, status: 400 }));
       if (!isValidRoleName(name)) return reject("Role names use lowercase letters, digits, dashes and underscores.");
       if (!tuple) return reject("Pick a user or group to assign the role to.");
       if (await roleExists(keto, name)) return reject("A role with that name already exists.");
       await keto.writeTuple(tuple);
+      revokeUserMember(deps, member);
       return { redirect: detailHref(name) };
     }
     return null;
@@ -345,8 +355,9 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 1 && method === "GET") return renderDetail(name);
 
   if (seg.length === 2 && seg[1] === "members" && method === "POST") {
-    const tuple = roleMemberTuple(name, (form!.get("member") ?? "").trim());
-    if (tuple) await keto.writeTuple(tuple); // the picker only offers real users/groups
+    const member = (form!.get("member") ?? "").trim();
+    const tuple = roleMemberTuple(name, member);
+    if (tuple) { await keto.writeTuple(tuple); revokeUserMember(deps, member); } // the picker only offers real users/groups
     return { redirect: base };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "GET") {
@@ -361,6 +372,8 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
     if (name === ADMIN_PERMISSION) return renderDetail(name, "The admin role can't be deleted — it would remove all admin access.");
     await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS }); // removes every member tuple
+    // §9: a whole-role delete drops many members at once — left to lag like a group change; the
+    // per-member unassign above is the instant-revoke path.
     return { redirect: ADMIN_ROLES_BASE };
   }
   if (seg.length === 3 && seg[1] === "members" && seg[2] === "delete" && method === "POST") {
@@ -369,7 +382,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     // Admin held only via a group isn't covered here — the robust "last effective admin" check is §9.
     if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return renderDetail(name, "You can't revoke your own admin access.");
     const tuple = roleMemberTuple(name, member);
-    if (tuple) await keto.deleteTuple(tuple);
+    if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(deps, member); }
     return { redirect: base };
   }
   return null;
