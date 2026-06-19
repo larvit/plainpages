@@ -17,6 +17,7 @@ export interface OAuthConsentDeps {
 
 // What to show on the consent screen for a third-party client.
 export interface ConsentView {
+  account?: string; // the signed-in user's email — shown so consent is informed (whose account)
   challenge: string;
   client: string; // display name
   scopes: string[];
@@ -47,7 +48,9 @@ function idTokenClaims(traits?: Record<string, unknown>): Record<string, unknown
 // the challenge, never client-submitted) plus id_token claims from the current Kratos session.
 async function accept(deps: OAuthConsentDeps, consent: ConsentRequest, cookie: string | undefined): Promise<string> {
   const session = await deps.kratos.whoami(cookie ? { cookie } : {});
-  const idToken = idTokenClaims(session?.identity?.traits);
+  // Only project id_token claims when the session's identity matches the subject Hydra bound at
+  // login — never leak a mismatched session's email/name into the issued token (defensive).
+  const idToken = session?.identity?.id === consent.subject ? idTokenClaims(session?.identity?.traits) : undefined;
   const body: AcceptConsent = {
     grant_access_token_audience: consent.requested_access_token_audience ?? [],
     grant_scope: consent.requested_scope ?? [],
@@ -64,7 +67,11 @@ export async function resolveConsentChallenge(deps: OAuthConsentDeps, challenge:
   if (consent.skip || isFirstParty(consent.client)) {
     return { redirect: await accept(deps, consent, cookie) };
   }
-  return { view: { challenge, client: clientName(consent.client), scopes: consent.requested_scope ?? [] } };
+  // Third party: name the signed-in account on the screen so the user sees whose access they grant.
+  const session = await deps.kratos.whoami(cookie ? { cookie } : {});
+  const email = session?.identity?.traits?.email;
+  const account = typeof email === "string" ? email : undefined;
+  return { view: { challenge, client: clientName(consent.client), scopes: consent.requested_scope ?? [], ...(account ? { account } : {}) } };
 }
 
 // The user allowed: re-fetch the challenge (don't trust the form for scopes) and accept.

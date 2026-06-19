@@ -20,6 +20,7 @@
     </div>
     <%- include("field", form.scopeField) %>
     <label class="check"><input type="checkbox" name="public"<% if (form.public) { %> checked<% } %>> Public client (SPA / native app, PKCE — no secret)</label>
+    <span class="field-hint">Browser and mobile apps can't keep a secret — choose Public. Server-side apps that can store one — leave it Confidential.</span>
     <label class="check"><input type="checkbox" name="firstParty"<% if (form.firstParty) { %> checked<% } %>> First-party (auto-grant consent — skip the consent screen)</label>
     <div class="form-actions">
       <a class="btn" href="<%= form.cancelHref %>">Cancel</a>

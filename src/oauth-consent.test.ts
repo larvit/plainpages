@@ -17,6 +17,7 @@ function stubHydra(consent: ConsentRequest, capture?: (b: AcceptConsent) => void
   return {
     acceptConsentRequest: async (_c, body) => { capture?.(body); return { redirect: REDIRECT }; },
     acceptLoginRequest: unused,
+    acceptLogoutRequest: unused,
     createClient: unused,
     deleteClient: unused,
     getClient: unused,
@@ -59,13 +60,29 @@ test("a first-party client (metadata.first_party) auto-accepts even without skip
   assert.equal(granted?.session, undefined);
 });
 
-test("a third-party client shows the consent screen (no auto-accept)", async () => {
+test("a third-party client shows the consent screen carrying the signed-in account (no auto-accept)", async () => {
   let accepted = false;
   const hydra = stubHydra(consent(), () => { accepted = true; });
-  const out = await resolveConsentChallenge({ hydra, kratos: stubKratos(async () => null) }, CHALLENGE, undefined);
+  const kratos = stubKratos(async () => sessionWith({ email: "ada@x.io" }));
+  const out = await resolveConsentChallenge({ hydra, kratos }, CHALLENGE, "plainpages_session=s");
   assert.equal(out.redirect, undefined);
-  assert.deepEqual(out.view, { challenge: CHALLENGE, client: "Acme Reports", scopes: ["openid", "profile"] });
+  assert.deepEqual(out.view, { account: "ada@x.io", challenge: CHALLENGE, client: "Acme Reports", scopes: ["openid", "profile"] });
   assert.equal(accepted, false);
+});
+
+test("the consent screen omits the account when there's no session", async () => {
+  const out = await resolveConsentChallenge({ hydra: stubHydra(consent()), kratos: stubKratos(async () => null) }, CHALLENGE, undefined);
+  assert.equal(out.view?.account, undefined);
+});
+
+test("id_token claims are only projected when the session subject matches the challenge (else omitted)", async () => {
+  let granted: AcceptConsent | undefined;
+  const hydra = stubHydra(consent(), (b) => { granted = b; });
+  // A session whose identity differs from the challenge subject must not leak its claims into the grant.
+  const other: Session = { active: true, identity: { id: "01902d5e-0000-7e3a-9f21-3c8d1e0a4b55", traits: { email: "mallory@x.io" } } };
+  const redirect = await acceptConsent({ hydra, kratos: stubKratos(async () => other) }, CHALLENGE, "plainpages_session=s");
+  assert.equal(redirect, REDIRECT);
+  assert.equal(granted?.session, undefined);
 });
 
 test("acceptConsent re-fetches the challenge and grants its scopes (never client-supplied)", async () => {

@@ -90,6 +90,7 @@ export class HydraError extends Error {
 export interface HydraAdmin {
   acceptConsentRequest(challenge: string, body: AcceptConsent): Promise<Completed>;
   acceptLoginRequest(challenge: string, body: AcceptLogin): Promise<Completed>;
+  acceptLogoutRequest(challenge: string): Promise<Completed>; // RP-initiated logout (§6): confirm + resume
   createClient(client: OAuth2Client): Promise<OAuth2Client>;
   deleteClient(id: string): Promise<void>;
   getClient(id: string): Promise<OAuth2Client | null>;
@@ -111,8 +112,8 @@ export function createHydraAdmin(config: { baseUrl: string; fetchImpl?: typeof f
   const base = config.baseUrl.replace(/\/+$/, "");
   const http = config.fetchImpl ?? fetch;
   const json = { "content-type": "application/json" };
-  // Hydra keys the login/consent handshake off a ?login_challenge=/?consent_challenge= query.
-  const reqUrl = (kind: "consent" | "login", challenge: string, action = "") =>
+  // Hydra keys each handshake off a ?<kind>_challenge= query (login/consent/logout).
+  const reqUrl = (kind: "consent" | "login" | "logout", challenge: string, action = "") =>
     `${base}/admin/oauth2/auth/requests/${kind}${action}?${kind}_challenge=${encodeURIComponent(challenge)}`;
   const clientsUrl = `${base}/admin/clients`;
   const clientUrl = (id: string) => `${clientsUrl}/${encodeURIComponent(id)}`;
@@ -135,6 +136,13 @@ export function createHydraAdmin(config: { baseUrl: string; fetchImpl?: typeof f
 
     async acceptLoginRequest(challenge, body) {
       return put("accept login", reqUrl("login", challenge, "/accept"), body);
+    },
+
+    // RP-initiated logout: Hydra hands the browser to /oauth2/logout?logout_challenge=…; accept to
+    // end its OAuth2 session and get the post-logout redirect (no body / no first-party teardown —
+    // /logout owns the Kratos session). A stale/consumed challenge → HydraError 4xx (app degrades).
+    async acceptLogoutRequest(challenge) {
+      return put("accept logout", reqUrl("logout", challenge, "/accept"), {});
     },
 
     // OAuth2 client registration (§6, admin screen). Hydra generates the client_id/secret when

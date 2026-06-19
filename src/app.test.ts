@@ -498,6 +498,7 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
 const stubHydra = (over: Partial<HydraAdmin> = {}): HydraAdmin => ({
   acceptConsentRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?consent_verifier=v" }),
   acceptLoginRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }),
+  acceptLogoutRequest: async () => ({ redirect: "http://acme.example/post-logout" }),
   createClient: async (c) => ({ ...c, client_id: "c1", client_secret: "s3cr3t" }),
   deleteClient: async () => {},
   getClient: async () => null,
@@ -593,6 +594,9 @@ test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-par
   assert.match(html, /openid/);
   assert.match(html, /profile/);
   assert.match(html, /action="\/oauth2\/consent"/);
+  // Informed consent: the screen names the account being authorized + offers a sign-out escape.
+  assert.match(html, /Signed in as.*ada@x\.io/s);
+  assert.match(html, /action="\/logout".*Sign out/s);
   assert.match(page.headers.get("set-cookie") ?? "", /plainpages_csrf=/);
 
   // Allow → 303 to Hydra, granting the scopes re-read from the challenge (never form-supplied) +
@@ -629,6 +633,32 @@ test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-par
   await new Promise<void>((r) => down.listen(0, r));
   t.after(() => down.close());
   assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/consent?consent_challenge=x`, { redirect: "manual" })).status, 500);
+});
+
+test("OAuth2 RP-initiated logout (/oauth2/logout): accepts the logout challenge → 303 to Hydra; missing → 400; stale 4xx → 400, outage 5xx → 500", async (t) => {
+  let acceptedChallenge: string | undefined;
+  const hydra = stubHydra({ acceptLogoutRequest: async (c) => { acceptedChallenge = c; return { redirect: "http://acme.example/post-logout" }; } });
+  const app = createApp({ hydra, kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const base = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const ok = await fetch(base + "/oauth2/logout?logout_challenge=lc1", { redirect: "manual" });
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.get("location"), "http://acme.example/post-logout");
+  assert.equal(acceptedChallenge, "lc1");
+
+  assert.equal((await fetch(base + "/oauth2/logout", { redirect: "manual" })).status, 400);
+
+  const stale = createApp({ hydra: stubHydra({ acceptLogoutRequest: async () => { throw new HydraError("gone", 404, ""); } }), kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => stale.listen(0, r));
+  t.after(() => stale.close());
+  assert.equal((await fetch(`http://localhost:${(stale.address() as AddressInfo).port}/oauth2/logout?logout_challenge=gone`, { redirect: "manual" })).status, 400);
+
+  const down = createApp({ hydra: stubHydra({ acceptLogoutRequest: async () => { throw new HydraError("down", 503, ""); } }), kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => down.listen(0, r));
+  t.after(() => down.close());
+  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/logout?logout_challenge=x`, { redirect: "manual" })).status, 500);
 });
 
 // Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.
@@ -866,8 +896,11 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
   assert.match(listHtml, /href="\/admin\/clients\/new"/);
   assert.match(listHtml, /Reporting/);
 
-  // Register: the form renders; a valid post creates the client and shows the one-time secret + id.
-  assert.match(await (await get("/admin/clients/new")).text(), /Register client/);
+  // Register: the form renders (with confidential-vs-public guidance); a valid post creates the
+  // client and shows the one-time secret + id.
+  const formHtml = await (await get("/admin/clients/new")).text();
+  assert.match(formHtml, /Register client/);
+  assert.match(formHtml, /can't keep a secret/i); // guidance on the public-vs-confidential choice
   const created = await post("/admin/clients", `_csrf=${token}&name=Grafana&redirectUris=${encodeURIComponent("https://graf/cb")}&scope=openid+offline_access`);
   assert.equal(created.status, 200); // not a redirect — the secret is shown once
   const createdHtml = await created.text();
@@ -886,6 +919,7 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
   const detail = await (await get("/admin/clients/existing")).text();
   assert.match(detail, /reporting\.example\/cb/);
   assert.doesNotMatch(detail, /Client secret/i); // the secret is shown only once, at creation
+  assert.match(detail, /delete and re-register/i); // no edit: the lifecycle guidance is surfaced
   assert.match(detail, /href="\/admin\/clients\/existing\/delete"/);
 
   // Delete: a confirm step (GET) then the POST removes the client, back to the list.

@@ -501,8 +501,11 @@ the browser here, the app resolves it against the Kratos session and accepts (or
 an unauthenticated user to the themed login, returning here once signed in). The **consent
 challenge** is wired too (`src/oauth-consent.ts` at `/oauth2/consent`): a first-party client
 (its Hydra `metadata.first_party: true`) — or one Hydra already skipped — is auto-granted the
-requested scopes; any other client gets a themed consent screen whose CSRF-guarded Allow/Deny
-accepts or rejects. id_token claims (email, name) come from the Kratos identity.
+requested scopes; any other client gets a themed consent screen (naming the signed-in account, with
+a sign-out escape) whose CSRF-guarded Allow/Deny accepts or rejects. id_token claims (email, name)
+come from the Kratos identity. RP-initiated **logout** is wired too (`/oauth2/logout`): Hydra hands
+the browser here, the app accepts the `logout_challenge` and resumes to Hydra's post-logout redirect
+— the first-party `POST /logout` still owns ending the Kratos session + our JWT cookie.
 
 Those clients are registered from the admin **OAuth2 clients** screen (`/admin/clients`,
 `src/admin-clients.ts`): register (Hydra shows the generated `client_secret` **once**, on the

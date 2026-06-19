@@ -141,6 +141,7 @@ test("Hydra consent challenge: web shows the third-party consent screen; Allow â
   const html = await screen.text();
   expect(html).toContain("Authorize e2e-login");
   expect(html).toContain("openid");
+  expect(html, "names the signed-in account so consent is informed").toContain(`Signed in as <strong>${ADMIN_EMAIL}`);
   const csrf = html.match(/name="_csrf" value="([^"]+)"/)?.[1];
   expect(csrf, "consent form carries a CSRF token").toBeTruthy();
 

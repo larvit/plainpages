@@ -4,7 +4,7 @@
   /oauth2/consent route, CSRF-guarded (consent-body carries the token). Auto theme (styles.css).
 %><%
   const brand = locals.brand || "Plainpages";
-  const body = include("partials/consent-body", { challenge: consent.challenge, csrfField, csrfToken, scopes: consent.scopes });
+  const body = include("partials/consent-body", { account: consent.account, challenge: consent.challenge, csrfField, csrfToken, scopes: consent.scopes });
 %><!doctype html>
 <html lang="en">
   <head>
@@ -30,6 +30,12 @@
           sub: `${consent.client} wants access to your account.`,
           title: `Authorize ${consent.client}`,
         }) %>
+        <% if (consent.account) { %>
+        <form class="auth-alt" method="post" action="/logout">
+          <input type="hidden" name="<%= csrfField %>" value="<%= csrfToken %>">
+          Not you? <button type="submit">Sign out</button>
+        </form>
+        <% } %>
       </div>
     </main>
   </body>

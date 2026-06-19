@@ -119,8 +119,9 @@ body:has(#forgot:target) #login { display: none; }
 
 /* alternate action line */
 .auth-alt { margin: 0; text-align: center; font-size: var(--fz-sm); color: var(--text-muted); }
-.auth-alt a { color: var(--accent); font-weight: 550; }
-.auth-alt a:hover { text-decoration: underline; }
+.auth-alt a, .auth-alt button { color: var(--accent); font-weight: 550; }
+.auth-alt button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.auth-alt a:hover, .auth-alt button:hover { text-decoration: underline; }
 
 /* legal footnote */
 .auth-foot { margin: 0; text-align: center; font-size: var(--fz-xs); color: var(--text-faint); }

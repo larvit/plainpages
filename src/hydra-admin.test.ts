@@ -51,6 +51,14 @@ test("rejectLoginRequest PUTs the error and returns Hydra's redirect_to", async 
   assert.deepEqual(JSON.parse(calls[0]!.body!), { error: "access_denied", error_description: "no" });
 });
 
+test("acceptLogoutRequest PUTs the logout challenge and returns Hydra's redirect_to", async () => {
+  const { calls, fetchImpl } = recorder(() => res(200, { redirect_to: "http://client/post-logout" }));
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).acceptLogoutRequest(CHALLENGE);
+  assert.equal(out.redirect, "http://client/post-logout");
+  assert.equal(calls[0]!.method, "PUT");
+  assert.match(calls[0]!.url, /\/admin\/oauth2\/auth\/requests\/logout\/accept\?logout_challenge=a1b2c3d4e5f6$/);
+});
+
 test("getConsentRequest GETs the consent challenge and returns the request", async () => {
   const request = { challenge: CHALLENGE, client: { client_name: "Acme" }, requested_scope: ["openid", "email"], skip: false, subject: SUBJECT };
   const { calls, fetchImpl } = recorder(() => res(200, request));

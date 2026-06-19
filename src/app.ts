@@ -298,6 +298,29 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
+      // OAuth2 RP-initiated logout (§6): Hydra hands the browser here to end the OAuth2 session
+      // (hydra.yml urls.logout). Accept the challenge and resume to Hydra's post-logout redirect;
+      // the first-party POST /logout (below) owns the Kratos session + our JWT cookie. Provider-only.
+      // GET-accept is safe (like the login/consent handlers): the challenge is Hydra-minted +
+      // single-use, so a forged GET can't fabricate one — we skip only the optional "confirm logout?".
+      if (hydra && pathname === "/oauth2/logout" && (method === "GET" || method === "HEAD")) {
+        const challenge = ctx.url.searchParams.get("logout_challenge");
+        if (!challenge) {
+          res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing logout_challenge");
+          return;
+        }
+        try {
+          const { redirect } = await hydra.acceptLogoutRequest(challenge);
+          res.writeHead(303, { location: redirect }).end();
+        } catch (err) {
+          // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500.
+          if (err instanceof HydraError && err.status < 500) {
+            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This logout request has expired. Please start again from the application you were signing out of.");
+          } else throw err;
+        }
+        return;
+      }
+
       // Login completion: where Kratos lands the browser after authenticating (kratos.yml).
       // Mint our session JWT — read roles from Keto, project onto the identity, tokenize —
       // and store it as the cookie; no active session bounces back to sign in (§4).
