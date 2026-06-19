@@ -30,7 +30,7 @@ test("roleTuple grants a role to user:<id> in the Role namespace", () => {
   });
 });
 
-test("seedAdmin on a fresh stack creates the identity and grants the role", async () => {
+test("seedAdmin on a fresh stack creates the identity and grants every role (one tuple each)", async () => {
   const id = randomUUID();
   const calls: { method: string; url: string; body?: unknown }[] = [];
   const fetchImpl = (async (url, init) => {
@@ -47,13 +47,17 @@ test("seedAdmin on a fresh stack creates the identity and grants the role", asyn
     ketoWriteUrl: "http://keto:4467",
     kratosAdminUrl: "http://kratos:4434",
     password: "admin",
-    role: "admin",
+    roles: ["admin", "scheduling:read"],
   });
 
-  assert.deepEqual(result, { created: true, id, role: "admin" });
-  const put = calls.find((c) => c.url.includes("relation-tuples"))!;
-  assert.equal(put.method, "PUT");
-  assert.deepEqual(put.body, { namespace: "Role", object: "admin", relation: "members", subject_id: `user:${id}` });
+  assert.deepEqual(result, { created: true, id, roles: ["admin", "scheduling:read"] });
+  const puts = calls.filter((c) => c.url.includes("relation-tuples"));
+  assert.equal(puts.length, 2); // one grant per role
+  assert.ok(puts.every((p) => p.method === "PUT"));
+  assert.deepEqual(puts.map((p) => p.body), [
+    { namespace: "Role", object: "admin", relation: "members", subject_id: `user:${id}` },
+    { namespace: "Role", object: "scheduling:read", relation: "members", subject_id: `user:${id}` },
+  ]);
 });
 
 test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants the role", async () => {
@@ -76,10 +80,10 @@ test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants 
     ketoWriteUrl: "http://keto:4467",
     kratosAdminUrl: "http://kratos:4434",
     password: "admin",
-    role: "admin",
+    roles: ["admin"],
   });
 
-  assert.deepEqual(result, { created: false, id, role: "admin" });
+  assert.deepEqual(result, { created: false, id, roles: ["admin"] });
   assert.deepEqual(granted, { namespace: "Role", object: "admin", relation: "members", subject_id: `user:${id}` });
 });
 
@@ -92,7 +96,7 @@ test("seedAdmin fails loud on an unexpected Kratos error", async () => {
       ketoWriteUrl: "http://keto:4467",
       kratosAdminUrl: "http://kratos:4434",
       password: "admin",
-      role: "admin",
+      roles: ["admin"],
     }),
     /Kratos/,
   );

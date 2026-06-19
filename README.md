@@ -264,7 +264,10 @@ A plugin is a folder under `plugins/`. The host discovers it at boot — no
 registration step, no central wiring. The full, authoritative API surface —
 manifest shape, handler/`RequestContext` contract, versioning, conflict rules,
 hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-contract.md)**
-(`src/plugin.ts` holds the types). The sketch below is the shape.
+(`src/plugin.ts` holds the types). A complete, runnable reference ships in
+**[`plugins/scheduling/`](plugins/scheduling/)** — a list page fetching upstream data,
+a CSRF-guarded form forwarding writes upstream, and permission-gated nav. Copy it and
+adapt. The sketch below is the shape.
 
 ```
 plugins/scheduling/      # folder name = the plugin id; mounted at /scheduling
@@ -306,9 +309,13 @@ export default definePlugin({
 ```
 
 The handler (`listShifts`) fetches its data from an upstream service and renders
-it — the plugin holds no state of its own (see below). Each plugin is
-**self-contained** (its own nav, routes, views, CSS), so installing one is "drop
-the folder, restart." An operator stays in control via a central override.
+it — the plugin holds no state of its own (see below); the reference points
+`SCHEDULING_UPSTREAM` at its backend (the dev compose ships a tiny mock,
+`examples/shifts-upstream/`). A `view` result renders against the native app shell
+via **`ctx.chrome`** (branding, the global nav, the signed-in user), and a write form
+guards itself with **`ctx.verifyCsrf`** + the token in `ctx.chrome.csrfToken`. Each
+plugin is **self-contained** (its own nav, routes, views, CSS), so installing one is
+"drop the folder, restart." An operator stays in control via a central override.
 
 ### Where plugins live (and how to mount them)
 
@@ -572,6 +579,7 @@ src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto 
 src/admin-clients.ts Built-in OAuth2 clients admin screen (§6): list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
 src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
+src/chrome.ts        buildPluginChrome(): the brand/global-nav/user/theme/csrf a plugin view renders the native shell from — exposed on ctx.chrome (§7)
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
@@ -585,7 +593,8 @@ views/               Core EJS templates: index (app-shell dashboard), admin/ (Us
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
-plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in) (planned)
+plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the §7 reference plugin (list/form over an upstream + permission-gated nav) you copy
+examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent → authorization code), full Ory stack; Dockerfile.e2e + compose.e2e[-auth|-oauth].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block

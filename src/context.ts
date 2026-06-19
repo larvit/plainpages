@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { PageChrome } from "./chrome.ts"; // type-only: no runtime import, so no cycle
 
 // The request context threaded to every route handler (plugin + built-in), built once
 // per request by `buildContext`: the router supplies matched path `params`, the §4 JWT
@@ -13,6 +14,9 @@ export interface User {
 }
 
 export interface RequestContext {
+  // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
+  // page renders the native app shell; the host builds it per request (anonymous default otherwise).
+  chrome: PageChrome;
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
   req: IncomingMessage;
@@ -20,12 +24,20 @@ export interface RequestContext {
   roles: string[]; // user?.roles ?? [] — coarse gate without a null-check
   url: URL;
   user: User | null;
+  // Gate a first-party form submission: true iff `submitted` matches this request's signed CSRF
+  // cookie (double-submit). The host binds the secret; a plugin calls it after reading its body.
+  verifyCsrf(submitted: string | null | undefined): boolean;
 }
 
 export interface BuildContextOptions {
+  chrome?: PageChrome;
   params?: Record<string, string>;
   user?: User | null;
+  verifyCsrf?: (submitted: string | null | undefined) => boolean;
 }
+
+// Anonymous default chrome — used until the host supplies a real one (built-in routes, tests).
+const ANON_CHROME: PageChrome = { brand: { name: "Plainpages" }, csrfToken: "", nav: [], user: { email: "", initials: "G", name: "Guest" } };
 
 export function buildContext(
   req: IncomingMessage,
@@ -35,6 +47,7 @@ export function buildContext(
   const url = new URL(req.url ?? "/", "http://localhost");
   const user = options.user ?? null;
   return {
+    chrome: options.chrome ?? ANON_CHROME,
     params: options.params ?? {},
     query: url.searchParams,
     req,
@@ -42,5 +55,6 @@ export function buildContext(
     roles: user?.roles ?? [],
     url,
     user,
+    verifyCsrf: options.verifyCsrf ?? (() => false), // fail-closed unless the host binds the secret
   };
 }

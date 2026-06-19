@@ -7,6 +7,7 @@ import { adminSection } from "./admin-nav.ts";
 import type { User } from "./context.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode, type NavOverride } from "./nav.ts";
+import type { Plugin } from "./plugin.ts";
 import { parseListQuery } from "./list-query.ts";
 import { paginate } from "./paginate.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -80,7 +81,7 @@ function href(state: State, overrides: Partial<State> = {}): string {
   return qs ? `?${qs}` : "?";
 }
 
-export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU, csrfToken = "", user: User | null = null) {
+export function buildDashboardModel(url: URL | URLSearchParams | string, roles: string[] = [], menu: MenuConfig = DEFAULT_MENU, csrfToken = "", user: User | null = null, plugins: Plugin[] = []) {
   const query = parseListQuery(url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const status = query.filters.status?.[0] ?? "all";
   const team = query.filters.team?.[0] ?? "";
@@ -105,7 +106,7 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
 
   return {
     filterBar: filterBar(state),
-    nav: nav(roles, menu.override),
+    nav: nav(roles, menu.override, plugins),
     pagination: pagination(state, page),
     shell: buildShellContext({
       breadcrumbs: [{ href: "?", label: "Directory" }, { label: "People" }],
@@ -120,7 +121,11 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
 
 export type DashboardModel = ReturnType<typeof buildDashboardModel>;
 
-function nav(roles: string[], override: NavOverride): NavNode[] {
+// Sidebar: the demo "Directory" fragment, then each discovered plugin's own nav fragment (so a
+// plugin is reachable from "/"; gated nodes stay invisible to non-admins), then the gated admin
+// section. composeNav applies the central override + per-user role filter.
+function nav(roles: string[], override: NavOverride, plugins: Plugin[]): NavNode[] {
+  const pluginFragments = plugins.filter((p) => p.nav?.length).map((p) => p.nav as NavNode[]);
   return composeNav([[
     { count: PEOPLE.length, current: true, href: "/", icon: "i-users", id: "people", label: "People" },
     { href: "#teams", icon: "i-grid", id: "teams", label: "Teams" },
@@ -129,6 +134,7 @@ function nav(roles: string[], override: NavOverride): NavNode[] {
       { href: "#exports", id: "exports", label: "Exports" },
     ], icon: "i-chart", id: "reports", label: "Reports", open: true },
     { href: "#settings", icon: "i-gear", id: "settings", label: "Settings", permission: "admin" },
+  ], ...pluginFragments, [
     adminSection(), // built-in Users/Groups/Roles screens; gated → invisible to non-admins
   ]], override, roles);
 }

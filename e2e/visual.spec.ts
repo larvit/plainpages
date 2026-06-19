@@ -121,3 +121,15 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Back home" })).toBeVisible();
 });
+
+// The reference plugin (plugins/scheduling) ships discovered in the image. Its nav + routes are
+// permission-gated, so an anonymous visitor never sees or reaches them (the authenticated list/form
+// flow is covered by the full-stack suites). Side-effect-free.
+test("the reference plugin is permission-gated: anonymous → 403, hidden from the dashboard nav", async ({ page }) => {
+  const res = await page.goto("/scheduling/shifts");
+  expect(res?.status()).toBe(403);
+
+  await page.goto("/");
+  await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders
+  await expect(page.locator(".sidebar")).not.toContainText("Scheduling"); // gated leaf filtered out
+});

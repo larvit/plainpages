@@ -1,0 +1,26 @@
+<%#
+  Scheduling · Shifts list (reference plugin). The handler fetched the rows from the upstream
+  service; this view renders them with the core building blocks inside the native app shell
+  (ctx.chrome). `include()` reaches the core partials (shell, nav-tree, filter-bar, data-table,
+  alert) — see docs/plugin-contract.md. Zero-JS: search round-trips the URL.
+  Data: chrome, title, breadcrumbs, filterBar, table, canWrite, newHref, error?
+%><%
+  const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
+  const filtersHtml = include("partials/filter-bar", filterBar);
+  const tableHtml = include("partials/data-table", table);
+  const alertHtml = locals.error ? include("partials/alert", { text: locals.error, tone: "neg" }) : "";
+  const actions = canWrite
+    ? '<a class="btn btn-primary" href="' + newHref + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>New shift</a>'
+    : "";
+-%>
+<%- include("partials/shell", {
+  actions,
+  body: alertHtml + filtersHtml + tableHtml,
+  brand: chrome.brand,
+  breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav: navHtml,
+  theme: chrome.theme,
+  title,
+  user: chrome.user,
+}) %>

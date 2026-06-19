@@ -1,0 +1,19 @@
+<%#
+  Scheduling · New shift form (reference plugin). The form POSTs to /scheduling/shifts; the handler
+  CSRF-verifies and forwards the write upstream. Body comes from this plugin's OWN partial
+  (partials/shift-form — resolved plugin-first), which reuses the core field partial.
+  Data: chrome, title, breadcrumbs, form, formError?
+%><%
+  const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/shift-form", { form, formError: locals.formError });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav: navHtml,
+  theme: chrome.theme,
+  title,
+  user: chrome.user,
+}) %>

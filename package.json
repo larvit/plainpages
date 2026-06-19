@@ -11,7 +11,7 @@
     "dev": "node --watch src/server.ts",
     "gen-jwks": "node src/gen-jwks.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\" \"plugins/**/*.test.ts\""
   },
   "dependencies": {
     "ejs": "3.1.10",

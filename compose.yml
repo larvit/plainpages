@@ -122,6 +122,8 @@ services:
     environment:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@plainpages.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      # Roles granted to the demo admin: `admin` + the reference plugin's tokens (so it works out of the box).
+      ADMIN_ROLES: ${ADMIN_ROLES:-admin,scheduling:read,scheduling:write}
       APP_URL: ${APP_URL:-http://localhost:3000}   # printed in the first-run login banner
       JWKS_FILE: /etc/config/kratos/tokenizer/jwks.json
       KETO_WRITE_URL: http://keto:4467

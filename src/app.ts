@@ -9,6 +9,7 @@ import { type AdminGroupsDeps, handleAdminGroups } from "./admin-groups.ts";
 import { type AdminRolesDeps, handleAdminRoles } from "./admin-roles.ts";
 import { type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
 import { readFormBody } from "./body.ts";
+import { buildPluginChrome } from "./chrome.ts";
 import { buildContext, type User } from "./context.ts";
 import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
 import { buildDashboardModel } from "./dashboard.ts";
@@ -132,7 +133,15 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
       // one (the form page below Set-Cookies it). Verified on our own state-changing routes (§4).
       const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
-      const ctx = buildContext(req, res, { user }); // base context (no route params yet); reused for onRequest
+      // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
+      const verifyCsrf = (submitted: string | null | undefined): boolean =>
+        verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
+      // base context (no route params yet); reused for onRequest. Chrome is built lazily — only
+      // plugin routes (and an onRequest short-circuit) read ctx.chrome, so the hot path stays free.
+      const ctx = buildContext(req, res, {
+        user, verifyCsrf,
+        ...(anyRequestHooks ? { chrome: buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }) } : {}),
+      });
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -143,14 +152,18 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Plugin routes (any method): gate on the route's permission, then run the handler.
+      // Plugin routes (any method): gate on the route's permission, then run the handler. The
+      // handler gets ctx.chrome (native app shell) + ctx.verifyCsrf (guard its own forms); a fresh
+      // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { params: match.params, user });
+        const chrome = buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user });
+        const routeCtx = buildContext(req, res, { chrome, params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
+        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
         const result = (await match.route.handler(routeCtx)) ?? null;
         if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
         await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
@@ -353,7 +366,7 @@ export function createApp(options: AppOptions = {}): Server {
         // Roles from the verified JWT (anonymous ⇒ []); branding/override come from config/menu.ts.
         // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token, user) }));
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token, user, plugins) }));
         return;
       }
 

@@ -8,9 +8,20 @@ services:
       CACHE_TEMPLATES: "false"
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
+      SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # reference plugin → the dev mock backend
     volumes:
       - .:/app
       - /app/node_modules
+
+  # Dev mock backend for the reference plugin (plugins/scheduling). A stand-in for the customer's
+  # real scheduling service — stdlib-only, in-memory, no auth. Prod points SCHEDULING_UPSTREAM at
+  # the real backend instead. Uses the pinned app image so there's nothing extra to build/pull.
+  shifts-upstream:
+    image: node:24.16.0-alpine3.24
+    command: node /srv/server.mjs
+    restart: unless-stopped
+    volumes:
+      - ./examples/shifts-upstream:/srv:ro
 
   # Dev mail catcher — Kratos recovery/verification emails land here (web UI on 8025).
   # kratos.yml points the courier at smtp://mailpit:1025; prod uses a real SMTP via env.

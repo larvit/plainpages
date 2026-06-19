@@ -85,6 +85,20 @@ test("dashboard menu wires in the permission-gated Admin section (only for admin
   assert.ok(!plain.nav.some((n) => n.children?.some((c) => c.href === "/admin/users")));
 });
 
+test("dashboard merges discovered plugin nav fragments, permission-filtered (§7)", () => {
+  const plugin = {
+    apiVersion: "1.0.0", id: "scheduling",
+    nav: [{ children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }], icon: "i-cal", id: "scheduling", label: "Scheduling" }],
+  };
+  // A holder of the plugin permission sees its section, reachable from "/".
+  const granted = buildDashboardModel(new URL("http://x/"), ["scheduling:read"], undefined, "", null, [plugin]);
+  assert.ok(granted.nav.some((n) => n.children?.some((c) => c.href === "/scheduling/shifts")));
+
+  // Anonymous: the gated leaf (and so the whole Scheduling header) is filtered out.
+  const anon = buildDashboardModel(new URL("http://x/"), [], undefined, "", null, [plugin]);
+  assert.equal(anon.nav.find((n) => n.label === "Scheduling"), undefined);
+});
+
 test("dashboard paginates: page 2 slices the next rows and preserves state in links", () => {
   const p2 = buildDashboardModel(new URL("http://x/?sort=-name&page=2"));
   assert.equal(p2.pagination.summary.from, 13); // 30 rows / 12 per page → page 2 starts at 13

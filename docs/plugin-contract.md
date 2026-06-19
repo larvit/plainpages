@@ -168,6 +168,7 @@ request:
 
 ```ts
 interface RequestContext {
+  chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
   params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
@@ -175,8 +176,18 @@ interface RequestContext {
   roles: string[];                   // user?.roles ?? [] — coarse gate without a null-check
   url: URL;
   user: User | null;                 // { id, email, roles } from the verified session JWT, or null
+  verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
 }
 ```
+
+**`ctx.chrome`** is the page chrome the host builds per request — `{ brand, csrfToken, nav, theme,
+user }`. Hand it to `partials/shell` so a `view` result renders the **native app shell** (the same
+sidebar, branding, theme switch and signed-in profile as the built-in screens); `chrome.nav` is the
+global menu — your plugin's nav fragment plus the others and the admin section — already composed,
+role-filtered, and current-marked for this request. **`ctx.verifyCsrf(submitted)`** guards a
+state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
+body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
+secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
 
 **Stability guarantee.** The fields above are the stable contract — present and non-breaking
 across a major `apiVersion`. New fields may be **added** within a major version (additive, never
@@ -262,7 +273,9 @@ intentionally small and may grow additively within the major version.
 ## Local dev & test story
 
 A plugin is a normal folder of TypeScript, so an author tests it the same way the core is tested
-— everything in Docker, no host tooling.
+— everything in Docker, no host tooling. The shipped reference (`plugins/scheduling/`) is the
+worked example: thin handlers bound to an injectable upstream client, unit-tested in
+`shifts.test.ts` with a mocked `fetch` and a hand-built `ctx` (no host).
 
 1. **Unit-test handlers as pure functions.** Keep a handler thin: parse `ctx`, fetch upstream,
    return a `RouteResult`. Test the data-shaping in isolation (mock `fetch`/upstream) with

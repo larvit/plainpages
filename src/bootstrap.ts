@@ -2,7 +2,8 @@
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   3. grant it the `admin` role in Keto so menu/permission checks resolve out of the box.
+//   3. grant it its roles in Keto so menu/permission checks resolve out of the box — `admin` plus
+//      the reference plugin's `scheduling:read`/`scheduling:write`, so the shipped example works.
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -50,13 +51,13 @@ export interface SeedOptions {
   ketoWriteUrl: string;
   kratosAdminUrl: string;
   password: string;
-  role: string;
+  roles: string[];
 }
 
 export interface SeedResult {
   created: boolean;
   id: string;
-  role: string;
+  roles: string[];
 }
 
 export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
@@ -80,15 +81,17 @@ export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
     throw new Error(`bootstrap: Kratos create identity failed (${res.status}): ${await res.text()}`);
   }
 
-  // Grant the role in Keto. PUT is idempotent — re-running just re-asserts the tuple.
-  const grant = await http(`${opts.ketoWriteUrl}/admin/relation-tuples`, {
-    body: JSON.stringify(roleTuple(id, opts.role)),
-    headers: { "content-type": "application/json" },
-    method: "PUT",
-  });
-  if (!grant.ok) throw new Error(`bootstrap: Keto grant role failed (${grant.status}): ${await grant.text()}`);
+  // Grant each role in Keto. PUT is idempotent — re-running just re-asserts the tuple.
+  for (const role of opts.roles) {
+    const grant = await http(`${opts.ketoWriteUrl}/admin/relation-tuples`, {
+      body: JSON.stringify(roleTuple(id, role)),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+    if (!grant.ok) throw new Error(`bootstrap: Keto grant role "${role}" failed (${grant.status}): ${await grant.text()}`);
+  }
 
-  return { created, id, role: opts.role };
+  return { created, id, roles: opts.roles };
 }
 
 async function findIdentityId(http: typeof fetch, adminUrl: string, email: string): Promise<string> {
@@ -121,7 +124,8 @@ async function main() {
   const env = process.env;
   if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) console.log("bootstrap: generated a JWKS signing key");
 
-  const role = env["ADMIN_ROLE"] ?? "admin";
+  // Default roles include the reference plugin's tokens so the shipped example works out of the box.
+  const roles = (env["ADMIN_ROLES"] ?? "admin,scheduling:read,scheduling:write").split(",").map((r) => r.trim()).filter(Boolean);
   const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
   const password = env["ADMIN_PASSWORD"] ?? "admin";
   const result = await seedAdmin({
@@ -129,9 +133,9 @@ async function main() {
     ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
     kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
     password,
-    role,
+    roles,
   });
-  console.log(`bootstrap: admin ${result.created ? "created" : "already present"} (${result.id}); role "${role}" granted`);
+  console.log(`bootstrap: admin ${result.created ? "created" : "already present"} (${result.id}); roles granted: ${result.roles.join(", ")}`);
   console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
 }
 

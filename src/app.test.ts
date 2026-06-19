@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp, type AppOptions } from "./app.ts";
+import { readFormBody } from "./body.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import { HydraError, type HydraAdmin, type OAuth2Client } from "./hydra-admin.ts";
@@ -190,6 +191,59 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal(wrong.status, 405);
   assert.match(wrong.headers.get("allow") ?? "", /GET/);
   assert.equal((await fetch(url + "/demo/nope")).status, 404);
+});
+
+test("a plugin view renders the native chrome; its forms are CSRF-guarded via ctx.verifyCsrf (§7)", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
+  mkdirSync(join(dir, "panelkit", "views"), { recursive: true });
+  // The view composes the core shell from ctx.chrome — branding, the global nav, the Sign-out form.
+  writeFileSync(join(dir, "panelkit", "views", "panel.ejs"),
+    `<%- include("partials/shell", { brand: chrome.brand, csrfToken: chrome.csrfToken, nav: include("partials/nav-tree", { nodes: chrome.nav }), title, user: chrome.user }) %>`);
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+
+  const plugin: Plugin = {
+    apiVersion: "1.0.0",
+    id: "panelkit",
+    nav: [{ href: "/panelkit/panel", icon: "i-grid", id: "panelkit", label: "Panel kit" }],
+    routes: [
+      { handler: (ctx) => ({ data: { chrome: ctx.chrome, title: "Panel" }, view: "panel" }), method: "GET", path: "/panel" },
+      {
+        handler: async (ctx) => {
+          const form = await readFormBody(ctx.req);
+          if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, "bad csrf");
+          return { redirect: "/panelkit/panel" };
+        },
+        method: "POST", path: "/save",
+      },
+    ],
+  };
+
+  const secret = "test-csrf-secret";
+  const app = createApp({ csrfSecret: secret, plugins: [plugin], pluginsDir: dir });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  // GET renders the shell: branding (DEFAULT_MENU), the (ungated) plugin nav, and a CSRF cookie
+  // whose token is embedded in the Sign-out form (double-submit).
+  const res = await fetch(url + "/panelkit/panel");
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.match(body, /class="brand-name">Plainpages/);
+  assert.match(body, /Panel kit/);
+  const cookieTok = /plainpages_csrf=([^;]+)/.exec(res.headers.get("set-cookie") ?? "")?.[1];
+  assert.ok(cookieTok, "a plugin route issues the CSRF cookie when fresh");
+  assert.equal(/name="_csrf" value="([^"]+)"/.exec(body)?.[1], cookieTok);
+
+  // POST with no token → 403 (ctx.verifyCsrf fails closed); matching cookie + field → 303.
+  assert.equal((await fetch(url + "/panelkit/save", { method: "POST", redirect: "manual" })).status, 403);
+  const tok = issueCsrfToken(secret);
+  const ok = await fetch(url + "/panelkit/save", {
+    body: `_csrf=${encodeURIComponent(tok)}`,
+    headers: { "content-type": "application/x-www-form-urlencoded", cookie: `${CSRF_COOKIE}=${tok}` },
+    method: "POST", redirect: "manual",
+  });
+  assert.equal(ok.status, 303);
 });
 
 // JWT middleware (§4): a verified session cookie populates ctx.user/roles, which the gate reads.
