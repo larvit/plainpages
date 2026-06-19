@@ -1,10 +1,8 @@
 // Page chrome for plugin pages (todo §7): the brand / global-nav / user / theme / csrf block a
 // plugin view hands to partials/shell so its page looks native — the same shell the dashboard and
-// admin screens render. Pure; the host builds it once per plugin request (it has the menu config,
-// the discovered plugins, the signed-in user and the request CSRF token) and exposes it on
-// ctx.chrome. The nav is the global menu — a Dashboard home link, every discovered plugin's nav
-// fragment, and the gated admin section — run through composeNav (override + per-user role filter),
-// with the node whose href matches the current path marked `current` (its ancestors opened).
+// admin screens render. Pure; the host builds it per plugin request and exposes it on ctx.chrome.
+// nav is the global menu — Dashboard + every plugin's fragment + the gated admin section — run
+// through composeNav (override + per-user filter) and current-marked for the request path.
 
 import { adminSection } from "./admin-nav.ts";
 import type { User } from "./context.ts";

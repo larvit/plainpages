@@ -166,8 +166,7 @@ safety of the data it renders**:
   item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
   `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
   control, restrict it to a relative (`/`, `?`, `#`) or `http(s):` URL before handing it to a
-  partial. (A shared `safeUrl()` helper will land with the first plugin that renders untrusted
-  URL data, §5/§7.)
+  partial. (A shared `safeUrl()` helper is planned for §9, with the redirect-URI allowlist work.)
 
 ## RequestContext
 
