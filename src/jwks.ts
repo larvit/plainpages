@@ -24,6 +24,13 @@ export interface JwksCacheOptions {
 function parseJwks(text: string): JsonWebKey[] {
   const parsed = JSON.parse(text) as { keys?: unknown };
   if (!Array.isArray(parsed.keys)) throw new Error("JWKS: missing `keys` array");
+  // Validate element shape here so a malformed key fails loud at load, not as an opaque crypto
+  // error on the first authenticated request (the verifier keys off `kty`/`kid`).
+  for (const k of parsed.keys) {
+    if (typeof k !== "object" || k === null || typeof (k as JsonWebKey).kty !== "string") {
+      throw new Error("JWKS: each key must be an object with a string `kty`");
+    }
+  }
   return parsed.keys as JsonWebKey[];
 }
 

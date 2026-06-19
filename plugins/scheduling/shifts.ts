@@ -87,7 +87,7 @@ function toShift(raw: unknown): Shift {
 
 export function buildListModel(opts: { canWrite: boolean; chrome: PageChrome; error?: string; q: string; shifts: Shift[] }) {
   return {
-    breadcrumbs: [{ href: SHIFTS_PATH, label: "Scheduling" }, { label: "Shifts" }],
+    breadcrumbs: [{ label: "Shifts" }], // SHIFTS_PATH is the list itself; the form links back to it as "Shifts"
     canWrite: opts.canWrite,
     chrome: opts.chrome,
     ...(opts.error ? { error: opts.error } : {}),

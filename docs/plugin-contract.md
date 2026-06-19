@@ -111,7 +111,10 @@ A route is `{ method, path, permission?, handler }`. `path` is **relative to the
 path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
 runs the `permission` gate (a coarse JWT-claim check — see the README), and only then calls the
-handler with the [request context](#requestcontext).
+handler with the [request context](#requestcontext). When the gate fails, an **anonymous** visitor
+is redirected to `/login` to sign in (same as the built-in admin screens; after login they land on
+the dashboard, not back on the requested page); a **signed-in** user who simply lacks the role gets
+the **403** page.
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 

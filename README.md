@@ -148,13 +148,15 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `PORT` | `3000` | web listen port |
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
-| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, the two secrets must be supplied and differ from the dev throwaways |
+| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` must be supplied and differ from the dev throwaway |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
+| `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (§6 login/consent handshake) |
 | `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT (§4) |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
 | `JWT_CLOCK_SKEW_SEC` | `60` | exp/nbf leeway (s) for Kratos↔web clock drift (the auth E2E sets `0`) |
-| `COOKIE_SECRET` / `CSRF_SECRET` | dev throwaways | enforced by `REQUIRE_SECURE_SECRETS` |
+| `ORY_TIMEOUT_SEC` | `5` | per-call timeout for outbound Kratos/Keto/Hydra (and http JWKS) fetches, so a hung Ory can't park a request |
+| `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
 
 ### What you must supply (the only manual prep)
 
@@ -163,11 +165,11 @@ stack with dev-throwaway secrets, an auto-generated signing key, and a seeded ad
 (see [Development](#development)). Exactly **two** things can't be auto-generated, and
 **both are production-only** — neither blocks a clean clone:
 
-1. **Production secrets** — replace the committed dev throwaways: `COOKIE_SECRET` and
-   `CSRF_SECRET` (env), plus the **JWT signing key** (mount a real `jwks.json` or set
+1. **Production secrets** — replace the committed dev throwaway `CSRF_SECRET` (env), plus the
+   **JWT signing key** (mount a real `jwks.json` or set
    `…_JWKS_URL` — see [JWT signing key & rotation](#jwt-signing-key--rotation)). Set
-   `REQUIRE_SECURE_SECRETS=true` and the app refuses to boot until the two secrets are
-   supplied and differ from the throwaways.
+   `REQUIRE_SECURE_SECRETS=true` and the app refuses to boot until `CSRF_SECRET` is
+   supplied and differs from the throwaway.
 2. **SSO provider client id/secret** — **optional**; password login works without them.
    Supplying a provider's creds via env activates it; no creds ⇒ no SSO button (see
    [Social sign-in (SSO)](#social-sign-in-sso)).

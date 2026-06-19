@@ -684,4 +684,4 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .detail-list dd { margin: 0; word-break: break-word; }
 .btn-danger { color: var(--neg); border-color: var(--neg-bd); }
 .btn-danger:hover { background: var(--neg-bg); }
-.recovery-link { word-break: break-all; }
+.recovery-code code { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.04em; }

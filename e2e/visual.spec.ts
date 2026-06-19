@@ -123,11 +123,13 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 });
 
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its nav + routes are
-// permission-gated, so an anonymous visitor never sees or reaches them (the authenticated list/form
-// flow needs cross-host login infra — deferred to the §8 full E2E, todo line 121). Side-effect-free.
-test("the reference plugin is permission-gated: anonymous → 403, hidden from the dashboard nav", async ({ page }) => {
-  const res = await page.goto("/scheduling/shifts");
-  expect(res?.status()).toBe(403);
+// permission-gated, so an anonymous visitor is bounced to sign in (and never sees it in the nav).
+// The authenticated list/form flow is the §8 full E2E (full-flow.spec). Side-effect-free.
+test("the reference plugin is permission-gated: anonymous → redirect to /login, hidden from the dashboard nav", async ({ page }) => {
+  // Don't follow the redirect — this Ory-free suite has no /login handler; assert the gate's 303 itself.
+  const res = await page.request.get("/scheduling/shifts", { maxRedirects: 0 });
+  expect(res.status()).toBe(303);
+  expect(res.headers()["location"]).toBe("/login");
 
   await page.goto("/");
   await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders

@@ -10,7 +10,6 @@
 
 export interface Config {
   cacheTemplates: boolean;
-  cookieSecret: string;
   csrfSecret: string;
   hydraAdminUrl: string;
   jwksUrl: string;
@@ -21,6 +20,7 @@ export interface Config {
   ketoWriteUrl: string;
   kratosAdminUrl: string;
   kratosPublicUrl: string;
+  oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
   port: number;
   secureCookies: boolean;
 }
@@ -82,11 +82,18 @@ function readNonNegInt(env: Env, key: string, devDefault: number): number {
   return n;
 }
 
+function readPosInt(env: Env, key: string, devDefault: number): number {
+  const raw = env[key];
+  if (raw === undefined) return devDefault;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`config: ${key} must be a positive integer, got "${raw}"`);
+  return n;
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
     cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
-    cookieSecret: readSecret(env, "COOKIE_SECRET", "dev-insecure-cookie-secret", requireSecure),
     csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
     // Hydra admin API — the OAuth2 login/consent challenge handshake (§6); not on the first-party path.
     hydraAdminUrl: readUrl(env, "HYDRA_ADMIN_URL", "http://hydra:4445"),
@@ -103,6 +110,7 @@ export function loadConfig(env: Env = process.env): Config {
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
+    oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
     port: readPort(env),
     // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
     secureCookies: readBool(env, "SECURE_COOKIES", false),

@@ -1,6 +1,7 @@
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { discoverPlugins } from "./discovery.ts";
+import { withTimeout } from "./fetch-timeout.ts";
 import { runBootHooks } from "./hooks.ts";
 import { createHydraAdmin } from "./hydra-admin.ts";
 import { createJwksProvider } from "./jwks.ts";
@@ -11,15 +12,17 @@ import { loadMenuConfig } from "./menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
+// Every outbound Ory call is bounded so a hung/silent Ory can't park a request handler forever.
+const oryFetch = withTimeout(fetch, config.oryTimeoutSec * 1000);
 // Ory clients for the themed self-service routes + login completion (§4).
-const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl });
-const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl });
-const keto = createKetoClient({ readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
+const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl, fetchImpl: oryFetch });
+const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl, fetchImpl: oryFetch });
+const keto = createKetoClient({ fetchImpl: oryFetch, readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
 // Hydra admin client for the OAuth2 login/consent challenge handshake (§6).
-const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl });
+const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl, fetchImpl: oryFetch });
 // Session-JWT verify key: primed at boot from the configured JWKS (file mount, base64 inline,
 // or fetched http), then served from cache with TTL refresh + rotation-on-miss (§4).
-const jwks = await createJwksProvider(config.jwksUrl);
+const jwks = await createJwksProvider(config.jwksUrl, { fetchImpl: oryFetch }); // bound an http JWKS fetch too
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);

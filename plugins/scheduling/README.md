@@ -7,7 +7,9 @@ What it demonstrates:
 
 - **A list page that fetches upstream data** — `GET /scheduling/shifts` calls the upstream REST
   service and renders the rows with the core building blocks (`shifts.ejs` → app shell, filter-bar,
-  data-table). Search round-trips the URL; zero-JS.
+  data-table). Search round-trips the URL; zero-JS. (It fetches **all** rows for brevity — for a
+  large list, parse `page`/`pageSize` from `parseListQuery`, forward them upstream as a `?limit`/
+  `?offset`, and render `pagination.ejs` with `paginate()`, exactly as the built-in admin screens do.)
 - **A form that forwards a write upstream** — `GET /scheduling/shifts/new` renders the form,
   `POST /scheduling/shifts` CSRF-verifies it (`ctx.verifyCsrf`) and forwards the create upstream,
   then POST-redirect-GET. The form body lives in the plugin's own `views/partials/shift-form.ejs`,
@@ -36,6 +38,10 @@ Your backend must expose two routes; the plugin treats any non-2xx as a recovera
 
 Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the
 form re-renders. The plugin only validates that `title` and `assignee` are non-empty.
+
+`start`/`end` come from the form's `datetime-local` inputs as `YYYY-MM-DDTHH:mm` and are stored and
+shown verbatim (the dev mock seeds a space-separated style, so created vs seeded rows differ only
+cosmetically) — normalise to your backend's format there if it matters.
 
 ## Granting access
 

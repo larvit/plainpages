@@ -26,6 +26,12 @@ test("loadJwks reads a file:// set and a base64:// inline set, rejects http", ()
   assert.equal(loadJwks(`base64://${Buffer.from(inline).toString("base64")}`)[0]?.kid, "inline");
 
   assert.throws(() => loadJwks("http://keto:4466/keys"), /unsupported/);
+
+  // Malformed sets fail loud at load, not as an opaque crypto error at verify time.
+  const b64 = (o: unknown) => `base64://${Buffer.from(JSON.stringify(o)).toString("base64")}`;
+  assert.throws(() => loadJwks(b64({})), /missing `keys`/);
+  assert.throws(() => loadJwks(b64({ keys: ["nope"] })), /string `kty`/); // a non-object key
+  assert.throws(() => loadJwks(b64({ keys: [{ kid: "x" }] })), /string `kty`/); // key missing kty
 });
 
 test("cachingJwks caches within TTL, reloads after expiry", async () => {

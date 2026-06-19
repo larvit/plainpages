@@ -5,7 +5,6 @@ import { loadConfig } from "./config.ts";
 // Explicit secure-secret enforcement (no environment sniffing): secrets are the only
 // thing a hardened deploy must supply.
 const secureEnv = {
-  COOKIE_SECRET: "real-cookie-secret",
   CSRF_SECRET: "real-csrf-secret",
   REQUIRE_SECURE_SECRETS: "true",
 };
@@ -20,7 +19,6 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.ketoReadUrl, "http://keto:4466");
   assert.equal(c.ketoWriteUrl, "http://keto:4467");
   assert.equal(c.hydraAdminUrl, "http://hydra:4445");
-  assert.match(c.cookieSecret, /dev-insecure/);
   assert.match(c.csrfSecret, /dev-insecure/);
   assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift
 });
@@ -51,10 +49,10 @@ test("parses explicit boolean toggles and rejects non-boolean values", () => {
 });
 
 test("reads overrides from the environment", () => {
-  const c = loadConfig({ COOKIE_SECRET: "x", KRATOS_PUBLIC_URL: "https://id.example.com", PORT: "8080" });
+  const c = loadConfig({ CSRF_SECRET: "x", KRATOS_PUBLIC_URL: "https://id.example.com", PORT: "8080" });
   assert.equal(c.port, 8080);
   assert.equal(c.kratosPublicUrl, "https://id.example.com");
-  assert.equal(c.cookieSecret, "x");
+  assert.equal(c.csrfSecret, "x");
 });
 
 test("rejects an invalid PORT", () => {
@@ -67,22 +65,26 @@ test("JWT_CLOCK_SKEW_SEC: parses a non-negative integer, rejects junk (E2E short
   for (const v of ["-1", "1.5", "abc"]) assert.throws(() => loadConfig({ JWT_CLOCK_SKEW_SEC: v }), /JWT_CLOCK_SKEW_SEC/);
 });
 
+test("ORY_TIMEOUT_SEC: defaults to 5 and must be a positive integer (0 would abort every Ory call)", () => {
+  assert.equal(loadConfig({}).oryTimeoutSec, 5);
+  assert.equal(loadConfig({ ORY_TIMEOUT_SEC: "10" }).oryTimeoutSec, 10);
+  for (const v of ["0", "-1", "1.5", "abc"]) assert.throws(() => loadConfig({ ORY_TIMEOUT_SEC: v }), /ORY_TIMEOUT_SEC/);
+});
+
 test("rejects a malformed Ory URL", () => {
   assert.throws(() => loadConfig({ KETO_READ_URL: "not a url" }), /KETO_READ_URL/);
 });
 
 test("REQUIRE_SECURE_SECRETS rejects a missing or dev-throwaway secret", () => {
-  assert.throws(() => loadConfig({ REQUIRE_SECURE_SECRETS: "true" }), /COOKIE_SECRET/);
-  assert.throws(() => loadConfig({ COOKIE_SECRET: "real", REQUIRE_SECURE_SECRETS: "true" }), /CSRF_SECRET/);
+  assert.throws(() => loadConfig({ REQUIRE_SECURE_SECRETS: "true" }), /CSRF_SECRET/);
   assert.throws(
-    () => loadConfig({ COOKIE_SECRET: "dev-insecure-cookie-secret", CSRF_SECRET: "real", REQUIRE_SECURE_SECRETS: "true" }),
-    /COOKIE_SECRET/,
+    () => loadConfig({ CSRF_SECRET: "dev-insecure-csrf-secret", REQUIRE_SECURE_SECRETS: "true" }),
+    /CSRF_SECRET/,
   );
 });
 
 test("REQUIRE_SECURE_SECRETS succeeds with real secrets and still defaults the Ory URLs", () => {
   const c = loadConfig(secureEnv);
-  assert.equal(c.cookieSecret, "real-cookie-secret");
   assert.equal(c.csrfSecret, "real-csrf-secret");
   assert.equal(c.kratosPublicUrl, "http://kratos:4433"); // only secrets are enforced; URLs still default
 });

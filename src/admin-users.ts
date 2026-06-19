@@ -4,6 +4,7 @@
 // models; `handleAdminUsers` is the imperative shell app.ts dispatches to — gated admin-only,
 // CSRF-guarded, each action mapped to a RouteResult (render, or redirect after a write — PRG).
 
+import { safeDecode } from "./admin-groups.ts";
 import { ADMIN_USERS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { RequestContext, User } from "./context.ts";
 import type { Identity, KratosAdmin, RecoveryCode } from "./kratos-admin.ts";
@@ -253,7 +254,7 @@ export function buildUserFormModel(opts: {
     { id: "first", label: "First name", name: "first", optional: true, value: np.first },
     { id: "last", label: "Last name", name: "last", optional: true, value: np.last },
   ];
-  if (!editing) fields.push({ autocomplete: "new-password", hint: "Optional — leave blank to have the user set one via a recovery link.", icon: "i-lock", id: "password", label: "Password", name: "password", optional: true, type: "password" });
+  if (!editing) fields.push({ autocomplete: "new-password", hint: "Optional — leave blank to have the user set one via a recovery code.", icon: "i-lock", id: "password", label: "Password", name: "password", optional: true, type: "password" });
 
   return {
     edit: editing ? {
@@ -335,7 +336,8 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 1 && seg[0] === "new" && method === "GET") return renderForm({});
 
   // /admin/users/:id …
-  const targetId = decodeURIComponent(seg[0]!);
+  const targetId = safeDecode(seg[0]!); // malformed %-encoding → 404, not a 500 (matches groups/roles/clients)
+  if (targetId === null) return { html: await render("404", { title: "Not found" }), status: 404 };
   const identity = await kratosAdmin.getIdentity(targetId);
   if (!identity) return { html: await render("404", { title: "Not found" }), status: 404 };
   const back = `${ADMIN_USERS_BASE}/${encodeURIComponent(targetId)}`;

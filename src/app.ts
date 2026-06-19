@@ -152,6 +152,9 @@ export function createApp(options: AppOptions = {}): Server {
       if (anyRequestHooks) {
         const short = await runRequestHooks(plugins, ctx);
         if (short) {
+          // Set the fresh CSRF cookie like every other page-emitting path, so a form the hook
+          // renders (its token is in ctx.chrome.csrfToken) has the matching double-submit cookie.
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
           await sendResult(res, short.result, (view, data) => renderView(short.plugin.id, view, data));
           return;
         }
@@ -164,6 +167,9 @@ export function createApp(options: AppOptions = {}): Server {
       if (match) {
         const routeCtx = buildContext(req, res, { chrome: chrome(), params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
+          // Anonymous → sign in (like the built-in screens' requireSession); a signed-in user who
+          // simply lacks the role gets the 403 page.
+          if (!routeCtx.user) { res.writeHead(303, { location: "/login" }).end(); return; }
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
@@ -213,6 +219,12 @@ export function createApp(options: AppOptions = {}): Server {
       // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
       const flowType = AUTH_FLOWS[pathname];
       if (kratos && flowType && (method === "GET" || method === "HEAD")) {
+        // Already signed in? Re-authenticating / re-registering is pointless — send them home.
+        // (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
+        if (ctx.user && (pathname === "/login" || pathname === "/registration")) {
+          res.writeHead(303, { location: "/" }).end();
+          return;
+        }
         const cookie = req.headers.cookie;
         const flowId = ctx.url.searchParams.get("flow");
         if (!flowId) {

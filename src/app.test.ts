@@ -179,12 +179,10 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.match(await css.text(), /\.demo/);
   assert.equal((await fetch(url + "/public/demo/..%2f..%2fplugin.ts")).status, 403); // traversal still blocked
 
-  // gated route with no session → the rendered 403 page (covers the gate + 403.ejs over HTTP)
-  const denied = await fetch(url + "/demo/secret");
-  assert.equal(denied.status, 403);
-  const deniedBody = await denied.text();
-  assert.match(deniedBody, /403/);
-  assert.match(deniedBody, /styles\.css/);
+  // gated route, anonymous → redirect to sign in (like the built-in screens), not a dead-end 403
+  const denied = await fetch(url + "/demo/secret", { redirect: "manual" });
+  assert.equal(denied.status, 303);
+  assert.equal(denied.headers.get("location"), "/login");
 
   // known path + wrong method → 405 with Allow; unknown path → 404
   const wrong = await fetch(url + "/demo/data", { method: "DELETE" });
@@ -255,22 +253,24 @@ function mintJwt(payload: Record<string, unknown>): string {
   return `${input}.${b64url(sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key: ec.privateKey }))}`;
 }
 
-test("a verified session JWT authorizes a role-gated route; no cookie / expired token → 403", async (t) => {
+test("a verified session JWT authorizes a role-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
   const nowSec = Math.floor(Date.now() / 1000);
-  const secret = (cookie?: string) => fetch(url + "/demo/secret", cookie ? { headers: { cookie } } : {});
+  const secret = (cookie?: string) => fetch(url + "/demo/secret", { redirect: "manual", ...(cookie ? { headers: { cookie } } : {}) });
 
   // Token carrying the gating role → the handler runs (200).
   const ok = await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" })}`);
   assert.equal(ok.status, 200);
   assert.equal(await ok.text(), "secret");
 
-  // No cookie and an expired token both render anonymous → the gate denies (403).
-  assert.equal((await secret()).status, 403);
-  assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 403);
+  // No cookie and an expired token both render anonymous → the gate bounces to sign in (303 → /login).
+  const noCookie = await secret();
+  assert.equal(noCookie.status, 303);
+  assert.equal(noCookie.headers.get("location"), "/login");
+  assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
 
   // The home menu wires in the permission-gated Admin section: an admin's roles surface the links.
   const home = (cookie?: string) => fetch(url + "/", cookie ? { headers: { cookie } } : {});
@@ -295,21 +295,23 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   assert.equal(await ok.text(), "secret");
   assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=/);
 
-  // Kratos session gone: no re-mint, the stale cookie is cleared, the gate denies.
+  // Kratos session gone: no re-mint, the stale cookie is cleared, the now-anonymous request bounces to sign in.
   const dead = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
   await new Promise<void>((r) => dead.listen(0, r));
   t.after(() => dead.close());
-  const denied = await fetch(`http://localhost:${(dead.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
-  assert.equal(denied.status, 403);
+  const denied = await fetch(`http://localhost:${(dead.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired }, redirect: "manual" });
+  assert.equal(denied.status, 303);
+  assert.equal(denied.headers.get("location"), "/login");
   assert.match(denied.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
 
-  // Ory unreachable (not a dead session): whoami throws → degrade to anonymous (403, not 500),
+  // Ory unreachable (not a dead session): whoami throws → degrade to anonymous (bounce to /login, not 500),
   // and leave the cookie untouched so the token can re-mint once Ory recovers.
   const down = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: withWhoami(async () => { throw new KratosError("kratos down", 503, ""); }), kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
   await new Promise<void>((r) => down.listen(0, r));
   t.after(() => down.close());
-  const outage = await fetch(`http://localhost:${(down.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired } });
-  assert.equal(outage.status, 403);
+  const outage = await fetch(`http://localhost:${(down.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired }, redirect: "manual" });
+  assert.equal(outage.status, 303);
+  assert.equal(outage.headers.get("location"), "/login");
   assert.equal(outage.headers.get("set-cookie"), null);
 });
 
@@ -322,6 +324,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
       { handler: (ctx) => ({ html: `hi ${requireSession(ctx).email}` }), method: "GET", path: "/me" },
       { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
       { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
+      { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", permission: "secret:read" }, // declarative route gate
     ],
   };
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [guarded] });
@@ -346,6 +349,15 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   // check (live Keto): the keto verdict gates the handler.
   assert.equal((await fetch(url + "/guarded/doc/open", auth([]))).status, 200);
   assert.equal((await fetch(url + "/guarded/doc/shut", auth([]))).status, 403);
+
+  // declarative route `permission` gate: anonymous → sign in, signed-in-without-role → the 403 page, with → 200.
+  const gAnon = await fetch(url + "/guarded/gated", { redirect: "manual" });
+  assert.equal(gAnon.status, 303);
+  assert.equal(gAnon.headers.get("location"), "/login");
+  const gDenied = await fetch(url + "/guarded/gated", auth([]));
+  assert.equal(gDenied.status, 403);
+  assert.match(await gDenied.text(), /403/); // the rendered 403.ejs over HTTP
+  assert.equal((await fetch(url + "/guarded/gated", auth(["secret:read"]))).status, 200);
 });
 
 test("plugin hooks: onRequest can short-circuit a request and onResponse observes the handler result", async (t) => {
@@ -361,10 +373,12 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
   };
   const url = await startApp(t, [hooked]);
 
-  // onRequest short-circuits before routing — handler never runs.
+  // onRequest short-circuits before routing — handler never runs; a fresh CSRF cookie still rides the
+  // response so a form the hook renders has its matching double-submit cookie.
   const blocked = await fetch(url + "/hooked/blocked");
   assert.equal(blocked.status, 403);
   assert.match(await blocked.text(), /blocked by hook/);
+  assert.match(blocked.headers.get("set-cookie") ?? "", /plainpages_csrf=/);
 
   // A normal route runs the handler; onResponse observed its result.
   assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);
@@ -414,6 +428,24 @@ test("themed flow init: no ?flow= initialises one, relays Kratos' CSRF cookie, a
   const stale = await fetch(url + "/login?flow=stale", { redirect: "manual" });
   assert.equal(stale.status, 303);
   assert.equal(stale.headers.get("location"), "/login");
+});
+
+test("themed auth: an already-signed-in user is sent home from /login and /registration, not /settings", async (t) => {
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: mockKratos(async (_t, id) => loginFlow(id)) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const signedIn = { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, roles: [], sub: "u1" })}` }, redirect: "manual" as const };
+
+  for (const path of ["/login", "/registration"]) {
+    const res = await fetch(url + path, signedIn);
+    assert.equal(res.status, 303, `${path} while signed in → 303`);
+    assert.equal(res.headers.get("location"), "/");
+  }
+  // /settings stays reachable when signed in (inits its flow, not bounced home).
+  assert.equal((await fetch(url + "/settings", signedIn)).headers.get("location"), "/settings?flow=new1");
+  // Anonymous still gets the login flow (no short-circuit).
+  assert.equal((await fetch(url + "/login", { redirect: "manual" })).headers.get("location"), "/login?flow=new1");
 });
 
 test("renders a fetched flow as the themed auth page: fields post straight to Kratos, errors surface", async (t) => {
@@ -751,10 +783,13 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   await post(`/admin/users/${target.id}/state`, `_csrf=${token}`);
   assert.equal(target.state, "inactive");
 
-  // Recovery: renders the edit page (200) carrying the generated link.
+  // Recovery: renders the edit page (200) showing the generated code (code-based; no admin-host link).
   const rec = await post(`/admin/users/${target.id}/recovery`, `_csrf=${token}`);
   assert.equal(rec.status, 200);
-  assert.match(await rec.text(), /self-service\/recovery\?code=123456/);
+  const recHtml = await rec.text();
+  assert.match(recHtml, /Recovery code generated/);
+  assert.match(recHtml, /<code>123456<\/code>/);
+  assert.doesNotMatch(recHtml, /self-service\/recovery\?code=/); // the unreachable admin-API link is gone
 
   // Delete needs a deliberate confirm step (zero-JS): GET renders the interstitial, POST performs it.
   const confirm = await (await get(`/admin/users/${target.id}/delete`)).text();
@@ -770,8 +805,9 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal((await post(`/admin/users/admin1/state`, `_csrf=${token}`)).status, 400);
   assert.equal(store.find((x) => x.id === "admin1")!.state, "active");
 
-  // Unknown id → 404.
+  // Unknown id → 404; malformed %-encoding → 404 (not a 500), matching groups/roles/clients.
   assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
+  assert.equal((await get("/admin/users/%ZZ")).status, 404);
 });
 
 // Built-in Groups admin screen (§5): gate + list/create/membership/delete over HTTP against a

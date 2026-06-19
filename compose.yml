@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     # Explicit behaviour toggles (the app is environment-agnostic — see AGENTS.md).
-    # Supply COOKIE_SECRET / CSRF_SECRET via env; REQUIRE_SECURE_SECRETS refuses dev throwaways.
+    # Supply CSRF_SECRET via env; REQUIRE_SECURE_SECRETS refuses the dev throwaway.
     environment:
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "true"
