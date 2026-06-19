@@ -678,6 +678,9 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .admin-actions { flex-flow: row wrap; gap: 10px; align-items: center; }
 .admin-actions form { margin: 0; }
 .plain-list { display: flex; flex-direction: column; gap: 6px; }
+.detail-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font-size: var(--fz-sm); }
+.detail-list dt { color: var(--text-faint); }
+.detail-list dd { margin: 0; word-break: break-word; }
 .btn-danger { color: var(--neg); border-color: var(--neg-bd); }
 .btn-danger:hover { background: var(--neg-bg); }
 .recovery-link { word-break: break-all; }

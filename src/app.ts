@@ -3,7 +3,8 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { ADMIN_GROUPS_BASE, ADMIN_ROLES_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
+import { ADMIN_CLIENTS_BASE, ADMIN_GROUPS_BASE, ADMIN_ROLES_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
+import { type AdminClientsDeps, handleAdminClients } from "./admin-clients.ts";
 import { type AdminGroupsDeps, handleAdminGroups } from "./admin-groups.ts";
 import { type AdminRolesDeps, handleAdminRoles } from "./admin-roles.ts";
 import { type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
@@ -86,6 +87,8 @@ export function createApp(options: AppOptions = {}): Server {
   const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render } : null;
   const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
   const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
+  // OAuth2 clients (§6) write to Hydra; wired only when the Hydra admin client is present.
+  const adminClientsDeps: AdminClientsDeps | null = hydra ? { csrfSecret, hydra, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -175,6 +178,14 @@ export function createApp(options: AppOptions = {}): Server {
       }
       if (adminRolesDeps && pathname.startsWith(ADMIN_ROLES_BASE)) {
         const result = await handleAdminRoles(ctx, csrf.token, adminRolesDeps);
+        if (result) {
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
+          return;
+        }
+      }
+      if (adminClientsDeps && pathname.startsWith(ADMIN_CLIENTS_BASE)) {
+        const result = await handleAdminClients(ctx, csrf.token, adminClientsDeps);
         if (result) {
           if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
           await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));

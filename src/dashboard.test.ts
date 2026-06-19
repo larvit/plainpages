@@ -73,11 +73,11 @@ test("dashboard applies the central menu config: branding + nav override (rename
 });
 
 test("dashboard menu wires in the permission-gated Admin section (only for admins)", () => {
-  // An admin sees the Admin section with the three built-in screens.
+  // An admin sees the Admin section with the four built-in screens.
   const admin = buildDashboardModel(new URL("http://x/"), ["admin"]);
   const adminNode = admin.nav.find((n) => n.label === "Admin");
   assert.ok(adminNode, "admin role → Admin section present");
-  assert.deepEqual(adminNode!.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles"]);
+  assert.deepEqual(adminNode!.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles", "/admin/clients"]);
 
   // A non-admin (default []) never sees it — composeNav drops the gated header + its subtree.
   const plain = buildDashboardModel(new URL("http://x/"));

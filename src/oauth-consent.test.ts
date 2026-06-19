@@ -13,13 +13,18 @@ const REDIRECT = "http://hydra/oauth2/auth?consent_verifier=v";
 const DENIED = "http://client/cb?error=access_denied";
 
 function stubHydra(consent: ConsentRequest, capture?: (b: AcceptConsent) => void): HydraAdmin {
+  const unused = async () => { throw new Error("unused"); };
   return {
     acceptConsentRequest: async (_c, body) => { capture?.(body); return { redirect: REDIRECT }; },
-    acceptLoginRequest: async () => { throw new Error("unused"); },
+    acceptLoginRequest: unused,
+    createClient: unused,
+    deleteClient: unused,
+    getClient: unused,
     getConsentRequest: async () => consent,
-    getLoginRequest: async () => { throw new Error("unused"); },
+    getLoginRequest: unused,
+    listClients: unused,
     rejectConsentRequest: async () => ({ redirect: DENIED }),
-    rejectLoginRequest: async () => { throw new Error("unused"); },
+    rejectLoginRequest: unused,
   };
 }
 const stubKratos = (whoami: KratosPublic["whoami"]): KratosPublic => ({

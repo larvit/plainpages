@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createApp, type AppOptions } from "./app.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
-import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
+import { HydraError, type HydraAdmin, type OAuth2Client } from "./hydra-admin.ts";
 import { staticJwks } from "./jwks.ts";
 import type { ExpandTree, KetoClient, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
@@ -498,8 +498,12 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
 const stubHydra = (over: Partial<HydraAdmin> = {}): HydraAdmin => ({
   acceptConsentRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?consent_verifier=v" }),
   acceptLoginRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }),
+  createClient: async (c) => ({ ...c, client_id: "c1", client_secret: "s3cr3t" }),
+  deleteClient: async () => {},
+  getClient: async () => null,
   getConsentRequest: async () => ({ challenge: "cons1", client: { client_name: "Acme Reports" }, requested_scope: ["openid", "profile"], skip: false, subject: OAUTH_SUBJECT }),
   getLoginRequest: async () => ({ challenge: "chal1", skip: false, subject: "" }),
+  listClients: async () => ({ clients: [], nextPageToken: null }),
   rejectConsentRequest: async () => ({ redirect: "http://acme.example/cb?error=access_denied" }),
   rejectLoginRequest: async () => { throw new Error("unused"); },
   ...over,
@@ -837,6 +841,63 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   // An invalid role name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/roles/Bad%20Name")).status, 404);
   assert.equal((await get("/admin/roles/%ZZ")).status, 404);
+});
+
+// Built-in OAuth2 clients admin screen (§6): gate + list/register/detail/delete over HTTP against an
+// in-memory Hydra. Registration shows the one-time client_secret on the post-create page (no PRG).
+test("admin OAuth2 clients screen: gate, list, register (one-time secret), detail, delete (CSRF-guarded)", async (t) => {
+  const store: OAuth2Client[] = [
+    { client_id: "existing", client_name: "Reporting", redirect_uris: ["https://reporting.example/cb"], scope: "openid", token_endpoint_auth_method: "client_secret_basic" },
+  ];
+  let seq = 0;
+  const hydra = stubHydra({
+    createClient: async (c) => { const created = { ...c, client_id: `gen-${++seq}`, client_secret: `secret-${seq}` }; store.push(created); return created; },
+    deleteClient: async (id) => { const i = store.findIndex((c) => c.client_id === id); if (i >= 0) store.splice(i, 1); },
+    getClient: async (id) => store.find((c) => c.client_id === id) ?? null,
+    listClients: async () => ({ clients: store, nextPageToken: null }),
+  });
+  const { get, post, token, url } = await adminHarness(t, { hydra });
+
+  await assertAdminGate(url, get, "/admin/clients");
+
+  // List: the existing client shows + the "register" link.
+  const listHtml = await (await get("/admin/clients")).text();
+  assert.match(listHtml, /href="\/admin\/clients\/existing"/);
+  assert.match(listHtml, /href="\/admin\/clients\/new"/);
+  assert.match(listHtml, /Reporting/);
+
+  // Register: the form renders; a valid post creates the client and shows the one-time secret + id.
+  assert.match(await (await get("/admin/clients/new")).text(), /Register client/);
+  const created = await post("/admin/clients", `_csrf=${token}&name=Grafana&redirectUris=${encodeURIComponent("https://graf/cb")}&scope=openid+offline_access`);
+  assert.equal(created.status, 200); // not a redirect — the secret is shown once
+  const createdHtml = await created.text();
+  assert.match(createdHtml, /Client registered/);
+  assert.match(createdHtml, /secret-1/); // the one-time client_secret
+  assert.match(createdHtml, /gen-1/);    // the generated client_id
+  assert.ok(store.some((c) => c.client_name === "Grafana" && c.token_endpoint_auth_method === "client_secret_basic"));
+
+  // Invalid input (missing redirect URI) and a missing CSRF token are both refused, nothing created.
+  const before = store.length;
+  assert.equal((await post("/admin/clients", `_csrf=${token}&name=NoRedirect&redirectUris=`)).status, 400);
+  assert.equal((await post("/admin/clients", `name=x&redirectUris=${encodeURIComponent("https://x/cb")}`)).status, 403);
+  assert.equal(store.length, before);
+
+  // Detail: read-only info, never the secret again, a delete control.
+  const detail = await (await get("/admin/clients/existing")).text();
+  assert.match(detail, /reporting\.example\/cb/);
+  assert.doesNotMatch(detail, /Client secret/i); // the secret is shown only once, at creation
+  assert.match(detail, /href="\/admin\/clients\/existing\/delete"/);
+
+  // Delete: a confirm step (GET) then the POST removes the client, back to the list.
+  assert.match(await (await get("/admin/clients/existing/delete")).text(), /Cancel/);
+  const del = await post("/admin/clients/existing/delete", `_csrf=${token}`);
+  assert.equal(del.status, 303);
+  assert.equal(del.headers.get("location"), "/admin/clients");
+  assert.ok(!store.some((c) => c.client_id === "existing"));
+
+  // Unknown id → 404; malformed %-encoding doesn't 500.
+  assert.equal((await get("/admin/clients/does-not-exist")).status, 404);
+  assert.equal((await get("/admin/clients/%ZZ")).status, 404);
 });
 
 test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {

@@ -16,13 +16,15 @@ export const ADMIN_PERMISSION = "admin"; // role token gating the admin section
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
 export const ADMIN_ROLES_BASE = "/admin/roles";
+export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
-export type AdminScreen = "groups" | "roles" | "users";
+export type AdminScreen = "clients" | "groups" | "roles" | "users";
 
 const ITEMS: { href: string; icon: string; id: AdminScreen; label: string }[] = [
   { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "Users" },
   { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "Groups" },
   { href: ADMIN_ROLES_BASE, icon: "i-shield", id: "roles", label: "Roles" },
+  { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "OAuth2 clients" },
 ];
 
 // The gated "Admin" header + its three screens; `current` marks the active screen and opens the

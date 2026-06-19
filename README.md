@@ -504,6 +504,11 @@ challenge** is wired too (`src/oauth-consent.ts` at `/oauth2/consent`): a first-
 requested scopes; any other client gets a themed consent screen whose CSRF-guarded Allow/Deny
 accepts or rejects. id_token claims (email, name) come from the Kratos identity.
 
+Those clients are registered from the admin **OAuth2 clients** screen (`/admin/clients`,
+`src/admin-clients.ts`): register (Hydra shows the generated `client_secret` **once**, on the
+confirmation page — confidential clients), list, and delete. Confidential vs public (PKCE) and the
+first-party auto-consent flag are set at registration; writes go only to Hydra.
+
 ## Stateless — no application database
 
 Plainpages and its plugins hold **no state of their own**. The only database in the
@@ -545,7 +550,7 @@ src/jwks.ts          JwksProvider — resolve the verify key by kid; createJwksP
 src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize (§4)
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
-src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject (§6)
+src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD (§6)
 src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login (§6)
 src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes (§6)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
@@ -561,7 +566,8 @@ src/dashboard.ts     buildDashboardModel(): the home "/" People list view model 
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
 src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
-src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
+src/admin-clients.ts Built-in OAuth2 clients admin screen (§6): list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
+src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
@@ -572,7 +578,7 @@ src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each pl
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500, partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500, partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)

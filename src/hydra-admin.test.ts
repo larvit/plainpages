@@ -84,3 +84,39 @@ test("a non-2xx response throws a HydraError carrying the status", async () => {
     (e: unknown) => e instanceof HydraError && e.status === 404,
   );
 });
+
+// OAuth2 client registration (§6): create/list/get/delete clients over Hydra's admin API.
+test("createClient POSTs the client and returns it (incl. the one-time client_secret)", async () => {
+  const created = { client_id: "c1", client_name: "Acme", client_secret: "s3cr3t", redirect_uris: ["https://acme/cb"] };
+  const { calls, fetchImpl } = recorder(() => res(201, created));
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).createClient({ client_name: "Acme", redirect_uris: ["https://acme/cb"] });
+  assert.deepEqual(out, created);
+  assert.equal(calls[0]!.method, "POST");
+  assert.match(calls[0]!.url, /\/admin\/clients$/);
+  assert.deepEqual(JSON.parse(calls[0]!.body!), { client_name: "Acme", redirect_uris: ["https://acme/cb"] });
+});
+
+test("listClients GETs a page and parses the Link rel=next page_token", async () => {
+  const body = JSON.stringify([{ client_id: "c1" }, { client_id: "c2" }]);
+  const headers = new Headers({ "content-type": "application/json", link: '</admin/clients?page_token=tok2&page_size=2>; rel="next"' });
+  const { calls, fetchImpl } = recorder(() => new Response(body, { headers, status: 200 }));
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).listClients({ pageSize: 2 });
+  assert.deepEqual(out.clients.map((c) => c.client_id), ["c1", "c2"]);
+  assert.equal(out.nextPageToken, "tok2");
+  assert.equal(calls[0]!.method, "GET");
+  assert.match(calls[0]!.url, /\/admin\/clients\?page_size=2$/);
+});
+
+test("getClient returns the client; a 404 → null", async () => {
+  const found = await createHydraAdmin({ baseUrl: BASE, fetchImpl: recorder(() => res(200, { client_id: "c1" })).fetchImpl }).getClient("c1");
+  assert.deepEqual(found, { client_id: "c1" });
+  const missing = await createHydraAdmin({ baseUrl: BASE, fetchImpl: recorder(() => res(404, { error: "Not Found" })).fetchImpl }).getClient("gone");
+  assert.equal(missing, null);
+});
+
+test("deleteClient DELETEs the client by id (204)", async () => {
+  const { calls, fetchImpl } = recorder(() => res(204));
+  await createHydraAdmin({ baseUrl: BASE, fetchImpl }).deleteClient("c1");
+  assert.equal(calls[0]!.method, "DELETE");
+  assert.match(calls[0]!.url, /\/admin\/clients\/c1$/);
+});

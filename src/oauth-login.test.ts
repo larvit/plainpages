@@ -15,8 +15,12 @@ function stubHydra(login: LoginRequest, capture?: (b: AcceptLogin) => void): Hyd
   return {
     acceptConsentRequest: unused,
     acceptLoginRequest: async (_c, body) => { capture?.(body); return { redirect: "http://hydra/oauth2/auth?login_verifier=v" }; },
+    createClient: unused,
+    deleteClient: unused,
+    getClient: unused,
     getConsentRequest: unused,
     getLoginRequest: async () => login,
+    listClients: unused,
     rejectConsentRequest: unused,
     rejectLoginRequest: unused,
   };
