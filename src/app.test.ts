@@ -531,20 +531,6 @@ test("OAuth2 login challenge (/oauth2/login): a Kratos session accepts via Hydra
   // Missing login_challenge → 400 (someone hit the endpoint directly).
   assert.equal((await fetch(base + "/oauth2/login", { redirect: "manual" })).status, 400);
 
-  // A stale/invalid/consumed challenge (Hydra 4xx — back button, slow login) degrades to a
-  // recoverable 400, not a 500. A genuine Hydra outage (5xx) still surfaces as a 500.
-  const staleHydra = stubHydra({ getLoginRequest: async () => { throw new HydraError("gone", 410, ""); } });
-  const stale = createApp({ hydra: staleHydra, kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => stale.listen(0, r));
-  t.after(() => stale.close());
-  const staleBase = `http://localhost:${(stale.address() as AddressInfo).port}`;
-  assert.equal((await fetch(staleBase + "/oauth2/login?login_challenge=gone", { redirect: "manual" })).status, 400);
-  const downHydra = stubHydra({ getLoginRequest: async () => { throw new HydraError("down", 503, ""); } });
-  const down = createApp({ hydra: downHydra, kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => down.listen(0, r));
-  t.after(() => down.close());
-  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/login?login_challenge=x`, { redirect: "manual" })).status, 500);
-
   // Not signed in: bounce to the themed login, return_to carrying an absolute URL back to here.
   const anon = createApp({ hydra: stubHydra(), kratos: withWhoami(async () => null) });
   await new Promise<void>((r) => anon.listen(0, r));
@@ -570,7 +556,7 @@ test("/login?return_to=… bakes the return target into the Kratos flow init (§
   assert.equal(seenReturnTo, returnTo);
 });
 
-test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-party shows the screen; allow/deny POST; CSRF-guarded; missing/stale challenge", async (t) => {
+test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-party shows the screen; allow/deny POST; CSRF-guarded; missing challenge", async (t) => {
   const csrfSecret = "consent-secret";
   let granted: { grant_scope?: string[]; session?: unknown } | undefined;
   const hydra = stubHydra({
@@ -623,19 +609,9 @@ test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-par
   const auto = await fetch(`http://localhost:${(skip.address() as AddressInfo).port}/oauth2/consent?consent_challenge=cons1`, { redirect: "manual" });
   assert.equal(auto.status, 303);
   assert.match(auto.headers.get("location") ?? "", /consent_verifier=v/);
-
-  // A stale challenge (Hydra 4xx) degrades to 400; a genuine outage (5xx) surfaces as 500.
-  const stale = createApp({ hydra: stubHydra({ getConsentRequest: async () => { throw new HydraError("gone", 410, ""); } }), kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => stale.listen(0, r));
-  t.after(() => stale.close());
-  assert.equal((await fetch(`http://localhost:${(stale.address() as AddressInfo).port}/oauth2/consent?consent_challenge=gone`, { redirect: "manual" })).status, 400);
-  const down = createApp({ hydra: stubHydra({ getConsentRequest: async () => { throw new HydraError("down", 503, ""); } }), kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => down.listen(0, r));
-  t.after(() => down.close());
-  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/consent?consent_challenge=x`, { redirect: "manual" })).status, 500);
 });
 
-test("OAuth2 RP-initiated logout (/oauth2/logout): accepts the logout challenge → 303 to Hydra; missing → 400; stale 4xx → 400, outage 5xx → 500", async (t) => {
+test("OAuth2 RP-initiated logout (/oauth2/logout): accepts the logout challenge → 303 to Hydra; missing → 400", async (t) => {
   let acceptedChallenge: string | undefined;
   const hydra = stubHydra({ acceptLogoutRequest: async (c) => { acceptedChallenge = c; return { redirect: "http://acme.example/post-logout" }; } });
   const app = createApp({ hydra, kratos: withWhoami(async () => null) });
@@ -649,16 +625,26 @@ test("OAuth2 RP-initiated logout (/oauth2/logout): accepts the logout challenge 
   assert.equal(acceptedChallenge, "lc1");
 
   assert.equal((await fetch(base + "/oauth2/logout", { redirect: "manual" })).status, 400);
+});
 
-  const stale = createApp({ hydra: stubHydra({ acceptLogoutRequest: async () => { throw new HydraError("gone", 404, ""); } }), kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => stale.listen(0, r));
-  t.after(() => stale.close());
-  assert.equal((await fetch(`http://localhost:${(stale.address() as AddressInfo).port}/oauth2/logout?logout_challenge=gone`, { redirect: "manual" })).status, 400);
-
-  const down = createApp({ hydra: stubHydra({ acceptLogoutRequest: async () => { throw new HydraError("down", 503, ""); } }), kratos: withWhoami(async () => null) });
-  await new Promise<void>((r) => down.listen(0, r));
-  t.after(() => down.close());
-  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/logout?logout_challenge=x`, { redirect: "manual" })).status, 500);
+// All three OAuth2 challenge endpoints share one degrade contract (the documented "byte-identical"
+// behaviour): a stale/consumed challenge (Hydra 4xx — back button, slow login) → recoverable 400,
+// a genuine Hydra outage (5xx) → 500.
+test("OAuth2 challenge endpoints degrade identically: stale Hydra 4xx → 400, outage 5xx → 500", async (t) => {
+  const endpoints: { make: (status: number) => Partial<HydraAdmin>; path: string }[] = [
+    { make: (s) => ({ getLoginRequest: async () => { throw new HydraError("x", s, ""); } }), path: "/oauth2/login?login_challenge=x" },
+    { make: (s) => ({ getConsentRequest: async () => { throw new HydraError("x", s, ""); } }), path: "/oauth2/consent?consent_challenge=x" },
+    { make: (s) => ({ acceptLogoutRequest: async () => { throw new HydraError("x", s, ""); } }), path: "/oauth2/logout?logout_challenge=x" },
+  ];
+  for (const { make, path } of endpoints) {
+    for (const [status, expected] of [[410, 400], [503, 500]] as const) {
+      const app = createApp({ hydra: stubHydra(make(status)), kratos: withWhoami(async () => null) });
+      await new Promise<void>((r) => app.listen(0, r));
+      t.after(() => app.close());
+      const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}${path}`, { redirect: "manual" });
+      assert.equal(res.status, expected, `${path} ${status} → ${expected}`);
+    }
+  }
 });
 
 // Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.
