@@ -6,9 +6,11 @@ services:
     ports:
       - "3000:3000"
     # Explicit behaviour toggles (the app is environment-agnostic — see AGENTS.md).
-    # Supply CSRF_SECRET via env; REQUIRE_SECURE_SECRETS refuses the dev throwaway.
+    # Supply CSRF_SECRET via env; the dev-throwaway fallback boots a clean clone but
+    # REQUIRE_SECURE_SECRETS refuses it in prod (config.ts), so a forgotten secret fails loud.
     environment:
       CACHE_TEMPLATES: "true"
+      CSRF_SECRET: ${CSRF_SECRET:-dev-insecure-csrf-secret}
       REQUIRE_SECURE_SECRETS: "true"
       SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
     # Wait for the services the app talks to (kratos + keto + hydra for the §6 OAuth2 login/

@@ -568,7 +568,11 @@ request, because the session lives in Kratos and the data lives upstream.
 docker compose -f compose.yml up --build -d   # base config only, no source mount
 ```
 
-_(Production compose grows to include the Ory services and Postgres — planned.)_
+`compose.yml` is the full prod stack — web + Postgres + the three Ory services
+(Kratos/Keto/Hydra, with migrations + the one-shot bootstrap) — and mounts no source.
+Secrets come from the environment (`CSRF_SECRET`, `POSTGRES_USER`/`POSTGRES_PASSWORD`); the
+base already sets `REQUIRE_SECURE_SECRETS=true`, so a missing or dev-throwaway `CSRF_SECRET`
+fails the boot rather than running insecure.
 
 Before going live, supply the production secrets and any SSO credentials — the **only**
 manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)); the rest

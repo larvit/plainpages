@@ -57,6 +57,20 @@ test("prod base publishes no internal Ory ports; dev exposes the host-facing one
   assert.match(override, /"4444:4444"/, "dev publishes hydra public");
 });
 
+test("prod base supplies the app secret via env and mounts no source; dev override flips it", () => {
+  // §9 prod compose: CSRF_SECRET comes from the environment (dev-throwaway fallback that
+  // REQUIRE_SECURE_SECRETS rejects in prod — see config.ts); the base never bind-mounts the
+  // source tree (runs the built image), while the dev override does for live editing.
+  assert.match(webBlock, /CSRF_SECRET:\s*\$\{CSRF_SECRET\b/, "base wires CSRF_SECRET from env");
+  assert.doesNotMatch(webBlock, /-\s+\.:\/app\b/, "base mounts no source tree");
+  assert.match(override, /-\s+\.:\/app\b/, "dev override bind-mounts the source");
+  // Secret/cookie hardening: enforced in prod, off in dev so the throwaway + http cookies pass.
+  assert.match(webBlock, /REQUIRE_SECURE_SECRETS:\s*"true"/, "base enforces real secrets");
+  assert.match(override, /REQUIRE_SECURE_SECRETS:\s*"false"/, "dev allows the throwaway");
+  // Postgres credentials are env-supplied (dev default), never a baked-in literal.
+  assert.match(compose, /POSTGRES_PASSWORD:\s*\$\{POSTGRES_PASSWORD\b/, "postgres password via env");
+});
+
 test("a one-shot bootstrap seeds the stack before web starts", () => {
   // §3 MVP bar: `bootstrap` runs after kratos+keto are healthy, seeds the admin +
   // JWKS, then exits; web waits for it to complete. Live seeding is boot-verified.
