@@ -2,9 +2,8 @@ import { type Browser, type Page, expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
 // Full browser E2E (todo §8): the real Playwright UI against the live stack via the same-origin
-// gateway (compose.e2e-full.yml). Covers password + mocked-SSO login, menu filtering by role, the
-// users/groups/roles admin CRUD, a permission-gated plugin page, and logout. The earlier full-stack
-// suites drove flows over HTTP and deferred the browser-UI login here; this is that coverage.
+// gateway (compose.e2e-full.yml) — the browser-UI login the earlier full-stack suites deferred here.
+// Coverage is the test titles below, plus the standalone SSO test.
 //
 // Runs on a fresh stack (`down -v` after, like the other full-stack suites). The serial admin
 // journey and the standalone SSO test run in parallel (fullyParallel) but stay independent: each

@@ -9,7 +9,7 @@ export default defineMenu({
   branding: {
     name: "Plainpages", // app name shown in the sidebar
     sub: "Console", // optional subtitle under the name
-    // logo: "/public/logo.svg", // optional logo asset (rendered in the shell — next §2 item)
+    // logo: "/public/logo.svg", // optional logo asset (rendered in the sidebar brand)
     // theme: "auto",            // default color theme: auto | light | dark
   },
 
