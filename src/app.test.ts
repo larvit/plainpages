@@ -429,9 +429,10 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
   assert.match(html, /name="password"[^>]*type="password"/);
   assert.match(html, /<button type="submit"[^>]*name="method" value="password">Sign in<\/button>/);
   assert.match(html, /<a href="\/registration">Create one<\/a>/); // alt link to register
-  // Configured OIDC provider → an SSO submit button in the same form (posts provider=google).
+  // Configured OIDC provider → an SSO submit button in the same form (posts provider=google);
+  // `formnovalidate` so it bypasses the required email/password fields (SSO needs neither).
   assert.match(html, /<div class="sso"/);
-  assert.match(html, /<button type="submit" class="sso-btn" name="provider" value="google">.*Sign in with Google<\/span><\/button>/s);
+  assert.match(html, /<button type="submit" class="sso-btn" name="provider" value="google" formnovalidate>.*Sign in with Google<\/span><\/button>/s);
   // The flow-level error renders as an alert.
   assert.match(html, /class="alert alert-neg"/);
   assert.match(html, /The provided credentials are invalid\./);

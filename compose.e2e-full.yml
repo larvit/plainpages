@@ -1,0 +1,101 @@
+# Full browser E2E (todo §8) — the real Playwright UI flow against the live stack: password +
+# mocked-SSO login, menu filtering by role, users/groups/roles CRUD, a plugin page, logout. A tiny
+# same-origin gateway (proxy, e2e/proxy.mjs) fronts web + Kratos on one host so the browser's cookies
+# round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.
+#   docker compose -f compose.yml -f compose.e2e-full.yml run --build --rm e2e
+#   docker compose -f compose.yml -f compose.e2e-full.yml down -v   # tear down after
+services:
+  web:
+    # First-party + SSO flows need Kratos + Keto + bootstrap, not Hydra — drop it so the stack is
+    # leaner. SSO is enabled here only (clean clone stays password-only): the mock provider's whole
+    # array is the env-settable form Kratos offers, mapped through the committed claims jsonnet.
+    depends_on: !override
+      bootstrap:
+        condition: service_completed_successfully
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
+      shifts-upstream:
+        condition: service_healthy
+    environment:
+      CACHE_TEMPLATES: "true"
+      REQUIRE_SECURE_SECRETS: "false"
+      SECURE_COOKIES: "false" # the browser hits the gateway over http — Secure cookies wouldn't be stored
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 2s
+      timeout: 4s
+      retries: 30
+
+  # Browser-facing URLs (base_url, every ui_url, the after-login redirect) move to the gateway host.
+  # `--dev`: the browser hits the gateway over http, but Kratos marks cookies Secure for a
+  # non-loopback host like `proxy` — dev mode drops that so the session/CSRF cookies are stored.
+  kratos:
+    command: serve --dev -c /etc/config/kratos/kratos.yml -c /etc/config/kratos/e2e-proxy.yml --watch-courier
+    environment:
+      SELFSERVICE_METHODS_OIDC_ENABLED: "true"
+      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS: >-
+        [{"id":"mock","provider":"generic","label":"Mock SSO","client_id":"plainpages-e2e","client_secret":"e2e-secret","issuer_url":"http://mock-oidc:9000","scope":["openid","email"],"mapper_url":"file:///etc/config/kratos/oidc/claims.jsonnet"}]
+
+  # The reference plugin's upstream (examples/shifts-upstream) so /scheduling/shifts shows real rows.
+  shifts-upstream:
+    image: node:24.16.0-alpine3.24
+    command: ["node", "/server.mjs"]
+    volumes:
+      - ./examples/shifts-upstream/server.mjs:/server.mjs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:4000/shifts"]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+
+  # Mock OIDC provider for the SSO login test — stdlib Node, auto-approves, signs an id_token Kratos
+  # verifies via its jwks. Reachable as the same host (mock-oidc:9000) by both the browser and Kratos.
+  mock-oidc:
+    image: node:24.16.0-alpine3.24
+    command: ["node", "/mock-oidc.mjs"]
+    environment:
+      ISSUER: http://mock-oidc:9000
+      SSO_EMAIL: sso-user@plainpages.local
+    volumes:
+      - ./e2e/mock-oidc.mjs:/mock-oidc.mjs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9000/.well-known/openid-configuration"]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+
+  # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e/proxy.mjs).
+  proxy:
+    image: node:24.16.0-alpine3.24
+    command: ["node", "/proxy.mjs"]
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      KRATOS_URL: http://kratos:4433
+      WEB_URL: http://web:3000
+    volumes:
+      - ./e2e/proxy.mjs:/proxy.mjs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/"]
+      interval: 2s
+      timeout: 4s
+      retries: 30
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    command: ["npx", "playwright", "test", "full-flow.spec.ts"]
+    depends_on:
+      mock-oidc:
+        condition: service_healthy
+      proxy:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://proxy
+      KRATOS_ADMIN_URL: http://kratos:4434
+    volumes:
+      - ./e2e/artifacts:/e2e/artifacts

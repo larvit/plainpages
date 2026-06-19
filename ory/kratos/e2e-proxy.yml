@@ -1,0 +1,40 @@
+# Browser-E2E overlay (compose.e2e-full.yml) — merged after kratos.yml via a second `-c`. The
+# full-flow suite drives the real browser, so web + Kratos must share one origin (the `proxy`
+# gateway, e2e/proxy.mjs). Point Kratos' public base_url and every self-service URL at that host so
+# the flow action, the session cookie, and the after-login redirect all stay same-origin as the
+# browser sees them. The normal (10m) tokenizer TTL from kratos.yml is kept — no re-mint mid-test.
+serve:
+  public:
+    base_url: http://proxy/
+
+selfservice:
+  default_browser_return_url: http://proxy/
+  allowed_return_urls:
+    - http://proxy
+  flows:
+    error:
+      ui_url: http://proxy/error
+    login:
+      ui_url: http://proxy/login
+      after:
+        default_browser_return_url: http://proxy/auth/complete
+    registration:
+      ui_url: http://proxy/registration
+      after:
+        # First SSO login auto-registers the identity: log it in (session) and route through our
+        # completion route so the JWT is minted, same as a password login.
+        default_browser_return_url: http://proxy/auth/complete
+        oidc:
+          hooks:
+            - hook: session
+    settings:
+      ui_url: http://proxy/settings
+    recovery:
+      ui_url: http://proxy/recovery
+    verification:
+      ui_url: http://proxy/verification
+      after:
+        default_browser_return_url: http://proxy/
+    logout:
+      after:
+        default_browser_return_url: http://proxy/login

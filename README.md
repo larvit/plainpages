@@ -219,7 +219,7 @@ otherwise drags up its `depends_on` services.
 ### End-to-end (Playwright)
 
 E2E runs in the official Playwright image (browsers preinstalled) against the live `web`
-service — no Node/browsers on the host. There are two suites:
+service — no Node/browsers on the host. There are four suites:
 
 **Visual + design system** (`visual.spec.ts`) — Ory-free (mock-data dashboard), so it stays fast.
 It screenshots the live pages **and** the `html-css-foundation` mockups, then asserts the live DOM
@@ -251,6 +251,18 @@ screen for the third-party client and **Allow** drives Hydra to issue the author
 ```bash
 docker compose -f compose.yml -f compose.e2e-oauth.yml run --build --rm e2e   # run the suite
 docker compose -f compose.yml -f compose.e2e-oauth.yml down -v                 # tear down after
+```
+
+**Full browser flow** (`full-flow.spec.ts`) — the real Playwright UI against the live stack: the
+themed **password login** and a **mocked-SSO** login (an in-network mock OIDC provider,
+`e2e/mock-oidc.mjs`), **menu filtering by role**, the **users/groups/roles** admin CRUD, a
+permission-gated **plugin page**, and **logout**. Because the themed form posts straight to Kratos
+and cookies are host-scoped, a tiny same-origin gateway (`e2e/proxy.mjs`) fronts web + Kratos on one
+host (`ory/kratos/e2e-proxy.yml` points Kratos at it) — exactly as a production reverse proxy would.
+
+```bash
+docker compose -f compose.yml -f compose.e2e-full.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f compose.e2e-full.yml down -v                 # tear down after
 ```
 
 `--build` rebuilds the runner so spec edits are always picked up (the image bakes in `e2e/`).
