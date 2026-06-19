@@ -496,11 +496,16 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
 
 // OAuth2 login challenge (§6): another app logs in *through* us; Hydra hands the browser here.
 const stubHydra = (over: Partial<HydraAdmin> = {}): HydraAdmin => ({
+  acceptConsentRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?consent_verifier=v" }),
   acceptLoginRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }),
+  getConsentRequest: async () => ({ challenge: "cons1", client: { client_name: "Acme Reports" }, requested_scope: ["openid", "profile"], skip: false, subject: OAUTH_SUBJECT }),
   getLoginRequest: async () => ({ challenge: "chal1", skip: false, subject: "" }),
+  rejectConsentRequest: async () => ({ redirect: "http://acme.example/cb?error=access_denied" }),
   rejectLoginRequest: async () => { throw new Error("unused"); },
   ...over,
 });
+const OAUTH_SUBJECT = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
+const oauthSession = (): Session => ({ active: true, identity: { id: OAUTH_SUBJECT, traits: { email: "ada@x.io" } } });
 
 test("OAuth2 login challenge (/oauth2/login): a Kratos session accepts via Hydra; no session bounces to /login; missing challenge → 400", async (t) => {
   const identity = { id: "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55" };
@@ -558,6 +563,68 @@ test("/login?return_to=… bakes the return target into the Kratos flow init (§
   const returnTo = "http://127.0.0.1:3000/oauth2/login?login_challenge=c";
   await fetch(`http://localhost:${(app.address() as AddressInfo).port}/login?return_to=${encodeURIComponent(returnTo)}`, { redirect: "manual" });
   assert.equal(seenReturnTo, returnTo);
+});
+
+test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-party shows the screen; allow/deny POST; CSRF-guarded; missing/stale challenge", async (t) => {
+  const csrfSecret = "consent-secret";
+  let granted: { grant_scope?: string[]; session?: unknown } | undefined;
+  const hydra = stubHydra({
+    acceptConsentRequest: async (_c, b) => { granted = b; return { redirect: "http://127.0.0.1:4444/oauth2/auth?consent_verifier=v" }; },
+    rejectConsentRequest: async () => ({ redirect: "http://acme.example/cb?error=access_denied" }),
+  });
+  const app = createApp({ csrfSecret, hydra, kratos: withWhoami(async () => oauthSession()) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const base = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const token = issueCsrfToken(csrfSecret);
+  const post = (body: string) =>
+    fetch(base + "/oauth2/consent", { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: `${CSRF_COOKIE}=${token}` }, method: "POST", redirect: "manual" });
+
+  // Third-party (default stub: not first-party, not skipped) → 200 consent screen listing the
+  // client + scopes, with a CSRF cookie its form echoes back; posts to our own /oauth2/consent.
+  const page = await fetch(base + "/oauth2/consent?consent_challenge=cons1", { redirect: "manual" });
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /Authorize Acme Reports/);
+  assert.match(html, /openid/);
+  assert.match(html, /profile/);
+  assert.match(html, /action="\/oauth2\/consent"/);
+  assert.match(page.headers.get("set-cookie") ?? "", /plainpages_csrf=/);
+
+  // Allow → 303 to Hydra, granting the scopes re-read from the challenge (never form-supplied) +
+  // id_token claims from the Kratos identity.
+  const allow = await post(`_csrf=${token}&consent_challenge=cons1&decision=allow`);
+  assert.equal(allow.status, 303);
+  assert.match(allow.headers.get("location") ?? "", /\/oauth2\/auth\?consent_verifier=v/);
+  assert.deepEqual(granted?.grant_scope, ["openid", "profile"]);
+  assert.deepEqual(granted?.session, { id_token: { email: "ada@x.io" } });
+
+  // Deny → 303 back to the client with access_denied.
+  const deny = await post(`_csrf=${token}&consent_challenge=cons1&decision=deny`);
+  assert.equal(deny.status, 303);
+  assert.equal(deny.headers.get("location"), "http://acme.example/cb?error=access_denied");
+
+  // Forged/missing CSRF → 403 (no Hydra call); missing challenge → 400.
+  assert.equal((await post("decision=allow")).status, 403);
+  assert.equal((await fetch(base + "/oauth2/consent", { redirect: "manual" })).status, 400);
+
+  // A Hydra-skipped client auto-accepts on GET (no screen) → 303 to Hydra.
+  const skip = createApp({ hydra: stubHydra({ getConsentRequest: async () => ({ challenge: "cons1", requested_scope: ["openid"], skip: true, subject: OAUTH_SUBJECT }) }), kratos: withWhoami(async () => oauthSession()) });
+  await new Promise<void>((r) => skip.listen(0, r));
+  t.after(() => skip.close());
+  const auto = await fetch(`http://localhost:${(skip.address() as AddressInfo).port}/oauth2/consent?consent_challenge=cons1`, { redirect: "manual" });
+  assert.equal(auto.status, 303);
+  assert.match(auto.headers.get("location") ?? "", /consent_verifier=v/);
+
+  // A stale challenge (Hydra 4xx) degrades to 400; a genuine outage (5xx) surfaces as 500.
+  const stale = createApp({ hydra: stubHydra({ getConsentRequest: async () => { throw new HydraError("gone", 410, ""); } }), kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => stale.listen(0, r));
+  t.after(() => stale.close());
+  assert.equal((await fetch(`http://localhost:${(stale.address() as AddressInfo).port}/oauth2/consent?consent_challenge=gone`, { redirect: "manual" })).status, 400);
+  const down = createApp({ hydra: stubHydra({ getConsentRequest: async () => { throw new HydraError("down", 503, ""); } }), kratos: withWhoami(async () => null) });
+  await new Promise<void>((r) => down.listen(0, r));
+  t.after(() => down.close());
+  assert.equal((await fetch(`http://localhost:${(down.address() as AddressInfo).port}/oauth2/consent?consent_challenge=x`, { redirect: "manual" })).status, 500);
 });
 
 // Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.

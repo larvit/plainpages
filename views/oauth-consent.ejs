@@ -1,0 +1,36 @@
+<%#
+  Themed OAuth2 consent page (todo §6): shown when a third-party client wants access and the
+  user must approve. Reuses the auth layout + auth-card; the form posts (Allow/Deny) to our own
+  /oauth2/consent route, CSRF-guarded (consent-body carries the token). Auto theme (styles.css).
+%><%
+  const brand = locals.brand || "Plainpages";
+  const body = include("partials/consent-body", { challenge: consent.challenge, csrfField, csrfToken, scopes: consent.scopes });
+%><!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authorize <%= consent.client %></title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+    <link rel="stylesheet" href="/public/css/auth.css" />
+    <link rel="icon" href="/public/favicon.svg" />
+  </head>
+  <body>
+    <%- include("partials/icons") %>
+    <main class="auth-stage">
+      <div class="auth">
+        <div class="auth-brand">
+          <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span>
+          <span class="brand-name"><%= brand %></span>
+        </div>
+        <%- include("partials/auth-card", {
+          action: "/oauth2/consent",
+          body,
+          method: "post",
+          sub: `${consent.client} wants access to your account.`,
+          title: `Authorize ${consent.client}`,
+        }) %>
+      </div>
+    </main>
+  </body>
+</html>

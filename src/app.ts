@@ -23,6 +23,7 @@ import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
 import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { resolveLoginChallenge } from "./oauth-login.ts";
+import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-consent.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
@@ -234,6 +235,56 @@ export function createApp(options: AppOptions = {}): Server {
           } else throw err;
         }
         return;
+      }
+
+      // OAuth2 consent challenge (§6): after login Hydra hands the browser here. A first-party
+      // (or Hydra-skipped) client is auto-granted its scopes; a third-party client gets the themed
+      // consent screen, whose CSRF-guarded POST accepts (Allow) or rejects (Deny). Provider-only.
+      if (hydra && kratos && pathname === "/oauth2/consent") {
+        const consentDeps = { hydra, kratos };
+        try {
+          if (method === "GET" || method === "HEAD") {
+            const challenge = ctx.url.searchParams.get("consent_challenge");
+            if (!challenge) {
+              res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing consent_challenge");
+              return;
+            }
+            const { redirect, view } = await resolveConsentChallenge(consentDeps, challenge, req.headers.cookie);
+            if (redirect) {
+              res.writeHead(303, { location: redirect }).end();
+              return;
+            }
+            // Third-party: show the consent screen, carrying a CSRF token its form echoes back.
+            if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+            sendHtml(res, 200, await render("oauth-consent", { brand: menu.branding.name, consent: view, csrfField: CSRF_FIELD, csrfToken: csrf.token }));
+            return;
+          }
+          if (method === "POST") {
+            const form = await readFormBody(req);
+            if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
+              sendHtml(res, 403, await render("403", { title: "Forbidden" }));
+              return;
+            }
+            const challenge = form.get("consent_challenge");
+            if (!challenge) {
+              res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing consent_challenge");
+              return;
+            }
+            const redirect = form.get("decision") === "allow"
+              ? await acceptConsent(consentDeps, challenge, req.headers.cookie)
+              : await rejectConsent(consentDeps, challenge);
+            res.writeHead(303, { location: redirect }).end();
+            return;
+          }
+        } catch (err) {
+          // Stale/invalid/consumed challenge (Hydra 4xx — back button, slow login, re-used URL):
+          // recoverable 400, not a 500. A genuine Hydra outage (5xx) rethrows → 500.
+          if (err instanceof HydraError && err.status < 500) {
+            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This authorization request has expired. Please start again from the application you were signing in to.");
+            return;
+          }
+          throw err;
+        }
       }
 
       // Login completion: where Kratos lands the browser after authenticating (kratos.yml).

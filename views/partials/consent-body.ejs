@@ -1,0 +1,17 @@
+<%#
+  OAuth2 consent form body (todo §6): the inner of the auth-card form — the CSRF + challenge
+  hidden inputs, the requested scopes, then Allow / Deny submit buttons (one `decision` field).
+  Locals: challenge, csrfField, csrfToken, scopes (string[]). Captured by views/oauth-consent.ejs.
+-%>
+<% const labels = { email: "Your email address", offline_access: "Stay signed in (offline access)", openid: "Verify your identity", profile: "Your basic profile (name)" }; -%>
+<input type="hidden" name="<%= csrfField %>" value="<%= csrfToken %>">
+<input type="hidden" name="consent_challenge" value="<%= challenge %>">
+<% if (scopes.length) { -%>
+<ul class="plain-list consent-scopes">
+<% scopes.forEach((s) => { -%>
+  <li><strong><%= s %></strong><% if (labels[s]) { %> — <%= labels[s] %><% } %></li>
+<% }) -%>
+</ul>
+<% } -%>
+<button type="submit" class="btn btn-block btn-primary" name="decision" value="allow">Allow</button>
+<button type="submit" class="btn btn-block" name="decision" value="deny">Deny</button>

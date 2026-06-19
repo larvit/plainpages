@@ -11,10 +11,14 @@ const SUBJECT = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
 const SELF = "http://127.0.0.1:3000/oauth2/login?login_challenge=chal-1";
 
 function stubHydra(login: LoginRequest, capture?: (b: AcceptLogin) => void): HydraAdmin {
+  const unused = async () => { throw new Error("unused"); };
   return {
+    acceptConsentRequest: unused,
     acceptLoginRequest: async (_c, body) => { capture?.(body); return { redirect: "http://hydra/oauth2/auth?login_verifier=v" }; },
+    getConsentRequest: unused,
     getLoginRequest: async () => login,
-    rejectLoginRequest: async () => { throw new Error("unused"); },
+    rejectConsentRequest: unused,
+    rejectLoginRequest: unused,
   };
 }
 const stubKratos = (whoami: KratosPublic["whoami"]): KratosPublic => ({

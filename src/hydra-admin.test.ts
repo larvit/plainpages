@@ -51,6 +51,32 @@ test("rejectLoginRequest PUTs the error and returns Hydra's redirect_to", async 
   assert.deepEqual(JSON.parse(calls[0]!.body!), { error: "access_denied", error_description: "no" });
 });
 
+test("getConsentRequest GETs the consent challenge and returns the request", async () => {
+  const request = { challenge: CHALLENGE, client: { client_name: "Acme" }, requested_scope: ["openid", "email"], skip: false, subject: SUBJECT };
+  const { calls, fetchImpl } = recorder(() => res(200, request));
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).getConsentRequest(CHALLENGE);
+  assert.deepEqual(out, request);
+  assert.equal(calls[0]!.method, "GET");
+  assert.match(calls[0]!.url, /\/admin\/oauth2\/auth\/requests\/consent\?consent_challenge=a1b2c3d4e5f6$/);
+});
+
+test("acceptConsentRequest PUTs the grant + id_token session and returns Hydra's redirect_to", async () => {
+  const { calls, fetchImpl } = recorder(() => res(200, { redirect_to: "http://hydra/oauth2/auth?consent_verifier=v" }));
+  const body = { grant_scope: ["openid"], remember: true, remember_for: 0, session: { id_token: { email: "a@b.c" } } };
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).acceptConsentRequest(CHALLENGE, body);
+  assert.equal(out.redirect, "http://hydra/oauth2/auth?consent_verifier=v");
+  assert.equal(calls[0]!.method, "PUT");
+  assert.match(calls[0]!.url, /\/admin\/oauth2\/auth\/requests\/consent\/accept\?consent_challenge=a1b2c3d4e5f6$/);
+  assert.deepEqual(JSON.parse(calls[0]!.body!), body);
+});
+
+test("rejectConsentRequest PUTs the error and returns Hydra's redirect_to", async () => {
+  const { calls, fetchImpl } = recorder(() => res(200, { redirect_to: "http://client/cb?error=access_denied" }));
+  const out = await createHydraAdmin({ baseUrl: BASE, fetchImpl }).rejectConsentRequest(CHALLENGE, { error: "access_denied" });
+  assert.equal(out.redirect, "http://client/cb?error=access_denied");
+  assert.match(calls[0]!.url, /\/admin\/oauth2\/auth\/requests\/consent\/reject\?consent_challenge=a1b2c3d4e5f6$/);
+});
+
 test("a non-2xx response throws a HydraError carrying the status", async () => {
   const { fetchImpl } = recorder(() => res(404, { error: "Not Found" }));
   await assert.rejects(
