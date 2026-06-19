@@ -558,6 +558,7 @@ table.table {
 .col-num { text-align: right; }
 .cell-strong { font-weight: 550; }
 .cell-muted { color: var(--text-muted); }
+.table-empty { text-align: center; color: var(--text-muted); padding: 28px 12px; }
 .cell-mono { font-variant-numeric: tabular-nums;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: var(--fz-sm); }
 

@@ -6,6 +6,16 @@
 #   docker compose -f compose.yml -f compose.e2e-auth.yml down -v   # tear down after
 services:
   web:
+    # This suite exercises only the Kratos session → JWT re-mint; it needs Kratos + Keto + bootstrap,
+    # not Hydra. Drop the base web→hydra dep so the leaner stack doesn't boot Hydra (which the e2e
+    # overlays don't run with --dev, so it would refuse its http issuer and never become healthy).
+    depends_on: !override
+      bootstrap:
+        condition: service_completed_successfully
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
     # Dev throwaways are fine for the test stack; the runner hits web over http; treat the JWT as
     # expired the instant its TTL lapses (no 60s leeway) so the re-mint fires promptly.
     environment:

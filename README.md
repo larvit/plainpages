@@ -30,7 +30,7 @@ you'd rather assemble pages from building blocks than fight a framework or hand-
 auth for the tenth time. Plainpages hands you the boring-but-hard parts (auth, authz,
 menu, design system, plugin host) and stays out of your domain logic. It's not a
 no-code tool and doesn't hide its moving parts: if "Ory is down ⇒ no logins" (see
-[Auth](#auth-sessions--permissions-planned)) reads as obvious rather than a surprise,
+[Auth](#auth-sessions--permissions)) reads as obvious rather than a surprise,
 you're the audience.
 
 ## Project goals
@@ -46,16 +46,17 @@ makes **semantic, accessible markup** a priority: real landmarks, one `<h1>` per
 lists and tables with proper headers, a skip link, and ARIA (`aria-current`/`aria-sort`)
 only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 
-> **Status.** This README describes the target architecture. Built today (see `todo.md`):
-> the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data table,
-> filters, pagination, forms — extracted from `html-css-foundation/`), the **plugin host**
-> (discovery, router, per-plugin views + static, the `config/menu.ts` override + branding), and the
-> **Ory stack** wiring — Postgres, Kratos (+ session→JWT tokenizer) and Keto (authorization, OPL
-> namespaces) and Hydra (OAuth2 provider: issuer + login/consent URLs). The **auth** wiring that
-> consumes these — and Hydra's login/consent handlers — are the roadmap; sections marked
-> _(planned)_ are not built yet.
+> **Status.** Nearly all of the architecture this README describes is built today (see `todo.md`):
+> the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data table, filters,
+> pagination, forms), the **plugin host** (discovery, router, per-plugin views + static, the
+> `config/menu.ts` override + branding), the **Ory stack** (Postgres, Kratos + the session→JWT
+> tokenizer, Keto, Hydra), the **auth** wiring that consumes it (themed sign-in / register / reset /
+> SSO, the session→JWT hot path, the users/groups/roles admin screens) and **Hydra's login / consent
+> / logout handlers** — all driven end-to-end by the Playwright suites. What's left is mainly
+> **production & ops hardening** (the prod compose profile, security headers, observability, a
+> key-rotation runbook) — tracked in `todo.md` (§9).
 
-## The MVP — "clone, one command, hack on a plugin" _(planned)_
+## The MVP — "clone, one command, hack on a plugin"
 
 The bar for a first usable release: **clone, run one command, get a working
 register/login, and start building your own plugin** — no manual key generation, no
@@ -83,7 +84,7 @@ the menu and pages by **verifying the JWT in-process, with no per-request call t
 Ory**. Keto answers the rarer fine-grained checks; Hydra is used only when the app
 acts as an OAuth2 **login & consent provider** for other apps. It reaches the Ory
 services over their **REST APIs using Node's built-in `fetch`** — no SDK
-dependency. See [Auth, sessions & permissions](#auth-sessions--permissions-planned).
+dependency. See [Auth, sessions & permissions](#auth-sessions--permissions).
 
 So the `web` app is **stateless** and its npm footprint stays tiny — a small,
 pinned set of runtime deps (today **`ejs`** for templating and **`lucide-static`**
@@ -271,6 +272,20 @@ Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Every user-
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
 ([AGENTS.md](AGENTS.md) §6) — keep new tests side-effect-free so the suite stays fast.
 
+### The full gate (one command)
+
+`scripts/ci.sh` is the whole gate in one reproducible command — typecheck → unit tests → each E2E
+suite against its own fresh stack, with a guaranteed `down -v` after each (even on failure) and a
+non-zero exit on the first failure. Run it locally before a release, or wire it into your CI service:
+
+```bash
+bash scripts/ci.sh
+```
+
+Each E2E suite **owns a clean stack** — never point two suites at one backend (auth-refresh revokes
+the admin's sessions; full-flow writes users/groups/roles to Keto), which is why the gate runs them
+serially, one stack up/down per suite.
+
 ## Building a plugin
 
 A plugin is a folder under `plugins/`. The host discovers it at boot — no
@@ -385,7 +400,7 @@ The menu is **driven entirely by config** and assembled from two sources:
 
 Every nav item may carry a `permission`; the rendered tree is **filtered per
 user** by reading the roles in the session JWT (no per-request authz call — see
-[Auth, sessions & permissions](#auth-sessions--permissions-planned)), so the menu
+[Auth, sessions & permissions](#auth-sessions--permissions)), so the menu
 only ever shows what that person can reach. The markup is the recursive, zero-JS
 nav tree from the design foundation (header/leaf × clickable/static, counts,
 arbitrary depth). Branding (name, logo, default theme) renders in the app shell — the sidebar
@@ -419,7 +434,7 @@ Plugins that genuinely need it — live dashboards, bulk actions, client-side
 validation — may **opt into progressive enhancement** (htmx, Alpine, or vanilla
 JS) on top of working server-rendered HTML. The baseline never depends on it.
 
-## Auth, sessions & permissions _(planned)_
+## Auth, sessions & permissions
 
 Identity comes from **Kratos**; the hot path stays I/O-free by carrying coarse
 authorization in a **locally-validated JWT**, and **Keto** is reserved for the rare
@@ -609,7 +624,7 @@ ory/                 Ory service config (kratos/: identity schema, kratos.yml, o
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the §7 reference plugin (list/form over an upstream + permission-gated nav) you copy
 examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
-e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent → authorization code), full Ory stack; Dockerfile.e2e + compose.e2e[-auth|-oauth].yml run them
+e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. Dockerfile.e2e + compose.e2e[-auth|-oauth|-full].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
 ```

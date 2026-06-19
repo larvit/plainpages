@@ -82,3 +82,15 @@ test("data-table renders a minimal table (plain string cells, no select/actions)
 
   assert.match(flat(await render()), /<table class="table"><thead><tr><\/tr><\/thead><tbody><\/tbody><\/table>/);
 });
+
+test("data-table shows an empty-state row spanning all columns when there are no rows", async () => {
+  // colspan covers the data columns + the select + actions columns (2 + 1 + 1 = 4).
+  const html = flat(await render({ actions: true, columns: [{ label: "Name" }, { label: "Email" }], rows: [], selectable: true }));
+  assert.match(html, /<tbody><tr><td class="table-empty" colspan="4">Nothing here yet\.<\/td><\/tr><\/tbody>/);
+
+  // a caller-supplied message overrides the default
+  assert.match(flat(await render({ columns: [{ label: "Shift" }], emptyText: "No shifts yet.", rows: [] })), /<td class="table-empty" colspan="1">No shifts yet\.<\/td>/);
+
+  // a populated table has no empty-state row
+  assert.doesNotMatch(flat(await render({ columns: [{ label: "Name" }], rows: [{ cells: ["A"] }] })), /table-empty/);
+});

@@ -14,6 +14,7 @@
   const withActions = !!locals.actions;
   const columns = locals.columns || [];
   const rows = locals.rows || [];
+  const emptyText = locals.emptyText || "Nothing here yet."; // shown when a table that has columns has no rows
 -%>
 <div class="table-wrap">
   <table class="table">
@@ -38,6 +39,9 @@
       </tr>
     </thead>
     <tbody>
+<% if (rows.length === 0 && columns.length) { -%>
+      <tr><td class="table-empty" colspan="<%= columns.length + (selectable ? 1 : 0) + (withActions ? 1 : 0) %>"><%= emptyText %></td></tr>
+<% } -%>
 <% rows.forEach((row) => { -%>
       <tr>
 <% if (selectable) { -%>

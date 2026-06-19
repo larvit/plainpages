@@ -122,6 +122,10 @@ body:has(#forgot:target) #login { display: none; }
 .auth-alt a, .auth-alt button { color: var(--accent); font-weight: 550; }
 .auth-alt button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 .auth-alt a:hover, .auth-alt button:hover { text-decoration: underline; }
+/* "Forgot password?" — a small link under the fields, above the submit button */
+.auth-aside { margin: -4px 0 0; text-align: right; font-size: var(--fz-sm); }
+.auth-aside a { color: var(--accent); }
+.auth-aside a:hover { text-decoration: underline; }
 
 /* legal footnote */
 .auth-foot { margin: 0; text-align: center; font-size: var(--fz-xs); color: var(--text-faint); }

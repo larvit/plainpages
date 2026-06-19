@@ -51,6 +51,7 @@ export interface FlowView extends FlowChrome {
   hidden: { name: string; value: string }[];
   messages: FlowMessage[];
   method: string;
+  recoverHref?: string; // login only: a "Forgot password?" link to the recovery flow
   sso: SsoProvider[]; // one per configured oidc provider; empty ⇒ no SSO section
 }
 
@@ -142,6 +143,7 @@ export function buildFlowView(flow: Flow, type: FlowType): FlowView {
     messages: (flow.ui.messages ?? []).map((m) => ({ text: m.text, tone: tone(m.type) })),
     method: flow.ui.method || "post",
     sso,
+    ...(type === "login" ? { recoverHref: "/recovery" } : {}),
     ...CHROME[type],
   };
 }

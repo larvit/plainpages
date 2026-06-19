@@ -18,6 +18,7 @@ const suffix = randomUUID().slice(0, 8); // unique per run so re-runs don't coll
 // Drive the themed password login form → Kratos → /auth/complete → dashboard, signed in.
 async function loginPassword(page: Page): Promise<void> {
   await page.goto("/login");
+  await expect(page.getByRole("link", { name: "Forgot password?" })).toBeVisible(); // a path to password reset
   await page.fill('input[name="identifier"]', ADMIN_EMAIL);
   await page.fill('input[name="password"]', ADMIN_PASSWORD);
   await page.locator('.auth-form button[type="submit"]').click();

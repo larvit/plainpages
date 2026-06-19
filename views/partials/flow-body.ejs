@@ -12,6 +12,9 @@
 <% flow.fields.forEach((field) => { -%>
 <%- include("field", field) %>
 <% }) -%>
+<% if (flow.recoverHref) { -%>
+<p class="auth-aside"><a href="<%= flow.recoverHref %>">Forgot password?</a></p>
+<% } -%>
 <% flow.buttons.forEach((b, i) => { -%>
 <button type="submit" class="btn btn-block<%= i === 0 ? " btn-primary" : "" %>"<% if (b.name) { %> name="<%= b.name %>"<% } %><% if (b.value != null) { %> value="<%= b.value %>"<% } %>><%= b.label %></button>
 <% }) -%>

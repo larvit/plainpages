@@ -49,6 +49,7 @@ test("maps a password login flow: csrf hidden, themed email/password fields, a s
   // Chrome derived from the flow type.
   assert.equal(view.title, "Sign in");
   assert.equal(view.alt?.href, "/registration");
+  assert.equal(view.recoverHref, "/recovery"); // login offers a path to password reset
   assert.equal(view.messages.length, 0);
 });
 
@@ -99,6 +100,7 @@ test("chrome varies per flow type: registration alt, recovery back link", () => 
   const reg = buildFlowView(flow([]), "registration");
   assert.equal(reg.title, "Create account");
   assert.equal(reg.alt?.href, "/login");
+  assert.equal(reg.recoverHref, undefined); // only login shows the reset link
 
   const rec = buildFlowView(flow([]), "recovery");
   assert.equal(rec.back?.href, "/login");
