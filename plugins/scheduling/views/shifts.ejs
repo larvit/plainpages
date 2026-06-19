@@ -15,11 +15,12 @@
 -%>
 <%- include("partials/shell", {
   actions,
-  body: alertHtml + filtersHtml + tableHtml,
+  body: '<div class="scheduling-page">' + alertHtml + filtersHtml + tableHtml + '</div>',
   brand: chrome.brand,
   breadcrumbs,
   csrfToken: chrome.csrfToken,
   nav: navHtml,
+  styles: ["/public/scheduling/scheduling.css"],
   theme: chrome.theme,
   title,
   user: chrome.user,

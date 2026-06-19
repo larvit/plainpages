@@ -117,8 +117,9 @@ docker compose up            # http://localhost:3000, live reload via `node --wa
 merging `compose.override.yml`, which mounts the source and restarts the server on
 change. A one-shot `bootstrap` service then seeds first-boot state with **zero manual
 prep** — it generates the JWT signing key if absent, creates a demo admin
-(`admin@plainpages.local` / `admin`) in Kratos, and grants it the `admin` role in Keto
-so permission checks resolve out of the box; it is idempotent, so every `up` re-runs it
+(`admin@plainpages.local` / `admin`) in Kratos, and grants it the `admin` role plus every
+discovered plugin's declared permission tokens in Keto, so permission checks (and any dropped-in
+plugin) resolve out of the box; it is idempotent, so every `up` re-runs it
 safely. It finishes by printing a banner with the login URL and seeded credentials.
 **Change the demo admin before production.** The web app waits for Kratos + Keto
 to be healthy *and* the bootstrap to finish before starting (each Ory service has a
@@ -282,15 +283,14 @@ The manifest is **TypeScript** — typed, commented, no separate schema to keep 
 sync. The `id` and mount path are **derived from the folder name**, not declared:
 
 ```ts
-import { definePlugin } from "../../src/plugin.ts";
+import { definePlugin } from "../../src/plugin-api.ts"; // the stable author barrel (see docs)
 import { listShifts } from "./shifts.ts";
 
 export default definePlugin({
   apiVersion: "1.0.0",      // semver of the host contract this was built against (a literal — see docs)
 
-  // Nav fragment, composed into the global menu. Permission-gated via Keto:
-  // items the current user can't access are hidden. Arbitrary depth.
-  // `icon` is a Lucide icon by its sprite id (src/icons.ts).
+  // Nav fragment, composed into the global menu. Permission-gated: items the current user can't
+  // access are hidden. Arbitrary depth. `icon` is a Lucide icon by its sprite id (src/icons.ts).
   nav: [
     {
       label: "Scheduling", icon: "i-cal",
@@ -300,8 +300,8 @@ export default definePlugin({
     },
   ],
 
-  // Route handlers, mounted under the plugin's path (/scheduling). `permission`
-  // (a Keto check) is enforced before the handler runs.
+  // Route handlers, mounted under the plugin's path (/scheduling). `permission` is a coarse role
+  // (a JWT-claim check) enforced before the handler runs.
   routes: [
     { method: "GET", path: "/shifts", permission: "scheduling:read", handler: listShifts },
   ],
@@ -585,6 +585,7 @@ src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, p
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
 src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
+src/plugin-api.ts    Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
 src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot (§2)
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)

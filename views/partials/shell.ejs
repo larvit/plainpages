@@ -1,7 +1,8 @@
 <%#
   App shell: sidebar (brand + nav slot + footer) · topbar · content slot.
   Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
-  `actions` (topbar buttons), `body` (page content). Text locals: `title`, `brand`
+  `actions` (topbar buttons), `body` (page content); `styles` is an optional array of
+  extra stylesheet hrefs (e.g. a plugin's own /public/<id>/x.css). Text locals: `title`, `brand`
   ({ name, logo?, sub? } — logo image else the default mark), `theme` (default for the
   theme-switch), `user`, `breadcrumbs`, `csrfToken` (the Sign-out POST form's hidden field).
   Branding comes from config/menu.ts; `user`/`csrfToken` from §4 auth.
@@ -13,6 +14,7 @@
   const nav = locals.nav || "";
   const actions = locals.actions || "";
   const body = locals.body || "";
+  const styles = locals.styles || []; // extra per-page stylesheet hrefs (e.g. a plugin's own CSS)
 %><!doctype html>
 <html lang="en">
   <head>
@@ -20,7 +22,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= title %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
-    <link rel="icon" href="/public/favicon.svg" />
+    <% styles.forEach((href) => { %><link rel="stylesheet" href="<%= href %>" />
+    <% }) %><link rel="icon" href="/public/favicon.svg" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>

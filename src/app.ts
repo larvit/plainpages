@@ -9,7 +9,7 @@ import { type AdminGroupsDeps, handleAdminGroups } from "./admin-groups.ts";
 import { type AdminRolesDeps, handleAdminRoles } from "./admin-roles.ts";
 import { type AdminUsersDeps, handleAdminUsers } from "./admin-users.ts";
 import { readFormBody } from "./body.ts";
-import { buildPluginChrome } from "./chrome.ts";
+import { buildPluginChrome, type PageChrome } from "./chrome.ts";
 import { buildContext, type User } from "./context.ts";
 import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./csrf.ts";
 import { buildDashboardModel } from "./dashboard.ts";
@@ -136,11 +136,16 @@ export function createApp(options: AppOptions = {}): Server {
       // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
       const verifyCsrf = (submitted: string | null | undefined): boolean =>
         verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
-      // base context (no route params yet); reused for onRequest. Chrome is built lazily — only
-      // plugin routes (and an onRequest short-circuit) read ctx.chrome, so the hot path stays free.
+      // Chrome (brand/global-nav/user/theme/csrf) is built lazily and at most once per request —
+      // only plugin routes (and an onRequest short-circuit) read it, so the hot path stays free and
+      // a matched plugin request doesn't re-compose the whole menu for the onRequest + route ctx.
+      let chromeMemo: PageChrome | undefined;
+      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }));
+
+      // base context (no route params yet); reused for onRequest.
       const ctx = buildContext(req, res, {
         user, verifyCsrf,
-        ...(anyRequestHooks ? { chrome: buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }) } : {}),
+        ...(anyRequestHooks ? { chrome: chrome() } : {}),
       });
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
@@ -157,8 +162,7 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const chrome = buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user });
-        const routeCtx = buildContext(req, res, { chrome, params: match.params, user, verifyCsrf });
+        const routeCtx = buildContext(req, res, { chrome: chrome(), params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;

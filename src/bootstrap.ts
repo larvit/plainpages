@@ -3,10 +3,12 @@
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
 //   3. grant it its roles in Keto so menu/permission checks resolve out of the box — `admin` plus
-//      the reference plugin's `scheduling:read`/`scheduling:write`, so the shipped example works.
+//      every discovered plugin's declared permission tokens, so a dropped-in plugin is usable by
+//      the demo admin with no host config edit (the host stays plugin-agnostic).
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { discoverPlugins } from "./discovery.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
 
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
@@ -23,6 +25,15 @@ export function identityPayload(email: string, password: string) {
 // (namespaces.keto.ts) — the source of truth the login flow projects into the JWT roles.
 export function roleTuple(identityId: string, role: string) {
   return { namespace: "Role", object: role, relation: "members", subject_id: `user:${identityId}` };
+}
+
+// The roles to grant the demo admin = the configured base (ADMIN_ROLES, default just `admin`)
+// unioned with every discovered plugin's declared permission tokens (a route/nav `permission` is a
+// coarse role — granted as a Keto `Role:<token>#members` tuple). So the host names no plugin, yet a
+// dropped-in plugin's tokens are seeded out of the box. Deduped, order-stable, blanks dropped.
+export function seedRoles(adminRolesEnv: string | undefined, declaredTokens: string[]): string[] {
+  const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
+  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredTokens)])];
 }
 
 // --- JWKS safety net -----------------------------------------------------------------
@@ -124,8 +135,10 @@ async function main() {
   const env = process.env;
   if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) console.log("bootstrap: generated a JWKS signing key");
 
-  // Default roles include the reference plugin's tokens so the shipped example works out of the box.
-  const roles = (env["ADMIN_ROLES"] ?? "admin,scheduling:read,scheduling:write").split(",").map((r) => r.trim()).filter(Boolean);
+  // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared permission tokens, so the
+  // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
+  const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.token));
+  const roles = seedRoles(env["ADMIN_ROLES"], declared);
   const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
   const password = env["ADMIN_PASSWORD"] ?? "admin";
   const result = await seedAdmin({

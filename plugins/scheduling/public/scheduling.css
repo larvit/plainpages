@@ -1,0 +1,6 @@
+/* Scheduling plugin styles — served at /public/scheduling/scheduling.css (per-plugin static),
+   linked via the shell `styles` slot. The core design system already styles every building block,
+   so a plugin only adds what's domain-specific, scoped under its own page class (.scheduling-page). */
+.scheduling-page .table-wrap {
+  margin-top: var(--space-3, 0.75rem);
+}

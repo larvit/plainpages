@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { ensureJwks, firstRunBanner, identityPayload, roleTuple, seedAdmin } from "./bootstrap.ts";
+import { ensureJwks, firstRunBanner, identityPayload, roleTuple, seedAdmin, seedRoles } from "./bootstrap.ts";
 
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), {
@@ -28,6 +28,16 @@ test("roleTuple grants a role to user:<id> in the Role namespace", () => {
     relation: "members",
     subject_id: `user:${id}`,
   });
+});
+
+test("seedRoles unions ADMIN_ROLES (default 'admin') with the discovered plugins' declared tokens", () => {
+  // Clean clone: no ADMIN_ROLES, the scheduling plugin declares its two tokens → the demo admin
+  // gets exactly today's behaviour, but derived from discovery, not hardcoded in the host.
+  assert.deepEqual(seedRoles(undefined, ["scheduling:read", "scheduling:write"]), ["admin", "scheduling:read", "scheduling:write"]);
+  assert.deepEqual(seedRoles(undefined, []), ["admin"]); // no plugins → just the base admin role
+  assert.deepEqual(seedRoles("admin, ops ", ["inventory:read"]), ["admin", "ops", "inventory:read"]); // env trimmed + extended
+  assert.deepEqual(seedRoles("admin,scheduling:read", ["scheduling:read"]), ["admin", "scheduling:read"]); // dedup, no double grant
+  assert.deepEqual(seedRoles("admin,, ", [" scheduling:read ", ""]), ["admin", "scheduling:read"]); // blanks dropped, tokens trimmed (both sides)
 });
 
 test("seedAdmin on a fresh stack creates the identity and grants every role (one tuple each)", async () => {

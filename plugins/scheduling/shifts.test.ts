@@ -7,7 +7,7 @@ import type { RequestContext } from "../../src/context.ts";
 import { GuardError } from "../../src/guards.ts";
 import type { RouteResult } from "../../src/plugin.ts";
 import {
-  buildFormModel, createShift, createUpstream, listShifts, newShiftForm, readInput,
+  assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
@@ -32,6 +32,29 @@ const asView = (r: RouteResult | void) => {
   assert.ok(r && "view" in r, "expected a view result");
   return r as { data: Record<string, unknown>; status?: number; view: string };
 };
+
+// ---- upstream config validation (the onBoot hook) ----
+
+test("assertHttpUrl accepts http(s) and fails loud on a malformed or non-http upstream URL", () => {
+  assert.doesNotThrow(() => assertHttpUrl("http://shifts-upstream:4000", "SCHEDULING_UPSTREAM"));
+  assert.doesNotThrow(() => assertHttpUrl("https://api.example.com/v1", "SCHEDULING_UPSTREAM"));
+  assert.throws(() => assertHttpUrl("not a url", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*valid URL/); // unparseable
+  assert.throws(() => assertHttpUrl("shifts-upstream:4000", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*http/); // missing // → parsed as a bogus scheme
+  assert.throws(() => assertHttpUrl("ftp://host/x", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*http/); // wrong scheme
+});
+
+test("the manifest's onBoot hook validates SCHEDULING_UPSTREAM (the binding, not just the helper)", async () => {
+  const prev = process.env["SCHEDULING_UPSTREAM"];
+  process.env["SCHEDULING_UPSTREAM"] = "nope://bad"; // read at import time below
+  try {
+    const manifest = (await import("./plugin.ts")).default;
+    assert.equal(typeof manifest.hooks?.onBoot, "function");
+    assert.throws(() => manifest.hooks!.onBoot!(), /SCHEDULING_UPSTREAM/); // bad upstream → boot fails loud
+  } finally {
+    if (prev === undefined) delete process.env["SCHEDULING_UPSTREAM"];
+    else process.env["SCHEDULING_UPSTREAM"] = prev;
+  }
+});
 
 // ---- upstream client (fetch injected) ----
 

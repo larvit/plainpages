@@ -5,12 +5,8 @@
 // Handlers are factories bound to a ShiftsUpstream, and `fetch` is injectable, so they unit-test as
 // pure functions against a mock upstream with no network (docs/plugin-contract.md → dev/test story).
 
-import { readFormBody } from "../../src/body.ts";
-import type { PageChrome } from "../../src/chrome.ts";
-import { CSRF_FIELD } from "../../src/csrf.ts";
-import { can, GuardError } from "../../src/guards.ts";
-import { parseListQuery } from "../../src/list-query.ts";
-import type { RouteHandler } from "../../src/plugin.ts";
+// One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
+import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler } from "../../src/plugin-api.ts";
 
 export const SHIFTS_PATH = "/scheduling/shifts";
 export const READ = "scheduling:read"; // permission token gating the list + nav
@@ -44,6 +40,18 @@ export class UpstreamError extends Error {
 export interface ShiftsUpstream {
   create(input: ShiftInput): Promise<void>;
   list(): Promise<Shift[]>;
+}
+
+// Fail loud at boot (the plugin's onBoot hook) on a malformed/non-http upstream URL — a config
+// typo surfaces at startup, not as a degraded page later. Reachability stays a runtime concern.
+export function assertHttpUrl(value: string, name: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} is not a valid URL: ${JSON.stringify(value)}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`${name} must be an http(s) URL: ${JSON.stringify(value)}`);
 }
 
 // REST client over the upstream service (a stand-in for the customer's real backend). `fetch` is

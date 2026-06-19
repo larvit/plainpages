@@ -55,8 +55,13 @@ Nothing else references it; the operator stays in control through the central me
 
 ## The manifest
 
+A plugin imports its host surface from one module — `src/plugin-api.ts`, the **stable author
+barrel** (`definePlugin`, the manifest/handler types, `RequestContext`, the guards, and the
+body/CSRF/list-query helpers). That barrel *is* the contract boundary; don't reach into deeper
+`src/*` modules — the host may refactor those freely as long as the barrel holds.
+
 ```ts
-import { definePlugin } from "../../src/plugin.ts";
+import { definePlugin } from "../../src/plugin-api.ts";
 import { listShifts, createShift } from "./shifts.ts";
 
 export default definePlugin({
@@ -69,7 +74,8 @@ export default definePlugin({
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
   }],
 
-  // Permission tokens this plugin introduces (for docs + Keto seeding). Optional.
+  // Permission tokens this plugin introduces. Declared for documentation, conflict detection, and
+  // bootstrap seeding (the demo admin is granted every discovered plugin's tokens). Optional.
   permissions: [
     { token: "scheduling:read", description: "View shifts" },
     { token: "scheduling:write", description: "Create and edit shifts" },
@@ -93,7 +99,7 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 | --- | --- | --- |
 | `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/icons.ts`); node `id`s must be globally unique. |
-| `permissions` | no | Tokens this plugin introduces; declared for documentation and seeding. |
+| `permissions` | no | Tokens this plugin introduces; declared for docs, conflict detection, and bootstrap seeding (see [Nav & permissions](#nav--permissions)). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 
@@ -122,8 +128,7 @@ type RouteResult =
 
 ```ts
 // shifts.ts
-import type { RequestContext } from "../../src/context.ts";
-import { parseListQuery } from "../../src/list-query.ts";
+import { parseListQuery, type RequestContext } from "../../src/plugin-api.ts";
 
 export async function listShifts(ctx: RequestContext) {
   const q = parseListQuery(ctx.url);
@@ -135,8 +140,10 @@ export async function listShifts(ctx: RequestContext) {
 - **`view`** resolves against the plugin's own `views/` (`src/view-resolver.ts`) — nested names
   like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
   the core building-block partials (app shell, nav tree, data table, …) and its own
-  partials/subfolders to render a full page — exactly as the built-in screens do.
-- **Finer authorization than the route `permission`** uses the guards in `src/guards.ts`:
+  partials/subfolders to render a full page — exactly as the built-in screens do. To load the
+  plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
+  extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
+- **Finer authorization than the route `permission`** uses the guards from `src/plugin-api.ts`:
   `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
   to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
   {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
@@ -205,10 +212,18 @@ depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` i
 icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids are
 `ICON_NAMES` in `src/icons.ts`, and adding one means registering its lucide name there.
 
+**A `permission` token is a coarse role.** The route/nav gate passes iff the user's JWT `roles`
+include the token; those roles come from Keto at login, so an operator grants a token by writing the
+Keto tuple `Role:<token>#members@user:<id>` (or to a group) — the admin **Roles** screen does this.
+(The fine-grained, per-row tier is the separate Keto `Resource` namespace — see the README's *Three
+tiers of "may I?"*; it is not what a route `permission` checks.)
+
 Permission tokens are a **shared global namespace** — that's deliberate, so an operator grants
 `scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
 your tokens as `<id>:<action>` to avoid accidental clashes. Declaring them in `permissions` is
-optional but recommended (it documents them and lets the bootstrap seed Keto, §3).
+optional but recommended: it documents them, feeds conflict detection, and lets the one-command
+bootstrap seed them — the demo admin is granted every discovered plugin's declared tokens (§3), so
+a dropped-in plugin works out of the box without editing host config.
 
 ## Contract versioning
 
@@ -293,9 +308,10 @@ worked example: thin handlers bound to an injectable upstream client, unit-teste
    so a test can mount a single manifest and assert its routes, nav, and gating without the rest
    of the stack.
 
-3. **E2E the user-facing flow.** Per AGENTS.md §6, every plugin page/form ships *with* a
-   Playwright test in `e2e/`, side-effect-free so the suite stays `fullyParallel`. The test runs
-   against the live `web` service with the plugin mounted.
+3. **E2E the user-facing flow.** Per AGENTS.md §6, ship a side-effect-free Playwright test in
+   `e2e/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
+   service with the plugin mounted. The reference's permission-gating is covered in `visual.spec.ts`;
+   its authenticated list/form happy-path is the §8 full-E2E item (needs cross-host login infra).
 
 The validation an author hits is the same the host runs: bad `apiVersion` or a conflict
 ([above](#conflict-rules)) stops boot with a precise message naming the plugin(s) involved.

@@ -5,7 +5,7 @@
   Data: chrome, title, breadcrumbs, form, formError?
 %><%
   const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
-  const body = include("partials/shift-form", { form, formError: locals.formError });
+  const body = '<div class="scheduling-page">' + include("partials/shift-form", { form, formError: locals.formError }) + '</div>';
 -%>
 <%- include("partials/shell", {
   body,
@@ -13,6 +13,7 @@
   breadcrumbs,
   csrfToken: chrome.csrfToken,
   nav: navHtml,
+  styles: ["/public/scheduling/scheduling.css"],
   theme: chrome.theme,
   title,
   user: chrome.user,

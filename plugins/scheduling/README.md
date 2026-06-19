@@ -20,9 +20,22 @@ The plugin holds **no state** — data lives upstream (README → *Stateless*). 
 
 ## Upstream
 
-Set `SCHEDULING_UPSTREAM` to your backend's base URL (it must expose `GET /shifts` and
-`POST /shifts`). The dev compose points it at a tiny in-memory mock (`examples/shifts-upstream/`)
-so `docker compose up` shows the plugin working out of the box.
+Set `SCHEDULING_UPSTREAM` to your backend's base URL. The dev compose points it at a tiny in-memory
+mock (`examples/shifts-upstream/`) so `docker compose up` shows the plugin working out of the box.
+A malformed/non-http URL fails the boot loudly (the plugin's `onBoot` hook).
+
+### Upstream contract
+
+Your backend must expose two routes; the plugin treats any non-2xx as a recoverable failure
+(the list degrades to a "try again" alert, the create re-renders the form keeping the input).
+
+| Route | Request | Success | Response body |
+| --- | --- | --- | --- |
+| `GET /shifts` | `Accept: application/json` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`) |
+| `POST /shifts` | JSON body `{ title, assignee, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
+
+Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the
+form re-renders. The plugin only validates that `title` and `assignee` are non-empty.
 
 ## Granting access
 

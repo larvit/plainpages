@@ -53,6 +53,15 @@ test("app shell renders a configured logo + default theme, falls back to the bra
   assert.match(plain, /id="theme-auto"\s+checked/); // theme-switch default
 });
 
+test("app shell links extra per-page stylesheets via the styles slot (e.g. a plugin's own CSS)", async () => {
+  const withCss = await render({ styles: ["/public/scheduling/scheduling.css"] });
+  assert.match(withCss, /<link rel="stylesheet" href="\/public\/css\/styles\.css" \/>/); // core stylesheet always present
+  assert.match(withCss, /<link rel="stylesheet" href="\/public\/scheduling\/scheduling\.css" \/>/); // the extra one
+
+  const none = await render(); // no styles → only the core stylesheet
+  assert.equal((none.match(/rel="stylesheet"/g) ?? []).length, 1);
+});
+
 test("app shell escapes text but passes slot HTML through, and renders with defaults", async () => {
   const escaped = await render({ title: "<x>", body: "<p>raw</p>" });
   assert.match(escaped, /<title>&lt;x&gt;<\/title>/); // user text is escaped

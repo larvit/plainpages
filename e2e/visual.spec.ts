@@ -124,7 +124,7 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its nav + routes are
 // permission-gated, so an anonymous visitor never sees or reaches them (the authenticated list/form
-// flow is covered by the full-stack suites). Side-effect-free.
+// flow needs cross-host login infra — deferred to the §8 full E2E, todo line 121). Side-effect-free.
 test("the reference plugin is permission-gated: anonymous → 403, hidden from the dashboard nav", async ({ page }) => {
   const res = await page.goto("/scheduling/shifts");
   expect(res?.status()).toBe(403);
