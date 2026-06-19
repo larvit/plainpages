@@ -413,39 +413,31 @@ function mockKratos(getFlow: KratosPublic["getFlow"]): KratosPublic {
   };
 }
 
-test("themed flow init: no ?flow= initialises one, relays Kratos' CSRF cookie, and an expired flow restarts", async (t) => {
-  const app = createApp({ kratos: mockKratos(async (_t, id) => { if (id === "stale") throw new KratosError("gone", 410, ""); return loginFlow(id); }) });
+// GET dispatch for the themed auth pages: the same handler branches on session presence.
+test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a signed-in user is sent home, except /settings", async (t) => {
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: mockKratos(async (_t, id) => { if (id === "stale") throw new KratosError("gone", 410, ""); return loginFlow(id); }) });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
 
+  // Anonymous, no ?flow= → init one + relay Kratos' CSRF cookie.
   const init = await fetch(url + "/login", { redirect: "manual" });
   assert.equal(init.status, 303);
   assert.equal(init.headers.get("location"), "/login?flow=new1");
   assert.match(init.headers.get("set-cookie") ?? "", /csrf_token=abc/);
-
   // A stale flow id (Kratos 410) bounces back to a fresh init.
   const stale = await fetch(url + "/login?flow=stale", { redirect: "manual" });
   assert.equal(stale.status, 303);
   assert.equal(stale.headers.get("location"), "/login");
-});
 
-test("themed auth: an already-signed-in user is sent home from /login and /registration, not /settings", async (t) => {
-  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: mockKratos(async (_t, id) => loginFlow(id)) });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  // Already signed in → /login + /registration short-circuit home; /settings stays reachable (inits its flow).
   const signedIn = { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, roles: [], sub: "u1" })}` }, redirect: "manual" as const };
-
   for (const path of ["/login", "/registration"]) {
     const res = await fetch(url + path, signedIn);
     assert.equal(res.status, 303, `${path} while signed in → 303`);
     assert.equal(res.headers.get("location"), "/");
   }
-  // /settings stays reachable when signed in (inits its flow, not bounced home).
   assert.equal((await fetch(url + "/settings", signedIn)).headers.get("location"), "/settings?flow=new1");
-  // Anonymous still gets the login flow (no short-circuit).
-  assert.equal((await fetch(url + "/login", { redirect: "manual" })).headers.get("location"), "/login?flow=new1");
 });
 
 test("renders a fetched flow as the themed auth page: fields post straight to Kratos, errors surface", async (t) => {

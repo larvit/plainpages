@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import test from "node:test";
-import type { PageChrome } from "../../src/chrome.ts";
-import type { RequestContext } from "../../src/context.ts";
-import { GuardError } from "../../src/guards.ts";
-import type { RouteResult } from "../../src/plugin.ts";
+// Import only from the plugin-api barrel — the same contract boundary shifts.ts uses (the host may
+// refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
+import { GuardError, type PageChrome, type RequestContext, type RouteResult } from "../../src/plugin-api.ts";
 import {
   assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
