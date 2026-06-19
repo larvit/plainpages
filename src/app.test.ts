@@ -82,6 +82,25 @@ test("static serving: GET sends body + content-type, HEAD headers only, unsafe p
   assert.equal((await fetch(base + "/public/%00")).status, 403);
 });
 
+test("every response carries the security headers; HSTS follows SECURE_COOKIES (§9)", async (t) => {
+  // Default app (secureCookies off): a page and a static asset both carry the hardening headers,
+  // proving they're set once up front and survive each writeHead (the html + static paths merge).
+  for (const path of ["/", "/public/css/styles.css"]) {
+    const res = await fetch(base + path);
+    assert.equal(res.headers.get("x-content-type-options"), "nosniff", path);
+    assert.equal(res.headers.get("x-frame-options"), "DENY", path);
+    assert.match(res.headers.get("content-security-policy") ?? "", /default-src 'self'/, path);
+    assert.equal(res.headers.get("strict-transport-security"), null, path); // http dev → no HSTS
+  }
+
+  // A https deployment (SECURE_COOKIES=true) adds HSTS.
+  const secure = createApp({ secureCookies: true });
+  await new Promise<void>((r) => secure.listen(0, r));
+  t.after(() => secure.close());
+  const res = await fetch(`http://localhost:${(secure.address() as AddressInfo).port}/`);
+  assert.match(res.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
+});
+
 // Production caches compiled templates; rendering must stay correct across repeated requests.
 test("renders correctly with template caching enabled", async () => {
   const app = createApp({ cache: true });

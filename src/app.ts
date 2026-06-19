@@ -29,6 +29,7 @@ import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-c
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
+import { securityHeaders } from "./security-headers.ts";
 import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "./view-resolver.ts";
 
@@ -72,6 +73,8 @@ export function createApp(options: AppOptions = {}): Server {
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
+  // Response security headers, fixed at boot (only HSTS depends on the https deployment signal).
+  const secHeaderEntries = Object.entries(securityHeaders({ secure: secureCookies }));
 
   // `views: [viewsDir]` lets a view in a subfolder (e.g. admin/users.ejs) include() the shared
   // partials/ by the same root-relative name top-level views use (EJS tries relative first).
@@ -100,6 +103,10 @@ export function createApp(options: AppOptions = {}): Server {
     try {
       const method = req.method ?? "GET";
       const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+
+      // Set before any branch so every response — static/redirect/error included — inherits them
+      // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
+      for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.

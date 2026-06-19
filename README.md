@@ -52,9 +52,9 @@ only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 > `config/menu.ts` override + branding), the **Ory stack** (Postgres, Kratos + the session→JWT
 > tokenizer, Keto, Hydra), the **auth** wiring that consumes it (themed sign-in / register / reset /
 > SSO, the session→JWT hot path, the users/groups/roles admin screens) and **Hydra's login / consent
-> / logout handlers** — all driven end-to-end by the Playwright suites. What's left is mainly
-> **production & ops hardening** (the prod compose profile, security headers, observability, a
-> key-rotation runbook) — tracked in `todo.md` (§9).
+> / logout handlers** — all driven end-to-end by the Playwright suites, plus **production & ops
+> hardening** (the prod compose profile, response security headers). What's left is mainly
+> **observability and a key-rotation runbook** — tracked in `todo.md` (§9).
 
 ## The MVP — "clone, one command, hack on a plugin"
 
@@ -578,6 +578,14 @@ Before going live, supply the production secrets and any SSO credentials — the
 manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)); the rest
 is auto-generated.
 
+Every response carries security headers (`src/security-headers.ts`, set once per request): a
+strict `Content-Security-Policy` (the core is **zero-JS** — `script-src 'self'`, no inline
+scripts, so an injected `<script>` can't run), `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY` + `frame-ancestors 'none'`, `Referrer-Policy`, and — when
+`SECURE_COOKIES=true` (https) — HSTS. The CSP allows **same-origin** assets only, so a branding
+logo must live under `/public/` (or be a `data:` URI); a plugin route can override any header
+per-response via `RouteResult.headers` (e.g. to ship its own JS).
+
 The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting them
 mid-response, so container restarts are clean.
 
@@ -602,6 +610,7 @@ src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer sign
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
+src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
