@@ -719,6 +719,7 @@ src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — se
 src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
 src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
 src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD (§6)
+src/fetch-timeout.ts withTimeout(): bound every outbound Ory call (§8) — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
 src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login (§6)
 src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes (§6)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
@@ -749,6 +750,8 @@ src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + 
 src/plugin-api.ts    Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
 src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot (§2)
 src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
+src/guards.ts        requireSession()/can()/check(): in-handler authorization (§4) — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
+src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
 views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500, partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
@@ -761,6 +764,7 @@ docs/                Reference docs (plugin-contract.md — the authoritative pl
 e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. Dockerfile.e2e + compose.e2e[-auth|-oauth|-full].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
+scripts/ci.sh        The full CI gate (§8): typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash scripts/ci.sh`)
 ```
 
 Comments and docs cite roadmap phases as `§N` — the sections in `todo.md`.
