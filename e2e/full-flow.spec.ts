@@ -102,6 +102,20 @@ test.describe.serial("authenticated admin journey", () => {
   });
 });
 
+test("return_to: a deep link while logged out returns to that page after login (§9)", async ({ page }) => {
+  test.setTimeout(90_000);
+  // A gated deep link, logged out → bounced to the themed login (return_to is baked into the Kratos
+  // flow server-side, so it's consumed, not shown in the settled URL).
+  await page.goto("/admin/users");
+  await expect(page).toHaveURL(/\/login(\?|$)/);
+  await page.fill('input[name="identifier"]', ADMIN_EMAIL);
+  await page.fill('input[name="password"]', ADMIN_PASSWORD);
+  await page.locator('.auth-form button[type="submit"]').click();
+  // Completion routes through /auth/complete (mints the JWT) and on to the requested page, not the dashboard.
+  await expect(page).toHaveURL(/\/admin\/users(\?|$)/);
+  await expect(page.locator("h1")).toHaveText("Users");
+});
+
 test("mocked SSO login: the provider button signs a user in via OIDC", async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/login");

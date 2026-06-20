@@ -669,6 +669,12 @@ scripts, so an injected `<script>` can't run), `X-Content-Type-Options: nosniff`
 logo must live under `/public/` (or be a `data:` URI); a plugin route can override any header
 per-response via `RouteResult.headers` (e.g. to ship its own JS).
 
+A deep link reached while signed out — or after the ~10m session JWT lapses mid-task — bounces to
+the themed sign-in and, once authenticated, returns to the **page that was requested** (`return_to`,
+validated **host-relative** by `localPath` in `src/safe-url.ts`, so a crafted `?return_to=` can't
+turn login completion into an open redirect). If Ory is unreachable on the sign-in path itself, the
+user gets an honest **503** ("sign-in is temporarily unavailable"), distinct from the catch-all 500.
+
 The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting them
 mid-response, so container restarts are clean.
 
@@ -730,6 +736,7 @@ src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookie
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
 src/denylist.ts      Optional instant-revoke denylist (§9): in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
 src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
+src/safe-url.ts      safeUrl() (sanitise an untrusted href/src to relative-or-http(s), exposed to plugins) + localPath() (host-relative redirect-allowlist guard for return_to) (§9)
 src/logger.ts        createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set (§9)
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
@@ -754,7 +761,7 @@ src/guards.ts        requireSession()/can()/check(): in-handler authorization (�
 src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500, partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)

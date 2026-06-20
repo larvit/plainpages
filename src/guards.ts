@@ -5,6 +5,17 @@
 // Keto call — the fine-grained "may I?" tier (README), reserved for relationship rules.
 import type { RequestContext, User } from "./context.ts";
 import type { KetoClient } from "./keto-client.ts";
+import { localPath } from "./safe-url.ts";
+
+// Build the sign-in redirect for a gated request, preserving where the user was headed as
+// `return_to` so login can land them back there (§9). Only a safe GET/HEAD navigation to a
+// non-home, host-relative path is remembered (a POST or "/" ⇒ a bare /login); the target is
+// validated host-relative (localPath) so it can't become an open redirect.
+export function loginRedirect(ctx: RequestContext): string {
+  const method = (ctx.req.method ?? "GET").toUpperCase();
+  const target = method === "GET" || method === "HEAD" ? localPath(ctx.url.pathname + ctx.url.search) : null;
+  return target && target !== "/" ? `/login?return_to=${encodeURIComponent(target)}` : "/login";
+}
 
 // Thrown by an asserting guard; app.ts maps it to a response. `location` ⇒ a 303 redirect (an
 // anonymous browser bounces to /login); otherwise `status` renders an error page (403 Forbidden).
@@ -20,9 +31,9 @@ export class GuardError extends Error {
   }
 }
 
-// Assert a signed-in session and return the user. Anonymous ⇒ GuardError → /login.
+// Assert a signed-in session and return the user. Anonymous ⇒ GuardError → /login (return_to kept).
 export function requireSession(ctx: RequestContext): User {
-  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
+  if (!ctx.user) throw new GuardError(401, "authentication required", loginRedirect(ctx));
   return ctx.user;
 }
 

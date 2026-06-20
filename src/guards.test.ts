@@ -6,23 +6,28 @@ import { buildContext, type RequestContext, type User } from "./context.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import type { KetoClient, RelationTuple } from "./keto-client.ts";
 
-function ctxFor(user: User | null): RequestContext {
+function ctxFor(user: User | null, url = "/"): RequestContext {
   const req = new IncomingMessage(new Socket());
-  req.url = "/";
+  req.url = url;
   return buildContext(req, new ServerResponse(req), { user });
 }
 
 const alice: User = { email: "a@b.c", id: "u1", roles: ["admin", "scheduling:read"] };
 
-test("requireSession returns the user, or throws GuardError(401)→/login when anonymous", () => {
+test("requireSession returns the user, or throws GuardError(401)→/login (preserving return_to) when anonymous", () => {
   assert.equal(requireSession(ctxFor(alice)), alice);
 
+  // On the home path there is nothing worth returning to → a bare /login.
   assert.throws(() => requireSession(ctxFor(null)), (err: unknown) => {
     assert.ok(err instanceof GuardError);
     assert.equal(err.status, 401);
     assert.equal(err.location, "/login"); // app.ts turns this into a 303 to sign in
     return true;
   });
+
+  // A deep link is remembered so login returns the user there (host-relative, encoded).
+  assert.throws(() => requireSession(ctxFor(null, "/scheduling/shifts?q=1")), (err: unknown) =>
+    err instanceof GuardError && err.location === "/login?return_to=%2Fscheduling%2Fshifts%3Fq%3D1");
 });
 
 test("can reads a coarse role from the JWT claims; anonymous has none", () => {

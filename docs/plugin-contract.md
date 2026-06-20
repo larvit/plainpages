@@ -112,9 +112,9 @@ path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shif
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
 runs the `permission` gate (a coarse JWT-claim check — see the README), and only then calls the
 handler with the [request context](#requestcontext). When the gate fails, an **anonymous** visitor
-is redirected to `/login` to sign in (same as the built-in admin screens; after login they land on
-the dashboard, not back on the requested page); a **signed-in** user who simply lacks the role gets
-the **403** page.
+is redirected to `/login` to sign in (same as the built-in admin screens); the requested page is
+preserved as `return_to`, so after signing in they land **back on the page they asked for**, not the
+dashboard. A **signed-in** user who simply lacks the role gets the **403** page.
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 
@@ -168,8 +168,12 @@ safety of the data it renders**:
   names), so those are injection-safe. But a URL field — nav `href`, a table cell link, a menu
   item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
   `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
-  control, restrict it to a relative (`/`, `?`, `#`) or `http(s):` URL before handing it to a
-  partial. (A shared `safeUrl()` helper is planned for §9, with the redirect-URI allowlist work.)
+  control, pass it through **`safeUrl()`** from `src/plugin-api.ts` first — it returns the URL when
+  it's relative or `http(s):` and collapses anything else to `"#"`:
+  ```ts
+  import { safeUrl } from "../../src/plugin-api.ts";
+  return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
+  ```
 
 ## RequestContext
 

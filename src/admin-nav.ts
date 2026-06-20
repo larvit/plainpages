@@ -7,7 +7,7 @@
 import { readFormBody } from "./body.ts";
 import type { RequestContext, User } from "./context.ts";
 import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
-import { GuardError } from "./guards.ts";
+import { GuardError, loginRedirect } from "./guards.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -51,7 +51,7 @@ export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen
 // The shared gate for every admin screen: a signed-in admin only. Throws GuardError that app.ts maps
 // (anonymous → /login, non-admin → 403). Returns the (non-null) user for the handler to thread on.
 export function requireAdmin(ctx: RequestContext): User {
-  if (!ctx.user) throw new GuardError(401, "authentication required", "/login");
+  if (!ctx.user) throw new GuardError(401, "authentication required", loginRedirect(ctx));
   if (!ctx.roles.includes(ADMIN_PERMISSION)) throw new GuardError(403, "admin role required");
   return ctx.user;
 }

@@ -58,7 +58,7 @@ test("adminNav: prepends Dashboard and role-filters the section (admin sees it, 
 // ---- auth gates ----
 
 test("requireAdmin: anonymous → 401→/login, signed-in non-admin → 403, admin → the user", () => {
-  assert.throws(() => requireAdmin(reqCtx({ user: null })), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login");
+  assert.throws(() => requireAdmin(reqCtx({ user: null })), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login?return_to=%2Fadmin%2Fusers"); // anonymous bounce remembers the page
   assert.throws(() => requireAdmin(reqCtx({ user: member })), (e: unknown) => e instanceof GuardError && e.status === 403);
   assert.equal(requireAdmin(reqCtx({ user: admin })), admin);
 });

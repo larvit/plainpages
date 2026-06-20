@@ -15,7 +15,7 @@ import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "./cs
 import type { Denylist } from "./denylist.ts";
 import { buildDashboardModel } from "./dashboard.ts";
 import { PLUGINS_DIR } from "./discovery.ts";
-import { GuardError } from "./guards.ts";
+import { GuardError, loginRedirect } from "./guards.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "./hooks.ts";
 import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
@@ -23,7 +23,7 @@ import type { JwksProvider } from "./jwks.ts";
 import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
-import { KratosError, type KratosPublic } from "./kratos-public.ts";
+import { type Flow, KratosError, type KratosPublic } from "./kratos-public.ts";
 import { createLogger, type Log, requestLogger, runWithLog } from "./logger.ts";
 import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { resolveLoginChallenge } from "./oauth-login.ts";
@@ -32,6 +32,7 @@ import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { Plugin, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
 import { securityHeaders } from "./security-headers.ts";
+import { localPath } from "./safe-url.ts";
 import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "./view-resolver.ts";
 
@@ -188,9 +189,9 @@ export function createApp(options: AppOptions = {}): Server {
       if (match) {
         const routeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
-          // Anonymous → sign in (like the built-in screens' requireSession); a signed-in user who
-          // simply lacks the role gets the 403 page.
-          if (!routeCtx.user) { res.writeHead(303, { location: "/login" }).end(); return; }
+          // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
+          // return_to; a signed-in user who simply lacks the role gets the 403 page.
+          if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
           reqLog.warn("forbidden: missing role", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
@@ -249,25 +250,48 @@ export function createApp(options: AppOptions = {}): Server {
         }
         const cookie = req.headers.cookie;
         const flowId = ctx.url.searchParams.get("flow");
-        if (!flowId) {
-          // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
-          // A `return_to` (e.g. the OAuth2 login challenge bouncing here, §6) is baked into the
-          // flow so Kratos lands back there after login instead of the default completion route.
-          const returnTo = ctx.url.searchParams.get("return_to") ?? undefined;
-          const { flow, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });
-          if (setCookie.length) res.appendHeader("set-cookie", setCookie);
-          res.writeHead(303, { location: `${pathname}?flow=${flow.id}` }).end();
-          return;
-        }
+        // Only the Kratos calls are in the try, so a render/buildFlowView bug below falls through to
+        // the catch-all 500 (with a stack), not the "Ory unreachable" 503.
+        let flow: Flow;
         try {
-          const flow = await kratos.getFlow(flowType, flowId, cookie ? { cookie } : {});
-          sendHtml(res, 200, await render("auth", { brand: menu.branding.name, flow: buildFlowView(flow, flowType) }));
+          if (!flowId) {
+            // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
+            // A `return_to` is baked into the flow so Kratos lands there after login instead of the
+            // default completion route. A first-party deep link (host-relative, from the gate's
+            // return_to) is wrapped through /auth/complete so the session JWT is minted before the
+            // user reaches the page; an absolute target (the §6 OAuth2 login challenge) is passed
+            // as-is — Kratos allow-lists it. localPath rejects an off-origin "//evil.com".
+            const raw = ctx.url.searchParams.get("return_to");
+            const local = localPath(raw);
+            let returnTo: string | undefined;
+            if (local) {
+              const origin = `${secureCookies ? "https" : "http"}://${req.headers.host ?? "127.0.0.1:3000"}`;
+              const complete = new URL(`${origin}/auth/complete`);
+              complete.searchParams.set("return_to", local);
+              returnTo = complete.toString();
+            } else if (raw) returnTo = raw;
+            const { flow: initiated, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });
+            if (setCookie.length) res.appendHeader("set-cookie", setCookie);
+            res.writeHead(303, { location: `${pathname}?flow=${initiated.id}` }).end();
+            return;
+          }
+          flow = await kratos.getFlow(flowType, flowId, cookie ? { cookie } : {});
         } catch (err) {
           // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
           if (err instanceof KratosError && [403, 404, 410].includes(err.status)) {
             res.writeHead(303, { location: pathname }).end();
-          } else throw err;
+            return;
+          }
+          // Ory unreachable (Kratos 5xx / connection refused / timeout): "Ory down ⇒ no logins" is
+          // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
+          if (!(err instanceof KratosError) || err.status >= 500) {
+            reqLog.warn("auth flow failed (Ory unreachable?)", { error: String(err), path: pathname });
+            sendHtml(res, 503, await render("503", { title: "Sign-in unavailable" }));
+            return;
+          }
+          throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
         }
+        sendHtml(res, 200, await render("auth", { brand: menu.branding.name, flow: buildFlowView(flow, flowType) }));
         return;
       }
 
@@ -381,7 +405,9 @@ export function createApp(options: AppOptions = {}): Server {
           return;
         }
         res.appendHeader("set-cookie", sessionCookie(completed.jwt, { secure: secureCookies }));
-        res.writeHead(303, { location: "/" }).end();
+        // Land on the deep link the user was headed to (return_to, validated host-relative so a
+        // crafted ?return_to= can't make this an open redirect), else home (§9).
+        res.writeHead(303, { location: localPath(ctx.url.searchParams.get("return_to")) ?? "/" }).end();
         return;
       }
 

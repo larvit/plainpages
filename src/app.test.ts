@@ -311,10 +311,11 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.match(await css.text(), /\.demo/);
   assert.equal((await fetch(url + "/public/demo/..%2f..%2fplugin.ts")).status, 403); // traversal still blocked
 
-  // gated route, anonymous → redirect to sign in (like the built-in screens), not a dead-end 403
+  // gated route, anonymous → redirect to sign in (like the built-in screens), not a dead-end 403;
+  // the requested page is preserved as return_to so login lands the user back there.
   const denied = await fetch(url + "/demo/secret", { redirect: "manual" });
   assert.equal(denied.status, 303);
-  assert.equal(denied.headers.get("location"), "/login");
+  assert.equal(denied.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
 
   // known path + wrong method → 405 with Allow; unknown path → 404
   const wrong = await fetch(url + "/demo/data", { method: "DELETE" });
@@ -398,10 +399,11 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal(ok.status, 200);
   assert.equal(await ok.text(), "secret");
 
-  // No cookie and an expired token both render anonymous → the gate bounces to sign in (303 → /login).
+  // No cookie and an expired token both render anonymous → the gate bounces to sign in (303 → /login,
+  // remembering the gated page as return_to).
   const noCookie = await secret();
   assert.equal(noCookie.status, 303);
-  assert.equal(noCookie.headers.get("location"), "/login");
+  assert.equal(noCookie.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
 
   // The home menu wires in the permission-gated Admin section: an admin's roles surface the links.
@@ -449,7 +451,7 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   t.after(() => dead.close());
   const denied = await fetch(`http://localhost:${(dead.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired }, redirect: "manual" });
   assert.equal(denied.status, 303);
-  assert.equal(denied.headers.get("location"), "/login");
+  assert.equal(denied.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
   assert.match(denied.headers.get("set-cookie") ?? "", /^plainpages_jwt=;.*Max-Age=0/);
 
   // Ory unreachable (not a dead session): whoami throws → degrade to anonymous (bounce to /login, not 500),
@@ -459,7 +461,7 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   t.after(() => down.close());
   const outage = await fetch(`http://localhost:${(down.address() as AddressInfo).port}/demo/secret`, { headers: { cookie: expired }, redirect: "manual" });
   assert.equal(outage.status, 303);
-  assert.equal(outage.headers.get("location"), "/login");
+  assert.equal(outage.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
   assert.equal(outage.headers.get("set-cookie"), null);
 });
 
@@ -482,10 +484,10 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   const nowSec = Math.floor(Date.now() / 1000);
   const auth = (roles: string[]) => ({ headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles, sub: "u1" })}` } });
 
-  // requireSession: anonymous bounces to /login; a signed-in user reaches the handler.
+  // requireSession: anonymous bounces to /login (remembering the page); a signed-in user reaches the handler.
   const anon = await fetch(url + "/guarded/me", { redirect: "manual" });
   assert.equal(anon.status, 303);
-  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal(anon.headers.get("location"), "/login?return_to=%2Fguarded%2Fme");
   const me = await fetch(url + "/guarded/me", auth([]));
   assert.equal(me.status, 200);
   assert.match(await me.text(), /hi a@b\.c/);
@@ -501,7 +503,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   // declarative route `permission` gate: anonymous → sign in, signed-in-without-role → the 403 page, with → 200.
   const gAnon = await fetch(url + "/guarded/gated", { redirect: "manual" });
   assert.equal(gAnon.status, 303);
-  assert.equal(gAnon.headers.get("location"), "/login");
+  assert.equal(gAnon.headers.get("location"), "/login?return_to=%2Fguarded%2Fgated");
   const gDenied = await fetch(url + "/guarded/gated", auth([]));
   assert.equal(gDenied.status, 403);
   assert.match(await gDenied.text(), /403/); // the rendered 403.ejs over HTTP
@@ -588,6 +590,57 @@ test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a s
   assert.equal((await fetch(url + "/settings", signedIn)).headers.get("location"), "/settings?flow=new1");
 });
 
+// return_to (§9): a deep-link login lands back on the requested page. The gate redirects to
+// /login?return_to=<host-relative path>; /login bakes that into the Kratos flow so completion
+// returns there — but a first-party path must route via /auth/complete first (to mint the JWT).
+test("login return_to: a first-party deep link is wrapped through /auth/complete; an absolute target passes through as-is", async (t) => {
+  let lastReturnTo: string | undefined;
+  const kratos: KratosPublic = {
+    ...mockKratos(async (_t, id) => loginFlow(id)),
+    initBrowserFlow: async (_t: FlowType, opts = {}) => { lastReturnTo = opts.returnTo; return { flow: { id: "new1", ui: { action: "", method: "post", nodes: [] } }, setCookie: [] }; },
+  };
+  const app = createApp({ kratos });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  // A host-relative deep link → wrapped: Kratos returns to <origin>/auth/complete?return_to=<path>,
+  // so the JWT is minted before the user lands on the page (query preserved, re-encoded).
+  await fetch(url + "/login?return_to=" + encodeURIComponent("/admin/users?q=1"), { redirect: "manual" });
+  assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?return_to=%2Fadmin%2Fusers%3Fq%3D1$/);
+
+  // An absolute target (the §6 OAuth2 login challenge) is passed to Kratos unchanged — Kratos
+  // allow-lists it. A protocol-relative "//evil.com" is likewise not wrapped (Kratos rejects it).
+  const abs = "http://localhost/oauth2/login?login_challenge=abc";
+  await fetch(url + "/login?return_to=" + encodeURIComponent(abs), { redirect: "manual" });
+  assert.equal(lastReturnTo, abs);
+  await fetch(url + "/login?return_to=" + encodeURIComponent("//evil.com"), { redirect: "manual" });
+  assert.equal(lastReturnTo, "//evil.com");
+});
+
+// "Ory down ⇒ no logins" is documented; the auth path should say so honestly (503), not the
+// generic "error on our end" 500 the catch-all renders.
+test("auth flow when Ory is unreachable → an honest 503, not the catch-all 500", async (t) => {
+  const boom = () => { throw new KratosError("kratos down", 503, ""); };
+  const down: KratosPublic = { ...mockKratos(async () => boom()), initBrowserFlow: async () => boom() };
+  const app = createApp({ kratos: down });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const init = await fetch(url + "/login", { redirect: "manual" }); // init (no ?flow=) with Kratos down
+  assert.equal(init.status, 503);
+  assert.match(await init.text(), /unavailable/i);
+  assert.equal((await fetch(url + "/login?flow=f1")).status, 503); // fetching a flow, Kratos down
+
+  // A network-level throw (refused/timeout — not a KratosError) is treated the same way.
+  const refused: KratosPublic = { ...mockKratos(async () => { throw new Error("ECONNREFUSED"); }), initBrowserFlow: async () => { throw new Error("ECONNREFUSED"); } };
+  const app2 = createApp({ kratos: refused });
+  await new Promise<void>((r) => app2.listen(0, r));
+  t.after(() => app2.close());
+  assert.equal((await fetch(`http://localhost:${(app2.address() as AddressInfo).port}/login`, { redirect: "manual" })).status, 503);
+});
+
 test("renders a fetched flow as the themed auth page: fields post straight to Kratos, errors surface", async (t) => {
   const app = createApp({ kratos: mockKratos(async (_t, id) => loginFlow(id)) });
   await new Promise<void>((r) => app.listen(0, r));
@@ -660,7 +713,7 @@ async function adminHarness(t: TestContext, opts: AppOptions = {}) {
 async function assertAdminGate(url: string, get: (path: string, roles?: string[]) => Promise<Response>, path: string) {
   const anon = await fetch(url + path, { redirect: "manual" });
   assert.equal(anon.status, 303);
-  assert.equal(anon.headers.get("location"), "/login");
+  assert.equal(anon.headers.get("location"), `/login?return_to=${encodeURIComponent(path)}`); // remembers the page
   assert.equal((await get(path, [])).status, 403);
 }
 
@@ -670,10 +723,11 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
   const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
-  const complete = async (app: ReturnType<typeof createApp>, cookie?: string) => {
+  const complete = async (app: ReturnType<typeof createApp>, cookie?: string, returnTo?: string) => {
     await new Promise<void>((r) => app.listen(0, r));
     t.after(() => app.close());
-    return fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
+    const q = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : "";
+    return fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete${q}`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
   };
 
   // Live Kratos session: roles from Keto → projection → tokenize → JWT cookie, land on /.
@@ -682,6 +736,11 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   assert.equal(ok.headers.get("location"), "/");
   assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
   assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
+
+  // return_to (§9): a safe host-relative target lands the user back where they were headed; an
+  // off-origin one is ignored (open-redirect guard) and falls back to /.
+  assert.equal((await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s", "/admin/users?q=1")).headers.get("location"), "/admin/users?q=1");
+  assert.equal((await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s", "//evil.com")).headers.get("location"), "/");
 
   // No Kratos session: nothing minted, bounce to /login with no cookie.
   const none = await complete(createApp({ keto: fakeKeto(), kratos: withWhoami(async () => null), kratosAdmin: stubAdmin({}) }));

@@ -6,10 +6,11 @@ import test from "node:test";
 import * as api from "./plugin-api.ts";
 
 test("plugin-api re-exports the stable author value surface", () => {
-  for (const name of ["definePlugin", "can", "check", "GuardError", "requireSession", "parseListQuery", "readFormBody", "CSRF_FIELD", "tracedFetch", "Log"]) {
+  for (const name of ["definePlugin", "can", "check", "GuardError", "requireSession", "parseListQuery", "readFormBody", "CSRF_FIELD", "tracedFetch", "Log", "safeUrl"]) {
     assert.ok(name in api && api[name as keyof typeof api] !== undefined, `missing export: ${name}`);
   }
   assert.equal(typeof api.definePlugin, "function");
   assert.equal(typeof api.tracedFetch, "function"); // the request-trace-aware fetch a plugin uses for upstream calls
+  assert.equal(api.safeUrl("javascript:alert(1)"), "#"); // the URL sanitiser for rendering untrusted hrefs
   assert.equal(api.definePlugin({ apiVersion: "1.0.0" }).apiVersion, "1.0.0"); // identity helper works through the barrel
 });
