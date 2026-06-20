@@ -59,7 +59,9 @@ test("verifyToken rejects a bad signature and an unknown kid", async () => {
 
 test("claimsToUser requires sub + email, defaults roles to [], keeps only string roles", () => {
   assert.throws(() => claimsToUser({ email: "a@b.c", exp: NOW }), /sub/);
+  assert.throws(() => claimsToUser({ email: "a@b.c", exp: NOW, sub: "" }), /sub/); // empty sub rejected too
   assert.throws(() => claimsToUser({ exp: NOW, sub: "u" }), /email/);
+  assert.throws(() => claimsToUser({ email: "", exp: NOW, sub: "u" }), /email/); // empty email rejected (the shell keys signed-in vs anonymous off it)
   assert.deepEqual(claimsToUser({ email: "a@b.c", sub: "u" }).roles, []); // roles absent
   assert.deepEqual(claimsToUser({ email: "a@b.c", roles: ["a", 1, "b"], sub: "u" }).roles, ["a", "b"]);
 });

@@ -12,6 +12,7 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
     title: "People",
     brand: { name: "Acme Console", sub: "v2" },
     csrfToken: "tok.sig",
+    user: { email: "ada@acme.io", initials: "AD", name: "ada" }, // a signed-in identity → profile + Sign out
     nav: '<a id="nav-marker" href="/x">Overview</a>',
     body: '<section id="body-marker">page</section>',
     actions: '<button id="action-marker">Add</button>',
@@ -40,6 +41,12 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<title>People<\/title>/);
   assert.match(html, /<symbol id="i-menu"/);
   assert.match(html, /<use href="#i-menu"\s*\/?>/); // hamburger references the menu icon
+});
+
+test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a public page in the shell works (§10)", async () => {
+  const html = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x" }); // no user → Guest
+  assert.match(html, /href="\/login"[^>]*>[\s\S]*?Sign in/); // a path to sign in
+  assert.doesNotMatch(html, /action="\/logout"/); // a guest has no session to end
 });
 
 test("app shell renders a configured logo + default theme, falls back to the brand mark", async () => {

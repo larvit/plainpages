@@ -154,19 +154,28 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
   await expect(page.getByRole("link", { name: "Back home" })).toBeVisible();
 });
 
-// The reference plugin (plugins/scheduling) ships discovered in the image. Its nav + routes are
-// permission-gated, so an anonymous visitor is bounced to sign in (and never sees it in the nav).
-// The authenticated list/form flow is the §8 full E2E (full-flow.spec). Side-effect-free.
-test("the reference plugin is permission-gated: anonymous → redirect to /login, hidden from the dashboard nav", async ({ page, request }) => {
-  // `request` is the isolated API context — it doesn't carry the beforeEach session cookie, so this
-  // probe is genuinely anonymous. Don't follow the redirect (this Ory-free suite has no /login
-  // handler); assert the gate's 303 itself, with the requested page preserved as return_to (§9).
+// The reference plugin (plugins/scheduling) ships discovered in the image. Its public Overview is
+// reachable by anyone and its menu header shows for everyone; the shifts list stays permission-gated,
+// so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the §8 full
+// E2E (full-flow.spec). Side-effect-free.
+test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login (§10)", async ({ page, request }) => {
+  // `request` is the isolated API context — it doesn't carry the beforeEach session cookie, so these
+  // probes are genuinely anonymous.
+  // The public overview is reachable with no session (200), not bounced to sign in.
+  const pub = await request.get("/scheduling", { maxRedirects: 0 });
+  expect(pub.status()).toBe(200);
+  expect(await pub.text()).toContain("Scheduling");
+
+  // The gated shifts list still bounces (don't follow — this Ory-free suite has no /login handler);
+  // assert the gate's 303 with the requested page preserved as return_to (§9).
   const res = await request.get("/scheduling/shifts", { maxRedirects: 0 });
   expect(res.status()).toBe(303);
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
 
-  // The signed-in member (no scheduling role) sees the dashboard, but the gated leaf is filtered out.
+  // The signed-in member (no scheduling role) sees the public Scheduling → Overview leaf in the nav,
+  // but the gated Shifts leaf is filtered out.
   await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders
-  await expect(page.locator(".sidebar")).not.toContainText("Scheduling"); // gated leaf filtered out
+  await expect(page.locator('.sidebar a[href="/scheduling"]')).toHaveCount(1); // public Overview shown
+  await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(0); // gated leaf filtered out
 });

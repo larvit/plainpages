@@ -109,14 +109,16 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 
 ## Routes & handlers
 
-A route is `{ method, path, permission?, handler }`. `path` is **relative to the plugin's mount
-path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
+A route is `{ method, path, permission?, public?, handler }`. `path` is **relative to the plugin's
+mount path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
 runs the `permission` gate (a coarse JWT-claim check — see the README), and only then calls the
 handler with the [request context](#requestcontext). When the gate fails, an **anonymous** visitor
 is redirected to `/login` to sign in (same as the built-in admin screens); the requested page is
 preserved as `return_to`, so after signing in they land **back on the page they asked for**, not the
-dashboard. A **signed-in** user who simply lacks the role gets the **403** page.
+dashboard. A **signed-in** user who simply lacks the role gets the **403** page. A route marked
+**`public: true`** has no gate at all — anyone reaches it (see [Public pages & menu
+items](#public-pages--menu-items)).
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 
@@ -264,10 +266,24 @@ from the §4 JWT middleware and are `null`/`[]` until a session exists.
 
 A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/nav.ts`), which
 applies the central override and then **filters per user** by the roles in the session JWT — a
-node shows iff it declares no `permission` or the user's roles include that token. Use arbitrary
-depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a **Lucide
-icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids are
-`ICON_NAMES` in `src/icons.ts`, and adding one means registering its lucide name there.
+node shows iff it is `public`, declares no `permission`, or the user's roles include that token. Use
+arbitrary depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a
+**Lucide icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids
+are `ICON_NAMES` in `src/icons.ts`, and adding one means registering its lucide name there.
+
+### Public pages & menu items
+
+A route or nav node may be marked **`public: true`** — reachable by **anyone, signed in or not**,
+and the menu item shows for everyone. This is the same as omitting `permission` (a no-permission
+route/node is already open) but stated outright, so "public" is a **deliberate choice, not the
+accident of a forgotten gate**. `public` and `permission` are **mutually exclusive** — declaring
+both is contradictory and discovery refuses the plugin at boot.
+
+A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
+`ctx.user` is `null`, the shell shows a **Sign in** link in place of the profile/sign-out block, and
+`ctx.roles` is empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
+**Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
+while the actual shifts list stays behind `scheduling:read`.
 
 **A `permission` token is a coarse role.** The route/nav gate passes iff the user's JWT `roles`
 include the token; those roles come from Keto at login, so an operator grants a token by writing the
@@ -324,6 +340,10 @@ with `findConflicts` and resolves them **loudly — never last-write-wins**. `er
 There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its
 uniqueness follows from the id check. `permission` is the one intentional overlap, so it warns
 rather than aborts; everything else is an error an author fixes before the host will start.
+
+Beyond cross-plugin conflicts, discovery also rejects **per-manifest shape errors** at boot: a
+non-array `nav`/`routes`/`permissions`, a non-function `home`/`dashboard`, or a route/nav node that
+sets both `public` and `permission` (mutually exclusive — [Public pages](#public-pages--menu-items)).
 
 ## Hooks
 

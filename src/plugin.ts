@@ -30,6 +30,10 @@ export interface Route {
   method: HttpMethod;
   path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
   permission?: string; // coarse gate (a role token); checked before the handler runs
+  // Mark the page reachable by anyone, signed in or not (§10). The same as omitting `permission`
+  // — a no-permission route is already open — but stated outright, so "public" is a deliberate
+  // choice, not an accident. Mutually exclusive with `permission` (discovery refuses both).
+  public?: boolean;
 }
 
 // A permission token this plugin introduces — declared for docs/seeding. Tokens are a shared

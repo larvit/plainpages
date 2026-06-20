@@ -45,13 +45,14 @@
           <%- include("theme-switch", { value: locals.theme }) %>
 
           <div class="footer-actions">
-            <%# profile menu stays inline: the summary composes escaped user values %>
+            <% if (user.email) { %>
+            <%# signed in: profile menu inline (the summary composes escaped user values) %>
             <details class="menu" style="flex:1 1 auto">
               <summary class="profile">
                 <span class="avatar" aria-hidden="true"><%= user.initials %></span>
                 <span class="profile-meta">
                   <span class="profile-name"><%= user.name %></span>
-                  <% if (user.email) { %><span class="profile-mail"><%= user.email %></span><% } %>
+                  <span class="profile-mail"><%= user.email %></span>
                 </span>
               </summary>
               <div class="menu-pop left up" style="min-width:220px">
@@ -64,6 +65,10 @@
                 </form>
               </div>
             </details>
+            <% } else { %>
+            <%# anonymous (a public page in the shell, §10): no session to end — offer a way in instead %>
+            <a class="btn btn-primary" href="/login" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg>Sign in</a>
+            <% } %>
 
             <%- include("menu", {
               up: true,

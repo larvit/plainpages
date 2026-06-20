@@ -358,9 +358,9 @@ registration step, no central wiring. The full, authoritative API surface —
 manifest shape, handler/`RequestContext` contract, versioning, conflict rules,
 hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-contract.md)**
 (`src/plugin.ts` holds the types). A complete, runnable reference ships in
-**[`plugins/scheduling/`](plugins/scheduling/)** — a list page fetching upstream data,
-a CSRF-guarded form forwarding writes upstream, and permission-gated nav. Copy it and
-adapt. The sketch below is the shape.
+**[`plugins/scheduling/`](plugins/scheduling/)** — a public overview page, a permission-gated
+list page fetching upstream data, a CSRF-guarded form forwarding writes upstream, and a mix of
+public + role-gated nav. Copy it and adapt. The sketch below is the shape.
 
 There are two replaceable landing slots: `/` is a **public** front page (default: an intro with
 sign-in / register links) and `/dashboard` is the **gated** post-login app home (default: the People
@@ -382,25 +382,29 @@ sync. The `id` and mount path are **derived from the folder name**, not declared
 
 ```ts
 import { definePlugin } from "../../src/plugin-api.ts"; // the stable author barrel (see docs)
-import { listShifts } from "./shifts.ts";
+import { listShifts, overview } from "./shifts.ts";
 
 export default definePlugin({
   apiVersion: "1.0.0",      // semver of the host contract this was built against (a literal — see docs)
 
   // Nav fragment, composed into the global menu. Permission-gated: items the current user can't
-  // access are hidden. Arbitrary depth. `icon` is a Lucide icon by its sprite id (src/icons.ts).
+  // access are hidden. `public: true` shows an item to everyone (signed in or not). Arbitrary
+  // depth. `icon` is a Lucide icon by its sprite id (src/icons.ts).
   nav: [
     {
       label: "Scheduling", icon: "i-cal",
       children: [
+        { label: "Overview", href: "/scheduling", public: true },             // shown to everyone
         { label: "Shifts", href: "/scheduling/shifts", permission: "scheduling:read" },
       ],
     },
   ],
 
   // Route handlers, mounted under the plugin's path (/scheduling). `permission` is a coarse role
-  // (a JWT-claim check) enforced before the handler runs.
+  // (a JWT-claim check) enforced before the handler runs; `public: true` makes a page reachable by
+  // anyone (mutually exclusive with `permission`).
   routes: [
+    { method: "GET", path: "/", public: true, handler: overview },
     { method: "GET", path: "/shifts", permission: "scheduling:read", handler: listShifts },
   ],
 });
@@ -474,7 +478,11 @@ The menu is **driven entirely by config** and assembled from two sources:
 Every nav item may carry a `permission`; the rendered tree is **filtered per
 user** by reading the roles in the session JWT (no per-request authz call — see
 [Auth, sessions & permissions](#auth-sessions--permissions)), so the menu
-only ever shows what that person can reach. The markup is the recursive, zero-JS
+only ever shows what that person can reach. An item (or a whole page) may instead be
+marked **`public: true`** to show it to **everyone, signed in or not** — the blessed,
+explicit way to expose a public page and its menu entry (a no-permission item is already
+public; `public` just says so on purpose, and is mutually exclusive with `permission`).
+The markup is the recursive, zero-JS
 nav tree from the design foundation (header/leaf × clickable/static, counts,
 arbitrary depth). Branding (name, logo, default theme) renders in the app shell — the sidebar
 brand shows the configured logo (else a default mark), and the theme sets the theme-switch default.

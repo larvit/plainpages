@@ -8,6 +8,7 @@
 // One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
 import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-api.ts";
 
+export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page (§10)
 export const SHIFTS_PATH = "/scheduling/shifts";
 export const READ = "scheduling:read"; // permission token gating the list + nav
 export const WRITE = "scheduling:write"; // permission token gating create
@@ -182,6 +183,17 @@ export function listShifts(upstream: ShiftsUpstream): RouteHandler {
 
 export function newShiftForm(): RouteHandler {
   return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome }), view: "shift-new" });
+}
+
+// Public overview (§10): a page anyone may reach — its route + nav node are marked `public`, so the
+// gate lets an anonymous visitor through and the menu option shows for everyone. The real data
+// (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
+// else a prompt to sign in. ctx.user may be null here, so read the role via can() (zero I/O).
+export function overview(): RouteHandler {
+  return (ctx) => ({
+    data: { breadcrumbs: [{ label: "Overview" }], canRead: can(ctx, READ), chrome: ctx.chrome, shiftsHref: SHIFTS_PATH, title: "Scheduling" },
+    view: "overview",
+  });
 }
 
 export function createShift(upstream: ShiftsUpstream): RouteHandler {

@@ -1,7 +1,7 @@
 // composeNav (todo §1): merge each plugin's nav fragment into one tree, apply the central
 // override, then permission-filter per user. Pure and I/O-free — menu gating reads the JWT
-// `roles` claim (README "The menu system"), never Keto. A node is visible iff it declares no
-// `permission` or `roles` includes that permission token; a gated header hides its whole
+// `roles` claim (README "The menu system"), never Keto. A node is visible iff it is `public`, or
+// declares no `permission`, or `roles` includes that permission token; a gated header hides its whole
 // subtree, and a pure header left with no children is dropped. The §2 config/menu.ts supplies
 // the override (+ branding); this helper only transforms data, so its result is per-deployment
 // up to the final role filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
@@ -16,6 +16,7 @@ export interface NavNode {
   label: string;
   open?: boolean;
   permission?: string; // required role token; consumed by the filter, never rendered
+  public?: boolean; // §10: show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
 }
 
 // Central override (config/menu.ts, §2). Targets nodes by `id`; applied rename → group →
@@ -105,7 +106,7 @@ function hideTree(nodes: NavNode[], hide: Set<string>): NavNode[] {
 function filterByRoles(nodes: NavNode[], roles: Set<string>): NavNode[] {
   const out: NavNode[] = [];
   for (const n of nodes) {
-    if (n.permission != null && !roles.has(n.permission)) continue; // gated → drop node + subtree
+    if (n.public !== true && n.permission != null && !roles.has(n.permission)) continue; // gated → drop node + subtree (public always shows)
     if (!n.children) { out.push(n); continue; }
     const children = filterByRoles(n.children, roles);
     if (children.length === 0 && n.href == null) continue; // empty pure header → drop

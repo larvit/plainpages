@@ -6,7 +6,7 @@ import test from "node:test";
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
 import { GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "../../src/plugin-api.ts";
 import {
-  assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, readInput,
+  assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
@@ -110,6 +110,18 @@ test("listShifts degrades to a recoverable error page when the upstream is down 
   const r = asView(await listShifts(fakeUpstream({ list: async () => { throw new UpstreamError("down", 503); } }))(fakeCtx()));
   assert.match(String(r.data["error"]), /scheduling service/i);
   assert.deepEqual((r.data["table"] as { rows: unknown[] }).rows, []);
+});
+
+// ---- public overview handler (§10: a page anyone can reach, gated data stays behind the role) ----
+
+test("overview renders a public page for anyone; it links straight to Shifts only for a reader", async () => {
+  const anon = asView(await overview()(fakeCtx())); // user null, no roles
+  assert.equal(anon.view, "overview");
+  assert.equal(anon.data["chrome"], CHROME);
+  assert.equal(anon.data["canRead"], false); // anonymous → prompt to sign in, no shifts link
+
+  const reader = asView(await overview()(fakeCtx({ roles: ["scheduling:read"] })));
+  assert.equal(reader.data["canRead"], true); // a reader gets a link straight to the shifts list
 });
 
 // ---- create handler ----

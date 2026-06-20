@@ -45,6 +45,22 @@ test("composeNav drops gated subtrees, empty headers, and (with no roles) all ga
   assert.deepEqual(composeNav(), []);
 });
 
+test("composeNav keeps a node marked public for everyone — the blessed public alias (§10)", () => {
+  // A header with one public child + one gated child: with no roles, the public child keeps the
+  // header alive (the gated child is filtered out) — so a plugin can show a public menu option to all.
+  const frag: NavNode[][] = [[{
+    icon: "i-cal", id: "sched", label: "Scheduling",
+    children: [
+      { href: "/scheduling", id: "overview", label: "Overview", public: true },
+      { href: "/scheduling/shifts", id: "shifts", label: "Shifts", permission: "scheduling:read" },
+    ],
+  }]];
+  // `public` is filter-only (like id/permission) — never rendered into the output node.
+  assert.deepEqual(composeNav(frag, {}, []), [
+    { icon: "i-cal", label: "Scheduling", children: [{ href: "/scheduling", label: "Overview" }] },
+  ]);
+});
+
 test("composeNav applies the override: rename, group, order, hide (then filters)", () => {
   const base: NavNode[][] = [[
     { href: "/a", id: "a", label: "Alpha" },

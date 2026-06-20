@@ -93,6 +93,23 @@ function shapeError(manifest: PluginManifest): string | null {
   for (const slot of ["home", "dashboard"] as const) {
     if (manifest[slot] !== undefined && typeof manifest[slot] !== "function") return `"${slot}" must be a function (a route handler)`;
   }
+  // `public` and `permission` are contradictory on the same route/nav node (§10) — "open to all" vs
+  // "needs this role". Refuse rather than silently pick one, so the author's intent is unambiguous.
+  for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
+    if (route?.public === true && route.permission != null) return `route "${route.method} ${route.path}" sets both public and permission — they are mutually exclusive`;
+  }
+  const navContradiction = findPublicNavContradiction(manifest.nav);
+  if (navContradiction) return navContradiction;
+  return null;
+}
+
+// Recurse the nav fragment: a node that is both `public` and `permission`-gated is contradictory (§10).
+function findPublicNavContradiction(nodes: PluginManifest["nav"]): string | null {
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (node?.public === true && node.permission != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and permission — they are mutually exclusive`;
+    const inChild = findPublicNavContradiction(node?.children);
+    if (inChild) return inChild;
+  }
   return null;
 }
 

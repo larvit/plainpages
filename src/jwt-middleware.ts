@@ -58,13 +58,14 @@ export function validateClaims(payload: Record<string, unknown>, options: Verify
   }
 }
 
-// Map verified claims → the request User. sub/email are required (the tokenizer always sets
-// them); roles defaults to [] and keeps only string entries (defensive).
+// Map verified claims → the request User. sub/email are required and non-empty (the tokenizer
+// always sets them; an empty email would read as anonymous in the shell); roles defaults to [] and
+// keeps only string entries (defensive).
 export function claimsToUser(payload: Record<string, unknown>): User {
   const sub = payload["sub"];
   if (typeof sub !== "string" || sub === "") throw new TokenError("token missing sub");
   const email = payload["email"];
-  if (typeof email !== "string") throw new TokenError("token missing email");
+  if (typeof email !== "string" || email === "") throw new TokenError("token missing email");
   const roles = payload["roles"];
   return { email, id: sub, roles: Array.isArray(roles) ? roles.filter((r): r is string => typeof r === "string") : [] };
 }

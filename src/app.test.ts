@@ -329,6 +329,7 @@ const demoPlugin: Plugin = {
     { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data" },
     { handler: () => ({ redirect: "/demo/hello/world" }), method: "POST", path: "/go" },
     { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", permission: "demo:read" },
+    { handler: () => ({ html: "open to all" }), method: "GET", path: "/public-page", public: true }, // §10 blessed public
     { handler: () => ({ data: { who: "Plainpages" }, view: "page" }), method: "GET", path: "/page" },
   ],
 };
@@ -383,6 +384,11 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal(denied.status, 303);
   assert.equal(denied.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
 
+  // a route marked public (§10) is reachable anonymously — no gate, no redirect.
+  const open = await fetch(url + "/demo/public-page", { redirect: "manual" });
+  assert.equal(open.status, 200);
+  assert.match(await open.text(), /open to all/);
+
   // known path + wrong method → 405 with Allow; unknown path → 404
   const wrong = await fetch(url + "/demo/data", { method: "DELETE" });
   assert.equal(wrong.status, 405);
@@ -393,9 +399,11 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
 test("a plugin view renders the native chrome; its forms are CSRF-guarded via ctx.verifyCsrf (§7)", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "panelkit", "views"), { recursive: true });
-  // The view composes the core shell from ctx.chrome — branding, the global nav, the Sign-out form.
+  // The view composes the core shell from ctx.chrome — branding, the global nav — and its own
+  // CSRF-guarded form carrying chrome.csrfToken (the representative way a plugin form gets the token,
+  // independent of the shell's auth-dependent profile/sign-out block).
   writeFileSync(join(dir, "panelkit", "views", "panel.ejs"),
-    `<%- include("partials/shell", { brand: chrome.brand, csrfToken: chrome.csrfToken, nav: include("partials/nav-tree", { nodes: chrome.nav }), title, user: chrome.user }) %>`);
+    `<%- include("partials/shell", { body: '<form method="post" action="/panelkit/save"><input type="hidden" name="_csrf" value="' + chrome.csrfToken + '" /></form>', brand: chrome.brand, csrfToken: chrome.csrfToken, nav: include("partials/nav-tree", { nodes: chrome.nav }), title, user: chrome.user }) %>`);
   t.after(() => rmSync(dir, { force: true, recursive: true }));
 
   const plugin: Plugin = {
@@ -422,7 +430,7 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
 
   // GET renders the shell: branding (DEFAULT_MENU), the (ungated) plugin nav, and a CSRF cookie
-  // whose token is embedded in the Sign-out form (double-submit).
+  // whose token is embedded in the plugin's own form (double-submit).
   const res = await fetch(url + "/panelkit/panel");
   assert.equal(res.status, 200);
   const body = await res.text();
