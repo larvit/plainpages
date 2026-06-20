@@ -6,6 +6,7 @@ services:
     # Dev overrides the base toggles: live template edits, dev-throwaway secrets allowed.
     environment:
       CACHE_TEMPLATES: "false"
+      LOG_FORMAT: "text" # human-readable logs in dev (base sets json for prod log pipelines)
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
       SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # reference plugin → the dev mock backend

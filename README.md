@@ -53,8 +53,8 @@ only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 > tokenizer, Keto, Hydra), the **auth** wiring that consumes it (themed sign-in / register / reset /
 > SSO, the session→JWT hot path, the users/groups/roles admin screens) and **Hydra's login / consent
 > / logout handlers** — all driven end-to-end by the Playwright suites, plus **production & ops
-> hardening** (the prod compose profile, response security headers). What's left is mainly
-> **observability and a key-rotation runbook** — tracked in `todo.md` (§9).
+> hardening** (the prod compose profile, response security headers, **structured logging + OTLP
+> observability**). What's left is mainly a **JWT key-rotation runbook** — tracked in `todo.md` (§9).
 
 ## The MVP — "clone, one command, hack on a plugin"
 
@@ -87,8 +87,9 @@ services over their **REST APIs using Node's built-in `fetch`** — no SDK
 dependency. See [Auth, sessions & permissions](#auth-sessions--permissions).
 
 So the `web` app is **stateless** and its npm footprint stays tiny — a small,
-pinned set of runtime deps (today **`ejs`** for templating and **`lucide-static`**
-for icons), grown only with justification and never a framework. Auth, sessions,
+pinned set of runtime deps (today **`ejs`** for templating, **`lucide-static`**
+for icons, and **`@larvit/log`** — itself zero-dependency — for structured/OTLP
+logging), grown only with justification and never a framework. Auth, sessions,
 SSO, and OAuth2 add *services*, not npm packages; data lives upstream (see
 [Stateless — no application database](#stateless--no-application-database)).
 
@@ -149,6 +150,10 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
 | `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` must be supplied and differ from the dev throwaway |
+| `LOG_LEVEL` | `info` | min severity logged: `error`/`warn`/`info`/`verbose`/`debug`/`silly`/`none` |
+| `LOG_FORMAT` | `text` | log line format: `text` (human-readable, dev) or `json` (structured, prod) |
+| `OTLP_ENDPOINT` | _unset_ | OpenTelemetry Collector HTTP base URI; set ⇒ export logs + traces (unset ⇒ console only) |
+| `OTLP_PROTOCOL` | `http/json` | OTLP wire format: `http/json` or `http/protobuf` |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
 | `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (§6 login/consent handshake) |
@@ -610,6 +615,30 @@ per-response via `RouteResult.headers` (e.g. to ship its own JS).
 The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting them
 mid-response, so container restarts are clean.
 
+## Observability
+
+Logging is **structured** and **OTLP-native**, on [`@larvit/log`](https://www.npmjs.com/package/@larvit/log)
+(zero-dependency). One app logger tags every line with `service.name=plainpages`; each request is
+cloned into a short-lived **trace span**, so logs and traces correlate. Two explicit toggles (no
+`NODE_ENV`):
+
+- `LOG_LEVEL` (default `info`) — `error` · `warn` · `info` · `verbose` · `debug` · `silly` · `none`.
+- `LOG_FORMAT` — `text` in dev (human-readable), `json` in prod (the base compose sets it) for a log
+  pipeline.
+
+Every request emits one access line (`method`, `path` — the query is dropped, it can carry tokens —
+`status`, `ms`, `requestId`); the catch-all 500 and the Ory-unreachable session re-mint log at
+`error`/`warn`. An inbound W3C `traceparent` is **adopted**, so a request continues a trace started
+by an upstream proxy/gateway.
+
+**OTLP export (off by default).** Point `OTLP_ENDPOINT` at an OpenTelemetry Collector's HTTP base URI
+(e.g. `http://otel-collector:4318`) and logs **and** per-request spans also export there — feed
+Grafana Loki (logs) + Tempo (traces), or any OTLP backend. `OTLP_PROTOCOL` selects the wire format
+(`http/json` default, or `http/protobuf` for collectors that only accept protobuf). Export is
+fire-and-forget — it never blocks or fails a served request, and nothing exports when the endpoint is
+unset (zero cost). A collector outage is survivable but noisy: each request's failed export writes a
+line to stderr (it's retried per request, not queued), so run a local collector/agent you trust.
+
 ## Layout
 
 ```
@@ -633,6 +662,7 @@ src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookie
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
 src/denylist.ts      Optional instant-revoke denylist (§9): in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
 src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
+src/logger.ts        createLogger()/requestLogger(): structured app logger (service.name) + per-request trace span on @larvit/log; OTLP export when OTLP_ENDPOINT set (§9)
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot

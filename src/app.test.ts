@@ -8,6 +8,7 @@ import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createApp, type AppOptions } from "./app.ts";
 import { readFormBody } from "./body.ts";
+import { createLogger } from "./logger.ts";
 import { createDenylist } from "./denylist.ts";
 import { CSRF_COOKIE, issueCsrfToken } from "./csrf.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
@@ -66,6 +67,31 @@ test("renders branding from the menu config into the shell: logo + default theme
   assert.match(html, /<img class="brand-logo" src="\/public\/brand\/logo\.svg"/);
   assert.match(html, /Acme Ops/);
   assert.match(html, /id="theme-dark"\s+checked/); // config default theme reaches the switch
+});
+
+test("emits a structured access-log line per request (the injected §9 logger)", async (t) => {
+  const lines: string[] = [];
+  const app = createApp({ log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/?q=zz`);
+  assert.equal(res.status, 200);
+  await res.text(); // consume the body so the connection closes (the access line emits on close)
+
+  // The line is emitted on connection close (after the body is sent) — poll briefly for it.
+  let line: string | undefined;
+  for (let i = 0; i < 50 && !line; i++) {
+    line = lines.find((l) => l.includes('"msg":"request"'));
+    if (!line) await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.ok(line, "an access line is logged for the request");
+  const rec = JSON.parse(line!);
+  assert.equal(rec.method, "GET");
+  assert.equal(rec.path, "/"); // pathname only — the ?q=… query is dropped (may carry tokens)
+  assert.equal(rec.status, 200);
+  assert.equal(rec["service.name"], "plainpages");
+  assert.equal(typeof rec.ms, "number");
+  assert.ok(rec.requestId, "carries a requestId for log↔trace correlation");
 });
 
 test("static serving: GET sends body + content-type, HEAD headers only, unsafe paths → 403", async () => {

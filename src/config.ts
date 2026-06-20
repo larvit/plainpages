@@ -8,6 +8,10 @@
 // `REQUIRE_SECURE_SECRETS`. Clean-clone (README): every value has a working dev default,
 // so `docker compose up` runs with zero config; a hardened deploy sets the toggles it wants.
 
+// Log verbosity, most→least severe; "none" silences everything (matches @larvit/log's levels).
+export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly", "none"] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
 export interface Config {
   cacheTemplates: boolean;
   csrfSecret: string;
@@ -20,7 +24,11 @@ export interface Config {
   ketoWriteUrl: string;
   kratosAdminUrl: string;
   kratosPublicUrl: string;
+  logFormat: "json" | "text"; // §9: console/OTLP entry format (json for structured prod logs)
+  logLevel: LogLevel; // §9: minimum severity emitted
   oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
+  otlpEndpoint: string | undefined; // §9: OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
+  otlpProtocol: "http/json" | "http/protobuf"; // §9: OTLP wire format (protobuf for json-averse collectors)
   port: number;
   revocationDenylist: boolean; // §9: enable the optional instant role/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
@@ -52,6 +60,26 @@ function readBool(env: Env, key: string, devDefault: boolean): boolean {
 // check is skipped (clean clone — the dev tokenizer sets no iss/aud; §4 verifier).
 function readOptional(env: Env, key: string): string | undefined {
   return env[key] || undefined;
+}
+
+// One of a fixed set; a typo fails at boot rather than degrading silently at runtime.
+function readEnum<T extends string>(env: Env, key: string, allowed: readonly T[], devDefault: T): T {
+  const value = env[key];
+  if (value === undefined) return devDefault;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  throw new Error(`config: ${key} must be one of ${allowed.join(", ")}, got "${value}"`);
+}
+
+// An optional absolute URL: unset/empty ⇒ undefined; a set-but-malformed value fails at boot.
+function readOptionalUrl(env: Env, key: string): string | undefined {
+  const value = env[key] || undefined;
+  if (value === undefined) return undefined;
+  try {
+    new URL(value);
+  } catch {
+    throw new Error(`config: ${key} is not a valid URL: ${value}`);
+  }
+  return value;
 }
 
 // An absolute URL: defaults to the Ory service; validated so a typo fails at boot.
@@ -112,7 +140,13 @@ export function loadConfig(env: Env = process.env): Config {
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
+    // §9 observability. Console-only by default (clean clone). Setting OTLP_ENDPOINT to an
+    // OpenTelemetry Collector exports structured logs + per-request spans there (Loki/Tempo).
+    logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),
+    logLevel: readEnum(env, "LOG_LEVEL", LOG_LEVELS, "info"),
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
+    otlpEndpoint: readOptionalUrl(env, "OTLP_ENDPOINT"),
+    otlpProtocol: readEnum(env, "OTLP_PROTOCOL", ["http/json", "http/protobuf"] as const, "http/json"),
     port: readPort(env),
     // Optional instant-revoke (§9), off by default. When on, an admin deactivate/delete or role
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m

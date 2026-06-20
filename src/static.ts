@@ -53,7 +53,9 @@ function plain(res: ServerResponse, status: number, body: string): void {
   res.writeHead(status, { "content-type": "text/plain; charset=utf-8" }).end(body);
 }
 
-export async function serveStatic(dir: string, requestedPath: string, res: ServerResponse, head = false): Promise<void> {
+// onError handles a mid-stream read failure (headers already sent); defaults to console.error so
+// static.ts stays standalone, while app.ts passes the request logger for structured output (§9).
+export async function serveStatic(dir: string, requestedPath: string, res: ServerResponse, head = false, onError: (err: Error) => void = (err) => console.error(err)): Promise<void> {
   let decoded: string;
   try {
     decoded = decodeURIComponent(requestedPath);
@@ -73,7 +75,7 @@ export async function serveStatic(dir: string, requestedPath: string, res: Serve
     // log and destroy the response to signal a truncated body, not a hung socket.
     createReadStream(filePath)
       .on("error", (err) => {
-        console.error(err);
+        onError(err);
         res.destroy();
       })
       .pipe(res);

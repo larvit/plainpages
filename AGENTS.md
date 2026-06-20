@@ -6,7 +6,8 @@ commands and layout.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the smallest, most readable solution.
-2. **Few dependencies** — runtime deps stay minimal (today `ejs` + `lucide-static`).
+2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`,
+   `@larvit/log` — the last itself zero-dependency, for structured/OTLP logging).
    Prefer the Node standard library; justify any new dependency; do not add
    frameworks. The app is
    **stateless — no database**. Auth/identity/OAuth are **Ory sidecar services**

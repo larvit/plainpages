@@ -9,9 +9,13 @@ import { createJwksProvider } from "./jwks.ts";
 import { createKetoClient } from "./keto-client.ts";
 import { createKratosAdmin } from "./kratos-admin.ts";
 import { createKratosPublic } from "./kratos-public.ts";
+import { createLogger } from "./logger.ts";
 import { loadMenuConfig } from "./menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
+// App-level logger (§9): structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
+// per request for access logging + a trace span (src/app.ts); console-only otherwise.
+const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol });
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
 // Every outbound Ory call is bounded so a hung/silent Ory can't park a request handler forever.
 const oryFetch = withTimeout(fetch, config.oryTimeoutSec * 1000);
@@ -29,7 +33,7 @@ const jwks = await createJwksProvider(config.jwksUrl, { fetchImpl: oryFetch }); 
 const denylist = config.revocationDenylist ? createDenylist({ ttlSec: config.revocationTtlSec }) : undefined;
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
-console.log(`Discovered ${plugins.length} plugin(s)${plugins.length ? `: ${plugins.map((p) => p.id).join(", ")}` : ""}`);
+log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => p.id).join(", ") });
 await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
 const server = createApp({
@@ -42,14 +46,23 @@ const server = createApp({
   keto,
   kratos,
   kratosAdmin,
+  log,
   menu,
   plugins,
   secureCookies: config.secureCookies,
 }).listen(config.port, () => {
-  console.log(`Listening on http://localhost:${config.port}`);
+  log.info("listening", { port: config.port, url: `http://localhost:${config.port}` });
 });
 
-// Drain in-flight requests on container stop instead of cutting them mid-response.
+// Drain in-flight requests on container stop instead of cutting them mid-response, then flush any
+// pending OTLP export before exiting so the last logs/spans aren't lost. Guard re-entry so a second
+// signal (or SIGTERM-then-SIGINT during a slow drain) doesn't double-close or end() an ended log.
+let shuttingDown = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+  process.on(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.info("shutting down", { signal });
+    server.close(() => void log.end().finally(() => process.exit(0)));
+  });
 }

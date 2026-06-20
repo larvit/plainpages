@@ -14,6 +14,7 @@
     "test": "node --test \"src/**/*.test.ts\" \"plugins/**/*.test.ts\""
   },
   "dependencies": {
+    "@larvit/log": "2.3.0",
     "ejs": "3.1.10",
     "lucide-static": "1.18.0"
   },

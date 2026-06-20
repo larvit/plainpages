@@ -11,6 +11,7 @@ services:
     environment:
       CACHE_TEMPLATES: "true"
       CSRF_SECRET: ${CSRF_SECRET:-dev-insecure-csrf-secret}
+      LOG_FORMAT: "json" # structured logs for prod pipelines; set OTLP_ENDPOINT to also export to a collector
       REQUIRE_SECURE_SECRETS: "true"
       SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
     # Wait for the services the app talks to (kratos + keto + hydra for the §6 OAuth2 login/

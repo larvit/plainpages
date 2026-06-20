@@ -10,6 +10,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { discoverPlugins } from "./discovery.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
+import { createLogger } from "./logger.ts";
 
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
 
@@ -116,7 +117,7 @@ async function findIdentityId(http: typeof fetch, adminUrl: string, email: strin
 // --- First-run banner ----------------------------------------------------------------
 
 // Loud, scannable block in the compose logs: where to log in + the seeded demo creds +
-// the "change before production" warning. Pure so it's testable; main() console.logs it.
+// the "change before production" warning. Pure so it's testable; main() prints it verbatim.
 export function firstRunBanner(opts: { appUrl: string; email: string; password: string }): string {
   const rule = "─".repeat(58);
   return [
@@ -133,7 +134,9 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
 
 async function main() {
   const env = process.env;
-  if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) console.log("bootstrap: generated a JWKS signing key");
+  // Structured like the web app (§9) so prod logs stay uniform; honour LOG_FORMAT, default text.
+  const log = createLogger({ format: env["LOG_FORMAT"] === "json" ? "json" : "text" });
+  if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
 
   // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared permission tokens, so the
   // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
@@ -148,7 +151,8 @@ async function main() {
     password,
     roles,
   });
-  console.log(`bootstrap: admin ${result.created ? "created" : "already present"} (${result.id}); roles granted: ${result.roles.join(", ")}`);
+  log.info("admin seeded", { created: result.created, id: result.id, roles: result.roles.join(", ") });
+  // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
   console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
 }
 

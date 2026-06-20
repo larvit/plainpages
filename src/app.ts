@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
+import { createLogger, type Log, requestLogger } from "./logger.ts";
 import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { resolveLoginChallenge } from "./oauth-login.ts";
 import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-consent.ts";
@@ -48,6 +49,7 @@ export interface AppOptions {
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
   kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion (§4)
+  log?: Log; // app-level logger (§9); per-request access log + trace span. Default: silent (tests)
   menu?: MenuConfig; // central override + branding (config/menu.ts); defaults to DEFAULT_MENU
   plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
@@ -71,6 +73,8 @@ export function createApp(options: AppOptions = {}): Server {
   const keto = options.keto;
   const kratos = options.kratos;
   const kratosAdmin = options.kratosAdmin;
+  // Silent default so unit/integration tests stay quiet; server.ts injects the configured logger.
+  const log = options.log ?? createLogger({ level: "none" });
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
@@ -107,6 +111,23 @@ export function createApp(options: AppOptions = {}): Server {
   };
 
   return createServer(async (req, res) => {
+    // Per-request log + trace span (§9): a "request" span, continuing an upstream W3C traceparent
+    // when present (distributed tracing across a proxy). "close" (not "finish") fires on both a
+    // completed response and a premature disconnect/abort, so an aborted or truncated request is
+    // still logged and its span flushed; it fires once. Logging must never crash a served request,
+    // so the access line is guarded too — then end() exports the span (a no-op when OTLP is off).
+    const startMs = Date.now();
+    const reqLog = requestLogger(log, {
+      requestId: randomUUID(),
+      ...(typeof req.headers.traceparent === "string" ? { traceparent: req.headers.traceparent } : {}),
+    });
+    res.on("close", () => {
+      try {
+        // path only (no query — it may carry tokens); method/status are header-safe here.
+        reqLog.info("request", { method: req.method ?? "GET", ms: Date.now() - startMs, path: (req.url ?? "/").split("?", 1)[0] ?? "/", status: res.statusCode });
+      } catch { /* never let logging crash a served request */ }
+      void reqLog.end().catch(() => {}); // never let a flaky OTLP collector crash a served request
+    });
     try {
       const method = req.method ?? "GET";
       const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -119,7 +140,7 @@ export function createApp(options: AppOptions = {}): Server {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.
         // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
         const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
-        await serveStatic(dir, subPath, res, method === "HEAD");
+        await serveStatic(dir, subPath, res, method === "HEAD", (err) => reqLog.error("static stream error", { error: String(err) }));
         return;
       }
 
@@ -140,7 +161,7 @@ export function createApp(options: AppOptions = {}): Server {
           } catch (err) {
             // Ory unreachable (Kratos/Keto 5xx, refused, timeout) — degrade to anonymous instead of
             // 500ing every lapsed request. Leave the cookie alone: it can re-mint once Ory recovers.
-            console.error("session re-mint failed (Ory unreachable?):", err);
+            reqLog.warn("session re-mint failed (Ory unreachable?)", { error: String(err) });
           }
         }
       }
@@ -415,14 +436,14 @@ export function createApp(options: AppOptions = {}): Server {
         if (err.location) return void res.writeHead(303, { location: err.location }).end();
         return void sendHtml(res, err.status, await render("403", { title: "Forbidden" }));
       }
-      console.error(err);
+      reqLog.error("unhandled request error", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
       if (res.headersSent) return void res.end(); // a partial body is already on the wire
       try {
         // Render before writing: if the 500 page itself throws, headers stay unsent
         // and we fall back to plain text below instead of a half-written response.
         sendHtml(res, 500, await render("500", { title: "Server error" }));
       } catch (renderErr) {
-        console.error(renderErr);
+        reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
         res.writeHead(500, { "content-type": "text/plain; charset=utf-8" }).end("Internal Server Error");
       }
     }

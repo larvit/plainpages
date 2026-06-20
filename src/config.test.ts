@@ -23,6 +23,22 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift
   assert.equal(c.revocationDenylist, false); // instant-revoke is opt-in (§9)
   assert.equal(c.revocationTtlSec, 900); // ≥ tokenizer TTL (10m) + skew
+  assert.equal(c.logLevel, "info"); // §9 observability defaults
+  assert.equal(c.logFormat, "text"); // human-readable in dev; prod compose sets json
+  assert.equal(c.otlpEndpoint, undefined); // OTLP export opt-in; console-only by default
+  assert.equal(c.otlpProtocol, "http/json");
+});
+
+test("LOG_LEVEL/LOG_FORMAT/OTLP_PROTOCOL are validated enums; OTLP_ENDPOINT an optional URL (§9)", () => {
+  assert.equal(loadConfig({ LOG_LEVEL: "debug" }).logLevel, "debug");
+  assert.equal(loadConfig({ LOG_LEVEL: "none" }).logLevel, "none");
+  assert.throws(() => loadConfig({ LOG_LEVEL: "trace" }), /LOG_LEVEL/);
+  assert.equal(loadConfig({ LOG_FORMAT: "json" }).logFormat, "json");
+  assert.throws(() => loadConfig({ LOG_FORMAT: "yaml" }), /LOG_FORMAT/);
+  assert.equal(loadConfig({ OTLP_PROTOCOL: "http/protobuf" }).otlpProtocol, "http/protobuf");
+  assert.throws(() => loadConfig({ OTLP_PROTOCOL: "grpc" }), /OTLP_PROTOCOL/);
+  assert.equal(loadConfig({ OTLP_ENDPOINT: "http://collector:4318" }).otlpEndpoint, "http://collector:4318");
+  assert.throws(() => loadConfig({ OTLP_ENDPOINT: "not a url" }), /OTLP_ENDPOINT/);
 });
 
 test("REVOCATION_DENYLIST: opt-in toggle (off by default) + REVOCATION_TTL_SEC must be a positive integer", () => {

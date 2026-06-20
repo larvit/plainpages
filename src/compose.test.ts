@@ -67,6 +67,9 @@ test("prod base supplies the app secret via env and mounts no source; dev overri
   // Secret/cookie hardening: enforced in prod, off in dev so the throwaway + http cookies pass.
   assert.match(webBlock, /REQUIRE_SECURE_SECRETS:\s*"true"/, "base enforces real secrets");
   assert.match(override, /REQUIRE_SECURE_SECRETS:\s*"false"/, "dev allows the throwaway");
+  // §9 observability: prod emits structured JSON logs; dev flips it to human-readable text.
+  assert.match(webBlock, /LOG_FORMAT:\s*"json"/, "prod logs structured JSON");
+  assert.match(override, /LOG_FORMAT:\s*"text"/, "dev logs human-readable text");
   // Postgres credentials are env-supplied (dev default), never a baked-in literal.
   assert.match(compose, /POSTGRES_PASSWORD:\s*\$\{POSTGRES_PASSWORD\b/, "postgres password via env");
 });
