@@ -13,3 +13,7 @@ export { can, check, GuardError, requireSession } from "./guards.ts";
 export { parseListQuery } from "./list-query.ts";
 export { readFormBody } from "./body.ts";
 export { CSRF_FIELD } from "./csrf.ts";
+// Observability (§9): `ctx.log` (RequestContext) is the request logger; `tracedFetch` is a drop-in
+// `fetch` a plugin uses for upstream calls so they join the request's trace (client span + traceparent).
+// The `Log` class is exported so a plugin can type/construct one (e.g. `new Log("none")` in a test).
+export { Log, tracedFetch } from "./logger.ts";

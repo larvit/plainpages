@@ -179,6 +179,7 @@ request:
 ```ts
 interface RequestContext {
   chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
+  log: Log;                          // request-scoped logger, in this request's trace (§9)
   params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
@@ -198,6 +199,16 @@ role-filtered, and current-marked for this request. **`ctx.verifyCsrf(submitted)
 state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
 secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
+
+**`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log),
+§9) already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
+metadata values are string/number/boolean), and **`ctx.log.fetch(url, init?)`** — a drop-in `fetch`
+for upstream calls that adds a client span and propagates the trace (W3C `traceparent`) downstream.
+The barrel also exports a standalone **`tracedFetch`** (same behaviour, reads the ambient request log)
+to default an upstream client's `fetch` to — the reference plugin's `createUpstream` does exactly this,
+so its calls are traced with no per-handler wiring. Lines are correlated by a `requestId` and carry
+`service.name`; output/level/OTLP export are the host's config (it logs to console always, and to an
+OpenTelemetry Collector when `OTLP_ENDPOINT` is set).
 
 **Stability guarantee.** The fields above are the stable contract — present and non-breaking
 across a major `apiVersion`. New fields may be **added** within a major version (additive, never

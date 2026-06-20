@@ -27,6 +27,12 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.logFormat, "text"); // human-readable in dev; prod compose sets json
   assert.equal(c.otlpEndpoint, undefined); // OTLP export opt-in; console-only by default
   assert.equal(c.otlpProtocol, "http/json");
+  assert.equal(c.serviceName, "plainpages"); // OTLP service.name default; implementer-overridable
+});
+
+test("SERVICE_NAME is overridable so an implementer brands their own logs/traces (§9)", () => {
+  assert.equal(loadConfig({ SERVICE_NAME: "acme-ops" }).serviceName, "acme-ops");
+  assert.equal(loadConfig({ SERVICE_NAME: "" }).serviceName, "plainpages"); // empty ⇒ default
 });
 
 test("LOG_LEVEL/LOG_FORMAT/OTLP_PROTOCOL are validated enums; OTLP_ENDPOINT an optional URL (§9)", () => {

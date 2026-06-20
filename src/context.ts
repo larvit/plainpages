@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PageChrome } from "./chrome.ts"; // type-only: no runtime import, so no cycle
+import { createLogger, type Log } from "./logger.ts";
 
 // The request context threaded to every route handler (plugin + built-in), built once
 // per request by `buildContext`: the router supplies matched path `params`, the §4 JWT
@@ -17,6 +18,10 @@ export interface RequestContext {
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).
   chrome: PageChrome;
+  // Request-scoped logger (§9): structured, in the request's trace. `log.info/warn/error(...)` to
+  // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
+  // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
+  log: Log;
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
   req: IncomingMessage;
@@ -31,6 +36,7 @@ export interface RequestContext {
 
 export interface BuildContextOptions {
   chrome?: PageChrome;
+  log?: Log;
   params?: Record<string, string>;
   user?: User | null;
   verifyCsrf?: (submitted: string | null | undefined) => boolean;
@@ -38,6 +44,9 @@ export interface BuildContextOptions {
 
 // Anonymous default chrome — used until the host supplies a real one (built-in routes, tests).
 const ANON_CHROME: PageChrome = { brand: { name: "Plainpages" }, csrfToken: "", nav: [], user: { email: "", initials: "G", name: "Guest" } };
+// Silent default logger — used off the request path (built-in routes built ad hoc, tests) until the
+// host supplies the real request logger. One instance, no output, negligible cost.
+const SILENT_LOG = createLogger({ level: "none" });
 
 export function buildContext(
   req: IncomingMessage,
@@ -48,6 +57,7 @@ export function buildContext(
   const user = options.user ?? null;
   return {
     chrome: options.chrome ?? ANON_CHROME,
+    log: options.log ?? SILENT_LOG,
     params: options.params ?? {},
     query: url.searchParams,
     req,

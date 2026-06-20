@@ -152,6 +152,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` must be supplied and differ from the dev throwaway |
 | `LOG_LEVEL` | `info` | min severity logged: `error`/`warn`/`info`/`verbose`/`debug`/`silly`/`none` |
 | `LOG_FORMAT` | `text` | log line format: `text` (human-readable, dev) or `json` (structured, prod) |
+| `SERVICE_NAME` | `plainpages` | OTLP `service.name` on every log + span — brand it as your own deployment |
 | `OTLP_ENDPOINT` | _unset_ | OpenTelemetry Collector HTTP base URI; set ⇒ export logs + traces (unset ⇒ console only) |
 | `OTLP_PROTOCOL` | `http/json` | OTLP wire format: `http/json` or `http/protobuf` |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
@@ -349,9 +350,11 @@ it — the plugin holds no state of its own (see below); the reference points
 `SCHEDULING_UPSTREAM` at its backend (the dev compose ships a tiny mock,
 `examples/shifts-upstream/`). A `view` result renders against the native app shell
 via **`ctx.chrome`** (branding, the global nav, the signed-in user), and a write form
-guards itself with **`ctx.verifyCsrf`** + the token in `ctx.chrome.csrfToken`. Each
-plugin is **self-contained** (its own nav, routes, views, CSS), so installing one is
-"drop the folder, restart." An operator stays in control via a central override.
+guards itself with **`ctx.verifyCsrf`** + the token in `ctx.chrome.csrfToken`. It logs
+through **`ctx.log`** and traces upstream calls with **`ctx.log.fetch`** (or `tracedFetch`),
+joining the request's trace (see [Observability](#observability)). Each plugin is
+**self-contained** (its own nav, routes, views, CSS), so installing one is "drop the
+folder, restart." An operator stays in control via a central override.
 
 ### Where plugins live (and how to mount them)
 
@@ -618,26 +621,36 @@ mid-response, so container restarts are clean.
 ## Observability
 
 Logging is **structured** and **OTLP-native**, on [`@larvit/log`](https://www.npmjs.com/package/@larvit/log)
-(zero-dependency). One app logger tags every line with `service.name=plainpages`; each request is
-cloned into a short-lived **trace span**, so logs and traces correlate. Two explicit toggles (no
-`NODE_ENV`):
+(zero-dependency). One app logger tags every line with `service.name` (`SERVICE_NAME`, default
+`plainpages` — brand your own deployment); each request is cloned into a short-lived **trace span**,
+made ambient for the whole handler (an `AsyncLocalStorage`), so logs and traces correlate. Three
+explicit toggles (no `NODE_ENV`):
 
 - `LOG_LEVEL` (default `info`) — `error` · `warn` · `info` · `verbose` · `debug` · `silly` · `none`.
 - `LOG_FORMAT` — `text` in dev (human-readable), `json` in prod (the base compose sets it) for a log
   pipeline.
+- `SERVICE_NAME` — the `service.name` on every log and span.
 
 Every request emits one access line (`method`, `path` — the query is dropped, it can carry tokens —
-`status`, `ms`, `requestId`); the catch-all 500 and the Ory-unreachable session re-mint log at
-`error`/`warn`. An inbound W3C `traceparent` is **adopted**, so a request continues a trace started
-by an upstream proxy/gateway.
+`status`, `ms`, `requestId`); login/logout, admin writes (who-did-what), and missing-role/CSRF
+rejections log at `info`/`warn`, and the catch-all 500 + the Ory-unreachable re-mint at `error`/`warn`.
+An inbound W3C `traceparent` is **adopted**, so a request continues a trace started by an upstream
+proxy/gateway.
+
+**Distributed tracing — every outbound call.** Because the request logger is ambient, **all** outbound
+HTTP — the Kratos/Keto/Hydra clients and the JWKS fetch — runs through it (`tracedFetch`), so each
+becomes a **client span** under the request and carries the `traceparent` downstream (Ory continues
+the same trace). A **plugin** does the same: `ctx.log` is its request logger and `ctx.log.fetch(url)`
+(or defaulting an upstream client to the exported `tracedFetch`, as the reference plugin does) traces
+its upstream calls too. The result is one trace per request spanning web → Ory/upstream.
 
 **OTLP export (off by default).** Point `OTLP_ENDPOINT` at an OpenTelemetry Collector's HTTP base URI
-(e.g. `http://otel-collector:4318`) and logs **and** per-request spans also export there — feed
-Grafana Loki (logs) + Tempo (traces), or any OTLP backend. `OTLP_PROTOCOL` selects the wire format
-(`http/json` default, or `http/protobuf` for collectors that only accept protobuf). Export is
-fire-and-forget — it never blocks or fails a served request, and nothing exports when the endpoint is
-unset (zero cost). A collector outage is survivable but noisy: each request's failed export writes a
-line to stderr (it's retried per request, not queued), so run a local collector/agent you trust.
+(e.g. `http://otel-collector:4318`) and logs **and** spans also export there — feed Grafana Loki
+(logs) + Tempo (traces), or any OTLP backend. `OTLP_PROTOCOL` selects the wire format (`http/json`
+default, or `http/protobuf` for collectors that only accept protobuf). Export is fire-and-forget — it
+never blocks or fails a served request, and nothing exports when the endpoint is unset (zero cost). A
+collector outage is survivable but noisy: each request's failed export writes a line to stderr (it's
+retried per request, not queued), so run a local collector/agent you trust.
 
 ## Layout
 
@@ -662,7 +675,7 @@ src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookie
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
 src/denylist.ts      Optional instant-revoke denylist (§9): in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
 src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
-src/logger.ts        createLogger()/requestLogger(): structured app logger (service.name) + per-request trace span on @larvit/log; OTLP export when OTLP_ENDPOINT set (§9)
+src/logger.ts        createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set (§9)
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot

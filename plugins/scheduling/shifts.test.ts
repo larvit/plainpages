@@ -4,7 +4,7 @@ import { Readable } from "node:stream";
 import test from "node:test";
 // Import only from the plugin-api barrel — the same contract boundary shifts.ts uses (the host may
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
-import { GuardError, type PageChrome, type RequestContext, type RouteResult } from "../../src/plugin-api.ts";
+import { GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "../../src/plugin-api.ts";
 import {
   assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
@@ -16,7 +16,7 @@ function fakeCtx(opts: { body?: string; roles?: string[]; url?: string; verifyCs
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
-    chrome: CHROME, params: {}, query: url.searchParams, req, res: {} as ServerResponse,
+    chrome: CHROME, log: new Log("none"), params: {}, query: url.searchParams, req, res: {} as ServerResponse,
     roles: opts.roles ?? [], url, user: null, verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }

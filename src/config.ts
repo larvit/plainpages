@@ -33,6 +33,7 @@ export interface Config {
   revocationDenylist: boolean; // §9: enable the optional instant role/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
+  serviceName: string; // §9: OTLP service.name — an implementer brands their own logs/traces
 }
 
 type Env = Record<string, string | undefined>;
@@ -155,5 +156,6 @@ export function loadConfig(env: Env = process.env): Config {
     revocationTtlSec: readPosInt(env, "REVOCATION_TTL_SEC", 900),
     // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
     secureCookies: readBool(env, "SECURE_COOKIES", false),
+    serviceName: env["SERVICE_NAME"] || "plainpages", // §9 OTLP service.name; empty ⇒ default
   };
 }

@@ -94,6 +94,92 @@ test("emits a structured access-log line per request (the injected §9 logger)",
   assert.ok(rec.requestId, "carries a requestId for log↔trace correlation");
 });
 
+test("ctx.log: a handler logs in the request trace, and ctx.log.fetch continues the inbound trace (§9)", async (t) => {
+  const lines: string[] = [];
+  const upstream: { traceparent: string | undefined; url: string }[] = [];
+  const realFetch = globalThis.fetch;
+  // Intercept only the upstream call; everything else (the test's own request to the server) passes through.
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (!url.startsWith("http://upstream.test")) return realFetch(input, init);
+    upstream.push({ traceparent: new Headers(init?.headers).get("traceparent") ?? undefined, url });
+    return new Response("[]", { headers: { "content-type": "application/json" }, status: 200 });
+  };
+  t.after(() => { globalThis.fetch = realFetch; });
+
+  const plugin: Plugin = {
+    apiVersion: "1.0.0",
+    id: "obs",
+    routes: [{
+      handler: async (ctx) => {
+        ctx.log.info("ping handled", { who: "obs" }); // plugin logging via ctx.log
+        await ctx.log.fetch("http://upstream.test/data"); // an upstream call, traced + propagated
+        return { json: { ok: true } };
+      },
+      method: "GET",
+      path: "/ping",
+    }],
+  };
+  const app = createApp({ log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }), plugins: [plugin] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const base = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const inbound = "0af7651916cd43dd8448eb211c80319c";
+  await (await fetch(base + "/obs/ping", { headers: { traceparent: `00-${inbound}-b7ad6b7169203331-01` } })).text();
+
+  // ctx.log emitted a line tagged with the request's id (handler ran inside the request trace).
+  let pl: string | undefined;
+  for (let i = 0; i < 50 && !pl; i++) { pl = lines.find((l) => l.includes('"msg":"ping handled"')); if (!pl) await new Promise((r) => setTimeout(r, 10)); }
+  assert.ok(pl, "ctx.log line is emitted");
+  const rec = JSON.parse(pl!);
+  assert.equal(rec.who, "obs");
+  assert.ok(rec.requestId, "the plugin line shares the request id");
+
+  // ctx.log.fetch propagated a W3C traceparent continuing the inbound distributed trace.
+  const up = upstream.find((r) => r.url === "http://upstream.test/data");
+  assert.ok(up?.traceparent, "ctx.log.fetch injects a traceparent");
+  assert.equal(up!.traceparent!.split("-")[1], inbound, "the upstream call continues the inbound trace");
+});
+
+test("ctx.log after a client abort doesn't throw: the request log is ended only once the handler unwinds (§9)", async (t) => {
+  // The request span is ended on response "close", which also fires on a premature client abort.
+  // The handler keeps running after that — its ctx.log must not throw "already ended", so end() is
+  // deferred until the handler settles (regression for the abort race).
+  let afterCloseOk = false;
+  let afterCloseErr: string | undefined;
+  const plugin: Plugin = {
+    apiVersion: "1.0.0",
+    id: "slow",
+    routes: [{
+      handler: async (ctx) => {
+        await new Promise((r) => setTimeout(r, 120)); // outlasts the client abort below
+        try { ctx.log.info("after abort", {}); afterCloseOk = true; } // would throw if end() already ran
+        catch (e) { afterCloseErr = String(e); }
+        return { json: { ok: true } };
+      },
+      method: "GET",
+      path: "/go", // route mounts at /<id>/<path> → /slow/go
+    }],
+  };
+  const app = createApp({ log: createLogger({ level: "none" }), plugins: [plugin] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const base = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  // Abort the request mid-handler (well before the 120ms), forcing res "close" while it still runs.
+  const ac = new AbortController();
+  setTimeout(() => ac.abort(), 20);
+  await assert.rejects(fetch(base + "/slow/go", { signal: ac.signal })); // the client sees the abort
+
+  await new Promise((r) => setTimeout(r, 200)); // let the handler finish post-abort
+  assert.equal(afterCloseErr, undefined, "ctx.log did not throw after the client disconnected");
+  assert.ok(afterCloseOk, "the handler logged successfully after close");
+
+  // The server is unharmed — a fresh request still succeeds.
+  assert.equal((await fetch(base + "/slow/go")).status, 200);
+});
+
 test("static serving: GET sends body + content-type, HEAD headers only, unsafe paths → 403", async () => {
   const get = await fetch(base + "/public/css/styles.css");
   assert.equal(get.status, 200);

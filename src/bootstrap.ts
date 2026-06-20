@@ -10,7 +10,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { discoverPlugins } from "./discovery.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
-import { createLogger } from "./logger.ts";
+import { createLogger, runWithLog, tracedFetch } from "./logger.ts";
 
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
 
@@ -134,26 +134,34 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
 
 async function main() {
   const env = process.env;
-  // Structured like the web app (§9) so prod logs stay uniform; honour LOG_FORMAT, default text.
-  const log = createLogger({ format: env["LOG_FORMAT"] === "json" ? "json" : "text" });
-  if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
-
-  // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared permission tokens, so the
-  // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-  const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.token));
-  const roles = seedRoles(env["ADMIN_ROLES"], declared);
-  const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
-  const password = env["ADMIN_PASSWORD"] ?? "admin";
-  const result = await seedAdmin({
-    email,
-    ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
-    kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
-    password,
-    roles,
+  // Structured like the web app (§9) so prod logs stay uniform; honour LOG_FORMAT/SERVICE_NAME.
+  const log = createLogger({
+    format: env["LOG_FORMAT"] === "json" ? "json" : "text",
+    ...(env["SERVICE_NAME"] ? { serviceName: env["SERVICE_NAME"] } : {}),
   });
-  log.info("admin seeded", { created: result.created, id: result.id, roles: result.roles.join(", ") });
-  // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
-  console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
+  // runWithLog makes `log` ambient so seedAdmin's tracedFetch traces the Kratos/Keto seed calls.
+  await runWithLog(log, async () => {
+    if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
+
+    // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared permission tokens, so the
+    // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
+    const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.token));
+    const roles = seedRoles(env["ADMIN_ROLES"], declared);
+    const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
+    const password = env["ADMIN_PASSWORD"] ?? "admin";
+    const result = await seedAdmin({
+      email,
+      fetchImpl: tracedFetch,
+      ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
+      kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
+      password,
+      roles,
+    });
+    log.info("admin seeded", { created: result.created, id: result.id, roles: result.roles.join(", ") });
+    // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
+    console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
+  });
+  await log.end(); // flush any pending OTLP spans/logs before the one-shot exits
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

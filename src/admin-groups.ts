@@ -362,6 +362,7 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
       if (!tuple) return reject("Pick a member to add as the group's first member.");
       if (await groupExists(keto, name)) return reject("A group with that name already exists.");
       await keto.writeTuple(tuple);
+      ctx.log.info("admin: group created", { actor: user.id, group: name });
       return { redirect: detailHref(name) };
     }
     return null;
@@ -392,6 +393,7 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
     await keto.deleteTuple({ namespace: GROUP_NS, object: name, relation: MEMBERS }); // removes every member tuple
+    ctx.log.info("admin: group deleted", { actor: user.id, group: name });
     return { redirect: ADMIN_GROUPS_BASE };
   }
   if (seg.length === 3 && seg[1] === "members" && seg[2] === "delete" && method === "POST") {

@@ -9,16 +9,18 @@ import { createJwksProvider } from "./jwks.ts";
 import { createKetoClient } from "./keto-client.ts";
 import { createKratosAdmin } from "./kratos-admin.ts";
 import { createKratosPublic } from "./kratos-public.ts";
-import { createLogger } from "./logger.ts";
+import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 // App-level logger (§9): structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
 // per request for access logging + a trace span (src/app.ts); console-only otherwise.
-const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol });
+const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
-// Every outbound Ory call is bounded so a hung/silent Ory can't park a request handler forever.
-const oryFetch = withTimeout(fetch, config.oryTimeoutSec * 1000);
+// Every outbound Ory call is traced through the active request's logger (a client span continuing
+// the trace + a propagated traceparent — tracedFetch) and bounded by the Ory timeout, so a hung/
+// silent Ory can't park a request handler forever. Off the request path it's a plain timed fetch.
+const oryFetch = withTimeout(tracedFetch, config.oryTimeoutSec * 1000);
 // Ory clients for the themed self-service routes + login completion (§4).
 const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl, fetchImpl: oryFetch });
 const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl, fetchImpl: oryFetch });

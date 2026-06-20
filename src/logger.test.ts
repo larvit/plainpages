@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createLogger, requestLogger, SERVICE_NAME } from "./logger.ts";
+import { createLogger, currentLog, requestLogger, runWithLog, SERVICE_NAME, tracedFetch } from "./logger.ts";
 
 // A capture pair so a test reads exactly what hit stdout/stderr without touching the console.
 function capture() {
@@ -24,6 +24,11 @@ test("createLogger: tags service.name, routes by severity, gates on level, honou
   assert.equal(rec["service.name"], SERVICE_NAME);
   assert.equal(rec.msg, "hello");
   assert.equal(rec.n, 1); // metadata kept native in JSON
+});
+
+test("createLogger: service.name is overridable (implementer sets their own)", () => {
+  assert.equal(createLogger({}).context["service.name"], SERVICE_NAME); // default
+  assert.equal(createLogger({ serviceName: "acme-ops" }).context["service.name"], "acme-ops");
 });
 
 test("createLogger: level none silences every severity", () => {
@@ -91,4 +96,37 @@ test("requestLogger: a malformed traceparent is ignored, not thrown (starts a fr
   const app = createLogger({ stderr: () => {}, stdout: () => {} });
   const tp = requestLogger(app, { requestId: "x", traceparent: "garbage" }).traceparent();
   assert.match(tp, /^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/);
+});
+
+test("runWithLog/currentLog: the active request log is ambiently available within the scope", () => {
+  const app = createLogger({ stderr: () => {}, stdout: () => {} });
+  assert.equal(currentLog(), undefined); // none outside a request
+  const req = requestLogger(app, { requestId: "r1" });
+  const seen = runWithLog(req, () => currentLog());
+  assert.equal(seen, req);
+  assert.equal(currentLog(), undefined); // scope ended
+});
+
+test("tracedFetch: traces through the active request log (continuing its trace), plain otherwise", async () => {
+  const orig = globalThis.fetch;
+  const seen: { traceparent: string | undefined; url: string }[] = [];
+  globalThis.fetch = async (input, init) => {
+    seen.push({ traceparent: new Headers(init?.headers).get("traceparent") ?? undefined, url: String(input) });
+    return new Response("{}", { status: 200 });
+  };
+  try {
+    // Outside a request: no logger, so no traceparent is injected (plain fetch).
+    await tracedFetch("http://up.test/a");
+    assert.equal(seen.at(-1)!.traceparent, undefined);
+
+    // Inside runWithLog: the call is routed through req.fetch → a traceparent continuing req's trace.
+    const app = createLogger({ stderr: () => {}, stdout: () => {} });
+    const req = requestLogger(app, { requestId: "r2", traceparent: "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" });
+    await runWithLog(req, () => tracedFetch("http://up.test/b"));
+    const tp = seen.at(-1)!.traceparent;
+    assert.ok(tp, "injects a traceparent inside a request");
+    assert.equal(tp!.split("-")[1], "0af7651916cd43dd8448eb211c80319c", "continues the request's trace");
+  } finally {
+    globalThis.fetch = orig;
+  }
 });

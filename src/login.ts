@@ -8,6 +8,7 @@
 // reads only the identity, never Keto.
 import type { User } from "./context.ts";
 import { serializeCookie, type CookieOptions } from "./cookie.ts";
+import { currentLog } from "./logger.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import type { KratosPublic } from "./kratos-public.ts";
@@ -69,6 +70,7 @@ export async function completeLogin(deps: LoginDeps, cookie: string | undefined)
   const jwt = tokenized?.tokenized;
   if (!jwt) throw new Error("login completion: Kratos tokenizer returned no JWT");
 
+  currentLog()?.info("session minted", { roles: roles.join(","), sub: identityId }); // login or TTL re-mint
   return { email, identityId, jwt, roles };
 }
 

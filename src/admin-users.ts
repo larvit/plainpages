@@ -328,6 +328,7 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
         if (err instanceof KratosError) return { ...(await renderForm({ error: createError(err), values: input })), status: 400 };
         throw err;
       }
+      ctx.log.info("admin: user created", { actor: user.id, email: input.email });
       return { redirect: ADMIN_USERS_BASE };
     }
     return null;
@@ -374,12 +375,14 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
         const nextState = identity.state === "inactive" ? "active" : "inactive";
         await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, nextState));
         if (nextState === "inactive") deps.revoke?.(targetId); // §9: a deactivation takes effect now, not after the JWT TTL
+        ctx.log.info("admin: user state changed", { actor: user.id, state: nextState, target: targetId });
         return { redirect: back };
       }
       if (seg[1] === "delete") {
         if (isSelf) return { ...(await renderForm({ error: "You can't delete your own account.", identity })), status: 400 };
         await kratosAdmin.deleteIdentity(targetId);
         deps.revoke?.(targetId); // §9: the account is gone — reject its live tokens immediately
+        ctx.log.info("admin: user deleted", { actor: user.id, target: targetId });
         return { redirect: ADMIN_USERS_BASE };
       }
       if (seg[1] === "recovery") {

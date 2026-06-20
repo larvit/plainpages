@@ -312,6 +312,7 @@ export async function handleAdminClients(ctx: RequestContext, csrfToken: string,
         throw err;
       }
       // Show the one-time secret now (Hydra never returns it again) — render the detail directly.
+      ctx.log.info("admin: oauth2 client registered", { actor: user.id, client: created.client_id ?? "" });
       return renderDetail(created, { created: true, ...(created.client_secret ? { secret: created.client_secret } : {}) });
     }
     return null;
@@ -339,6 +340,7 @@ export async function handleAdminClients(ctx: RequestContext, csrfToken: string,
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
     await hydra.deleteClient(id);
+    ctx.log.info("admin: oauth2 client deleted", { actor: user.id, client: id });
     return { redirect: ADMIN_CLIENTS_BASE };
   }
   return null;

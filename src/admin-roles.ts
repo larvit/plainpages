@@ -339,6 +339,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
       if (await roleExists(keto, name)) return reject("A role with that name already exists.");
       await keto.writeTuple(tuple);
       revokeUserMember(deps, member);
+      ctx.log.info("admin: role created + first member assigned", { actor: user.id, member, role: name });
       return { redirect: detailHref(name) };
     }
     return null;
@@ -357,7 +358,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 2 && seg[1] === "members" && method === "POST") {
     const member = (form!.get("member") ?? "").trim();
     const tuple = roleMemberTuple(name, member);
-    if (tuple) { await keto.writeTuple(tuple); revokeUserMember(deps, member); } // the picker only offers real users/groups
+    if (tuple) { await keto.writeTuple(tuple); revokeUserMember(deps, member); ctx.log.info("admin: role assigned", { actor: user.id, member, role: name }); } // the picker only offers real users/groups
     return { redirect: base };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "GET") {
@@ -374,6 +375,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS }); // removes every member tuple
     // §9: a whole-role delete drops many members at once — left to lag like a group change; the
     // per-member unassign above is the instant-revoke path.
+    ctx.log.info("admin: role deleted", { actor: user.id, role: name });
     return { redirect: ADMIN_ROLES_BASE };
   }
   if (seg.length === 3 && seg[1] === "members" && seg[2] === "delete" && method === "POST") {
@@ -382,7 +384,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     // Admin held only via a group isn't covered here — the robust "last effective admin" check is §9.
     if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return renderDetail(name, "You can't revoke your own admin access.");
     const tuple = roleMemberTuple(name, member);
-    if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(deps, member); }
+    if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(deps, member); ctx.log.info("admin: role unassigned", { actor: user.id, member, role: name }); }
     return { redirect: base };
   }
   return null;

@@ -1,6 +1,7 @@
 import type { JsonWebKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { currentLog } from "./logger.ts";
 
 // JWKS provider: resolve the JWT verify key by the JWS `kid` (todo §4). The middleware calls
 // `getKey` per request. `staticJwks` holds a fixed set; `cachingJwks` fetches over the network
@@ -87,6 +88,7 @@ export function cachingJwks(load: () => Promise<JsonWebKey[]>, opts: JwksCacheOp
       const hit = pick(keys, kid);
       if (hit || kid === undefined) return hit;
       if (now() - loadedAt >= minRefetchMs) {
+        currentLog()?.debug("jwks reload on kid miss (rotation?)", { kid }); // rare — only an unknown kid
         try { await refresh(); } catch { /* keep last-good */ }
       }
       return pick(keys, kid);

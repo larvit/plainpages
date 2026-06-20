@@ -6,7 +6,7 @@
 // pure functions against a mock upstream with no network (docs/plugin-contract.md → dev/test story).
 
 // One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
-import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler } from "../../src/plugin-api.ts";
+import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-api.ts";
 
 export const SHIFTS_PATH = "/scheduling/shifts";
 export const READ = "scheduling:read"; // permission token gating the list + nav
@@ -54,9 +54,10 @@ export function assertHttpUrl(value: string, name: string): void {
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`${name} must be an http(s) URL: ${JSON.stringify(value)}`);
 }
 
-// REST client over the upstream service (a stand-in for the customer's real backend). `fetch` is
-// injectable so handlers test without a network; the base URL comes from the plugin's own env.
-export function createUpstream(baseUrl: string, fetchImpl: typeof fetch = fetch): ShiftsUpstream {
+// REST client over the upstream service (a stand-in for the customer's real backend). `fetch`
+// defaults to the host's tracedFetch (§9), so each upstream call joins the request's trace (a client
+// span + a propagated traceparent); it's injectable so handlers unit-test against a mock, no network.
+export function createUpstream(baseUrl: string, fetchImpl: typeof fetch = tracedFetch): ShiftsUpstream {
   const base = baseUrl.replace(/\/+$/, "");
   return {
     async create(input) {
@@ -169,7 +170,8 @@ export function listShifts(upstream: ShiftsUpstream): RouteHandler {
     let error: string | undefined;
     try {
       shifts = await upstream.list();
-    } catch {
+    } catch (err) {
+      ctx.log.warn("scheduling upstream unreachable", { error: String(err) }); // plugin logging via ctx.log (§9)
       error = "Couldn't reach the scheduling service — try again shortly.";
     }
     const needle = q.toLowerCase();
@@ -192,9 +194,11 @@ export function createShift(upstream: ShiftsUpstream): RouteHandler {
     if (errors) return { data: buildFormModel({ chrome: ctx.chrome, errors, values: input }), status: 400, view: "shift-new" };
     try {
       await upstream.create(input);
-    } catch {
+    } catch (err) {
+      ctx.log.warn("scheduling shift create failed (upstream)", { error: String(err) });
       return { data: buildFormModel({ chrome: ctx.chrome, formError: "Couldn't save the shift — the scheduling service is unavailable.", values: input }), status: 502, view: "shift-new" };
     }
+    ctx.log.info("scheduling shift created", { assignee: input.assignee, title: input.title });
     return { redirect: SHIFTS_PATH }; // POST-redirect-GET
   };
 }

@@ -3,6 +3,7 @@ import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { test } from "node:test";
 import { buildContext, type User } from "./context.ts";
+import { createLogger } from "./logger.ts";
 
 // A req/res pair without a live server — enough to build and inspect a context.
 function reqRes(url?: string): { req: IncomingMessage; res: ServerResponse } {
@@ -43,4 +44,11 @@ test("buildContext threads the user and derives roles from it", () => {
 test("buildContext defaults a missing request URL to /", () => {
   const { req, res } = reqRes();
   assert.equal(buildContext(req, res).url.pathname, "/");
+});
+
+test("buildContext provides a logger: a silent default, or the host's request logger (§9)", () => {
+  const { req, res } = reqRes("/");
+  assert.equal(typeof buildContext(req, res).log.info, "function"); // always present (silent default)
+  const log = createLogger({ level: "none" });
+  assert.equal(buildContext(req, res, { log }).log, log); // host's request logger threads through
 });

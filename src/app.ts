@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { createServer, type Server, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
@@ -24,7 +24,7 @@ import { resolveSession, type VerifyOptions } from "./jwt-middleware.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { KratosError, type KratosPublic } from "./kratos-public.ts";
-import { createLogger, type Log, requestLogger } from "./logger.ts";
+import { createLogger, type Log, requestLogger, runWithLog } from "./logger.ts";
 import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "./login.ts";
 import { resolveLoginChallenge } from "./oauth-login.ts";
 import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-consent.ts";
@@ -110,24 +110,10 @@ export function createApp(options: AppOptions = {}): Server {
     res.end(html);
   };
 
-  return createServer(async (req, res) => {
-    // Per-request log + trace span (§9): a "request" span, continuing an upstream W3C traceparent
-    // when present (distributed tracing across a proxy). "close" (not "finish") fires on both a
-    // completed response and a premature disconnect/abort, so an aborted or truncated request is
-    // still logged and its span flushed; it fires once. Logging must never crash a served request,
-    // so the access line is guarded too — then end() exports the span (a no-op when OTLP is off).
-    const startMs = Date.now();
-    const reqLog = requestLogger(log, {
-      requestId: randomUUID(),
-      ...(typeof req.headers.traceparent === "string" ? { traceparent: req.headers.traceparent } : {}),
-    });
-    res.on("close", () => {
-      try {
-        // path only (no query — it may carry tokens); method/status are header-safe here.
-        reqLog.info("request", { method: req.method ?? "GET", ms: Date.now() - startMs, path: (req.url ?? "/").split("?", 1)[0] ?? "/", status: res.statusCode });
-      } catch { /* never let logging crash a served request */ }
-      void reqLog.end().catch(() => {}); // never let a flaky OTLP collector crash a served request
-    });
+  // The request handler. Run inside runWithLog (below) so the per-request logger is ambient: every
+  // outbound fetch (the Ory clients via tracedFetch) and any deep module joins this request's trace
+  // and correlation with no logger threaded through their signatures.
+  const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     try {
       const method = req.method ?? "GET";
       const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -179,7 +165,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // base context (no route params yet); reused for onRequest.
       const ctx = buildContext(req, res, {
-        user, verifyCsrf,
+        log: reqLog, user, verifyCsrf,
         ...(anyRequestHooks ? { chrome: chrome() } : {}),
       });
 
@@ -200,11 +186,12 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome: chrome(), params: match.params, user, verifyCsrf });
+        const routeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           // Anonymous → sign in (like the built-in screens' requireSession); a signed-in user who
           // simply lacks the role gets the 403 page.
           if (!routeCtx.user) { res.writeHead(303, { location: "/login" }).end(); return; }
+          reqLog.warn("forbidden: missing role", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
@@ -336,6 +323,7 @@ export function createApp(options: AppOptions = {}): Server {
           if (method === "POST") {
             const form = await readFormBody(req);
             if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
+              reqLog.warn("csrf rejected", { path: pathname });
               sendHtml(res, 403, await render("403", { title: "Forbidden" }));
               return;
             }
@@ -404,11 +392,13 @@ export function createApp(options: AppOptions = {}): Server {
       if (pathname === "/logout" && method === "POST" && kratos) {
         const form = await readFormBody(req);
         if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
+          reqLog.warn("csrf rejected", { path: pathname });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
         const flow = await kratos.createLogoutFlow(req.headers.cookie ? { cookie: req.headers.cookie } : {});
         res.appendHeader("set-cookie", clearSessionCookie({ secure: secureCookies }));
+        reqLog.info("logout", { sub: user?.id ?? "" });
         res.writeHead(303, { location: flow?.logoutUrl ?? "/login" }).end();
         return;
       }
@@ -447,6 +437,40 @@ export function createApp(options: AppOptions = {}): Server {
         res.writeHead(500, { "content-type": "text/plain; charset=utf-8" }).end("Internal Server Error");
       }
     }
+  };
+
+  return createServer((req, res) => {
+    // Per-request log + trace span (§9): a "request" span, continuing an upstream W3C traceparent
+    // when present (distributed tracing across a proxy). "close" (not "finish") fires on both a
+    // completed response and a premature disconnect/abort, so an aborted/truncated request is still
+    // logged and its span flushed.
+    const startMs = Date.now();
+    const reqLog = requestLogger(log, {
+      requestId: randomUUID(),
+      ...(typeof req.headers.traceparent === "string" ? { traceparent: req.headers.traceparent } : {}),
+    });
+    // end() must run exactly once, after BOTH the handler has fully unwound (settled) AND the
+    // response has closed (the access line is then emitted with the final status). Ending earlier
+    // would throw "already ended" from a still-running handler's ctx.log/tracedFetch on a client
+    // abort, or drop the access line on the happy path (handler settles before close). Coordinating
+    // the two signals avoids both. Logging must never crash a served request, so it's all guarded.
+    let settled = false;
+    let closed = false;
+    const finalize = (): void => { if (settled && closed) void reqLog.end().catch(() => {}); };
+    res.on("close", () => {
+      closed = true;
+      try {
+        // path only (no query — it may carry tokens); method/status are header-safe here.
+        reqLog.info("request", { method: req.method ?? "GET", ms: Date.now() - startMs, path: (req.url ?? "/").split("?", 1)[0] ?? "/", status: res.statusCode });
+      } catch { /* never let logging crash a served request */ }
+      finalize();
+    });
+    // Make reqLog ambient for the whole handler (sync body + every await) so all outbound fetch is
+    // traced. handleRequest owns its own try/catch; the .catch logs a pathological escape via the
+    // app logger (not reqLog, which may be the thing that broke), never crashing the request.
+    void runWithLog(reqLog, () => handleRequest(req, res, reqLog))
+      .catch((err) => log.error("request handler escaped its try/catch", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) }))
+      .finally(() => { settled = true; finalize(); });
   });
 }
 
