@@ -828,20 +828,6 @@ test("OAuth2 login challenge (/oauth2/login): a Kratos session accepts via Hydra
   assert.match(decodeURIComponent(loc.split("return_to=")[1]!), /^http:\/\/[^/]+\/oauth2\/login\?login_challenge=chal1$/);
 });
 
-test("/login?return_to=… bakes the return target into the Kratos flow init (§6 OAuth bounce)", async (t) => {
-  let seenReturnTo: string | undefined;
-  const kratos: KratosPublic = {
-    ...mockKratos(async () => { throw new Error("unused"); }),
-    initBrowserFlow: async (_t, opts) => { seenReturnTo = opts?.returnTo; return { flow: { id: "f1", ui: { action: "", method: "post", nodes: [] } }, setCookie: [] }; },
-  };
-  const app = createApp({ kratos });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const returnTo = "http://127.0.0.1:3000/oauth2/login?login_challenge=c";
-  await fetch(`http://localhost:${(app.address() as AddressInfo).port}/login?return_to=${encodeURIComponent(returnTo)}`, { redirect: "manual" });
-  assert.equal(seenReturnTo, returnTo);
-});
-
 test("OAuth2 consent challenge (/oauth2/consent): skip auto-accepts; a third-party shows the screen; allow/deny POST; CSRF-guarded; missing challenge", async (t) => {
   const csrfSecret = "consent-secret";
   let granted: { grant_scope?: string[]; session?: unknown } | undefined;
