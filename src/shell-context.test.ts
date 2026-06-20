@@ -14,11 +14,13 @@ test("buildShellContext maps branding + breadcrumbs, omitting unset optional fie
   assert.equal(bare.theme, undefined);
   assert.equal(bare.csrfToken, "");
   assert.equal(bare.user.name, "Guest");
+  assert.equal(bare.signInHref, undefined); // omitted unless supplied (a public built-in screen would set it)
 
   const full = buildShellContext({
     breadcrumbs: [{ href: "/", label: "Home" }, { label: "Users" }],
     csrfToken: "tok.sig",
     menu: { branding: { logo: "/l.svg", name: "Acme", sub: "Ops", theme: "dark" }, override: {} },
+    signInHref: "/login?return_to=%2Fx",
     title: "Users",
     user: { email: "a@b.c", id: "u1", roles: ["admin"] },
   });
@@ -26,4 +28,5 @@ test("buildShellContext maps branding + breadcrumbs, omitting unset optional fie
   assert.equal(full.theme, "dark");
   assert.equal(full.csrfToken, "tok.sig");
   assert.equal(full.breadcrumbs?.length, 2);
+  assert.equal(full.signInHref, "/login?return_to=%2Fx");
 });

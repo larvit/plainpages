@@ -10,7 +10,7 @@ import {
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
-const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], user: { email: "", initials: "T", name: "Tester" } };
+const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } };
 
 function fakeCtx(opts: { body?: string; roles?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");

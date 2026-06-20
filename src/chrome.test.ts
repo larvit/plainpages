@@ -13,22 +13,32 @@ const scheduling: Plugin = {
     icon: "i-cal", id: "scheduling", label: "Scheduling",
   }],
 };
+// A plugin with a public nav node (reachable by anyone, signed in or not).
+const portal: Plugin = { apiVersion: "1.0.0", id: "portal", nav: [{ href: "/portal", id: "portal", label: "Portal", public: true }] };
 
 const labels = (nodes: NavNode[]): string[] => nodes.map((n) => n.label);
 
-test("anonymous: brand from menu, Guest user, gated plugin + admin nav filtered out", () => {
-  const chrome = buildPluginChrome({ menu: DEFAULT_MENU, plugins: [scheduling] });
+test("anonymous: brand from menu, Guest user; the gated Dashboard link is hidden, a public node still shows", () => {
+  const chrome = buildPluginChrome({ menu: DEFAULT_MENU, plugins: [scheduling, portal] });
   assert.equal(chrome.brand.name, DEFAULT_MENU.branding.name);
   assert.equal(chrome.user.name, "Guest");
-  assert.deepEqual(labels(chrome.nav), ["Dashboard"]); // Scheduling (gated child) + Admin dropped
+  // Dashboard points at the gated /dashboard — showing it to an anonymous visitor only dead-ends them
+  // at /login, so it's dropped. Scheduling's only child is gated (dropped), admin gated (dropped);
+  // the explicitly public Portal node remains.
+  assert.deepEqual(labels(chrome.nav), ["Portal"]);
 });
 
-test("a permission holder sees the plugin nav; current path opens the active leaf", () => {
+test("anonymous shell Sign-in link carries the current page as return_to", () => {
+  assert.equal(buildPluginChrome({ menu: DEFAULT_MENU }).signInHref, "/login"); // no path known
+  assert.equal(buildPluginChrome({ currentPath: "/portal", menu: DEFAULT_MENU }).signInHref, "/login?return_to=%2Fportal");
+});
+
+test("a permission holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
   const chrome = buildPluginChrome({
     currentPath: "/scheduling/shifts", menu: DEFAULT_MENU, plugins: [scheduling],
     user: { email: "ada@x.io", id: "u1", roles: ["scheduling:read"] },
   });
-  assert.deepEqual(labels(chrome.nav), ["Dashboard", "Scheduling"]);
+  assert.deepEqual(labels(chrome.nav), ["Dashboard", "Scheduling"]); // Dashboard shown to a signed-in user
   const section = chrome.nav.find((n) => n.label === "Scheduling")!;
   assert.equal(section.open, true); // ancestor of the current leaf opened
   assert.equal(section.children!.find((c) => c.label === "Shifts")!.current, true);

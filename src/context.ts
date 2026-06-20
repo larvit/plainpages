@@ -35,7 +35,10 @@ export interface RequestContext {
 }
 
 export interface BuildContextOptions {
-  chrome?: PageChrome;
+  // Lazy chrome factory: composing the global menu is only paid for if the handler actually reads
+  // ctx.chrome (a json/redirect handler, or the public "/" with a standalone home, pays nothing).
+  // The host's factory is memoised, so the menu composes at most once per request across contexts.
+  chrome?: () => PageChrome;
   log?: Log;
   params?: Record<string, string>;
   user?: User | null;
@@ -43,7 +46,7 @@ export interface BuildContextOptions {
 }
 
 // Anonymous default chrome — used until the host supplies a real one (built-in routes, tests).
-const ANON_CHROME: PageChrome = { brand: { name: "Plainpages" }, csrfToken: "", nav: [], user: { email: "", initials: "G", name: "Guest" } };
+const ANON_CHROME: PageChrome = { brand: { name: "Plainpages" }, csrfToken: "", nav: [], signInHref: "/login", user: { email: "", initials: "G", name: "Guest" } };
 // Silent default logger — used off the request path (built-in routes built ad hoc, tests) until the
 // host supplies the real request logger. One instance, no output, negligible cost.
 const SILENT_LOG = createLogger({ level: "none" });
@@ -55,8 +58,10 @@ export function buildContext(
 ): RequestContext {
   const url = new URL(req.url ?? "/", "http://localhost");
   const user = options.user ?? null;
+  const buildChrome = options.chrome;
+  let chromeMemo: PageChrome | undefined; // resolve the factory at most once per context
   return {
-    chrome: options.chrome ?? ANON_CHROME,
+    get chrome(): PageChrome { return (chromeMemo ??= buildChrome ? buildChrome() : ANON_CHROME); },
     log: options.log ?? SILENT_LOG,
     params: options.params ?? {},
     query: url.searchParams,

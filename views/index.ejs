@@ -5,6 +5,9 @@
   sortable headers and pager are real GET links — q/sort/page round-trip the URL, zero-JS.
 %><%
   const nav = include("partials/nav-tree", { nodes: model.nav });
+  // The default home is a demo over mock data (its rows/actions/links are illustrative, not wired) —
+  // say so up front so the inert affordances read as a starter to replace, not a half-built product.
+  const note = include("partials/alert", { text: "The built-in demo home over mock data. Replace it by exporting a dashboard handler from a plugin.", title: "Starter dashboard" });
   const filters = include("partials/filter-bar", model.filterBar);
   const table = include("partials/data-table", model.table);
   const pager = include("partials/pagination", model.pagination);
@@ -14,7 +17,7 @@
 -%>
 <%- include("partials/shell", {
   actions,
-  body: filters + table + pager,
+  body: note + filters + table + pager,
   brand: model.shell.brand,
   breadcrumbs: model.shell.breadcrumbs,
   csrfToken: model.shell.csrfToken,

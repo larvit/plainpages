@@ -18,6 +18,7 @@ export interface ShellModel {
   brand: { logo?: string; name: string; sub?: string };
   breadcrumbs?: { href?: string; label: string }[];
   csrfToken: string;
+  signInHref?: string; // anonymous "Sign in" target (mirrors PageChrome.signInHref); a gated screen omits it
   theme?: string;
   title: string;
   user: ShellUser;
@@ -33,6 +34,7 @@ export function buildShellContext(opts: {
   breadcrumbs?: { href?: string; label: string }[];
   csrfToken?: string;
   menu: MenuConfig;
+  signInHref?: string;
   title: string;
   user?: User | null;
 }): ShellModel {
@@ -41,6 +43,7 @@ export function buildShellContext(opts: {
     brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: b.name, ...(b.sub != null ? { sub: b.sub } : {}) },
     ...(opts.breadcrumbs ? { breadcrumbs: opts.breadcrumbs } : {}),
     csrfToken: opts.csrfToken ?? "",
+    ...(opts.signInHref != null ? { signInHref: opts.signInHref } : {}),
     ...(b.theme != null ? { theme: b.theme } : {}),
     title: opts.title,
     user: shellUser(opts.user),

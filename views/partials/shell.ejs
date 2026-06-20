@@ -4,7 +4,8 @@
   `actions` (topbar buttons), `body` (page content); `styles` is an optional array of
   extra stylesheet hrefs (e.g. a plugin's own /public/<id>/x.css). Text locals: `title`, `brand`
   ({ name, logo?, sub? } — logo image else the default mark), `theme` (default for the
-  theme-switch), `user`, `breadcrumbs`, `csrfToken` (the Sign-out POST form's hidden field).
+  theme-switch), `user`, `breadcrumbs`, `csrfToken` (the Sign-out POST form's hidden field),
+  `signInHref` (anonymous "Sign in" target, carries return_to; default /login).
   Branding comes from config/menu.ts; `user`/`csrfToken` from §4 auth.
 %><%
   const title = locals.title || "Plainpages";
@@ -66,8 +67,9 @@
               </div>
             </details>
             <% } else { %>
-            <%# anonymous (a public page in the shell, §10): no session to end — offer a way in instead %>
-            <a class="btn btn-primary" href="/login" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg>Sign in</a>
+            <%# anonymous (a public page in the shell, §10): no session to end — offer a way in instead.
+                signInHref carries this page as return_to (chrome.signInHref); falls back to bare /login. %>
+            <a class="btn btn-primary" href="<%= locals.signInHref || '/login' %>" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg>Sign in</a>
             <% } %>
 
             <%- include("menu", {

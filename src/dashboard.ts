@@ -1,7 +1,8 @@
 // Dashboard view model (todo §1): the gated "/dashboard" app-shell "People" list. Pure — turns a
 // request URL into the data the building-block partials render, wiring the §1 helpers end-to-end:
-// parseListQuery → filter/sort/paginate a mock dataset → composeNav. Mock data stands in for
-// upstream until §4; the filter form, sortable headers and pager all round-trip the URL (zero-JS).
+// parseListQuery → filter/sort/paginate a mock dataset → composeNav. This is the built-in *demo* home
+// over mock data (a plugin owns the real one via a `dashboard` handler, §10); the filter form,
+// sortable headers and pager all round-trip the URL (zero-JS).
 
 import { adminSection } from "./admin-nav.ts";
 import type { User } from "./context.ts";
@@ -122,8 +123,8 @@ export function buildDashboardModel(url: URL | URLSearchParams | string, roles: 
 export type DashboardModel = ReturnType<typeof buildDashboardModel>;
 
 // Sidebar: the demo "Directory" fragment, then each discovered plugin's own nav fragment (so a
-// plugin is reachable from "/"; gated nodes stay invisible to non-admins), then the gated admin
-// section. composeNav applies the central override + per-user role filter.
+// plugin is reachable from the dashboard; gated nodes stay invisible to non-admins), then the gated
+// admin section. composeNav applies the central override + per-user role filter.
 function nav(roles: string[], override: NavOverride, plugins: Plugin[]): NavNode[] {
   const pluginFragments = plugins.filter((p) => p.nav?.length).map((p) => p.nav as NavNode[]);
   return composeNav([[

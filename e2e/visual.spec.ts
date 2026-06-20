@@ -164,7 +164,12 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   // The public overview is reachable with no session (200), not bounced to sign in.
   const pub = await request.get("/scheduling", { maxRedirects: 0 });
   expect(pub.status()).toBe(200);
-  expect(await pub.text()).toContain("Scheduling");
+  const body = await pub.text();
+  expect(body).toContain("Scheduling");
+  // Anonymous in the native shell (§10): the gated Dashboard link is hidden (it would only dead-end at
+  // /login), and the shell's Sign-in link carries the current page as return_to.
+  expect(body).not.toContain('href="/dashboard"');
+  expect(body).toContain('href="/login?return_to=%2Fscheduling"');
 
   // The gated shifts list still bounces (don't follow — this Ory-free suite has no /login handler);
   // assert the gate's 303 with the requested page preserved as return_to (§9).

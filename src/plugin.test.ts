@@ -7,9 +7,12 @@ import {
   HOST_API_VERSION,
   isValidPluginId,
   parseSemver,
+  RESERVED_PLUGIN_IDS,
   type Plugin,
   type PluginManifest,
 } from "./plugin.ts";
+import { ADMIN_CLIENTS_BASE, ADMIN_GROUPS_BASE, ADMIN_ROLES_BASE, ADMIN_USERS_BASE } from "./admin-nav.ts";
+import { AUTH_FLOWS } from "./flow-view.ts";
 
 // A representative manifest exercising every field — its existence type-checks the contract.
 // `apiVersion` is a literal: a plugin pins the version it was built against, so importing
@@ -108,4 +111,24 @@ test("findConflicts: each single slot (`home`/`dashboard`) may have one owner �
   assert.ok(dashDup.some((c) => c.kind === "dashboard" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
   // One owner of each (even both on one plugin) is fine.
   assert.deepEqual(findConflicts([p({ id: "a", dashboard: handler, home: handler }), p({ id: "b" })]).filter((c) => c.kind === "home" || c.kind === "dashboard"), []);
+});
+
+// Drift guard: RESERVED_PLUGIN_IDS is a hand-maintained mirror of the host's own top-level mounts —
+// a folder claiming one would silently shadow a built-in route. Derive the segments from the real
+// route constants so adding a new auth flow or admin screen without reserving its id fails here.
+test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / field) is NOT reserved", () => {
+  const seg = (path: string): string => path.split("/")[1] ?? ""; // first segment of "/x/y"
+  const builtins = new Set<string>([
+    ...Object.keys(AUTH_FLOWS).map(seg), // /login, /recovery, /registration, /settings, /verification
+    seg(ADMIN_USERS_BASE), seg(ADMIN_GROUPS_BASE), seg(ADMIN_ROLES_BASE), seg(ADMIN_CLIENTS_BASE), // → admin
+    "auth", // /auth/complete (login completion)
+    "logout", // POST /logout
+    "oauth2", // /oauth2/login · /consent · /logout (Hydra provider)
+    "dashboard", // the gated app home (§10)
+    "public", // static assets
+  ]);
+  for (const id of builtins) assert.ok(RESERVED_PLUGIN_IDS.has(id), `built-in mount "${id}" must be a reserved plugin id`);
+  // "/" is owned by the `home` manifest field (not a /<id> route), so it cannot be shadowed and is
+  // deliberately not reserved — a plugin folder named "home" is legal.
+  assert.equal(RESERVED_PLUGIN_IDS.has("home"), false);
 });

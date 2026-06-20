@@ -21,8 +21,9 @@ time, not in production.
 > reachable via `include()`), **per-plugin static serving** (`/public/<id>/` → the plugin's
 > `public/`, `routePublic` in `src/static.ts`), and the **central menu override + branding**
 > (`config/menu.ts`, loaded by `src/menu-config.ts`, with branding — name, logo, default theme —
-> rendered in the app shell) are wired. The §2 plugin host is feature-complete; the remaining §2
-> items are a project-wide review and comment/test cleanup.
+> rendered in the app shell) are wired and in use by the built-in screens and the reference plugin.
+> Later phases extended this contract: the replaceable [landing pages](#the-landing-pages-home--dashboard)
+> and [public pages & menu items](#public-pages--menu-items) (§10), both documented below.
 
 ## Anatomy of a plugin
 
@@ -237,11 +238,16 @@ interface RequestContext {
 }
 ```
 
-**`ctx.chrome`** is the page chrome the host builds per request — `{ brand, csrfToken, nav, theme,
-user }`. Hand it to `partials/shell` so a `view` result renders the **native app shell** (the same
+**`ctx.chrome`** is the page chrome the host builds per request — `{ brand, csrfToken, nav, signInHref,
+theme, user }`. Hand it to `partials/shell` so a `view` result renders the **native app shell** (the same
 sidebar, branding, theme switch and signed-in profile as the built-in screens); `chrome.nav` is the
 global menu — your plugin's nav fragment plus the others and the admin section — already composed,
-role-filtered, and current-marked for this request. **`ctx.verifyCsrf(submitted)`** guards a
+role-filtered, and current-marked for this request (the gated **Dashboard** link is omitted for an
+anonymous visitor). `chrome.signInHref` is where the shell's anonymous **Sign in** link points — the
+current page baked in as `return_to`. Map each `chrome.*` to the matching `partials/shell` local —
+`brand`, `csrfToken`, `nav` (the rendered nav-tree), `signInHref`, `theme`, `user` — exactly as the
+reference `plugins/scheduling/views/overview.ejs` does; a value you forget simply falls back to its
+shell default (e.g. a bare `/login`), it does not error. **`ctx.verifyCsrf(submitted)`** guards a
 state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
 secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
@@ -280,8 +286,9 @@ accident of a forgotten gate**. `public` and `permission` are **mutually exclusi
 both is contradictory and discovery refuses the plugin at boot.
 
 A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
-`ctx.user` is `null`, the shell shows a **Sign in** link in place of the profile/sign-out block, and
-`ctx.roles` is empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
+`ctx.user` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
+in place of the profile/sign-out block, the gated **Dashboard** link is hidden, and `ctx.roles` is
+empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
 **Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
 while the actual shifts list stays behind `scheduling:read`.
 

@@ -44,9 +44,13 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
 });
 
 test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a public page in the shell works (§10)", async () => {
-  const html = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x" }); // no user → Guest
-  assert.match(html, /href="\/login"[^>]*>[\s\S]*?Sign in/); // a path to sign in
+  const html = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x" }); // no user, no signInHref → default
+  assert.match(html, /href="\/login"[^>]*>[\s\S]*?Sign in/); // a path to sign in (default target)
   assert.doesNotMatch(html, /action="\/logout"/); // a guest has no session to end
+
+  // When chrome supplies signInHref (the current page as return_to), the link carries it.
+  const withReturn = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x", signInHref: "/login?return_to=%2Fscheduling" });
+  assert.match(withReturn, /href="\/login\?return_to=%2Fscheduling"[^>]*>[\s\S]*?Sign in/);
 });
 
 test("app shell renders a configured logo + default theme, falls back to the brand mark", async () => {

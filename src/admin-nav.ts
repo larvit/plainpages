@@ -20,6 +20,11 @@ export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
 export type AdminScreen = "clients" | "groups" | "roles" | "users";
 
+// The "Dashboard" link to the gated app home (/dashboard). One definition, reused by the in-screen
+// admin sidebar and the plugin-page chrome (chrome.ts) so the two can't drift. It targets a gated
+// route, so the chrome hides it from anonymous visitors (a non-signed-in click only dead-ends at /login).
+export const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" };
+
 const ITEMS: { href: string; icon: string; id: AdminScreen; label: string }[] = [
   { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "Users" },
   { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "Groups" },
@@ -42,10 +47,7 @@ export function adminSection(current?: AdminScreen): NavNode {
 
 // In-screen sidebar for the admin screens: a link home + the admin section (active item marked).
 export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen): NavNode[] {
-  return composeNav([[
-    { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" },
-    adminSection(current),
-  ]], menu.override, roles);
+  return composeNav([[DASHBOARD_NAV, adminSection(current)]], menu.override, roles);
 }
 
 // The shared gate for every admin screen: a signed-in admin only. Throws GuardError that app.ts maps

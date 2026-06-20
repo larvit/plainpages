@@ -4,7 +4,7 @@
 // nav is the global menu — Dashboard + every plugin's fragment + the gated admin section — run
 // through composeNav (override + per-user filter) and current-marked for the request path.
 
-import { adminSection } from "./admin-nav.ts";
+import { adminSection, DASHBOARD_NAV } from "./admin-nav.ts";
 import type { User } from "./context.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
@@ -15,11 +15,10 @@ export interface PageChrome {
   brand: { logo?: string; name: string; sub?: string };
   csrfToken: string; // double-submit token for the shell's Sign-out form + a plugin's own forms
   nav: NavNode[]; // global menu, composed + role-filtered + current-marked, ready for nav-tree.ejs
+  signInHref: string; // where the shell's anonymous "Sign in" link points — carries this page as return_to
   theme?: string;
   user: ShellUser;
 }
-
-const HOME: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" };
 
 export interface ChromeOptions {
   csrfToken?: string;
@@ -30,7 +29,9 @@ export interface ChromeOptions {
 }
 
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
-  const fragments: NavNode[][] = [[HOME]];
+  // The Dashboard link targets the gated /dashboard, so show it only to a signed-in user — to an
+  // anonymous visitor (a public page in the shell, §10) it would only dead-end at /login.
+  const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
   for (const p of opts.plugins ?? []) if (p.nav?.length) fragments.push(p.nav);
   fragments.push([adminSection()]);
 
@@ -43,6 +44,8 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: b.name, ...(b.sub != null ? { sub: b.sub } : {}) },
     csrfToken: opts.csrfToken ?? "",
     nav,
+    // Anonymous "Sign in" returns to the current page (it's host-relative, our own pathname).
+    signInHref: opts.currentPath ? `/login?return_to=${encodeURIComponent(opts.currentPath)}` : "/login",
     ...(b.theme != null ? { theme: b.theme } : {}),
     user: shellUser(opts.user),
   };

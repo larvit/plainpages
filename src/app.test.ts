@@ -60,6 +60,7 @@ test("the dashboard at /dashboard: the app-shell People list, gated to a session
   assert.match(html, /<table class="table"/);
   assert.match(html, /<footer class="pager"/);
   assert.match(html, /Avery Kline/); // a mock person on page 1
+  assert.match(html, /Starter dashboard/); // the default flags itself a demo to replace with a `dashboard` plugin (§10)
 
   // The Sign-out POST form carries a CSRF token matching the Set-Cookie issued for the page (§4).
   const csrfCookie = (res.headers.get("set-cookie") ?? "").match(/plainpages_csrf=([^;]+)/)?.[1];

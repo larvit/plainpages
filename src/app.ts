@@ -163,17 +163,15 @@ export function createApp(options: AppOptions = {}): Server {
       // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
       const verifyCsrf = (submitted: string | null | undefined): boolean =>
         verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
-      // Chrome (brand/global-nav/user/theme/csrf) is built lazily and at most once per request —
-      // only plugin routes (and an onRequest short-circuit) read it, so the hot path stays free and
-      // a matched plugin request doesn't re-compose the whole menu for the onRequest + route ctx.
+      // Chrome (brand/global-nav/user/theme/csrf) composes the whole menu, so it's resolved lazily and
+      // at most once per request: this app-level memo shares it across the contexts below, and each
+      // ctx.chrome getter only triggers it when a handler actually reads it (a json/redirect handler,
+      // or the public "/" with a standalone home, never composes the menu).
       let chromeMemo: PageChrome | undefined;
       const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }));
 
-      // base context (no route params yet); reused for onRequest.
-      const ctx = buildContext(req, res, {
-        log: reqLog, user, verifyCsrf,
-        ...(anyRequestHooks ? { chrome: chrome() } : {}),
-      });
+      // base context (no route params yet); reused for onRequest + the built-in admin screens.
+      const ctx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -192,7 +190,7 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, params: match.params, user, verifyCsrf });
+        const routeCtx = buildContext(req, res, { chrome, log: reqLog, params: match.params, user, verifyCsrf });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the role gets the 403 page.
@@ -440,7 +438,7 @@ export function createApp(options: AppOptions = {}): Server {
         // any form it ships). Else the built-in intro page with prominent sign-in / register links.
         if (homePlugin) {
           if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          const homeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
+          const homeCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
           const result = (await homePlugin.home(homeCtx)) ?? null;
           if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
           await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
@@ -460,7 +458,7 @@ export function createApp(options: AppOptions = {}): Server {
         // A plugin may fully own the dashboard (§10): render its handler against its own views, native
         // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
         if (dashboardPlugin) {
-          const dashCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
+          const dashCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
           const result = (await dashboardPlugin.dashboard(dashCtx)) ?? null;
           if (anyResponseHooks) await runResponseHooks(plugins, dashCtx, result);
           await sendResult(res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
