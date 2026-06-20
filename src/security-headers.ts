@@ -24,7 +24,6 @@ export interface SecurityHeaderOptions {
   secure?: boolean; // https deployment (mirrors SECURE_COOKIES) → also emit HSTS
 }
 
-// The header set applied to every response.
 export function securityHeaders(options: SecurityHeaderOptions = {}): Record<string, string> {
   const headers: Record<string, string> = {
     "content-security-policy": CSP,

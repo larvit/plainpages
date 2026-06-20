@@ -37,8 +37,7 @@ export function createLogger(opts: LoggerOptions = {}): Log {
   });
 }
 
-// The current request's Log, made ambient so deep modules (the Ory clients via tracedFetch, login,
-// jwks) join its trace + correlation without threading a logger through every signature.
+// The ambient per-request Log (see the header); set by runWithLog, read by currentLog/tracedFetch.
 const requestStore = new AsyncLocalStorage<Log>();
 
 // Run `fn` with `log` as the ambient request logger (app.ts wraps each request). currentLog() reads
