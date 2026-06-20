@@ -361,6 +361,10 @@ hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-con
 a CSRF-guarded form forwarding writes upstream, and permission-gated nav. Copy it and
 adapt. The sketch below is the shape.
 
+The landing page `/` (the **dashboard**) is gated to a signed-in session; a plugin can **fully
+replace** the built-in default by exporting a `home` handler in its manifest (one plugin may own it).
+See the contract's [dashboard section](docs/plugin-contract.md#the-dashboard-home).
+
 ```
 plugins/scheduling/      # folder name = the plugin id; mounted at /scheduling
   plugin.ts              # default export: the typed manifest (see below)
@@ -741,7 +745,7 @@ src/logger.ts        createLogger()/requestLogger() + the ambient request log (r
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
-src/dashboard.ts     buildDashboardModel(): the home "/" People list view model (mock data, wires the §1 helpers)
+src/dashboard.ts     buildDashboardModel(): the built-in "/" People list view model (mock data, wires the §1 helpers); "/" is gated to a session and replaceable by a plugin `home` handler (§10)
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
 src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded

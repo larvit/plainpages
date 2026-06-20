@@ -1,3 +1,5 @@
+import { createPrivateKey, sign } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -6,11 +8,31 @@ const MOCKUP = "file:///repo/html-css-foundation";
 const APP_SHELL = `${MOCKUP}/App%20Shell.html`;
 const AUTH = `${MOCKUP}/Auth.html`;
 const SHOTS = "artifacts/screenshots";
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
+const SESSION_COOKIE = "plainpages_jwt"; // src/login.ts — web verifies it against the committed dev JWKS
 
 const shot = (page: Page, name: string): Promise<Buffer> =>
   page.screenshot({ fullPage: true, path: `${SHOTS}/${name}.png` });
 
+// Sign a session JWT with the committed dev tokenizer key (bind-mounted at /repo/jwks.json), so the
+// gated dashboard (§10) renders for a "signed-in" user without standing up Ory — web verifies it
+// with the same key by `kid`, exactly as it verifies a real Kratos-tokenizer JWT.
+function devSession(roles: string[] = []): string {
+  const jwk = JSON.parse(readFileSync("/repo/jwks.json", "utf8")).keys[0];
+  const key = createPrivateKey({ format: "jwk", key: jwk });
+  const b64 = (o: unknown): string => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const input = `${b64({ alg: "ES256", kid: jwk.kid, typ: "JWT" })}.${b64({ email: "demo@plainpages.local", exp: now + 3600, iat: now, roles, sub: "visual-demo" })}`;
+  return `${input}.${sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key }).toString("base64url")}`;
+}
+
 test.beforeAll(async () => { await mkdir(SHOTS, { recursive: true }); });
+
+// The dashboard is gated (§10): a page navigation needs a session. Plant one per test — a plain
+// member (no roles) so the gated scheduling/admin nav stays filtered out, matching the mockup.
+test.beforeEach(async ({ context }) => {
+  await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
+});
 
 test("captures live pages + reference mockups for side-by-side review", async ({ page }) => {
   await page.goto("/");
@@ -125,13 +147,15 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its nav + routes are
 // permission-gated, so an anonymous visitor is bounced to sign in (and never sees it in the nav).
 // The authenticated list/form flow is the §8 full E2E (full-flow.spec). Side-effect-free.
-test("the reference plugin is permission-gated: anonymous → redirect to /login, hidden from the dashboard nav", async ({ page }) => {
-  // Don't follow the redirect — this Ory-free suite has no /login handler; assert the gate's 303 itself.
-  // The gate preserves the requested page as return_to (§9), so login can land back there.
-  const res = await page.request.get("/scheduling/shifts", { maxRedirects: 0 });
+test("the reference plugin is permission-gated: anonymous → redirect to /login, hidden from the dashboard nav", async ({ page, request }) => {
+  // `request` is the isolated API context — it doesn't carry the beforeEach session cookie, so this
+  // probe is genuinely anonymous. Don't follow the redirect (this Ory-free suite has no /login
+  // handler); assert the gate's 303 itself, with the requested page preserved as return_to (§9).
+  const res = await request.get("/scheduling/shifts", { maxRedirects: 0 });
   expect(res.status()).toBe(303);
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
 
+  // The signed-in member (no scheduling role) sees the dashboard, but the gated leaf is filtered out.
   await page.goto("/");
   await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders
   await expect(page.locator(".sidebar")).not.toContainText("Scheduling"); // gated leaf filtered out

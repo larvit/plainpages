@@ -23,7 +23,21 @@ import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
 
-const server = createApp();
+// A session JWT signed with a throwaway test key — the §4 verify path. Wired into the shared
+// `server` (and the per-test apps) so a request can present a valid session; the dashboard and the
+// gated routes need one (§10). `staticJwks([ecJwk])` is the matching verify side.
+const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const ecJwk: JsonWebKey = { ...(ec.publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid: "test-kid" };
+const b64url = (i: Buffer | string): string => Buffer.from(i).toString("base64url");
+function mintJwt(payload: Record<string, unknown>): string {
+  const input = `${b64url(JSON.stringify({ alg: "ES256", kid: "test-kid", typ: "JWT" }))}.${b64url(JSON.stringify(payload))}`;
+  return `${input}.${b64url(sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key: ec.privateKey }))}`;
+}
+// A session cookie carrying `roles`, valid for 10 min — the auth most tests need to reach a gated page.
+const session = (roles: string[] = []): string =>
+  `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, roles, sub: "u1" })}`;
+
+const server = createApp({ jwks: staticJwks([ecJwk]) });
 let base = "";
 
 before(async () => {
@@ -34,7 +48,8 @@ before(async () => {
 after(() => server.close());
 
 test("serves the home page: the app-shell People dashboard, filterable via the URL", async () => {
-  const res = await fetch(base + "/");
+  // The dashboard is gated to a signed-in user (§10), so present a session.
+  const res = await fetch(base + "/", { headers: { cookie: session() } });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
   const html = await res.text();
@@ -54,15 +69,52 @@ test("serves the home page: the app-shell People dashboard, filterable via the U
   assert.match(html, new RegExp(`name="_csrf" value="${csrfCookie!.replace(/[.]/g, "\\.")}"`));
 
   // A search query filters server-side: a no-match query drops every row.
-  const empty = await fetch(base + "/?q=zzz-no-such-person");
+  const empty = await fetch(base + "/?q=zzz-no-such-person", { headers: { cookie: session() } });
   assert.doesNotMatch(await empty.text(), /Avery Kline/);
 });
 
-test("renders branding from the menu config into the shell: logo + default theme", async (t) => {
-  const app = createApp({ menu: { branding: { logo: "/public/brand/logo.svg", name: "Acme Ops", theme: "dark" }, override: {} } });
+test("the dashboard is gated (§10): an anonymous visitor is bounced to sign in, not shown the page", async () => {
+  const res = await fetch(base + "/", { redirect: "manual" });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "/login");
+});
+
+test("a `home` plugin fully replaces the dashboard, rendered in the native shell from ctx.chrome; still gated (§10)", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-home-"));
+  mkdirSync(join(dir, "portal", "views"), { recursive: true });
+  // The home view renders the native app shell from ctx.chrome — the blessed plugin ergonomics:
+  // its own title/body, the global menu (chrome.nav), the signed-in user, the Sign-out CSRF token.
+  writeFileSync(join(dir, "portal", "views", "home.ejs"),
+    `<%- include("partials/shell", { body: "<p>Welcome " + user.email + "</p>", brand: chrome.brand, csrfToken: chrome.csrfToken, nav: include("partials/nav-tree", { nodes: chrome.nav }), theme: chrome.theme, title: "My Portal", user: chrome.user }) %>`);
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const portal: Plugin = {
+    apiVersion: "1.0.0",
+    home: (ctx) => ({ data: { chrome: ctx.chrome, user: ctx.user }, view: "home" }),
+    id: "portal",
+  };
+  const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [portal], pluginsDir: dir });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
-  const html = await (await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`)).text();
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  // Gate still applies — the home plugin doesn't open the page up.
+  assert.equal((await fetch(url + "/", { redirect: "manual" })).status, 303);
+
+  // Signed in: the plugin's dashboard renders, fully replacing the built-in People list.
+  const page = await fetch(url + "/", { headers: { cookie: session() } });
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /<h1 class="page-title">My Portal<\/h1>/); // the plugin's own title in the native shell
+  assert.match(html, /Welcome a@b\.c/); // its handler rendered, with ctx.user
+  assert.match(html, /<aside class="sidebar"/); // composed chrome (global nav) is available
+  assert.doesNotMatch(html, /Avery Kline/); // the built-in mock People list is gone — fully replaced
+});
+
+test("renders branding from the menu config into the shell: logo + default theme", async (t) => {
+  const app = createApp({ jwks: staticJwks([ecJwk]), menu: { branding: { logo: "/public/brand/logo.svg", name: "Acme Ops", theme: "dark" }, override: {} } });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const html = await (await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`, { headers: { cookie: session() } })).text();
 
   assert.match(html, /<img class="brand-logo" src="\/public\/brand\/logo\.svg"/);
   assert.match(html, /Acme Ops/);
@@ -71,10 +123,10 @@ test("renders branding from the menu config into the shell: logo + default theme
 
 test("emits a structured access-log line per request (the injected §9 logger)", async (t) => {
   const lines: string[] = [];
-  const app = createApp({ log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }) });
+  const app = createApp({ jwks: staticJwks([ecJwk]), log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }) });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
-  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/?q=zz`);
+  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/?q=zz`, { headers: { cookie: session() } });
   assert.equal(res.status, 200);
   await res.text(); // consume the body so the connection closes (the access line emits on close)
 
@@ -199,7 +251,7 @@ test("every response carries the security headers; HSTS follows SECURE_COOKIES (
   // Default app (secureCookies off): a page and a static asset both carry the hardening headers,
   // proving they're set once up front and survive each writeHead (the html + static paths merge).
   for (const path of ["/", "/public/css/styles.css"]) {
-    const res = await fetch(base + path);
+    const res = await fetch(base + path, { headers: { cookie: session() } });
     assert.equal(res.headers.get("x-content-type-options"), "nosniff", path);
     assert.equal(res.headers.get("x-frame-options"), "DENY", path);
     assert.match(res.headers.get("content-security-policy") ?? "", /default-src 'self'/, path);
@@ -207,21 +259,21 @@ test("every response carries the security headers; HSTS follows SECURE_COOKIES (
   }
 
   // A https deployment (SECURE_COOKIES=true) adds HSTS.
-  const secure = createApp({ secureCookies: true });
+  const secure = createApp({ jwks: staticJwks([ecJwk]), secureCookies: true });
   await new Promise<void>((r) => secure.listen(0, r));
   t.after(() => secure.close());
-  const res = await fetch(`http://localhost:${(secure.address() as AddressInfo).port}/`);
+  const res = await fetch(`http://localhost:${(secure.address() as AddressInfo).port}/`, { headers: { cookie: session() } });
   assert.match(res.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
 });
 
 // Production caches compiled templates; rendering must stay correct across repeated requests.
 test("renders correctly with template caching enabled", async () => {
-  const app = createApp({ cache: true });
+  const app = createApp({ cache: true, jwks: staticJwks([ecJwk]) });
   try {
     await new Promise<void>((resolve) => app.listen(0, resolve));
     const url = `http://localhost:${(app.address() as AddressInfo).port}/`;
     for (let i = 0; i < 2; i++) {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { cookie: session() } });
       assert.equal(res.status, 200);
       assert.match(await res.text(), /Plainpages/);
     }
@@ -241,10 +293,11 @@ test("renders the 500 HTML page when a handler throws", async () => {
   const dir = mkdtempSync(join(tmpdir(), "pp-views-"));
   writeFileSync(join(dir, "index.ejs"), "<% throw new Error('boom'); %>");
   cpSync(join(viewsDir, "500.ejs"), join(dir, "500.ejs"));
-  const app = createApp({ viewsDir: dir });
+  const app = createApp({ jwks: staticJwks([ecJwk]), viewsDir: dir });
   try {
     await new Promise<void>((resolve) => app.listen(0, resolve));
-    const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`);
+    // A session reaches the (throwing) index render; the gate would otherwise bounce anonymous to /login.
+    const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/`, { headers: { cookie: session() } });
     assert.equal(res.status, 500);
     assert.match(res.headers.get("content-type") ?? "", /text\/html/);
     assert.match(await res.text(), /500/);
@@ -378,14 +431,7 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
 });
 
 // JWT middleware (§4): a verified session cookie populates ctx.user/roles, which the gate reads.
-const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
-const ecJwk: JsonWebKey = { ...(ec.publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid: "test-kid" };
-const b64url = (i: Buffer | string): string => Buffer.from(i).toString("base64url");
-function mintJwt(payload: Record<string, unknown>): string {
-  const input = `${b64url(JSON.stringify({ alg: "ES256", kid: "test-kid", typ: "JWT" }))}.${b64url(JSON.stringify(payload))}`;
-  return `${input}.${b64url(sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key: ec.privateKey }))}`;
-}
-
+// The key + mintJwt + session() helper are hoisted above the shared `server` (top of file).
 test("a verified session JWT authorizes a role-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
   await new Promise<void>((r) => app.listen(0, r));
@@ -406,10 +452,13 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal(noCookie.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
 
-  // The home menu wires in the permission-gated Admin section: an admin's roles surface the links.
-  const home = (cookie?: string) => fetch(url + "/", cookie ? { headers: { cookie } } : {});
-  assert.match(await (await home(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}`)).text(), /href="\/admin\/users"/);
-  assert.doesNotMatch(await (await home()).text(), /href="\/admin\/users"/); // anonymous → no admin section
+  // The dashboard wires in the permission-gated Admin section: an admin's roles surface the links;
+  // anonymous is bounced to sign in before any page renders (§10 gate).
+  const admin = await fetch(url + "/", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}` } });
+  assert.match(await admin.text(), /href="\/admin\/users"/);
+  const anonHome = await fetch(url + "/", { redirect: "manual" });
+  assert.equal(anonHome.status, 303);
+  assert.equal(anonHome.headers.get("location"), "/login");
 });
 
 test("revocation denylist (§9): a revoked subject's token stops authorizing on the hot path; a fresh re-login passes", async (t) => {

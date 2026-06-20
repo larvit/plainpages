@@ -23,7 +23,7 @@ services:
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # the browser hits the gateway over http — Secure cookies wouldn't be stored
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/public/css/styles.css"]
       interval: 2s
       timeout: 4s
       retries: 30
@@ -79,7 +79,7 @@ services:
     volumes:
       - ./e2e/proxy.mjs:/proxy.mjs:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/public/css/styles.css"]
       interval: 2s
       timeout: 4s
       retries: 30

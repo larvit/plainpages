@@ -13,7 +13,7 @@ services:
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/public/css/styles.css"]
       interval: 2s
       timeout: 4s
       retries: 30

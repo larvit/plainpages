@@ -50,6 +50,10 @@ export interface PluginHooks {
 // host derives them from the folder name at discovery (see Plugin).
 export interface PluginManifest {
   apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
+  // Take over the dashboard "/" — the post-login landing page (§10). A handler like any route's,
+  // gated by the host to a signed-in session (anonymous → /login); render its own view via ctx.chrome.
+  // At most one plugin may declare it (findConflicts → error, never last-write-wins).
+  home?: RouteHandler;
   hooks?: PluginHooks;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
@@ -134,7 +138,7 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
 }
 
 export interface PluginConflict {
-  kind: "id" | "nav-id" | "permission" | "route";
+  kind: "home" | "id" | "nav-id" | "permission" | "route";
   level: "error" | "warn";
   message: string;
   plugins: string[]; // unique ids involved
@@ -152,6 +156,10 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   for (const [id, n] of idCounts) {
     if (n > 1) out.push({ kind: "id", level: "error", message: `${n} plugins share id "${id}"; ids must be globally unique`, plugins: [id] });
   }
+
+  // The dashboard "/" is a single slot (§10): two plugins claiming `home` is a loud error, not a race.
+  const homeOwners = plugins.filter((plugin) => plugin.home).map((plugin) => plugin.id);
+  if (homeOwners.length > 1) out.push({ kind: "home", level: "error", message: `${homeOwners.length} plugins claim the dashboard "home" (${homeOwners.join(", ")}); only one may`, plugins: uniq(homeOwners) });
 
   collect(plugins, (plugin, push) => {
     for (const route of plugin.routes ?? []) push(`${route.method} ${fullPath(plugin.id, route.path)}`);

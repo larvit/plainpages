@@ -29,7 +29,7 @@ import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from 
 import { resolveLoginChallenge } from "./oauth-login.ts";
 import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-consent.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
-import type { Plugin, RouteResult } from "./plugin.ts";
+import type { Plugin, RouteHandler, RouteResult } from "./plugin.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
@@ -79,6 +79,9 @@ export function createApp(options: AppOptions = {}): Server {
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
+  // A plugin may fully replace the dashboard "/" by declaring `home` (§10). Discovery's findConflicts
+  // guarantees at most one, so `find` is unambiguous; the predicate narrows `home` to defined.
+  const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
   // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
   const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
@@ -430,9 +433,21 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // Roles from the verified JWT (anonymous ⇒ []); branding/override come from config/menu.ts.
+        // The dashboard is the post-login landing page, gated to a signed-in user (§10): anonymous
+        // bounces to sign in (loginRedirect yields a bare /login for "/").
+        if (!user) { res.writeHead(303, { location: loginRedirect(ctx) }).end(); return; }
         // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+        // A plugin may fully own the dashboard (§10): render its handler against its own views, native
+        // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
+        if (homePlugin) {
+          const homeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
+          const result = (await homePlugin.home(homeCtx)) ?? null;
+          if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
+          await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
+          return;
+        }
+        // Roles from the verified JWT; branding/override come from config/menu.ts.
         sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token, user, plugins) }));
         return;
       }

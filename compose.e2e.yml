@@ -15,7 +15,7 @@ services:
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # the suite hits web over http — Secure cookies wouldn't be stored
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/public/css/styles.css"]
       interval: 2s
       timeout: 4s
       retries: 15
@@ -35,4 +35,7 @@ services:
       # The mockups + their stylesheet, kept as siblings so file:// ../public/css resolves.
       - ./html-css-foundation:/repo/html-css-foundation:ro
       - ./public:/repo/public:ro
+      # The committed dev tokenizer key — the spec signs a session JWT with it so the gated
+      # dashboard (§10) renders; web verifies it with the same key (the file it mounts read-only).
+      - ./ory/kratos/tokenizer/jwks.json:/repo/jwks.json:ro
       - ./e2e/artifacts:/e2e/artifacts
