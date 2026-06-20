@@ -54,7 +54,8 @@ only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 > SSO, the session→JWT hot path, the users/groups/roles admin screens) and **Hydra's login / consent
 > / logout handlers** — all driven end-to-end by the Playwright suites, plus **production & ops
 > hardening** (the prod compose profile, response security headers, **structured logging + OTLP
-> observability**). What's left is mainly a **JWT key-rotation runbook** — tracked in `todo.md` (§9).
+> observability**, the **[JWT key-rotation runbook](#jwt-signing-key--rotation)**). Remaining
+> polish is tracked in `todo.md` (§9–§10).
 
 ## The MVP — "clone, one command, hack on a plugin"
 
@@ -204,18 +205,71 @@ same way.
 The session tokenizer (§3) signs each session→JWT with an **ES256** key at
 `ory/kratos/tokenizer/jwks.json`. The committed one is a **dev throwaway** (like the
 cookie/cipher secrets in `kratos.yml`) — a clean clone works; **never run it in
-production**. (Re)generate with the bundled generator:
+production**. Mint a fresh key with the bundled generator:
 
 ```bash
 docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
 ```
 
-**Production:** mount a real key over that path, or set
-`SESSION_WHOAMI_TOKENIZER_TEMPLATES_PLAINPAGES_JWKS_URL=base64://<the JWKS JSON, base64>`.
+**Install in production.** Two endpoints must read the *same* key material:
 
-**Rotation (zero downtime):** Kratos signs with the **first** key in the set; the app
-selects the verify key by `kid` (§4). So prepend a freshly generated key, keep the old
-one for ~one token TTL (10m) so in-flight JWTs still verify, then drop it.
+- **Kratos (signer)** — mount the file over `…/tokenizer/jwks.json`, or set
+  `SESSION_WHOAMI_TOKENIZER_TEMPLATES_PLAINPAGES_JWKS_URL=base64://<the JWKS JSON, base64>`.
+- **web (verifier)** — `JWKS_URL` (default `file://…/tokenizer/jwks.json`). A `file://`
+  set is re-read live (5-min TTL, plus an immediate reload on an unknown `kid`); a
+  `base64://` set is immutable and rotates only on a web redeploy. **For rotation, use
+  `file://` on the web side** so it picks up new keys without a restart.
+
+**Why rotation is zero-downtime.** Kratos signs with the **first** key in the set and
+stamps its `kid` in each JWT header; web selects the verify key by that `kid` (§4). So a
+set can hold the new key *and* the old one at once — tokens minted before and after the
+swap both verify.
+
+#### Scheduled rotation
+
+The token TTL is **10 min** (`kratos.yml` → `whoami.tokenizer.…ttl`); the wait window
+below is one TTL + clock skew, round up to **~12 min**. Run from the repo root (paths are
+container-relative; with the dev bind-mount they edit the real file).
+
+1. **Prepend a fresh key** (new key first, old key kept) — write via a temp file so the
+   shell's `>` can't truncate the input before it's read:
+   ```bash
+   docker compose run --rm -T --no-deps web sh -c \
+     'node src/gen-jwks.ts --prepend ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
+     && mv /tmp/jwks.json ory/kratos/tokenizer/jwks.json
+   ```
+2. **Restart Kratos** so it signs with the new first key: `docker compose restart kratos`.
+   (web needs no restart — it hot-reloads the file. The hot path verifies JWTs locally, so
+   a brief Kratos blip only touches login/re-mint.)
+3. **Verify** new logins mint the new `kid` — decode the `plainpages_session` cookie's JWT
+   header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
+   present the new key.
+4. **Wait ~12 min**, then **prune** the superseded key:
+   ```bash
+   docker compose run --rm -T --no-deps web sh -c \
+     'node src/gen-jwks.ts --prune ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
+     && mv /tmp/jwks.json ory/kratos/tokenizer/jwks.json
+   ```
+   No Kratos restart needed — it already signs with that key; this only drops a now-unused
+   verify key.
+
+**Rollback** (before the prune): the old key is still in the set, so revert step 1's file
+and `restart kratos` — in-flight tokens never broke.
+
+#### Emergency rotation (key compromise)
+
+Skip the overlap — you want every token signed with the leaked key to die now. **Replace**
+the set with a single fresh key (no `--prepend`):
+
+```bash
+docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+docker compose restart kratos
+```
+
+Every existing JWT now fails signature verification → its bearer falls back to anonymous
+and must re-authenticate (the §4 re-mint only covers *expired* tokens, not bad signatures,
+so a forged/leaked-key token can't be silently refreshed). The instant-revoke denylist
+(§9) is unnecessary here — the signature itself is already invalid.
 
 ## Type check & tests
 
@@ -669,7 +723,7 @@ src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challen
 src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes (§6)
 src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
 src/login.ts         completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie (§4)
-src/gen-jwks.ts      generateJwks() + CLI: mint the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
+src/gen-jwks.ts      generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
 src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
 src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
 src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate

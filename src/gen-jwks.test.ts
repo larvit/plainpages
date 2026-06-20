@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createPrivateKey, sign, type JsonWebKey } from "node:crypto";
-import { generateJwks } from "./gen-jwks.ts";
+import { generateJwks, rotateJwks } from "./gen-jwks.ts";
 import { verifyJws } from "./jwt.ts";
 
 const b64url = (s: string) => Buffer.from(s).toString("base64url");
@@ -28,6 +28,21 @@ test("the committed dev JWKS is a valid ES256 signing key importable by node:cry
   assert.deepEqual({ alg: k.alg, kty: k.kty, use: k.use }, { alg: "ES256", kty: "EC", use: "sig" });
   assert.ok(k.kid && k.d, "has a kid and the private signing scalar");
   assert.doesNotThrow(() => createPrivateKey({ key: k, format: "jwk" }), "Kratos can load it to sign");
+});
+
+test("rotateJwks prepends a fresh signing key, keeping the old ones for in-flight verification", () => {
+  const old = generateJwks(); // a one-key set, as Kratos signs with the first
+  const rotated = rotateJwks(old);
+  assert.equal(rotated.keys.length, old.keys.length + 1);
+  assert.notEqual(rotated.keys[0]!.kid, old.keys[0]!.kid, "the new key is first (Kratos signs with it) with a fresh kid");
+  assert.deepEqual(rotated.keys.slice(1), old.keys, "old keys are preserved in order so unexpired JWTs still verify");
+  assert.equal(rotated.keys[0]!.alg, "ES256");
+});
+
+test("rotateJwks --prune keeps only the newest (first) key, dropping superseded ones", () => {
+  const twoKeys = rotateJwks(generateJwks()); // prepend → 2 keys
+  const pruned = rotateJwks(twoKeys, { prune: true });
+  assert.deepEqual(pruned.keys, [twoKeys.keys[0]], "only the active signing key remains");
 });
 
 test("a JWS signed with a generated key verifies via our own verifier (§4 reads what Kratos signs)", () => {
