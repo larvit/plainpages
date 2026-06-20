@@ -63,8 +63,9 @@ The bar for a first usable release: **clone, run one command, get a working
 register/login, and start building your own plugin** — no manual key generation, no
 hand-edited Ory config, no separate database. That command brings up the whole stack
 (web + Ory + Postgres), generates signing keys, seeds an admin on first boot, and drops
-you at a login screen; from there you copy the example plugin folder and write your own
-page. SSO and the OAuth2-provider role (Hydra) come after — not required to start.
+you at a public landing page with a one-click path to sign in (the gated dashboard lives at
+`/dashboard`); from there you copy the example plugin folder and write your own page. SSO and
+the OAuth2-provider role (Hydra) come after — not required to start.
 
 ## Architecture
 
@@ -361,9 +362,11 @@ hooks, and the dev/test story — is **[docs/plugin-contract.md](docs/plugin-con
 a CSRF-guarded form forwarding writes upstream, and permission-gated nav. Copy it and
 adapt. The sketch below is the shape.
 
-The landing page `/` (the **dashboard**) is gated to a signed-in session; a plugin can **fully
-replace** the built-in default by exporting a `home` handler in its manifest (one plugin may own it).
-See the contract's [dashboard section](docs/plugin-contract.md#the-dashboard-home).
+There are two replaceable landing slots: `/` is a **public** front page (default: an intro with
+sign-in / register links) and `/dashboard` is the **gated** post-login app home (default: the People
+list). A plugin owns either by exporting a `home` (public `/`) or `dashboard` (gated `/dashboard`)
+handler — one owner each. See the contract's
+[landing pages section](docs/plugin-contract.md#the-landing-pages-home--dashboard).
 
 ```
 plugins/scheduling/      # folder name = the plugin id; mounted at /scheduling
@@ -745,7 +748,7 @@ src/logger.ts        createLogger()/requestLogger() + the ambient request log (r
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
-src/dashboard.ts     buildDashboardModel(): the built-in "/" People list view model (mock data, wires the §1 helpers); "/" is gated to a session and replaceable by a plugin `home` handler (§10)
+src/dashboard.ts     buildDashboardModel(): the built-in "/dashboard" People list view model (mock data, wires the §1 helpers); /dashboard is gated to a session, "/" is the public landing — both replaceable by a plugin `dashboard`/`home` handler (§10)
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
 src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
@@ -765,7 +768,7 @@ src/guards.ts        requireSession()/can()/check(): in-handler authorization (�
 src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates: index (app-shell dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates: home (public "/" landing), index (app-shell dashboard at /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)

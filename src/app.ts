@@ -79,9 +79,11 @@ export function createApp(options: AppOptions = {}): Server {
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
-  // A plugin may fully replace the dashboard "/" by declaring `home` (§10). Discovery's findConflicts
-  // guarantees at most one, so `find` is unambiguous; the predicate narrows `home` to defined.
+  // A plugin may fully replace the public landing "/" (`home`) or the gated dashboard "/dashboard"
+  // (`dashboard`) — §10. Discovery's findConflicts guarantees at most one of each, so `find` is
+  // unambiguous; the predicates narrow the slot to defined.
   const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
+  const dashboardPlugin = plugins.find((p): p is Plugin & { dashboard: RouteHandler } => typeof p.dashboard === "function");
   // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
   const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
@@ -245,10 +247,10 @@ export function createApp(options: AppOptions = {}): Server {
       // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
       const flowType = AUTH_FLOWS[pathname];
       if (kratos && flowType && (method === "GET" || method === "HEAD")) {
-        // Already signed in? Re-authenticating / re-registering is pointless — send them home.
-        // (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
+        // Already signed in? Re-authenticating / re-registering is pointless — send them to the app
+        // dashboard. (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
         if (ctx.user && (pathname === "/login" || pathname === "/registration")) {
-          res.writeHead(303, { location: "/" }).end();
+          res.writeHead(303, { location: "/dashboard" }).end();
           return;
         }
         const cookie = req.headers.cookie;
@@ -409,8 +411,8 @@ export function createApp(options: AppOptions = {}): Server {
         }
         res.appendHeader("set-cookie", sessionCookie(completed.jwt, { secure: secureCookies }));
         // Land on the deep link the user was headed to (return_to, validated host-relative so a
-        // crafted ?return_to= can't make this an open redirect), else home (§9).
-        res.writeHead(303, { location: localPath(ctx.url.searchParams.get("return_to")) ?? "/" }).end();
+        // crafted ?return_to= can't make this an open redirect), else the gated dashboard (§9/§10).
+        res.writeHead(303, { location: localPath(ctx.url.searchParams.get("return_to")) ?? "/dashboard" }).end();
         return;
       }
 
@@ -433,18 +435,35 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // The dashboard is the post-login landing page, gated to a signed-in user (§10): anonymous
-        // bounces to sign in (loginRedirect yields a bare /login for "/").
+        // The public landing (§10): ungated — anyone may see it. A plugin may fully own it via `home`
+        // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
+        // any form it ships). Else the built-in intro page with prominent sign-in / register links.
+        if (homePlugin) {
+          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          const homeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
+          const result = (await homePlugin.home(homeCtx)) ?? null;
+          if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
+          await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
+          return;
+        }
+        // Default landing — no form, so no CSRF cookie. `user` lets it show "go to dashboard" vs sign in.
+        sendHtml(res, 200, await render("home", { brand: menu.branding.name, user }));
+        return;
+      }
+
+      if (pathname === "/dashboard" && (method === "GET" || method === "HEAD")) {
+        // The post-login app home, gated to a signed-in user (§10): anonymous bounces to sign in,
+        // remembering /dashboard as return_to.
         if (!user) { res.writeHead(303, { location: loginRedirect(ctx) }).end(); return; }
         // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
         // A plugin may fully own the dashboard (§10): render its handler against its own views, native
         // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
-        if (homePlugin) {
-          const homeCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
-          const result = (await homePlugin.home(homeCtx)) ?? null;
-          if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
-          await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
+        if (dashboardPlugin) {
+          const dashCtx = buildContext(req, res, { chrome: chrome(), log: reqLog, user, verifyCsrf });
+          const result = (await dashboardPlugin.dashboard(dashCtx)) ?? null;
+          if (anyResponseHooks) await runResponseHooks(plugins, dashCtx, result);
+          await sendResult(res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
           return;
         }
         // Roles from the verified JWT; branding/override come from config/menu.ts.

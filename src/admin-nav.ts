@@ -43,7 +43,7 @@ export function adminSection(current?: AdminScreen): NavNode {
 // In-screen sidebar for the admin screens: a link home + the admin section (active item marked).
 export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen): NavNode[] {
   return composeNav([[
-    { href: "/", icon: "i-grid", id: "dashboard", label: "Dashboard" },
+    { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" },
     adminSection(current),
   ]], menu.override, roles);
 }

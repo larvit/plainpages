@@ -35,20 +35,20 @@ test.beforeEach(async ({ context }) => {
 });
 
 test("captures live pages + reference mockups for side-by-side review", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toBeVisible();
   await expect(page.locator("table.table tbody tr").first()).toBeVisible();
   await shot(page, "live-01-dashboard");
 
-  await page.goto("/?sort=-name&status=active");
+  await page.goto("/dashboard?sort=-name&status=active");
   await shot(page, "live-02-sorted-filtered");
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await page.locator("#theme-dark").check({ force: true }); // visually-hidden radio
   await shot(page, "live-03-dark");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await shot(page, "live-04-mobile");
   await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -68,7 +68,7 @@ const styleOf = (page: Page, selector: string): Promise<Record<string, string>> 
   }, PROPS as unknown as string[]);
 
 test("live components compute the same design-system styles as the reference mockup", async ({ page, context }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   const ref = await context.newPage();
   await ref.goto(APP_SHELL);
 
@@ -79,7 +79,7 @@ test("live components compute the same design-system styles as the reference moc
 });
 
 test("every icon <use> resolves to a defined <symbol> (no broken graphics)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   const missing = await page.evaluate(() => {
     const ids = new Set([...document.querySelectorAll("symbol[id]")].map((s) => s.id));
     return [...document.querySelectorAll("use")]
@@ -90,14 +90,14 @@ test("every icon <use> resolves to a defined <symbol> (no broken graphics)", asy
 });
 
 test("sorting and search drive the list through the URL (zero-JS)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   const total = await page.locator("tbody tr").count();
 
   await page.getByRole("link", { name: /Name/ }).first().click();
   await expect(page).toHaveURL(/sort=name/);
   await expect(page.locator("thead th").filter({ hasText: "Name" })).toHaveAttribute("aria-sort", "ascending");
 
-  await page.goto("/");
+  await page.goto("/dashboard");
   await page.locator('input[name="q"]').fill("Avery");
   await page.getByRole("button", { name: /Apply filters/ }).click();
   await expect(page).toHaveURL(/q=Avery/);
@@ -105,7 +105,7 @@ test("sorting and search drive the list through the URL (zero-JS)", async ({ pag
 });
 
 test("theme switch flips the palette with no JavaScript", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await page.locator("#theme-dark").check({ force: true });
   const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -114,7 +114,7 @@ test("theme switch flips the palette with no JavaScript", async ({ page }) => {
 
 test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.locator(".hamburger")).toBeVisible();
 
   const offCanvas = await page.locator(".sidebar").evaluate((el) => {
@@ -125,16 +125,26 @@ test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({
 });
 
 test("Sign-out is a CSRF-guarded POST form: the token is issued on the page, a tokenless POST is refused", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   // The page issues a CSRF cookie and embeds the same token in the Sign-out form (double-submit).
   const cookie = (await page.context().cookies()).find((c) => c.name === "plainpages_csrf");
-  expect(cookie?.value, "GET / issues a plainpages_csrf cookie").toBeTruthy();
+  expect(cookie?.value, "GET /dashboard issues a plainpages_csrf cookie").toBeTruthy();
   const field = await page.locator('form[action="/logout"] input[name="_csrf"]').getAttribute("value");
   expect(field).toBe(cookie!.value);
 
   // A POST carrying the cookie but no form token is rejected before any Kratos call.
   const res = await page.request.post("/logout", { form: {}, maxRedirects: 0 });
   expect(res.status()).toBe(403);
+});
+
+test("the public landing at / is ungated and links to sign in + register (§10)", async ({ page, context }) => {
+  await context.clearCookies(); // visit "/" as a logged-out visitor (drop the beforeEach session)
+  await page.goto("/");
+  await expect(page.locator(".landing")).toBeVisible(); // the standalone landing, not the app shell
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("link", { name: "Create account" })).toHaveAttribute("href", "/registration");
+  await shot(page, "live-05-public-landing");
 });
 
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
@@ -156,7 +166,7 @@ test("the reference plugin is permission-gated: anonymous → redirect to /login
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
 
   // The signed-in member (no scheduling role) sees the dashboard, but the gated leaf is filtered out.
-  await page.goto("/");
+  await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders
   await expect(page.locator(".sidebar")).not.toContainText("Scheduling"); // gated leaf filtered out
 });

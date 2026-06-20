@@ -43,11 +43,11 @@ anywhere; no uppercase, underscores, dots, or slashes); the host rejects a malfo
 at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
 convention) its nav/permission tokens.
 
-A handful of ids are **reserved** for the host's own first-party mounts — the Kratos auth flows
-(`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`), the `admin`
-screens, the `oauth2` provider routes, and `public` (static). Since plugin routes resolve first, a
-folder claiming one would silently shadow a built-in route, so discovery refuses it loud
-(`RESERVED_PLUGIN_IDS`).
+A handful of ids are **reserved** for the host's own first-party mounts — the gated `dashboard`, the
+Kratos auth flows (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`),
+the `admin` screens, the `oauth2` provider routes, and `public` (static). Since plugin routes resolve
+first, a folder claiming one would silently shadow a built-in route, so discovery refuses it loud
+(`RESERVED_PLUGIN_IDS`). (`/` is owned by the `home` field, not a route, so it needs no reservation.)
 
 Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
 Nothing else references it; the operator stays in control through the central menu override
@@ -98,7 +98,8 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 | Field | Required | Notes |
 | --- | --- | --- |
 | `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
-| `home` | no | A `RouteHandler` that owns the dashboard `/` (the post-login landing page). At most one plugin may declare it. See [The dashboard](#the-dashboard-home). |
+| `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
+| `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/icons.ts`); node `id`s must be globally unique. |
 | `permissions` | no | Tokens this plugin introduces; declared for docs, conflict detection, and bootstrap seeding (see [Nav & permissions](#nav--permissions)). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
@@ -176,32 +177,43 @@ safety of the data it renders**:
   return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
   ```
 
-## The dashboard ("home")
+## The landing pages (`home` & `dashboard`)
 
-`/` is the **post-login landing page**. The host gates it to a **signed-in session** (an anonymous
-visitor is redirected to `/login`) and, by default, renders a built-in mock-data dashboard. A plugin
-**fully replaces** it by exporting a `home` handler:
+The host has two replaceable landing slots, and a plugin may own either or both:
+
+| Slot | Path | Gate | Default |
+| --- | --- | --- | --- |
+| `home` | `/` | **public** — anyone | An intro page with prominent sign-in / register links. |
+| `dashboard` | `/dashboard` | **signed-in session** (anonymous → `/login`, with `/dashboard` as `return_to`) | The built-in mock-data People list. |
 
 ```ts
 import { definePlugin } from "../../src/plugin-api.ts";
-import { dashboard } from "./dashboard.ts";
+import { landing, board } from "./pages.ts";
 
 export default definePlugin({
   apiVersion: "1.0.0",
-  home: dashboard, // owns "/" — the post-login landing page
+  home: landing,     // owns "/" — the public front page
+  dashboard: board,  // owns "/dashboard" — the post-login app home
 });
 ```
 
-`home` is a `RouteHandler` like any route's — it receives the [`RequestContext`](#requestcontext)
-and returns a `RouteResult`, typically a `view` rendered from the plugin's own `views/` against the
-native app shell (`ctx.chrome`), exactly as a route handler does. The host enforces the session gate
-first, so `ctx.user` is non-null; branch on `ctx.roles` *inside* to tailor the page per role. Don't
-gate `home` itself behind a single permission — there's no second dashboard to fall back to, so a
-user lacking it would land on a 403 instead of a home page. (`GET /` also answers `HEAD`.)
+Each is a `RouteHandler` like any route's — it receives the [`RequestContext`](#requestcontext) and
+returns a `RouteResult`, typically a `view` from the plugin's own `views/`. A `dashboard` handler
+renders against the native app shell via `ctx.chrome` exactly as a route handler does; a `home`
+handler is a **public** page, so `ctx.user` may be `null` (use it to show a "go to dashboard" link to
+a signed-in visitor, or sign-in / register to an anonymous one). After login the user lands on
+`/dashboard` (or the `return_to` they were headed to), and the global menu's **Dashboard** link
+points there.
 
-Only **one** plugin may own the dashboard: two declaring `home` is a boot-stopping conflict
-([below](#conflict-rules)), never last-write-wins. The plugin needs no `routes` entry for `/` — the
-host mounts `home` at the root, above the `/<id>` route namespace.
+For the gated `dashboard`, the host enforces the session gate first, so `ctx.user` is non-null;
+branch on `ctx.roles` *inside* to tailor the page per role. Don't gate `dashboard` itself behind a
+single permission — there's no second dashboard to fall back to, so a user lacking it would land on a
+403. (Both slots answer `GET` and `HEAD`.)
+
+Only **one** plugin may own each slot: two declaring `home` (or two declaring `dashboard`) is a
+boot-stopping conflict ([below](#conflict-rules)), never last-write-wins. Neither needs a `routes`
+entry — the host mounts them above the `/<id>` route namespace, and `/` can't be shadowed by a plugin
+route at all (route paths always carry the `/<id>` prefix).
 
 ## RequestContext
 
@@ -306,7 +318,7 @@ with `findConflicts` and resolves them **loudly — never last-write-wins**. `er
 | `id` | error | Two plugins share an `id` (folder name). Ids must be globally unique — they namespace the mount path, views/static, and the override target. |
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
-| `home` | error | More than one plugin declares `home`. The dashboard `/` is a single slot, so only one may own it ([The dashboard](#the-dashboard-home)). |
+| `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
 | `permission` | warn | A permission token is declared by more than one plugin. Sharing is legitimate (shared role); namespace as `<id>:<action>` if unintended. |
 
 There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its

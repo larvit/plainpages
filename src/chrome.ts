@@ -19,7 +19,7 @@ export interface PageChrome {
   user: ShellUser;
 }
 
-const HOME: NavNode = { href: "/", icon: "i-grid", id: "dashboard", label: "Dashboard" };
+const HOME: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" };
 
 export interface ChromeOptions {
   csrfToken?: string;

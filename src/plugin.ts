@@ -50,9 +50,12 @@ export interface PluginHooks {
 // host derives them from the folder name at discovery (see Plugin).
 export interface PluginManifest {
   apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
-  // Take over the dashboard "/" — the post-login landing page (§10). A handler like any route's,
-  // gated by the host to a signed-in session (anonymous → /login); render its own view via ctx.chrome.
-  // At most one plugin may declare it (findConflicts → error, never last-write-wins).
+  // Take over the gated dashboard "/dashboard" — the post-login app home (§10). A handler like any
+  // route's; the host gates it to a signed-in session (anonymous → /login), then renders its own view
+  // via ctx.chrome. At most one plugin may declare it (findConflicts → error, never last-write-wins).
+  dashboard?: RouteHandler;
+  // Take over the public landing "/" — the ungated front page (§10). A handler like any route's,
+  // anyone may reach it. At most one plugin may declare it (findConflicts → error).
   home?: RouteHandler;
   hooks?: PluginHooks;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/icons.ts), node ids must be globally unique
@@ -81,12 +84,13 @@ export function isValidPluginId(id: string): boolean {
   return PLUGIN_ID.test(id);
 }
 
-// Ids the host reserves for its own first-party mount segments (the auth flows, /auth/complete,
-// /logout, the /admin screens, the /oauth2 provider routes, the dashboard's /public/ static).
+// Ids the host reserves for its own first-party mount segments (the gated /dashboard, the auth flows,
+// /auth/complete, /logout, the /admin screens, the /oauth2 provider routes, the /public/ static).
 // Plugin routes resolve before these, so a folder named one of them would silently shadow a
-// built-in route — discovery refuses it, loud like any conflict.
+// built-in route — discovery refuses it, loud like any conflict. ("/" is owned by the `home` field,
+// not a route, so it can't be shadowed and needs no reservation.)
 export const RESERVED_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  "admin", "auth", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
+  "admin", "auth", "dashboard", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
 ]);
 
 export interface Semver {
@@ -138,7 +142,7 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
 }
 
 export interface PluginConflict {
-  kind: "home" | "id" | "nav-id" | "permission" | "route";
+  kind: "dashboard" | "home" | "id" | "nav-id" | "permission" | "route";
   level: "error" | "warn";
   message: string;
   plugins: string[]; // unique ids involved
@@ -157,9 +161,12 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     if (n > 1) out.push({ kind: "id", level: "error", message: `${n} plugins share id "${id}"; ids must be globally unique`, plugins: [id] });
   }
 
-  // The dashboard "/" is a single slot (§10): two plugins claiming `home` is a loud error, not a race.
-  const homeOwners = plugins.filter((plugin) => plugin.home).map((plugin) => plugin.id);
-  if (homeOwners.length > 1) out.push({ kind: "home", level: "error", message: `${homeOwners.length} plugins claim the dashboard "home" (${homeOwners.join(", ")}); only one may`, plugins: uniq(homeOwners) });
+  // The landing pages are single slots (§10): "/" (home) and "/dashboard" (dashboard) take one owner
+  // each — two plugins claiming either is a loud error, not a race.
+  for (const slot of ["home", "dashboard"] as const) {
+    const owners = plugins.filter((plugin) => plugin[slot]).map((plugin) => plugin.id);
+    if (owners.length > 1) out.push({ kind: slot, level: "error", message: `${owners.length} plugins claim "${slot}" (${owners.join(", ")}); only one may own that page`, plugins: uniq(owners) });
+  }
 
   collect(plugins, (plugin, push) => {
     for (const route of plugin.routes ?? []) push(`${route.method} ${fullPath(plugin.id, route.path)}`);

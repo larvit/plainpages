@@ -88,8 +88,11 @@ function shapeError(manifest: PluginManifest): string | null {
   for (const field of ["nav", "permissions", "routes"] as const) {
     if (manifest[field] !== undefined && !Array.isArray(manifest[field])) return `"${field}" must be an array`;
   }
-  // `home` (the §10 dashboard override) is a route handler; the host calls it, so a non-function fails loud.
-  if (manifest.home !== undefined && typeof manifest.home !== "function") return `"home" must be a function (a route handler)`;
+  // `home` / `dashboard` (the §10 landing-page overrides) are route handlers; the host calls them, so
+  // a non-function fails loud.
+  for (const slot of ["home", "dashboard"] as const) {
+    if (manifest[slot] !== undefined && typeof manifest[slot] !== "function") return `"${slot}" must be a function (a route handler)`;
+  }
   return null;
 }
 

@@ -48,8 +48,11 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "incompatible apiVersion", files: { "future/plugin.ts": `export default { apiVersion: "2.0.0" };` }, match: /future.*apiVersion/s },
   { name: "non-array routes", files: { "weird/plugin.ts": `export default { apiVersion: "1.0.0", routes: "nope" };` }, match: /weird.*routes.*array/s },
   { name: "non-function home", files: { "weirdhome/plugin.ts": `export default { apiVersion: "1.0.0", home: "nope" };` }, match: /weirdhome.*home.*function/s },
+  { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
+  { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
-  { name: "two plugins claim the dashboard home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
+  { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
+  { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
 
 for (const c of badCases) {
@@ -58,11 +61,12 @@ for (const c of badCases) {
   });
 }
 
-test("a plugin may declare `home` (a function) to own the dashboard (§10)", async (t) => {
-  const dir = scaffold(t, { "portal/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ view: "home" }) };` });
+test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers (§10)", async (t) => {
+  const dir = scaffold(t, { "portal/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ view: "home" }), dashboard: () => ({ view: "dash" }) };` });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);
   assert.equal(typeof plugins[0]?.home, "function");
+  assert.equal(typeof plugins[0]?.dashboard, "function");
 });
 
 test("a shared permission token only warns — both plugins still load", async (t) => {

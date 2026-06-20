@@ -1,5 +1,5 @@
-// Dashboard view model (todo §1): the home "/" app-shell "People" list. Pure — turns a request
-// URL into the data the building-block partials render, wiring the §1 helpers end-to-end:
+// Dashboard view model (todo §1): the gated "/dashboard" app-shell "People" list. Pure — turns a
+// request URL into the data the building-block partials render, wiring the §1 helpers end-to-end:
 // parseListQuery → filter/sort/paginate a mock dataset → composeNav. Mock data stands in for
 // upstream until §4; the filter form, sortable headers and pager all round-trip the URL (zero-JS).
 
@@ -127,7 +127,7 @@ export type DashboardModel = ReturnType<typeof buildDashboardModel>;
 function nav(roles: string[], override: NavOverride, plugins: Plugin[]): NavNode[] {
   const pluginFragments = plugins.filter((p) => p.nav?.length).map((p) => p.nav as NavNode[]);
   return composeNav([[
-    { count: PEOPLE.length, current: true, href: "/", icon: "i-users", id: "people", label: "People" },
+    { count: PEOPLE.length, current: true, href: "/dashboard", icon: "i-users", id: "people", label: "People" },
     { href: "#teams", icon: "i-grid", id: "teams", label: "Teams" },
     { children: [
       { href: "#activity", id: "activity", label: "Activity" },

@@ -100,10 +100,12 @@ test("findConflicts: duplicate nav id is an error, a shared permission token onl
   assert.ok(permDup.some((c) => c.kind === "permission" && c.level === "warn"));
 });
 
-test("findConflicts: only one plugin may claim the dashboard (`home`) — two is a loud error (§10)", () => {
-  const home = () => ({ html: "dash" });
-  const dup = findConflicts([p({ id: "a", home }), p({ id: "b", home })]);
-  assert.ok(dup.some((c) => c.kind === "home" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
-  // One home (or none) is fine.
-  assert.deepEqual(findConflicts([p({ id: "a", home }), p({ id: "b" })]).filter((c) => c.kind === "home"), []);
+test("findConflicts: each single slot (`home`/`dashboard`) may have one owner — two is a loud error (§10)", () => {
+  const handler = () => ({ html: "x" });
+  const homeDup = findConflicts([p({ id: "a", home: handler }), p({ id: "b", home: handler })]);
+  assert.ok(homeDup.some((c) => c.kind === "home" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
+  const dashDup = findConflicts([p({ id: "a", dashboard: handler }), p({ id: "b", dashboard: handler })]);
+  assert.ok(dashDup.some((c) => c.kind === "dashboard" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
+  // One owner of each (even both on one plugin) is fine.
+  assert.deepEqual(findConflicts([p({ id: "a", dashboard: handler, home: handler }), p({ id: "b" })]).filter((c) => c.kind === "home" || c.kind === "dashboard"), []);
 });

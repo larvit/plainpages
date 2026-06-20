@@ -39,7 +39,7 @@ test.describe.serial("authenticated admin journey", () => {
   test("menu filters by role: an admin sees the gated Admin section + the plugin", async () => {
     // The signed-in admin holds admin + scheduling:read/write, so both gated sections are present
     // in the menu (collapsed by default → assert they're in the DOM, not necessarily visible).
-    await page.goto("/");
+    await page.goto("/dashboard");
     await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(1);
     await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(1);
   });
@@ -92,12 +92,13 @@ test.describe.serial("authenticated admin journey", () => {
   });
 
   test("logout: signing out ends the session and returns to the login page", async () => {
-    await page.goto("/");
+    await page.goto("/dashboard");
     await page.locator("summary.profile").click(); // open the profile dropdown
     await page.locator('form[action="/logout"] button[type="submit"]').click();
     await page.waitForURL(/\/login(\?|$)/);
-    // The session is gone: the dashboard no longer shows the admin nav.
-    await page.goto("/");
+    // The session is gone: /dashboard is gated, so it bounces back to the login page (no admin nav).
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login(\?|$)/);
     await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(0);
   });
 });
