@@ -43,6 +43,10 @@ test("field defaults to a bare text input, escapes a string error, and never thr
   const bare = flat(await render({ id: "x", name: "x", label: "X" }));
   assert.match(bare, /<div class="field"><label for="x">X<\/label><div class="input-wrap"><input class="input" id="x" name="x" type="text"><\/div><\/div>/);
 
+  // OTP code field: inputmode + pattern render (both after autocomplete, before required).
+  const code = flat(await render({ id: "field-code", name: "code", label: "Verification code", autocomplete: "one-time-code", inputmode: "numeric", pattern: "[0-9]*", required: true, icon: "i-shield" }));
+  assert.match(code, /<input class="input has-ico" id="field-code" name="code" type="text" autocomplete="one-time-code" inputmode="numeric" pattern="\[0-9\]\*" required>/);
+
   const stringErr = flat(await render({ id: "x", name: "x", label: "X", error: "<b>Required</b>." }));
   assert.match(stringErr, /<span>&lt;b&gt;Required&lt;\/b&gt;\.<\/span>/); // string error is escaped
   assert.match(stringErr, /aria-describedby="x-err"/);

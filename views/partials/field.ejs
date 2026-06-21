@@ -3,6 +3,7 @@
   Mirrors html-css-foundation auth markup. Config:
     id, name, label
     type? (default "text"), value?, placeholder?, autocomplete?, required?, readonly?, minlength?
+    inputmode?, pattern?  virtual-keyboard hint + client-side validity regex (e.g. the OTP code)
     icon?      input-ico id (e.g. "i-mail") → left-padded input
     optional?  show an "Optional" tag in the label row
     link?      { href, label } inline beside the label (e.g. Forgot password?)
@@ -24,7 +25,7 @@
 <% } else { -%>
   <label for="<%= id %>"><%= locals.label %></label>
 <% } -%>
-  <div class="input-wrap"><% if (icon) { %><svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#<%= icon %>"/></svg><% } %><input class="input<% if (icon) { %> has-ico<% } %>" id="<%= id %>" name="<%= locals.name %>" type="<%= type %>"<% if (locals.autocomplete) { %> autocomplete="<%= locals.autocomplete %>"<% } %><% if (locals.placeholder) { %> placeholder="<%= locals.placeholder %>"<% } %><% if (locals.value != null) { %> value="<%= locals.value %>"<% } %><% if (locals.minlength != null) { %> minlength="<%= locals.minlength %>"<% } %><% if (error) { %> aria-invalid="true" aria-describedby="<%= errId %>"<% } %><% if (locals.required) { %> required<% } %><% if (locals.readonly) { %> readonly<% } %>></div>
+  <div class="input-wrap"><% if (icon) { %><svg class="ico ico-sm input-ico" aria-hidden="true"><use href="#<%= icon %>"/></svg><% } %><input class="input<% if (icon) { %> has-ico<% } %>" id="<%= id %>" name="<%= locals.name %>" type="<%= type %>"<% if (locals.autocomplete) { %> autocomplete="<%= locals.autocomplete %>"<% } %><% if (locals.inputmode) { %> inputmode="<%= locals.inputmode %>"<% } %><% if (locals.pattern) { %> pattern="<%= locals.pattern %>"<% } %><% if (locals.placeholder) { %> placeholder="<%= locals.placeholder %>"<% } %><% if (locals.value != null) { %> value="<%= locals.value %>"<% } %><% if (locals.minlength != null) { %> minlength="<%= locals.minlength %>"<% } %><% if (error) { %> aria-invalid="true" aria-describedby="<%= errId %>"<% } %><% if (locals.required) { %> required<% } %><% if (locals.readonly) { %> readonly<% } %>></div>
 <% if (hint) { -%>
   <span class="field-hint"><%= hint %></span>
 <% } -%>

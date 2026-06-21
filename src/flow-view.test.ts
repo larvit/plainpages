@@ -96,6 +96,30 @@ test("collects oidc nodes as SSO providers (text logo = initial), keeping csrf a
   assert.deepEqual(view.buttons, [{ label: "Sign in", name: "method", value: "password" }]);
 });
 
+test("the code field guards a pasted space: one-time-code autofill + numeric inputmode + digits-only pattern", () => {
+  // Verification/recovery enter a numeric OTP. Kratos doesn't trim, so a stray pasted space makes it
+  // reject the code as "invalid"; a digits-only pattern blocks that in the browser before submit.
+  const view = buildFlowView(
+    flow([
+      node({ name: "csrf_token", type: "hidden", value: "tok" }),
+      node({ name: "code", type: "text", required: true }, { label: "Verification code", group: "code" }),
+      node({ name: "method", type: "submit", value: "code" }, { label: "Continue", group: "code" }),
+    ]),
+    "verification",
+  );
+  assert.deepEqual(view.fields.find((f) => f.name === "code"), {
+    autocomplete: "one-time-code", // Kratos sends none for the OTP node — enable OS/email autofill
+    icon: "i-shield",
+    id: "field-code",
+    inputmode: "numeric",
+    label: "Verification code",
+    name: "code",
+    pattern: "[0-9]*",
+    required: true,
+    type: "text",
+  });
+});
+
 test("chrome varies per flow type: registration alt, recovery back link", () => {
   const reg = buildFlowView(flow([]), "registration");
   assert.equal(reg.title, "Create account");

@@ -11,8 +11,10 @@ export interface FlowField {
   error?: { text: string };
   icon?: string; // Lucide sprite id for the input
   id: string;
+  inputmode?: string; // virtual-keyboard hint (e.g. "numeric" for the OTP code)
   label: string;
   name: string;
+  pattern?: string; // client-side validity regex; blocks a pasted space before it reaches Kratos
   required?: boolean;
   type: string;
   value?: string;
@@ -93,7 +95,11 @@ const ssoLogo = (value: string): string => (value.charAt(0) || "?").toUpperCase(
 
 function toField(node: UiNode, name: string, type: string): FlowField {
   const value = str(node.attributes["value"]);
-  const autocomplete = str(node.attributes["autocomplete"]);
+  // The recovery/verification one-time code: numeric, and Kratos doesn't trim it, so a stray pasted
+  // space makes it reject the code as "invalid". A digits-only pattern + numeric keypad block that in
+  // the browser; one-time-code enables OS/email autofill (Kratos sends no autocomplete for the node).
+  const isCode = name === "code";
+  const autocomplete = str(node.attributes["autocomplete"]) ?? (isCode ? "one-time-code" : undefined);
   const icon = iconFor(name, type);
   const errorMsg = node.messages.find((m) => m.type === "error");
   return {
@@ -104,6 +110,7 @@ function toField(node: UiNode, name: string, type: string): FlowField {
     ...(autocomplete ? { autocomplete } : {}),
     ...(errorMsg ? { error: { text: errorMsg.text } } : {}),
     ...(icon ? { icon } : {}),
+    ...(isCode ? { inputmode: "numeric", pattern: "[0-9]*" } : {}),
     ...(node.attributes["required"] === true ? { required: true } : {}),
     ...(value ? { value } : {}),
   };
