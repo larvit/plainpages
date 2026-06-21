@@ -721,6 +721,32 @@ test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a s
   assert.equal((await fetch(url + "/settings", signedIn)).headers.get("location"), "/settings?flow=new1");
 });
 
+test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via /auth/complete, never 500", async (t) => {
+  // After registration's `session` hook the user holds a Kratos session but no app JWT — so ctx.user
+  // is null and the "already signed in" short-circuit can't fire. Initialising a login/registration
+  // flow then returns Kratos 400 `session_already_available`; recover by completing login (mint the
+  // JWT from the live session), preserving return_to — never fall through to the catch-all 500.
+  const sessionRace = new KratosError("Kratos init login flow failed (400)", 400, JSON.stringify({ error: { id: "session_already_available" } }));
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => loginFlow("x")), initBrowserFlow: async () => { throw sessionRace; } } });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const recover = await fetch(url + "/login", { redirect: "manual" });
+  assert.equal(recover.status, 303);
+  assert.equal(recover.headers.get("location"), "/auth/complete");
+  // return_to is carried through so the deep link still lands after the JWT is minted.
+  const deep = await fetch(url + "/login?return_to=" + encodeURIComponent("/admin/users"), { redirect: "manual" });
+  assert.equal(deep.headers.get("location"), "/auth/complete?return_to=%2Fadmin%2Fusers");
+
+  // A genuinely unexpected Kratos 400 is still surfaced as a 500 (not masked as a session race).
+  const app2 = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => loginFlow("x")), initBrowserFlow: async () => { throw new KratosError("bad", 400, JSON.stringify({ error: { id: "security_csrf_violation" } })); } } });
+  await new Promise<void>((r) => app2.listen(0, r));
+  t.after(() => app2.close());
+  const url2 = `http://localhost:${(app2.address() as AddressInfo).port}`;
+  assert.equal((await fetch(url2 + "/login", { redirect: "manual" })).status, 500);
+});
+
 // return_to (§9): a deep-link login lands back on the requested page. The gate redirects to
 // /login?return_to=<host-relative path>; /login bakes that into the Kratos flow so completion
 // returns there — but a first-party path must route via /auth/complete first (to mint the JWT).

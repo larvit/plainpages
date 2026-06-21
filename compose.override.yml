@@ -12,6 +12,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:3000}
       CACHE_TEMPLATES: "false"
       LOG_FORMAT: "text" # human-readable logs in dev (base sets json for prod log pipelines)
+      LOG_LEVEL: "debug" # verbose by default while developing (base defaults to info)
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
       SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # reference plugin → the dev mock backend

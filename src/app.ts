@@ -305,6 +305,16 @@ export function createApp(options: AppOptions = {}): Server {
             res.writeHead(303, { location: pathname }).end();
             return;
           }
+          // Already authenticated at Kratos but no app JWT yet (e.g. straight after registration, whose
+          // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.user
+          // is null and the "already signed in" short-circuit above can't fire). Initialising a login/
+          // registration flow then returns Kratos 400 `session_already_available`. Recover by completing
+          // login (mint the JWT from the live session), honouring return_to — never a 500.
+          if (err instanceof KratosError && err.status === 400 && err.body.includes("session_already_available")) {
+            const local = localPath(ctx.url.searchParams.get("return_to"));
+            res.writeHead(303, { location: local ? `/auth/complete?return_to=${encodeURIComponent(local)}` : "/auth/complete" }).end();
+            return;
+          }
           // Ory unreachable (Kratos 5xx / connection refused / timeout): "Ory down ⇒ no logins" is
           // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
           if (!(err instanceof KratosError) || err.status >= 500) {
