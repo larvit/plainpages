@@ -13,6 +13,7 @@ export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly",
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 export interface Config {
+  appUrl: string | undefined; // canonical public URL; set ⇒ off-host visitors are redirected here. Unset ⇒ no redirect (explicit toggle)
   cacheTemplates: boolean;
   csrfSecret: string;
   hydraAdminUrl: string;
@@ -124,6 +125,13 @@ function readPosInt(env: Env, key: string, devDefault: number): number {
 export function loadConfig(env: Env = process.env): Config {
   const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
+    // The canonical public URL — the single source for "where this deployment lives". When set, the
+    // canonical-host redirect (app.ts) sends a visitor who reached the app on any other host
+    // (localhost vs 127.0.0.1, a secondary domain) here, so the browser, the themed forms, and the
+    // cross-origin Kratos POST all share ONE cookie host. Explicit toggle (no magic default): unset ⇒
+    // no redirect (a prod operator can't accidentally bounce real users to a forgotten default). The
+    // dev stack sets it to localhost (compose.override.yml); Kratos' browser URLs derive from it too.
+    appUrl: readOptionalUrl(env, "APP_URL"),
     cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
     csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
     // Hydra admin API — the OAuth2 login/consent challenge handshake (§6); not on the first-party path.

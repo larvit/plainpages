@@ -46,4 +46,14 @@ e2e compose.e2e-auth.yml   # token timeout + silent re-mint
 e2e compose.e2e-oauth.yml  # OAuth2 login + consent
 e2e compose.e2e-full.yml   # full browser flow: login (password + SSO), menu, CRUD, plugin, logout
 
+# Dev-stack login regression — runs against the PLAIN `docker compose up` topology (base + override)
+# with the runner on the HOST network, so it can't use the shared e2e() helper (which merges only
+# compose.yml + the suite). Needs host networking + the host ports 3000/4433 free (Linux CI).
+step "E2E: compose.e2e-devstack.yml (dev-stack login: localhost works + 127.0.0.1 canonicalised)"
+devstack_files=(-f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml)
+rc=0
+docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" run --build --rm e2e || rc=$?
+docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" down -v >/dev/null 2>&1 || true
+[ "$rc" -eq 0 ] || { echo "E2E suite compose.e2e-devstack.yml failed (exit $rc)"; exit "$rc"; }
+
 step "ALL GREEN"

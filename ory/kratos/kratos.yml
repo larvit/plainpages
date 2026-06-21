@@ -5,16 +5,19 @@
 # key in tokenizer/jwks.json).
 serve:
   public:
-    base_url: http://127.0.0.1:4433/
+    base_url: http://localhost:4433/
     cors:
       enabled: false
   admin:
     base_url: http://kratos:4434/
 
 selfservice:
-  default_browser_return_url: http://127.0.0.1:3000/
+  # Browser-facing URLs default to localhost (clean clone = APP_URL's default, so the host the web app
+  # canonicalises to matches the host the login form POSTs to — cookies share one host). Driven by
+  # APP_URL: compose overrides these from ${APP_URL} (compose.override.yml), so there's one knob.
+  default_browser_return_url: http://localhost:3000/
   allowed_return_urls:
-    - http://127.0.0.1:3000
+    - http://localhost:3000
   methods:
     password:
       enabled: true
@@ -33,37 +36,37 @@ selfservice:
         providers: []
   flows:
     error:
-      ui_url: http://127.0.0.1:3000/error
+      ui_url: http://localhost:3000/error
     login:
-      ui_url: http://127.0.0.1:3000/login
+      ui_url: http://localhost:3000/login
       after:
         # After authenticating, land on our completion route — it mints the session JWT
         # (roles from Keto → metadata_public projection → tokenize) and sets our cookie (§4).
-        default_browser_return_url: http://127.0.0.1:3000/auth/complete
+        default_browser_return_url: http://localhost:3000/auth/complete
     registration:
-      ui_url: http://127.0.0.1:3000/registration
+      ui_url: http://localhost:3000/registration
       after:
         password:
           hooks:
             - hook: session # log in immediately after sign-up
             - hook: show_verification_ui
     settings:
-      ui_url: http://127.0.0.1:3000/settings
+      ui_url: http://localhost:3000/settings
       privileged_session_max_age: 15m
       required_aal: highest_available
     recovery:
       enabled: true
       use: code
-      ui_url: http://127.0.0.1:3000/recovery
+      ui_url: http://localhost:3000/recovery
     verification:
       enabled: true
       use: code
-      ui_url: http://127.0.0.1:3000/verification
+      ui_url: http://localhost:3000/verification
       after:
-        default_browser_return_url: http://127.0.0.1:3000/
+        default_browser_return_url: http://localhost:3000/
     logout:
       after:
-        default_browser_return_url: http://127.0.0.1:3000/login
+        default_browser_return_url: http://localhost:3000/login
 
 # Dev mail catcher (compose.override.yml). Prod overrides via COURIER_SMTP_CONNECTION_URI.
 courier:

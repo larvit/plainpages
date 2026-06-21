@@ -9,6 +9,7 @@ services:
   web:
     # Dev throwaways are fine for the test stack; the runner hits web over http.
     environment:
+      APP_URL: http://web:3000 # the runner/browser reach web on this host → canonical-host redirect stays inert
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false"

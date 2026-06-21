@@ -9,6 +9,11 @@ services:
     # Supply CSRF_SECRET via env; the dev-throwaway fallback boots a clean clone but
     # REQUIRE_SECURE_SECRETS refuses it in prod (config.ts), so a forgotten secret fails loud.
     environment:
+      # Canonical public URL — set it to your domain to enable the canonical-host redirect (off when
+      # empty/unset, so a forgotten value never bounces real users). Your reverse proxy must preserve
+      # the public Host (or forward it) or a Host-rewriting proxy can loop. Kratos browser URLs and
+      # the banner derive from the same APP_URL. The dev override sets it to localhost.
+      APP_URL: ${APP_URL:-}
       CACHE_TEMPLATES: "true"
       CSRF_SECRET: ${CSRF_SECRET:-dev-insecure-csrf-secret}
       LOG_FORMAT: "json" # structured logs for prod pipelines; set OTLP_ENDPOINT to also export to a collector

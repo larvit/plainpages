@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, randomUUID, sign, type JsonWebKey } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -301,6 +302,65 @@ test("returns the 404 HTML page for unknown routes", async () => {
   assert.equal(res.status, 404);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
   assert.match(await res.text(), /404/);
+});
+
+// Raw request so we can send an arbitrary Host (fetch derives Host from the URL); connect to the
+// loopback server but present whatever host we want to exercise the canonical-host check.
+function rawGet(port: number, path: string, host: string, method = "GET"): Promise<{ status: number; location: string | undefined; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({ host: "127.0.0.1", port, path, method, headers: { host } }, (res) => {
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, location: res.headers.location, body }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("APP_URL canonical-host redirect: an off-host visitor is 308'd to the configured origin (path+query kept)", async (t) => {
+  // The fix for the localhost-vs-127.0.0.1 / multi-domain trap: reach the app on any host and it
+  // sends you to APP_URL's host, so the browser, the themed form, and the cross-origin Kratos POST
+  // all share ONE cookie host. Off-canonical only — same-host requests pass straight through.
+  const app = createApp({ jwks: staticJwks([ecJwk]), appUrl: "http://canonical.example:3000" });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const port = (app.address() as AddressInfo).port;
+
+  // Off-canonical host → 308 to the canonical origin, path + query preserved.
+  const off = await rawGet(port, "/dashboard?q=x", `127.0.0.1:${port}`);
+  assert.equal(off.status, 308);
+  assert.equal(off.location, "http://canonical.example:3000/dashboard?q=x");
+
+  // On the canonical host → no canonicalisation (the gated dashboard 303s to /login, never 308).
+  const on = await rawGet(port, "/dashboard", "canonical.example:3000");
+  assert.notEqual(on.status, 308);
+
+  // Static assets are host-agnostic (served before the check) so health checks on any host still pass.
+  const asset = await rawGet(port, "/public/css/styles.css", `127.0.0.1:${port}`);
+  assert.equal(asset.status, 200);
+
+  // A 308 must not replay a cross-host POST — non-GET/HEAD is left alone (not canonicalised).
+  const post = await rawGet(port, "/dashboard", `127.0.0.1:${port}`, "POST");
+  assert.notEqual(post.status, 308);
+});
+
+test("no APP_URL configured ⇒ no canonical redirect (unit-test apps and host-agnostic deploys unaffected)", async () => {
+  // The shared `server` is built without appUrl, so any Host is served as-is (no 308).
+  const r = await rawGet(Number(new URL(base).port), "/missing", "anything.example");
+  assert.equal(r.status, 404); // reaches the normal handler, not a redirect
+});
+
+test("/error renders a themed sign-in error page (Kratos' flow error sink), not the 404", async () => {
+  // Kratos' flows.error.ui_url points here; a flow error redirects to /error?id=<uuid>. Without a
+  // handler it 404'd as "Page not found" (confusing). It must be a real, themed page now.
+  const res = await fetch(base + `/error?id=${randomUUID()}`, { redirect: "manual" });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") ?? "", /text\/html/);
+  const html = await res.text();
+  assert.doesNotMatch(html, /Page not found/); // not the 404 view
+  assert.match(html, /sign in|sign-in|try again|something went wrong/i);
+  assert.match(html, /href="\/login"/); // a path back into auth
 });
 
 test("renders the 500 HTML page when a handler throws", async () => {

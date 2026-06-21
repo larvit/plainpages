@@ -1,0 +1,48 @@
+# Dev-stack login regression — guards the from-scratch experience the banner advertises (login from
+# http://localhost:3000 works, and entering on 127.0.0.1 is canonicalised). Unlike the proxied
+# full-flow suite (which fronts web + Kratos on ONE origin and so can't see this class of bug), this
+# runs against the *plain* `docker compose up` topology and drives the browser on the HOST network, so
+# it sees http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host
+# browser does. Merge the dev override so the live stack is byte-for-byte `docker compose up`:
+#   docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml run --build --rm e2e
+#   docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml down -v   # tear down
+services:
+  web:
+    # Pin APP_URL so the regression is deterministic regardless of any APP_URL exported in the shell
+    # running ci.sh (overrides the dev override's ${APP_URL:-…}); the runner's BASE_URL matches it.
+    environment:
+      APP_URL: http://localhost:3000
+    # Base web has no healthcheck; add one so the runner waits for a ready app (deps come via base).
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/public/css/styles.css"]
+      interval: 2s
+      timeout: 4s
+      retries: 30
+
+  # Pin Kratos' browser URLs to localhost too (literal, not ${APP_URL}) so the whole suite is
+  # hermetic — the 127.0.0.1 sub-test asserts canonicalisation onto localhost, which only holds if
+  # web AND Kratos agree on localhost regardless of the ambient shell env.
+  kratos:
+    environment:
+      SERVE_PUBLIC_BASE_URL: http://localhost:4433/
+      SELFSERVICE_DEFAULT_BROWSER_RETURN_URL: http://localhost:3000/
+      SELFSERVICE_ALLOWED_RETURN_URLS: http://localhost:3000
+      SELFSERVICE_FLOWS_ERROR_UI_URL: http://localhost:3000/error
+      SELFSERVICE_FLOWS_LOGIN_UI_URL: http://localhost:3000/login
+      SELFSERVICE_FLOWS_LOGIN_AFTER_DEFAULT_BROWSER_RETURN_URL: http://localhost:3000/auth/complete
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    command: ["npx", "playwright", "test", "devstack-login.spec.ts"]
+    # Host network: reach the host-published ports (web 3000, Kratos public 4433) at the very
+    # hostnames a user types — localhost / 127.0.0.1 — so the cross-host CSRF-cookie split reproduces.
+    network_mode: "host"
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://localhost:3000
+    volumes:
+      - ./e2e/artifacts:/e2e/artifacts

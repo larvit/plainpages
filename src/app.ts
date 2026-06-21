@@ -39,6 +39,7 @@ import { renderPluginView } from "./view-resolver.ts";
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppOptions {
+  appUrl?: string; // canonical public URL (config.appUrl); off-host GET/HEAD visitors are 308'd here. Omitted ⇒ no redirect
   auth?: VerifyOptions; // expected JWT issuer/audience + clock skew (config); used with jwks
   // Cache compiled templates; caller decides (server passes config.cacheTemplates).
   // Off by default so edits show live; the app itself never inspects the environment.
@@ -67,6 +68,11 @@ export function createApp(options: AppOptions = {}): Server {
   const authOptions: VerifyOptions = denylist ? { ...(options.auth ?? {}), denylist } : (options.auth ?? {});
   const revoke = denylist ? (sub: string): void => denylist.revoke(sub) : undefined;
   const cache = options.cache ?? false;
+  // Canonical public host (APP_URL): when set, an off-host GET/HEAD visitor is redirected here so
+  // every cookie (esp. Kratos' cross-origin CSRF cookie) shares one host. Omitted ⇒ feature off.
+  const canonical = options.appUrl ? new URL(options.appUrl) : undefined;
+  const canonicalHost = canonical?.host; // host[:port], default ports omitted — matches the Host header
+  const canonicalOrigin = canonical?.origin; // scheme + host[:port], no trailing slash
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
   const hydra = options.hydra;
@@ -134,6 +140,20 @@ export function createApp(options: AppOptions = {}): Server {
         const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
         await serveStatic(dir, subPath, res, method === "HEAD", (err) => reqLog.error("static stream error", { error: String(err) }));
         return;
+      }
+
+      // Canonical host (APP_URL): a visitor who reached us on a different host (localhost vs
+      // 127.0.0.1, a secondary domain) is sent to the configured origin, path + query preserved, so
+      // the browser, the themed forms, and the cross-origin Kratos POST all share one cookie host —
+      // otherwise the host-scoped Kratos CSRF cookie is lost and login dumps onto /error. Static
+      // assets above are served on any host (health checks). GET/HEAD only — a 308 must not replay a
+      // cross-host POST; first-party forms are always served from a canonical page anyway.
+      if (canonicalHost && (method === "GET" || method === "HEAD")) {
+        const host = req.headers.host;
+        if (host !== undefined && host !== canonicalHost) {
+          res.writeHead(308, { location: canonicalOrigin + (req.url ?? "/") }).end();
+          return;
+        }
       }
 
       // Verify the session JWT once (cached JWKS) → ctx.user/roles; none/invalid ⇒ anonymous.
@@ -429,6 +449,16 @@ export function createApp(options: AppOptions = {}): Server {
         res.appendHeader("set-cookie", clearSessionCookie({ secure: secureCookies }));
         reqLog.info("logout", { sub: user?.id ?? "" });
         res.writeHead(303, { location: flow?.logoutUrl ?? "/login" }).end();
+        return;
+      }
+
+      // Kratos' self-service error sink (kratos.yml flows.error.ui_url → /error). A flow that fails a
+      // security/expiry check redirects the browser here with ?id=<uuid>. Render a themed page with a
+      // path back into sign-in instead of the catch-all 404 ("Page not found") it used to hit. The
+      // canonical-host redirect above prevents the common cause (a lost cross-host CSRF cookie); this
+      // is the honest fallback for any genuine flow error. The id is shown only for support reference.
+      if (pathname === "/error" && (method === "GET" || method === "HEAD")) {
+        sendHtml(res, 200, await render("error", { id: ctx.url.searchParams.get("id"), title: "Sign-in problem" }));
         return;
       }
 

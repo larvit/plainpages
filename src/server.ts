@@ -39,6 +39,9 @@ log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => 
 await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
 const server = createApp({
+  // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless
+  // APP_URL is set, so the redirect is fully off — and costs nothing — when unconfigured.
+  ...(config.appUrl ? { appUrl: config.appUrl } : {}),
   auth: { audience: config.jwtAudience, clockSkewSec: config.jwtClockSkewSec, issuer: config.jwtIssuer },
   cache: config.cacheTemplates,
   csrfSecret: config.csrfSecret,
@@ -53,7 +56,7 @@ const server = createApp({
   plugins,
   secureCookies: config.secureCookies,
 }).listen(config.port, () => {
-  log.info("listening", { port: config.port, url: `http://localhost:${config.port}` });
+  log.info("listening", { port: config.port, url: config.appUrl ?? `http://localhost:${config.port}` });
 });
 
 // Drain in-flight requests on container stop instead of cutting them mid-response, then flush any

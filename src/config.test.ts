@@ -28,6 +28,14 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.otlpEndpoint, undefined); // OTLP export opt-in; console-only by default
   assert.equal(c.otlpProtocol, "http/json");
   assert.equal(c.serviceName, "plainpages"); // OTLP service.name default; implementer-overridable
+  assert.equal(c.appUrl, undefined); // canonical-host redirect is an explicit opt-in (off unless APP_URL set)
+});
+
+test("APP_URL is the canonical public URL: opt-in (unset ⇒ no redirect), honoured when set, validated", () => {
+  assert.equal(loadConfig({}).appUrl, undefined); // unset ⇒ off, so a prod default can't misfire
+  assert.equal(loadConfig({ APP_URL: "" }).appUrl, undefined); // empty ⇒ off too (compose passes ${APP_URL:-})
+  assert.equal(loadConfig({ APP_URL: "https://admin.acme.com" }).appUrl, "https://admin.acme.com");
+  assert.throws(() => loadConfig({ APP_URL: "not a url" }), /APP_URL/);
 });
 
 test("SERVICE_NAME is overridable so an implementer brands their own logs/traces (§9)", () => {

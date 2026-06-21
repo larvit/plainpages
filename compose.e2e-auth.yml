@@ -19,6 +19,7 @@ services:
     # Dev throwaways are fine for the test stack; the runner hits web over http; treat the JWT as
     # expired the instant its TTL lapses (no 60s leeway) so the re-mint fires promptly.
     environment:
+      APP_URL: http://web:3000 # the runner calls web on this host → canonical-host redirect stays inert
       CACHE_TEMPLATES: "true"
       JWT_CLOCK_SKEW_SEC: "0"
       REQUIRE_SECURE_SECRETS: "false"
