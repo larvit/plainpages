@@ -51,8 +51,8 @@ test("web waits for kratos, keto and hydra to be healthy before starting", () =>
 test("prod base publishes no internal Ory ports; dev exposes the host-facing ones", () => {
   for (const p of [4433, 4434, 4444, 4445, 4466, 4467])
     assert.ok(!compose.includes(`${p}:${p}`), `base does not publish :${p}`);
-  // Browser completes Kratos flows at kratos public (kratos.yml base_url 127.0.0.1:4433)
-  // and OAuth2 at hydra public — both reachable on the host only in dev.
+  // Browser completes Kratos flows at kratos public (kratos.yml base_url localhost:4433, shares
+  // APP_URL's host) and OAuth2 at hydra public — both reachable on the host only in dev.
   assert.match(override, /"4433:4433"/, "dev publishes kratos public");
   assert.match(override, /"4444:4444"/, "dev publishes hydra public");
 });

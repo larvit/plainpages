@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, randomUUID, sign, type JsonWebKey } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -301,6 +302,65 @@ test("returns the 404 HTML page for unknown routes", async () => {
   assert.equal(res.status, 404);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
   assert.match(await res.text(), /404/);
+});
+
+// Raw request so we can send an arbitrary Host (fetch derives Host from the URL); connect to the
+// loopback server but present whatever host we want to exercise the canonical-host check.
+function rawGet(port: number, path: string, host: string, method = "GET"): Promise<{ status: number; location: string | undefined; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({ host: "127.0.0.1", port, path, method, headers: { host } }, (res) => {
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, location: res.headers.location, body }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("APP_URL canonical-host redirect: an off-host visitor is 308'd to the configured origin (path+query kept)", async (t) => {
+  // The fix for the localhost-vs-127.0.0.1 / multi-domain trap: reach the app on any host and it
+  // sends you to APP_URL's host, so the browser, the themed form, and the cross-origin Kratos POST
+  // all share ONE cookie host. Off-canonical only — same-host requests pass straight through.
+  const app = createApp({ jwks: staticJwks([ecJwk]), appUrl: "http://canonical.example:3000" });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const port = (app.address() as AddressInfo).port;
+
+  // Off-canonical host → 308 to the canonical origin, path + query preserved.
+  const off = await rawGet(port, "/dashboard?q=x", `127.0.0.1:${port}`);
+  assert.equal(off.status, 308);
+  assert.equal(off.location, "http://canonical.example:3000/dashboard?q=x");
+
+  // On the canonical host → no canonicalisation (the gated dashboard 303s to /login, never 308).
+  const on = await rawGet(port, "/dashboard", "canonical.example:3000");
+  assert.notEqual(on.status, 308);
+
+  // Static assets are host-agnostic (served before the check) so health checks on any host still pass.
+  const asset = await rawGet(port, "/public/css/styles.css", `127.0.0.1:${port}`);
+  assert.equal(asset.status, 200);
+
+  // A 308 must not replay a cross-host POST — non-GET/HEAD is left alone (not canonicalised).
+  const post = await rawGet(port, "/dashboard", `127.0.0.1:${port}`, "POST");
+  assert.notEqual(post.status, 308);
+});
+
+test("no APP_URL configured ⇒ no canonical redirect (unit-test apps and host-agnostic deploys unaffected)", async () => {
+  // The shared `server` is built without appUrl, so any Host is served as-is (no 308).
+  const r = await rawGet(Number(new URL(base).port), "/missing", "anything.example");
+  assert.equal(r.status, 404); // reaches the normal handler, not a redirect
+});
+
+test("/error renders a themed sign-in error page (Kratos' flow error sink), not the 404", async () => {
+  // Kratos' flows.error.ui_url points here; a flow error redirects to /error?id=<uuid>. Without a
+  // handler it 404'd as "Page not found" (confusing). It must be a real, themed page now.
+  const res = await fetch(base + `/error?id=${randomUUID()}`, { redirect: "manual" });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") ?? "", /text\/html/);
+  const html = await res.text();
+  assert.doesNotMatch(html, /Page not found/); // not the 404 view
+  assert.match(html, /sign in|sign-in|try again|something went wrong/i);
+  assert.match(html, /href="\/login"/); // a path back into auth
 });
 
 test("renders the 500 HTML page when a handler throws", async () => {
@@ -659,6 +719,32 @@ test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a s
     assert.equal(res.headers.get("location"), "/dashboard");
   }
   assert.equal((await fetch(url + "/settings", signedIn)).headers.get("location"), "/settings?flow=new1");
+});
+
+test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via /auth/complete, never 500", async (t) => {
+  // After registration's `session` hook the user holds a Kratos session but no app JWT — so ctx.user
+  // is null and the "already signed in" short-circuit can't fire. Initialising a login/registration
+  // flow then returns Kratos 400 `session_already_available`; recover by completing login (mint the
+  // JWT from the live session), preserving return_to — never fall through to the catch-all 500.
+  const sessionRace = new KratosError("Kratos init login flow failed (400)", 400, JSON.stringify({ error: { id: "session_already_available" } }));
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => loginFlow("x")), initBrowserFlow: async () => { throw sessionRace; } } });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const recover = await fetch(url + "/login", { redirect: "manual" });
+  assert.equal(recover.status, 303);
+  assert.equal(recover.headers.get("location"), "/auth/complete");
+  // return_to is carried through so the deep link still lands after the JWT is minted.
+  const deep = await fetch(url + "/login?return_to=" + encodeURIComponent("/admin/users"), { redirect: "manual" });
+  assert.equal(deep.headers.get("location"), "/auth/complete?return_to=%2Fadmin%2Fusers");
+
+  // A genuinely unexpected Kratos 400 is still surfaced as a 500 (not masked as a session race).
+  const app2 = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => loginFlow("x")), initBrowserFlow: async () => { throw new KratosError("bad", 400, JSON.stringify({ error: { id: "security_csrf_violation" } })); } } });
+  await new Promise<void>((r) => app2.listen(0, r));
+  t.after(() => app2.close());
+  const url2 = `http://localhost:${(app2.address() as AddressInfo).port}`;
+  assert.equal((await fetch(url2 + "/login", { redirect: "manual" })).status, 500);
 });
 
 // return_to (§9): a deep-link login lands back on the requested page. The gate redirects to

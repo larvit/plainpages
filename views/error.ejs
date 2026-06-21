@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Something went wrong</h1>
+      <p>We couldn't complete that sign-in step. It may have expired or been opened twice — please try again.</p>
+      <p><a href="/login">Back to sign in</a></p>
+      <% if (locals.id) { %><p><small>Reference: <%= id %></small></p><% } %>
+    </main>
+  </body>
+</html>

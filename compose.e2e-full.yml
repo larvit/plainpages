@@ -19,6 +19,7 @@ services:
       shifts-upstream:
         condition: service_healthy
     environment:
+      APP_URL: http://proxy # the browser reaches web through the same-origin gateway → canonical-host redirect stays inert
       CACHE_TEMPLATES: "true"
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # the browser hits the gateway over http — Secure cookies wouldn't be stored

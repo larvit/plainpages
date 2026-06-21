@@ -148,6 +148,7 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 
 | Var | Default | Notes |
 | --- | --- | --- |
+| `APP_URL` | _unset_ (dev: `http://localhost:3000`) | the canonical public URL — the **single source** for the host this deployment lives on; set ⇒ off-host visitors are redirected here, unset ⇒ no redirect (see [Canonical host](#canonical-host-one-public-url)) |
 | `PORT` | `3000` | web listen port |
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
@@ -167,6 +168,39 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `REVOCATION_DENYLIST` | `false` | when `true`, enable the optional [instant role/session revoke denylist](#instant-revoke-the-optional-denylist) |
 | `REVOCATION_TTL_SEC` | `900` | how long a revoke entry lives; keep ≥ tokenizer TTL (10m) + clock skew |
 | `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
+
+### Canonical host (one public URL)
+
+A site is often reachable at several URLs that resolve to the same place — `localhost` vs
+`127.0.0.1`, an apex vs `www.`, an IP vs a domain. That matters here because **cookies are
+host-scoped**: the themed login form POSTs to Kratos, and Kratos' CSRF cookie is set on the host the
+browser is on. Reach the app on one host but let the form post from another and that cookie is lost —
+Kratos rejects the flow and bounces to its error page. (The original symptom: open the banner's
+`http://localhost:3000`, sign in, land on `http://127.0.0.1:3000/error` "Page not found".)
+
+`APP_URL` is the **single source of truth** for the public host. Set it and the web app **redirects
+any off-host GET/HEAD visitor to it** (308, path + query preserved) *before* a flow starts, so the
+browser, the themed forms, and the cross-origin Kratos POST all share one cookie host. Static assets
+under `/public/` are served on any host (so health checks don't bounce). Everything else derives from
+the same `APP_URL`: the first-run banner, and — via compose — Kratos' browser-facing URLs
+(`compose.override.yml` maps `${APP_URL}` onto every `ui_url`, return URL, and `allowed_return_urls`).
+Set `APP_URL` and the whole stack follows; there is no second place to edit. A genuine Kratos flow
+error now renders a themed **`/error`** page (a path back to sign-in), not the catch-all 404.
+
+The redirect is an **explicit opt-in** (per the no-`NODE_ENV` rule): **unset ⇒ no redirect**, so a
+deploy that forgets `APP_URL` never bounces real users to a stale default. The clean clone still works
+with zero config because the bundled Kratos and the dev stack both default to `localhost` (the dev
+override sets `APP_URL=http://localhost:3000`); browse `localhost:3000` and login just works, and
+`127.0.0.1` is canonicalised onto it.
+
+> **Behind a reverse proxy:** the proxy must pass the public `Host` through (or rewrite Kratos'
+> `base_url`/`ui_url`s to match what the browser sees). If it rewrites `Host` to an internal upstream
+> name while `APP_URL` is the public domain, the canonical redirect will loop — preserve `Host`.
+>
+> **Dev caveat (custom host).** Only if you point `APP_URL` at a non-default host (e.g. a LAN IP to
+> test from a tablet) must you also point the dev-published Kratos port at that host: set
+> `KRATOS_PUBLIC_BROWSER_URL=http://<that-host>:4433/` (it shares `APP_URL`'s host but keeps the Ory
+> port, so it can't be `APP_URL` verbatim). In production Ory is fronted same-origin, so this doesn't arise.
 
 ### What you must supply (the only manual prep)
 
@@ -332,6 +366,21 @@ docker compose -f compose.yml -f compose.e2e-full.yml down -v                 # 
 ```
 
 `--build` rebuilds the runner so spec edits are always picked up (the image bakes in `e2e/`).
+
+**Dev-stack login regression** (`devstack-login.spec.ts`) — drives the *plain* `docker compose up`
+topology (not the same-origin gateway above) with the runner on the **host network**, so the browser
+sees `http://localhost:3000` (web) and `http://127.0.0.1:4433` (Kratos public) exactly as a host
+browser does. It signs in the seeded admin from the URL the first-run banner advertises
+(`http://localhost:3000`) **and** from the wrong host (`http://127.0.0.1:3000`), asserting both reach
+the dashboard signed in — the latter via the [canonical-host redirect](#canonical-host-one-public-url).
+It guards against the regression where the advertised login URL dumps the user on the `/error` "Page
+not found" page; the proxied full-flow suite can't catch this (it fronts web + Kratos on one origin).
+Part of `scripts/ci.sh` — it needs host networking and the host ports `3000`/`4433` free (Linux).
+
+```bash
+docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml run --build --rm e2e   # run it
+docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml down -v                # tear down
+```
 
 Screenshots + an HTML report land in `e2e/artifacts/` (git-ignored). Every user-facing flow
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
@@ -776,14 +825,14 @@ src/guards.ts        requireSession()/can()/check(): in-handler authorization (�
 src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates: home (public "/" landing), index (app-shell dashboard at /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates: home (public "/" landing), index (app-shell dashboard at /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), error (Kratos self-service flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the §7 reference plugin (list/form over an upstream + permission-gated nav) you copy
 examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
-e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. Dockerfile.e2e + compose.e2e[-auth|-oauth|-full].yml run them
+e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. Dockerfile.e2e + compose.e2e[-auth|-oauth|-full|-devstack].yml run them
 html-css-foundation/ HTML design mockups — the source for the building-block
                      partials; reference the stylesheets in public/css/.
 scripts/ci.sh        The full CI gate (§8): typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash scripts/ci.sh`)

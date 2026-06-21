@@ -37,17 +37,21 @@ test("kratos config wires the identity schema", () => {
   assert.match(kratosYml, /identity\.schema\.json/);
 });
 
-// The five self-service flows return the browser to our own themed routes (§4 renders them).
+// The five self-service flows return the browser to our own themed routes (§4 renders them). The
+// host is `localhost` — the dev/clean-clone host the stack sets APP_URL to, so the web app's canonical
+// host matches the host the login form POSTs to (cookies share one host). Compose overrides these
+// from ${APP_URL} for a custom host.
 const FLOW_PAGES = ["login", "registration", "recovery", "verification", "settings"];
 
-test("self-service flows return to our themed pages", () => {
+test("self-service flows return to our themed pages (on the localhost dev host)", () => {
   for (const flow of FLOW_PAGES)
-    assert.match(kratosYml, new RegExp(`ui_url:\\s*http://127\\.0\\.0\\.1:3000/${flow}\\b`),
+    assert.match(kratosYml, new RegExp(`ui_url:\\s*http://localhost:3000/${flow}\\b`),
       `${flow} flow points at our /${flow} page`);
+  assert.doesNotMatch(kratosYml, /127\.0\.0\.1/, "no 127.0.0.1 literal — it drifted from APP_URL (localhost) and broke login");
 });
 
 test("after a successful login Kratos returns to our /auth/complete route to mint the JWT", () => {
-  assert.match(kratosYml, /default_browser_return_url:\s*http:\/\/127\.0\.0\.1:3000\/auth\/complete/,
+  assert.match(kratosYml, /default_browser_return_url:\s*http:\/\/localhost:3000\/auth\/complete/,
     "login completion (read roles → project → tokenize → set cookie) runs at /auth/complete (§4)");
 });
 

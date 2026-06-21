@@ -5,8 +5,14 @@ services:
     command: node --watch src/server.ts
     # Dev overrides the base toggles: live template edits, dev-throwaway secrets allowed.
     environment:
+      # Canonical public URL — the ONE knob. The web app redirects off-host visitors here, so
+      # localhost / 127.0.0.1 / any alias all funnel to one cookie host (Kratos' browser URLs below
+      # derive from it too). Override for a non-default host and the stack follows; see the note on
+      # kratos.SERVE_PUBLIC_BASE_URL for the single dev caveat (the published Ory port).
+      APP_URL: ${APP_URL:-http://localhost:3000}
       CACHE_TEMPLATES: "false"
       LOG_FORMAT: "text" # human-readable logs in dev (base sets json for prod log pipelines)
+      LOG_LEVEL: "debug" # verbose by default while developing (base defaults to info)
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
       SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # reference plugin → the dev mock backend
@@ -33,11 +39,29 @@ services:
     restart: unless-stopped
 
   # Ory Kratos dev: expose the public API so the browser can POST self-service flows to
-  # flow.ui.action (kratos.yml base_url = 127.0.0.1:4433). Prod fronts Ory same-origin,
-  # so the base file publishes no Ory ports.
+  # flow.ui.action. Prod fronts Ory same-origin, so the base file publishes no Ory ports.
   kratos:
     ports:
       - "4433:4433"
+    # Every browser-facing Kratos URL derives from APP_URL — one knob, no second place to edit (the
+    # localhost-vs-127.0.0.1 disagreement that broke login was exactly this drift). Env overrides the
+    # kratos.yml defaults (Ory: env wins over config files).
+    environment:
+      # The public API the login form POSTs to. Its HOST must match APP_URL's (cookies are host-scoped,
+      # port-agnostic) but its PORT is the published Ory one (4433), so it can't be APP_URL verbatim.
+      # This is the ONE dev value to also change for a non-localhost APP_URL host (e.g. a LAN IP).
+      SERVE_PUBLIC_BASE_URL: ${KRATOS_PUBLIC_BROWSER_URL:-http://localhost:4433/}
+      SELFSERVICE_DEFAULT_BROWSER_RETURN_URL: ${APP_URL:-http://localhost:3000}/
+      SELFSERVICE_ALLOWED_RETURN_URLS: ${APP_URL:-http://localhost:3000}
+      SELFSERVICE_FLOWS_ERROR_UI_URL: ${APP_URL:-http://localhost:3000}/error
+      SELFSERVICE_FLOWS_LOGIN_UI_URL: ${APP_URL:-http://localhost:3000}/login
+      SELFSERVICE_FLOWS_LOGIN_AFTER_DEFAULT_BROWSER_RETURN_URL: ${APP_URL:-http://localhost:3000}/auth/complete
+      SELFSERVICE_FLOWS_REGISTRATION_UI_URL: ${APP_URL:-http://localhost:3000}/registration
+      SELFSERVICE_FLOWS_SETTINGS_UI_URL: ${APP_URL:-http://localhost:3000}/settings
+      SELFSERVICE_FLOWS_RECOVERY_UI_URL: ${APP_URL:-http://localhost:3000}/recovery
+      SELFSERVICE_FLOWS_VERIFICATION_UI_URL: ${APP_URL:-http://localhost:3000}/verification
+      SELFSERVICE_FLOWS_VERIFICATION_AFTER_DEFAULT_BROWSER_RETURN_URL: ${APP_URL:-http://localhost:3000}/
+      SELFSERVICE_FLOWS_LOGOUT_AFTER_DEFAULT_BROWSER_RETURN_URL: ${APP_URL:-http://localhost:3000}/login
 
   # Ory Hydra dev: --dev permits the http issuer/redirect URLs; expose the public port
   # so OAuth2 flows reach the host. Prod (base file) drops --dev for an https issuer.
