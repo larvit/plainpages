@@ -1,4 +1,4 @@
-// Built-in Roles & permissions admin screen (§5): the pure view-model + Keto builders. A role is a
+// Built-in Roles & permissions admin screen: the pure view-model + Keto builders. A role is a
 // Keto subject set (Role:<name>#members); members are users (subject_id) or groups (subject_set) —
 // "assign roles to users/groups". The "effective access" view flattens a Keto `expand` tree into the
 // distinct set of users who hold the role directly or transitively via a group. The HTTP

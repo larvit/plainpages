@@ -1,8 +1,8 @@
-// Per-plugin view resolver (todo §2): render plugins/<id>/views/<view>.ejs and let a plugin view
+// Per-plugin view resolver: render plugins/<id>/views/<view>.ejs and let a plugin view
 // reuse the core building-block partials. EJS resolves an include() relative to the current file
 // first, then against the `views` roots — so passing [plugin views, core views] makes both the
 // plugin's own partials/subfolders and every core partial reachable (the plugin root first, so a
-// plugin may deliberately shadow a core partial). The §2 router calls this for a `view` RouteResult.
+// plugin may deliberately shadow a core partial). The router calls this for a `view` RouteResult.
 
 import { isAbsolute, join, relative } from "node:path";
 import * as ejs from "ejs";

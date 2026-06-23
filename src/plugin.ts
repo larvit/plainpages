@@ -1,4 +1,4 @@
-// The plugin contract (todo §2) — the product's main API surface: the machine-readable types +
+// The plugin contract — the product's main API surface: the machine-readable types +
 // pure rules; `docs/plugin-contract.md` is the prose reference, discovery/router wire it to FS+HTTP.
 // Powerful, predictable, fails loud at boot/discovery rather than sandboxing at runtime.
 //
@@ -30,7 +30,7 @@ export interface Route {
   method: HttpMethod;
   path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
   permission?: string; // coarse gate (a role token); checked before the handler runs
-  // Mark the page reachable by anyone, signed in or not (§10). The same as omitting `permission`
+  // Mark the page reachable by anyone, signed in or not. The same as omitting `permission`
   // — a no-permission route is already open — but stated outright, so "public" is a deliberate
   // choice, not an accident. Mutually exclusive with `permission` (discovery refuses both).
   public?: boolean;
@@ -54,11 +54,11 @@ export interface PluginHooks {
 // host derives them from the folder name at discovery (see Plugin).
 export interface PluginManifest {
   apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
-  // Take over the gated dashboard "/dashboard" — the post-login app home (§10). A handler like any
+  // Take over the gated dashboard "/dashboard" — the post-login app home. A handler like any
   // route's; the host gates it to a signed-in session (anonymous → /login), then renders its own view
   // via ctx.chrome. At most one plugin may declare it (findConflicts → error, never last-write-wins).
   dashboard?: RouteHandler;
-  // Take over the public landing "/" — the ungated front page (§10). A handler like any route's,
+  // Take over the public landing "/" — the ungated front page. A handler like any route's,
   // anyone may reach it. At most one plugin may declare it (findConflicts → error).
   home?: RouteHandler;
   hooks?: PluginHooks;
@@ -74,7 +74,7 @@ export interface Plugin extends PluginManifest {
 }
 
 // Identity helper: types the manifest, returns it unchanged. Validation happens at discovery
-// (§2), so a plugin may equally be a plain typed object. Mirrors Vite's `defineConfig`.
+//, so a plugin may equally be a plain typed object. Mirrors Vite's `defineConfig`.
 export function definePlugin(manifest: PluginManifest): PluginManifest {
   return manifest;
 }
@@ -165,7 +165,7 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     if (n > 1) out.push({ kind: "id", level: "error", message: `${n} plugins share id "${id}"; ids must be globally unique`, plugins: [id] });
   }
 
-  // The landing pages are single slots (§10): "/" (home) and "/dashboard" (dashboard) take one owner
+  // The landing pages are single slots: "/" (home) and "/dashboard" (dashboard) take one owner
   // each — two plugins claiming either is a loud error, not a race.
   for (const slot of ["home", "dashboard"] as const) {
     const owners = plugins.filter((plugin) => plugin[slot]).map((plugin) => plugin.id);
@@ -206,7 +206,7 @@ function collectNavIds(nodes: NavNode[] | undefined, push: (id: string) => void)
 }
 
 // A route's full path = the plugin's mount path `/<id>` + the route path. The single source of
-// truth for both conflict detection (here) and the §2 router, so they can't disagree.
+// truth for both conflict detection (here) and the router, so they can't disagree.
 export function fullPath(id: string, path: string): string {
   return `/${id}${path.startsWith("/") ? path : `/${path}`}`;
 }

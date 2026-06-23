@@ -1,4 +1,4 @@
-// Kratos admin-API client (todo §4): typed `fetch` wrappers over Ory Kratos' admin endpoints
+// Kratos admin-API client: typed `fetch` wrappers over Ory Kratos' admin endpoints
 // (internal-only admin port) — identity CRUD + the surgical `metadata_public` update login
 // completion projects Keto roles into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable, reuses kratos-public.ts's `KratosError` (branch on `.status`).
@@ -25,7 +25,7 @@ export interface ListOptions {
   pageToken?: string;
 }
 
-// A one-time recovery code + the self-service link wrapping it (admin "trigger recovery", §5).
+// A one-time recovery code + the self-service link wrapping it (admin "trigger recovery").
 export interface RecoveryCode {
   code: string;
   link: string;

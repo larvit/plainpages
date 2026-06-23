@@ -1,4 +1,4 @@
-// Auth guards (todo §4): in-handler authorization, the imperative counterpart to the
+// Auth guards: in-handler authorization, the imperative counterpart to the
 // declarative route `permission` gate. The middleware already verified the session JWT and put
 // the User on ctx; these read it. `requireSession` asserts (throws GuardError, which app.ts maps
 // to a response); `can`/`check` are predicates a handler branches on. `check` is the one live
@@ -8,7 +8,7 @@ import type { KetoClient } from "./keto-client.ts";
 import { localPath } from "./safe-url.ts";
 
 // Build the sign-in redirect for a gated request, preserving where the user was headed as
-// `return_to` so login can land them back there (§9). Only a safe GET/HEAD navigation to a
+// `return_to` so login can land them back there. Only a safe GET/HEAD navigation to a
 // non-home, host-relative path is remembered (a POST or "/" ⇒ a bare /login); the target is
 // validated host-relative (localPath) so it can't become an open redirect.
 export function loginRedirect(ctx: RequestContext): string {

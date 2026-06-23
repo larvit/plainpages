@@ -13,7 +13,7 @@ import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
-// App-level logger (§9): structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
+// App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
 // per request for access logging + a trace span (src/app.ts); console-only otherwise.
 const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
@@ -21,16 +21,16 @@ const menu = await loadMenuConfig(); // config/menu.ts override + branding — f
 // the trace + a propagated traceparent — tracedFetch) and bounded by the Ory timeout, so a hung/
 // silent Ory can't park a request handler forever. Off the request path it's a plain timed fetch.
 const oryFetch = withTimeout(tracedFetch, config.oryTimeoutSec * 1000);
-// Ory clients for the themed self-service routes + login completion (§4).
+// Ory clients for the themed self-service routes + login completion.
 const kratos = createKratosPublic({ baseUrl: config.kratosPublicUrl, fetchImpl: oryFetch });
 const kratosAdmin = createKratosAdmin({ baseUrl: config.kratosAdminUrl, fetchImpl: oryFetch });
 const keto = createKetoClient({ fetchImpl: oryFetch, readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl });
-// Hydra admin client for the OAuth2 login/consent challenge handshake (§6).
+// Hydra admin client for the OAuth2 login/consent challenge handshake.
 const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl, fetchImpl: oryFetch });
 // Session-JWT verify key: primed at boot from the configured JWKS (file mount, base64 inline,
-// or fetched http), then served from cache with TTL refresh + rotation-on-miss (§4).
+// or fetched http), then served from cache with TTL refresh + rotation-on-miss.
 const jwks = await createJwksProvider(config.jwksUrl, { fetchImpl: oryFetch }); // bound an http JWKS fetch too
-// Optional instant-revoke (§9), off unless REVOCATION_DENYLIST=true: an in-memory denylist the
+// Optional instant-revoke, off unless REVOCATION_DENYLIST=true: an in-memory denylist the
 // hot path consults and the admin screens populate on deactivate/delete/role-change.
 const denylist = config.revocationDenylist ? createDenylist({ ttlSec: config.revocationTtlSec }) : undefined;
 

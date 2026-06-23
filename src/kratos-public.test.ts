@@ -1,7 +1,7 @@
-// Kratos public-API client (§4): typed fetch wrappers over Ory Kratos' public endpoints.
+// Kratos public-API client: typed fetch wrappers over Ory Kratos' public endpoints.
 // Guards the request contracts (URLs, JSON-accept, cookie relay) and the result mapping
 // (200/401/4xx, validation-flow vs success, tokenized JWT). Live wiring is verified by the
-// flow pages (§4); these catch contract drift with a mock fetch.
+// flow pages; these catch contract drift with a mock fetch.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createKratosPublic, KratosError } from "./kratos-public.ts";

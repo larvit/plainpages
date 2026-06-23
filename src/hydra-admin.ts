@@ -1,4 +1,4 @@
-// Hydra admin-API client (todo §6): typed `fetch` wrappers over Ory Hydra's OAuth2 admin
+// Hydra admin-API client: typed `fetch` wrappers over Ory Hydra's OAuth2 admin
 // endpoints (internal admin port) — the login/consent challenge handshake other apps log in
 // *through* us with. Built-in `fetch` only, no SDK dep (AGENTS.md); `fetchImpl`-injectable
 // like the kratos/keto clients. We authenticate the user (login) and grant scopes (consent);
@@ -9,7 +9,7 @@ export interface OAuth2Client {
   client_name?: string;
   client_secret?: string; // write-only: Hydra returns it once, on create, for a confidential client
   grant_types?: string[];
-  metadata?: Record<string, unknown>; // arbitrary client metadata; `first_party: true` ⇒ auto-consent (§6)
+  metadata?: Record<string, unknown>; // arbitrary client metadata; `first_party: true` ⇒ auto-consent
   redirect_uris?: string[];
   response_types?: string[];
   scope?: string; // space-separated
@@ -90,7 +90,7 @@ export class HydraError extends Error {
 export interface HydraAdmin {
   acceptConsentRequest(challenge: string, body: AcceptConsent): Promise<Completed>;
   acceptLoginRequest(challenge: string, body: AcceptLogin): Promise<Completed>;
-  acceptLogoutRequest(challenge: string): Promise<Completed>; // RP-initiated logout (§6): confirm + resume
+  acceptLogoutRequest(challenge: string): Promise<Completed>; // RP-initiated logout: confirm + resume
   createClient(client: OAuth2Client): Promise<OAuth2Client>;
   deleteClient(id: string): Promise<void>;
   getClient(id: string): Promise<OAuth2Client | null>;
@@ -145,7 +145,7 @@ export function createHydraAdmin(config: { baseUrl: string; fetchImpl?: typeof f
       return put("accept logout", reqUrl("logout", challenge, "/accept"), {});
     },
 
-    // OAuth2 client registration (§6, admin screen). Hydra generates the client_id/secret when
+    // OAuth2 client registration (admin screen). Hydra generates the client_id/secret when
     // omitted; the secret rides the 201 body and is never retrievable afterwards.
     async createClient(client) {
       const res = await http(clientsUrl, { body: JSON.stringify(client), headers: json, method: "POST" });

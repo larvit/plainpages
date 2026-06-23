@@ -1,4 +1,4 @@
-// Reference plugin (todo §7) — Scheduling/Shifts handlers + the upstream client. Shows the blessed
+// Reference plugin — Scheduling/Shifts handlers + the upstream client. Shows the blessed
 // shape: a thin handler parses ctx, calls an upstream REST service, and returns a RouteResult the
 // host renders. The plugin holds no state of its own (README "Stateless") — data lives upstream.
 //
@@ -8,7 +8,7 @@
 // One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
 import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-api.ts";
 
-export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page (§10)
+export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
 export const READ = "scheduling:read"; // permission token gating the list + nav
 export const WRITE = "scheduling:write"; // permission token gating create
@@ -56,7 +56,7 @@ export function assertHttpUrl(value: string, name: string): void {
 }
 
 // REST client over the upstream service (a stand-in for the customer's real backend). `fetch`
-// defaults to the host's tracedFetch (§9), so each upstream call joins the request's trace (a client
+// defaults to the host's tracedFetch, so each upstream call joins the request's trace (a client
 // span + a propagated traceparent); it's injectable so handlers unit-test against a mock, no network.
 export function createUpstream(baseUrl: string, fetchImpl: typeof fetch = tracedFetch): ShiftsUpstream {
   const base = baseUrl.replace(/\/+$/, "");
@@ -172,7 +172,7 @@ export function listShifts(upstream: ShiftsUpstream): RouteHandler {
     try {
       shifts = await upstream.list();
     } catch (err) {
-      ctx.log.warn("scheduling upstream unreachable", { error: String(err) }); // plugin logging via ctx.log (§9)
+      ctx.log.warn("scheduling upstream unreachable", { error: String(err) }); // plugin logging via ctx.log
       error = "Couldn't reach the scheduling service — try again shortly.";
     }
     const needle = q.toLowerCase();
@@ -185,7 +185,7 @@ export function newShiftForm(): RouteHandler {
   return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome }), view: "shift-new" });
 }
 
-// Public overview (§10): a page anyone may reach — its route + nav node are marked `public`, so the
+// Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
 // gate lets an anonymous visitor through and the menu option shows for everyone. The real data
 // (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
 // else a prompt to sign in. ctx.user may be null here, so read the role via can() (zero I/O).

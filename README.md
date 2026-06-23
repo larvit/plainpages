@@ -46,16 +46,15 @@ makes **semantic, accessible markup** a priority: real landmarks, one `<h1>` per
 lists and tables with proper headers, a skip link, and ARIA (`aria-current`/`aria-sort`)
 only where the platform leaves a gap (see [AGENTS.md](AGENTS.md)).
 
-> **Status.** Nearly all of the architecture this README describes is built today (see `todo.md`):
-> the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data table, filters,
-> pagination, forms), the **plugin host** (discovery, router, per-plugin views + static, the
-> `config/menu.ts` override + branding), the **Ory stack** (Postgres, Kratos + the session→JWT
+> **Status.** The full architecture this README describes is built and exercised end-to-end by the
+> Playwright suites: the Node 24 + EJS server, the zero-JS **design system** (app shell, nav tree, data
+> table, filters, pagination, forms), the **plugin host** (discovery, router, per-plugin views + static,
+> the `config/menu.ts` override + branding), the **Ory stack** (Postgres, Kratos + the session→JWT
 > tokenizer, Keto, Hydra), the **auth** wiring that consumes it (themed sign-in / register / reset /
-> SSO, the session→JWT hot path, the users/groups/roles admin screens) and **Hydra's login / consent
-> / logout handlers** — all driven end-to-end by the Playwright suites, plus **production & ops
-> hardening** (the prod compose profile, response security headers, **structured logging + OTLP
-> observability**, the **[JWT key-rotation runbook](#jwt-signing-key--rotation)**). Remaining
-> polish is tracked in `todo.md` (§9–§10).
+> SSO, the session→JWT hot path, the users/groups/roles admin screens), **Hydra's login / consent /
+> logout handlers**, and **production & ops hardening** (the prod compose profile, response security
+> headers, **structured logging + OTLP observability**, the
+> **[JWT key-rotation runbook](#jwt-signing-key--rotation)**).
 
 ## The MVP — "clone, one command, hack on a plugin"
 
@@ -160,8 +159,8 @@ auto-merged by `docker compose up`) turns them back off for live editing.
 | `OTLP_PROTOCOL` | `http/json` | OTLP wire format: `http/json` or `http/protobuf` |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
-| `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (§6 login/consent handshake) |
-| `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT (§4) |
+| `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (login/consent handshake) |
+| `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
 | `JWT_CLOCK_SKEW_SEC` | `60` | exp/nbf leeway (s) for Kratos↔web clock drift (the auth E2E sets `0`) |
 | `ORY_TIMEOUT_SEC` | `5` | per-call timeout for outbound Kratos/Keto/Hydra (and http JWKS) fetches, so a hung Ory can't park a request |
@@ -237,7 +236,7 @@ same way.
 
 ### JWT signing key & rotation
 
-The session tokenizer (§3) signs each session→JWT with an **ES256** key at
+The session tokenizer signs each session→JWT with an **ES256** key at
 `ory/kratos/tokenizer/jwks.json`. The committed one is a **dev throwaway** (like the
 cookie/cipher secrets in `kratos.yml`) — a clean clone works; **never run it in
 production**. Mint a fresh key with the bundled generator:
@@ -256,7 +255,7 @@ docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/token
   `file://` on the web side** so it picks up new keys without a restart.
 
 **Why rotation is zero-downtime.** Kratos signs with the **first** key in the set and
-stamps its `kid` in each JWT header; web selects the verify key by that `kid` (§4). So a
+stamps its `kid` in each JWT header; web selects the verify key by that `kid`. So a
 set can hold the new key *and* the old one at once — tokens minted before and after the
 swap both verify.
 
@@ -302,9 +301,9 @@ docker compose restart kratos
 ```
 
 Every existing JWT now fails signature verification → its bearer falls back to anonymous
-and must re-authenticate (the §4 re-mint only covers *expired* tokens, not bad signatures,
+and must re-authenticate (the re-mint only covers *expired* tokens, not bad signatures,
 so a forged/leaked-key token can't be silently refreshed). The instant-revoke denylist
-(§9) is unnecessary here — the signature itself is already invalid.
+ is unnecessary here — the signature itself is already invalid.
 
 ## Type check & tests
 
@@ -321,10 +320,9 @@ otherwise drags up its `depends_on` services.
 E2E runs in the official Playwright image (browsers preinstalled) against the live `web`
 service — no Node/browsers on the host. There are four suites:
 
-**Visual + design system** (`visual.spec.ts`) — Ory-free (mock-data dashboard), so it stays fast.
-It screenshots the live pages **and** the `html-css-foundation` mockups, then asserts the live DOM
-computes the **same design-system styles** as the reference (so a styling regression fails the
-build, independent of the row data).
+**Visual + design system** (`visual.spec.ts`) — Ory-free, so it stays fast. It screenshots the live
+pages and asserts the rendered design system — the app shell, theme switch, mobile off-canvas layout,
+icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and plugin permission-gating.
 
 ```bash
 docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e   # run the suite
@@ -334,7 +332,7 @@ docker compose -f compose.yml -f compose.e2e.yml down -v                 # tear 
 **Auth — token timeout + refresh** (`auth-refresh.spec.ts`) — the full-stack counterpart: it
 boots the real Ory stack (Postgres + Kratos + Keto + bootstrap), shortens the session→JWT TTL to
 8s (`ory/kratos/e2e.yml`) and sets `JWT_CLOCK_SKEW_SEC=0`, then logs in the seeded admin and proves
-the §4 "stay signed in" hot path: the lapsed JWT is silently **re-minted** from the live Kratos
+the "stay signed in" hot path: the lapsed JWT is silently **re-minted** from the live Kratos
 session (roles re-read from Keto), and once that session is revoked the stale cookie is **cleared**.
 
 ```bash
@@ -344,7 +342,7 @@ docker compose -f compose.yml -f compose.e2e-auth.yml down -v                 # 
 
 **OAuth2 login + consent** (`oauth-login.spec.ts`) — another app logs in *through* us: it boots the
 real stack (incl. Hydra), registers an OAuth2 client, starts an authorization flow, and drives the
-§6 handlers end-to-end — `/oauth2/login` bounces an unauthenticated user to the themed login and
+handlers end-to-end — `/oauth2/login` bounces an unauthenticated user to the themed login and
 **accepts** the challenge once a Kratos session exists; `/oauth2/consent` then shows the consent
 screen for the third-party client and **Allow** drives Hydra to issue the authorization code.
 
@@ -567,8 +565,8 @@ docs for the full template-type list and the data each template receives.
 ## Building blocks
 
 Plainpages is a **component library, not a page generator** — you assemble pages from partials
-and helpers rather than declaring a schema and getting magic. The vocabulary is extracted from
-`html-css-foundation/` into reusable EJS partials + TS helpers, fully styled and zero-JS:
+and helpers rather than declaring a schema and getting magic. The vocabulary is a set of reusable
+EJS partials + TS helpers, fully styled and zero-JS:
 
 - **Partials:** app shell, nav tree, filter bar, data table (sort / select / row
   actions), pagination, form fields, badges, menus, auth cards.
@@ -808,65 +806,61 @@ retried per request, not queued), so run a local collector/agent you trust.
 
 ```
 src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
-src/app.ts           Request routing + EJS rendering (incl. the themed Kratos self-service routes, §4)
+src/app.ts           Request routing + EJS rendering (incl. the themed Kratos self-service routes)
 src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
 src/jwt.ts           JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
-src/jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint (§4)
+src/jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint
 src/jwks.ts          JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
-src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize (§4)
-src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection, §4)
-src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API) (§4)
-src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD (§6)
-src/fetch-timeout.ts withTimeout(): bound every outbound Ory call (§8) — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
-src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login (§6)
-src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes (§6)
-src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs (§4)
-src/login.ts         completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie (§4)
-src/gen-jwks.ts      generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS (§3); see JWT signing key & rotation
-src/bootstrap.ts     One-command bootstrap (§3): idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
-src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies, §4)
-src/csrf.ts          CSRF for our own POST forms (§4): signed double-submit token — issue/verify, cookie, request gate
-src/denylist.ts      Optional instant-revoke denylist (§9): in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
-src/security-headers.ts Response security headers set on every reply (§9): strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
-src/safe-url.ts      safeUrl() (sanitise an untrusted href/src to relative-or-http(s), exposed to plugins) + localPath() (host-relative redirect-allowlist guard for return_to) (§9)
-src/logger.ts        createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set (§9)
-src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
+src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize
+src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection)
+src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API)
+src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD
+src/fetch-timeout.ts withTimeout(): bound every outbound Ory call — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
+src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login
+src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes
+src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs
+src/login.ts         completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie
+src/gen-jwks.ts      generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
+src/bootstrap.ts     One-command bootstrap: idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
+src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies)
+src/csrf.ts          CSRF for our own POST forms: signed double-submit token — issue/verify, cookie, request gate
+src/denylist.ts      Optional instant-revoke denylist: in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
+src/security-headers.ts Response security headers set on every reply: strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
+src/safe-url.ts      safeUrl() (sanitise an untrusted href/src to relative-or-http(s), exposed to plugins) + localPath() (host-relative redirect-allowlist guard for return_to)
+src/logger.ts        createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set
+src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
-src/dashboard.ts     buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler) (§10). Both render the one unified menu (ctx.chrome)
-src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
-src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
-src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
-src/admin-clients.ts Built-in OAuth2 clients admin screen (§6): list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
+src/dashboard.ts     buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler). Both render the one unified menu (ctx.chrome)
+src/admin-users.ts   Built-in Users admin screen: list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
+src/admin-groups.ts  Built-in Groups admin screen: list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
+src/admin-roles.ts   Built-in Roles admin screen: list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
+src/admin-clients.ts Built-in OAuth2 clients admin screen: list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
 src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
-src/chrome.ts        buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (§7, unified across all pages in §10) — exposed on ctx.chrome
+src/chrome.ts        buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (unified across all pages) — exposed on ctx.chrome
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
 src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
 src/plugin-api.ts    Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
-src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot (§2)
-src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate (§2)
-src/guards.ts        requireSession()/can()/check(): in-handler authorization (§4) — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
-src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
-src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
-src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates, all in the one app shell (§10): home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
+src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
+src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
+src/guards.ts        requireSession()/can()/check(): in-handler authorization — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
+src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
+src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials
+src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot
+views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
-plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the §7 reference plugin (list/form over an upstream + permission-gated nav) you copy
+plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the reference plugin (list/form over an upstream + permission-gated nav) you copy
 examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e/                 Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. Dockerfile.e2e + compose.e2e[-auth|-oauth|-full|-devstack].yml run them
-html-css-foundation/ HTML design mockups — the source for the building-block
-                     partials; reference the stylesheets in public/css/.
-scripts/ci.sh        The full CI gate (§8): typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash scripts/ci.sh`)
+scripts/ci.sh        The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash scripts/ci.sh`)
 ```
-
-Comments and docs cite roadmap phases as `§N` — the sections in `todo.md`.
 
 ## Extending the core
 

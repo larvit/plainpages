@@ -1,4 +1,4 @@
-// Built-in Users admin screen (§5): the pure view-model + Kratos-payload builders. The HTTP
+// Built-in Users admin screen: the pure view-model + Kratos-payload builders. The HTTP
 // routing/gate/CSRF + live Kratos calls are exercised over HTTP in app.test.ts.
 import assert from "node:assert/strict";
 import { test } from "node:test";

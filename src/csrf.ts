@@ -1,4 +1,4 @@
-// CSRF protection for our own POST forms (todo §4). Stateless signed double-submit token:
+// CSRF protection for our own POST forms. Stateless signed double-submit token:
 // the token is `<nonce>.<HMAC(secret, nonce)>`, set as a cookie *and* echoed in a hidden form
 // field. A request passes iff the cookie is a genuine signature (can't be forged without the
 // secret) and the submitted field equals it. SameSite=Lax already blocks the cross-site POST

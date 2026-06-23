@@ -1,9 +1,9 @@
 import { createPublicKey, verify } from "node:crypto";
 import type { JsonWebKey, KeyObject } from "node:crypto";
 
-// JWS signature verification with the Node stdlib — no `jose`/JWT dep (todo §0):
+// JWS signature verification with the Node stdlib — no `jose`/JWT dep:
 // `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures
-// the Kratos tokenizer produces (see AGENTS.md). Signature only — §4 adds claim checks
+// the Kratos tokenizer produces (see AGENTS.md). Signature only — adds claim checks
 // (exp/iss/aud, clock skew), JWKS-by-`kid` fetch/cache/rotation, and `token` bounds.
 
 // JOSE `alg` → Node verify parameters. ES* signatures are raw r‖s (IEEE P1363), not DER.
@@ -27,7 +27,7 @@ export interface DecodedJws {
 }
 
 // Unpadded base64url alphabet — `Buffer.from(_,"base64url")` is lax (drops junk, tolerates
-// bad padding), so reject non-canonical segments up front. §4 reads `kid` from the still-
+// bad padding), so reject non-canonical segments up front. reads `kid` from the still-
 // unverified header, so this stops laundered bytes reaching key selection.
 const base64url = /^[A-Za-z0-9_-]+$/;
 
@@ -65,7 +65,7 @@ export function decodeJws(token: string): DecodedJws {
 }
 
 // Verify a compact JWS against one JWK public key; returns the decoded JWS or throws.
-// Signature only — caller validates claims. Returned header is post-verification, so §4
+// Signature only — caller validates claims. Returned header is post-verification, so the caller
 // can trust its `alg`/`kid` when logging.
 export function verifyJws(token: string, jwk: JsonWebKey): DecodedJws {
   const decoded = decodeJws(token);

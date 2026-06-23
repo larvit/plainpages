@@ -1,4 +1,4 @@
-// Built-in Roles & permissions admin screen (todo §5): list / create / delete Keto roles and assign
+// Built-in Roles & permissions admin screen: list / create / delete Keto roles and assign
 // them to users and groups. A role is a Keto subject set `Role:<name>#members` (OPL: members are users
 // or groups, resolved transitively) — the source of truth for the JWT `roles` claim. It shares the
 // Groups screen's membership model, so the pure helpers (parseSubject, member pickers, tuple paging)
@@ -276,10 +276,10 @@ export interface AdminRolesDeps {
   kratosAdmin: KratosAdmin;
   menu: MenuConfig;
   render: (view: string, data: Record<string, unknown>) => Promise<string>;
-  revoke?: (sub: string) => void; // optional instant-revoke (§9): assigning/unassigning a *user* kills their live tokens
+  revoke?: (sub: string) => void; // optional instant-revoke: assigning/unassigning a *user* kills their live tokens
 }
 
-// §9 instant-revoke: a role change for a `user:<id>` member must take effect now, so revoke that
+// instant-revoke: a role change for a `user:<id>` member must take effect now, so revoke that
 // user's live tokens (a re-mint then re-reads roles from Keto). A `group:<name>` change is
 // transitive across many users — left to lag (documented), so only direct user members revoke.
 function revokeUserMember(deps: AdminRolesDeps, member: string): void {
@@ -378,7 +378,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {
     if (name === ADMIN_PERMISSION) return renderDetail(name, "The admin role can't be deleted — it would remove all admin access.");
     await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS }); // removes every member tuple
-    // §9: a whole-role delete drops many members at once — left to lag like a group change; the
+    // a whole-role delete drops many members at once — left to lag like a group change; the
     // per-member unassign above is the instant-revoke path.
     ctx.log.info("admin: role deleted", { actor: user.id, role: name });
     return { redirect: ADMIN_ROLES_BASE };
@@ -386,7 +386,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
   if (seg.length === 3 && seg[1] === "members" && seg[2] === "delete" && method === "POST") {
     const member = (form!.get("member") ?? "").trim();
     // Self-protection: don't let an admin revoke their own *direct* admin grant (would lock them out).
-    // Admin held only via a group isn't covered here — the robust "last effective admin" check is §9.
+    // Admin held only via a group isn't covered here — the robust "last effective admin" check is deferred.
     if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return renderDetail(name, "You can't revoke your own admin access.");
     const tuple = roleMemberTuple(name, member);
     if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(deps, member); ctx.log.info("admin: role unassigned", { actor: user.id, member, role: name }); }

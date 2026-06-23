@@ -1,4 +1,4 @@
-// One-command bootstrap (todo §3, the MVP bar). One-shot compose service: runs after
+// One-command bootstrap (the MVP bar). One-shot compose service: runs after
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
@@ -134,7 +134,7 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
 
 async function main() {
   const env = process.env;
-  // Structured like the web app (§9) so prod logs stay uniform; honour LOG_FORMAT/SERVICE_NAME.
+  // Structured like the web app so prod logs stay uniform; honour LOG_FORMAT/SERVICE_NAME.
   const log = createLogger({
     format: env["LOG_FORMAT"] === "json" ? "json" : "text",
     ...(env["SERVICE_NAME"] ? { serviceName: env["SERVICE_NAME"] } : {}),

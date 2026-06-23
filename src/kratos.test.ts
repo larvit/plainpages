@@ -1,4 +1,4 @@
-// Guards the Ory Kratos config (§3): migrations run before the server (kratos-migrate →
+// Guards the Ory Kratos config: migrations run before the server (kratos-migrate →
 // kratos), the DSN targets the kratos database, and the identity schema carries email
 // (password identifier) + name traits. Version pinning is in compose.test.ts. Real boot
 // is verified by running the stack; this catches edits.
@@ -37,7 +37,7 @@ test("kratos config wires the identity schema", () => {
   assert.match(kratosYml, /identity\.schema\.json/);
 });
 
-// The five self-service flows return the browser to our own themed routes (§4 renders them). The
+// The five self-service flows return the browser to our own themed routes (renders them). The
 // host is `localhost` — the dev/clean-clone host the stack sets APP_URL to, so the web app's canonical
 // host matches the host the login form POSTs to (cookies share one host). Compose overrides these
 // from ${APP_URL} for a custom host.
@@ -52,7 +52,7 @@ test("self-service flows return to our themed pages (on the localhost dev host)"
 
 test("after a successful login Kratos returns to our /auth/complete route to mint the JWT", () => {
   assert.match(kratosYml, /default_browser_return_url:\s*http:\/\/localhost:3000\/auth\/complete/,
-    "login completion (read roles → project → tokenize → set cookie) runs at /auth/complete (§4)");
+    "login completion (read roles → project → tokenize → set cookie) runs at /auth/complete");
 });
 
 test("recovery + verification run on email code, delivered by a courier", () => {
@@ -70,7 +70,7 @@ test("session settings: branded cookie, bounded lifespan, sliding refresh", () =
 
 test("session tokenizer template 'plainpages' mints a short-lived signed JWT", () => {
   // whoami(tokenize_as: plainpages) → a locally-verifiable JWT, so the hot path never
-  // calls Ory (§4). Signed with the committed tokenizer/jwks.json (gen-jwks.ts).
+  // calls Ory. Signed with the committed tokenizer/jwks.json (gen-jwks.ts).
   assert.match(kratosYml, /tokenizer:\s*\n\s*templates:\s*\n\s*plainpages:/, "plainpages template defined");
   assert.match(kratosYml, /ttl:\s*10m/, "~10m TTL — re-minted on refresh");
   assert.match(kratosYml, /subject_source:\s*id/, "sub = the Kratos identity id");
@@ -84,7 +84,7 @@ test("the tokenizer claims mapper emits email + roles from the metadata_public p
   // metadata (admin metadata is stripped), so the roles projection must live in metadata_public.
   const mapper = read("ory/kratos/tokenizer/plainpages.jsonnet");
   assert.match(mapper, /email:\s*session\.identity\.traits\.email/, "email ← identity trait");
-  assert.match(mapper, /metadata_public/, "roles ← metadata_public (the per-login Keto projection, §4)");
+  assert.match(mapper, /metadata_public/, "roles ← metadata_public (the per-login Keto projection)");
 });
 
 test("social sign-in is off by default — a clean clone stays password-only", () => {

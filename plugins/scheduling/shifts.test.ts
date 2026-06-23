@@ -112,7 +112,7 @@ test("listShifts degrades to a recoverable error page when the upstream is down 
   assert.deepEqual((r.data["table"] as { rows: unknown[] }).rows, []);
 });
 
-// ---- public overview handler (§10: a page anyone can reach, gated data stays behind the role) ----
+// ---- public overview handler (a page anyone can reach, gated data stays behind the role) ----
 
 test("overview renders a public page for anyone; it links straight to Shifts only for a reader", async () => {
   const anon = asView(await overview()(fakeCtx())); // user null, no roles

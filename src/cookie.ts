@@ -1,5 +1,5 @@
 // Cookie helpers — parse the request `Cookie` header, build secure-by-default
-// `Set-Cookie` headers. Stdlib only (no `cookie` dep); §4 stores/clears the session
+// `Set-Cookie` headers. Stdlib only (no `cookie` dep); stores/clears the session
 // JWT + CSRF token here. Values round-trip via percent-encoding; JWT `-_.` chars are
 // URI-unreserved, so JWTs stay readable.
 

@@ -13,7 +13,7 @@ manifest, a version mismatch, or a conflict stops startup with a clear message. 
 crash-isolation (one bad plugin can't take the host down) is a *non-goal* — diagnose at deploy
 time, not in production.
 
-> **Status.** This is the contract the §2 host implements. The types and pure rules
+> **Status.** This is the contract the host implements. The types and pure rules
 > (`checkApiVersion`, `findConflicts`, `isValidPluginId`) live in `src/plugin.ts`; **discovery**
 > (`src/discovery.ts`), the **router** (`src/router.ts` — method+path match, `:name` params,
 > permission gate, `RouteResult` → response), and the **per-plugin view resolver**
@@ -23,7 +23,7 @@ time, not in production.
 > (`config/menu.ts`, loaded by `src/menu-config.ts`, with branding — name, logo, default theme —
 > rendered in the app shell) are wired and in use by the built-in screens and the reference plugin.
 > Later phases extended this contract: the replaceable [landing pages](#the-landing-pages-home--dashboard)
-> and [public pages & menu items](#public-pages--menu-items) (§10), both documented below.
+> and [public pages & menu items](#public-pages--menu-items), both documented below.
 
 ## Anatomy of a plugin
 
@@ -226,7 +226,7 @@ request:
 ```ts
 interface RequestContext {
   chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
-  log: Log;                          // request-scoped logger, in this request's trace (§9)
+  log: Log;                          // request-scoped logger, in this request's trace
   params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
@@ -257,8 +257,8 @@ login/registration/front pages), so the menu looks identical signed in or out �
 A page that wants a focused, chrome-free layout passes **`menu: false`** to `partials/shell` (drops the
 sidebar, single column); everything else still renders.
 
-**`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log),
-§9) already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
+**`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log))
+already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
 metadata values are string/number/boolean), and **`ctx.log.fetch(url, init?)`** — a drop-in `fetch`
 for upstream calls that adds a client span and propagates the trace (W3C `traceparent`) downstream.
 The barrel also exports a standalone **`tracedFetch`** (same behaviour, reads the ambient request log)
@@ -271,7 +271,7 @@ OpenTelemetry Collector when `OTLP_ENDPOINT` is set).
 across a major `apiVersion`. New fields may be **added** within a major version (additive, never
 breaking). `req`/`res` are the raw Node objects and the full escape hatch; reading them is fine,
 but prefer the typed fields so a handler keeps working as the host evolves. `user`/`roles` come
-from the §4 JWT middleware and are `null`/`[]` until a session exists.
+from the JWT middleware and are `null`/`[]` until a session exists.
 
 ## Nav & permissions
 
@@ -307,7 +307,7 @@ Permission tokens are a **shared global namespace** — that's deliberate, so an
 `scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
 your tokens as `<id>:<action>` to avoid accidental clashes. Declaring them in `permissions` is
 optional but recommended: it documents them, feeds conflict detection, and lets the one-command
-bootstrap seed them — the demo admin is granted every discovered plugin's declared tokens (§3), so
+bootstrap seed them — the demo admin is granted every discovered plugin's declared tokens, so
 a dropped-in plugin works out of the box without editing host config.
 
 ## Contract versioning
@@ -394,14 +394,14 @@ worked example: thin handlers bound to an injectable upstream client, unit-teste
 2. **Run one plugin against the host.** Get the folder into the container's `/app/plugins/<id>`
    — either in your clone (the dev compose bind-mounts the tree) or by bind-mounting an external
    folder (README → *Where plugins live*) — and `docker compose up`; the host discovers it. For
-   an isolated harness, the §2 host exposes plugin injection (`createApp({ plugins: [myPlugin] })`)
+   an isolated harness, the host exposes plugin injection (`createApp({ plugins: [myPlugin] })`)
    so a test can mount a single manifest and assert its routes, nav, and gating without the rest
    of the stack.
 
 3. **E2E the user-facing flow.** Per AGENTS.md §6, ship a side-effect-free Playwright test in
    `e2e/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
    service with the plugin mounted. The reference's permission-gating is covered in `visual.spec.ts`;
-   its authenticated list/form happy-path is the §8 full-E2E item (needs cross-host login infra).
+   its authenticated list/form happy-path is the full-E2E item (needs cross-host login infra).
 
 The validation an author hits is the same the host runs: bad `apiVersion` or a conflict
 ([above](#conflict-rules)) stops boot with a precise message naming the plugin(s) involved.

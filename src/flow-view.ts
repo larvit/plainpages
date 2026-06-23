@@ -1,4 +1,4 @@
-// Kratos flow → themed view model (todo §4). Pure: turns a fetched self-service Flow
+// Kratos flow → themed view model. Pure: turns a fetched self-service Flow
 // (src/kratos-public.ts) into the data views/auth.ejs renders — hidden inputs (incl. the
 // CSRF token), themed fields, submit buttons, tone-mapped messages, and one SSO button per
 // configured `oidc` provider. The form posts straight back to `flow.ui.action`, so Kratos

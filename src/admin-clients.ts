@@ -1,5 +1,5 @@
-// Built-in OAuth2 clients admin screen (todo §6): register / list / delete the OAuth2 clients other
-// apps log in *through* us with (Ory Hydra, the §6 login+consent handlers). A client is an Ory Hydra
+// Built-in OAuth2 clients admin screen: register / list / delete the OAuth2 clients other
+// apps log in *through* us with (Ory Hydra, the login+consent handlers). A client is an Ory Hydra
 // OAuth2 client; writes go only to Hydra. Hydra returns the client_secret once, on create — so the
 // register POST renders the new client's detail page (with the one-time secret) directly instead of a
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). `handleAdminClients` is the
@@ -310,7 +310,7 @@ export async function handleAdminClients(ctx: RequestContext, csrfToken: string,
         created = await hydra.createClient(clientPayload(input));
       } catch (err) {
         // A Hydra 4xx (bad redirect/scope it rejects) is the operator's input — re-render the form;
-        // a 5xx (Hydra down) rethrows → 500. Mirrors the §6 challenge-handler degrade.
+        // a 5xx (Hydra down) rethrows → 500. Mirrors the challenge-handler degrade.
         if (err instanceof HydraError && err.status < 500) {
           return { ...(await renderForm({ error: "Hydra rejected the client — check the redirect URIs and scopes.", values: input })), status: 400 };
         }

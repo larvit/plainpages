@@ -1,6 +1,6 @@
-// Read an application/x-www-form-urlencoded request body (todo §4). Our own POST forms are
+// Read an application/x-www-form-urlencoded request body. Our own POST forms are
 // tiny, so cap the size and reject anything larger rather than buffer unbounded. Consumes the
-// stream once; never throws on an empty body. The CSRF gate + §5 admin forms read fields here.
+// stream once; never throws on an empty body. The CSRF gate + admin forms read fields here.
 import type { IncomingMessage } from "node:http";
 
 const DEFAULT_LIMIT = 1024 * 1024; // 1 MiB

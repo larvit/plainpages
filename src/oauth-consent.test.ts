@@ -1,4 +1,4 @@
-// OAuth2 consent-challenge resolution (§6): given a Hydra consent challenge, auto-accept a
+// OAuth2 consent-challenge resolution: given a Hydra consent challenge, auto-accept a
 // first-party (or Hydra-skipped) client granting the requested scopes, else show a consent
 // screen; on submit accept (allow) or reject (deny). id_token claims come from the Kratos identity.
 import { test } from "node:test";

@@ -1,4 +1,4 @@
-# Full-stack auth E2E — token timeout + silent re-mint ("stay signed in", §4). The Ory-free
+# Full-stack auth E2E — token timeout + silent re-mint ("stay signed in"). The Ory-free
 # visual suite (compose.e2e.yml) covers the design system; this is its full-stack counterpart:
 # real Postgres + Kratos + Keto + bootstrap + web, with a SHORT tokenizer TTL (ory/kratos/e2e.yml)
 # and zero clock skew, so the JWT lapses and re-mints within seconds instead of ~10m.

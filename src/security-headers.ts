@@ -1,4 +1,4 @@
-// Response security headers (todo §9): set once per request in app.ts so every response — page,
+// Response security headers: set once per request in app.ts so every response — page,
 // JSON, redirect, static, or error — carries them (writeHead merges with setHeader). A plugin route
 // may override any of them per-response via RouteResult.headers (e.g. relax the CSP to ship its own JS).
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The full CI gate (todo §8): typecheck → unit tests → every E2E suite, each against a FRESH stack
+# The full CI gate: typecheck → unit tests → every E2E suite, each against a FRESH stack
 # that is always torn down. One reproducible command — run it locally or wire it into your CI
 # service. Docker-only (it drives `docker compose`; node/npm/tsc run inside containers, never the host).
 #

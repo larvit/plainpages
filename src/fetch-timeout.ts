@@ -1,4 +1,4 @@
-// Bound every outbound Ory call (todo §8 review): a reachable-but-silent host — a hung container, a
+// Bound every outbound Ory call: a reachable-but-silent host — a hung container, a
 // black-holed socket, an LB holding the connection — would otherwise park a request handler forever
 // (and exhaust the pool under load). Wrap the injected `fetch` so each call aborts after `ms` unless
 // the caller already passed its own signal. server.ts wires this into the Kratos/Keto/Hydra clients.

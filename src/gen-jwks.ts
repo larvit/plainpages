@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// ES256 signing JWKS for the Kratos session tokenizer (§3) — Ory-recommended and the
+// ES256 signing JWKS for the Kratos session tokenizer — Ory-recommended and the
 // verifier's preferred alg (src/jwt.ts). Rotation runbook: README, JWT signing key.
 // CLI (prod supplies its own key; the committed one is a dev throwaway):
 //   gen-jwks.ts                       → a fresh one-key set (mint/replace; emergency rotation)

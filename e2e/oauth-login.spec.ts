@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-// Full-stack OAuth2 login + consent E2E (§6): another app logs in *through* plainpages. Hydra
+// Full-stack OAuth2 login + consent E2E: another app logs in *through* plainpages. Hydra
 // starts an authorization flow and hands the browser to web's /oauth2/login; web resolves it via
 // the Kratos session and accepts, Hydra continues to web's /oauth2/consent, web shows the themed
 // consent screen, and Allow drives Hydra to issue the authorization code. We drive the flow over
 // HTTP (fetch, per-host cookie jars) because the browser hosts differ on the compose network; this
-// exercises web's server-side challenge handling. The browser-UI login is owned by §8.
+// exercises web's server-side challenge handling. The browser-UI login is owned by the full-flow E2E (full-flow.spec.ts).
 const WEB = process.env.BASE_URL ?? "http://web:3000";
 const KRATOS = process.env.KRATOS_PUBLIC_URL ?? "http://kratos:4433";
 const HYDRA_PUBLIC = process.env.HYDRA_PUBLIC_URL ?? "http://hydra:4444";
 const HYDRA_ADMIN = process.env.HYDRA_ADMIN_URL ?? "http://hydra:4445";
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap (§3)
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap
 const ADMIN_PASSWORD = "admin";
 
 function setCookieLine(res: Response, name: string): string | undefined {

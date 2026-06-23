@@ -1,4 +1,4 @@
-// Guards the Ory Hydra config (§3): migrations run before the server (hydra-migrate →
+// Guards the Ory Hydra config: migrations run before the server (hydra-migrate →
 // hydra), the DSN targets the hydra database, the server listens on the public/admin
 // ports, and the issuer + login/consent/logout URLs point at our app. Version pinning is
 // in compose.test.ts. Real boot is verified by running the stack; this catches edits.

@@ -1,6 +1,6 @@
-// Guards the session-tokenizer signing key (§3): generateJwks() emits a fresh ES256
+// Guards the session-tokenizer signing key: generateJwks() emits a fresh ES256
 // EC private signing key, the committed dev JWKS is a valid such key, and a token signed
-// with it verifies through our own verifier (src/jwt.ts) — so what Kratos signs, §4 reads.
+// with it verifies through our own verifier (src/jwt.ts) — so what Kratos signs, reads.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -45,7 +45,7 @@ test("rotateJwks --prune keeps only the newest (first) key, dropping superseded 
   assert.deepEqual(pruned.keys, [twoKeys.keys[0]], "only the active signing key remains");
 });
 
-test("a JWS signed with a generated key verifies via our own verifier (§4 reads what Kratos signs)", () => {
+test("a JWS signed with a generated key verifies via our own verifier (reads what Kratos signs)", () => {
   const key = generateJwks().keys[0]!;
   const head = b64url(JSON.stringify({ alg: "ES256", kid: key.kid }));
   const body = b64url(JSON.stringify({ email: "a@b.c", roles: [], sub: key.kid }));

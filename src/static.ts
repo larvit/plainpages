@@ -54,7 +54,7 @@ function plain(res: ServerResponse, status: number, body: string): void {
 }
 
 // onError handles a mid-stream read failure (headers already sent); defaults to console.error so
-// static.ts stays standalone, while app.ts passes the request logger for structured output (§9).
+// static.ts stays standalone, while app.ts passes the request logger for structured output.
 export async function serveStatic(dir: string, requestedPath: string, res: ServerResponse, head = false, onError: (err: Error) => void = (err) => console.error(err)): Promise<void> {
   let decoded: string;
   try {

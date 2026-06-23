@@ -51,8 +51,8 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
   { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
-  { name: "a route marked public AND permission is contradictory (§10)", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
-  { name: "a nav node marked public AND permission is contradictory (§10)", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x" }] };` }, match: /contranav.*public.*permission/s },
+  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
+  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x" }] };` }, match: /contranav.*public.*permission/s },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
@@ -63,7 +63,7 @@ for (const c of badCases) {
   });
 }
 
-test("a route + nav node may be marked public (§10) and load fine", async (t) => {
+test("a route + nav node may be marked public and load fine", async (t) => {
   const dir = scaffold(t, { "pub/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };` });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);
@@ -71,7 +71,7 @@ test("a route + nav node may be marked public (§10) and load fine", async (t) =
   assert.equal(plugins[0]?.nav?.[0]?.public, true);
 });
 
-test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers (§10)", async (t) => {
+test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers", async (t) => {
   const dir = scaffold(t, { "portal/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ view: "home" }), dashboard: () => ({ view: "dash" }) };` });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);

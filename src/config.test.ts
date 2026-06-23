@@ -21,9 +21,9 @@ test("loads dev defaults when the environment is empty", () => {
   assert.equal(c.hydraAdminUrl, "http://hydra:4445");
   assert.match(c.csrfSecret, /dev-insecure/);
   assert.equal(c.jwtClockSkewSec, 60); // default exp/nbf leeway for Kratos↔web clock drift
-  assert.equal(c.revocationDenylist, false); // instant-revoke is opt-in (§9)
+  assert.equal(c.revocationDenylist, false); // instant-revoke is opt-in
   assert.equal(c.revocationTtlSec, 900); // ≥ tokenizer TTL (10m) + skew
-  assert.equal(c.logLevel, "info"); // §9 observability defaults
+  assert.equal(c.logLevel, "info"); // observability defaults
   assert.equal(c.logFormat, "text"); // human-readable in dev; prod compose sets json
   assert.equal(c.otlpEndpoint, undefined); // OTLP export opt-in; console-only by default
   assert.equal(c.otlpProtocol, "http/json");
@@ -38,12 +38,12 @@ test("APP_URL is the canonical public URL: opt-in (unset ⇒ no redirect), honou
   assert.throws(() => loadConfig({ APP_URL: "not a url" }), /APP_URL/);
 });
 
-test("SERVICE_NAME is overridable so an implementer brands their own logs/traces (§9)", () => {
+test("SERVICE_NAME is overridable so an implementer brands their own logs/traces", () => {
   assert.equal(loadConfig({ SERVICE_NAME: "acme-ops" }).serviceName, "acme-ops");
   assert.equal(loadConfig({ SERVICE_NAME: "" }).serviceName, "plainpages"); // empty ⇒ default
 });
 
-test("LOG_LEVEL/LOG_FORMAT/OTLP_PROTOCOL are validated enums; OTLP_ENDPOINT an optional URL (§9)", () => {
+test("LOG_LEVEL/LOG_FORMAT/OTLP_PROTOCOL are validated enums; OTLP_ENDPOINT an optional URL", () => {
   assert.equal(loadConfig({ LOG_LEVEL: "debug" }).logLevel, "debug");
   assert.equal(loadConfig({ LOG_LEVEL: "none" }).logLevel, "none");
   assert.throws(() => loadConfig({ LOG_LEVEL: "trace" }), /LOG_LEVEL/);
@@ -64,7 +64,7 @@ test("REVOCATION_DENYLIST: opt-in toggle (off by default) + REVOCATION_TTL_SEC m
 
 test("JWKS_URL defaults to the committed Kratos tokenizer signing key, not an http endpoint", () => {
   // The session JWT is signed by the tokenizer key (kratos.yml jwks_url); Kratos does NOT
-  // republish it at /.well-known/jwks.json, so the §4 verifier reads that same file://.
+  // republish it at /.well-known/jwks.json, so the verifier reads that same file://.
   // gen-jwks.test.ts owns that the file is a valid ES256 signing key with a kid.
   const url = new URL(loadConfig({}).jwksUrl);
   assert.equal(url.protocol, "file:");

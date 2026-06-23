@@ -1,4 +1,4 @@
-// Guards the dev/prod compose split + stack ordering (§3): every image is pinned to an
+// Guards the dev/prod compose split + stack ordering: every image is pinned to an
 // exact version (AGENTS.md), long-running Ory services carry readiness healthchecks so
 // `depends_on: service_healthy` works, the web app waits for the services it talks to
 // (kratos + keto + hydra), prod publishes no internal Ory ports while dev exposes
@@ -42,7 +42,7 @@ test("long-running Ory services declare readiness healthchecks", () => {
 
 test("web waits for kratos, keto and hydra to be healthy before starting", () => {
   assert.match(webBlock, /depends_on:/, "web declares dependencies");
-  // hydra: the §6 OAuth2 login/consent handler talks to its admin API.
+  // hydra: the OAuth2 login/consent handler talks to its admin API.
   for (const svc of ["kratos", "keto", "hydra"])
     assert.match(webBlock, new RegExp(`${svc}:\\s*\\n\\s*condition:\\s*service_healthy`),
       `web waits for ${svc} healthy`);
@@ -58,7 +58,7 @@ test("prod base publishes no internal Ory ports; dev exposes the host-facing one
 });
 
 test("prod base supplies the app secret via env and mounts no source; dev override flips it", () => {
-  // §9 prod compose: CSRF_SECRET comes from the environment (dev-throwaway fallback that
+  // prod compose: CSRF_SECRET comes from the environment (dev-throwaway fallback that
   // REQUIRE_SECURE_SECRETS rejects in prod — see config.ts); the base never bind-mounts the
   // source tree (runs the built image), while the dev override does for live editing.
   assert.match(webBlock, /CSRF_SECRET:\s*\$\{CSRF_SECRET\b/, "base wires CSRF_SECRET from env");
@@ -67,7 +67,7 @@ test("prod base supplies the app secret via env and mounts no source; dev overri
   // Secret/cookie hardening: enforced in prod, off in dev so the throwaway + http cookies pass.
   assert.match(webBlock, /REQUIRE_SECURE_SECRETS:\s*"true"/, "base enforces real secrets");
   assert.match(override, /REQUIRE_SECURE_SECRETS:\s*"false"/, "dev allows the throwaway");
-  // §9 observability: prod emits structured JSON logs; dev flips it to human-readable text.
+  // observability: prod emits structured JSON logs; dev flips it to human-readable text.
   assert.match(webBlock, /LOG_FORMAT:\s*"json"/, "prod logs structured JSON");
   assert.match(override, /LOG_FORMAT:\s*"text"/, "dev logs human-readable text");
   // Postgres credentials are env-supplied (dev default), never a baked-in literal.
@@ -75,7 +75,7 @@ test("prod base supplies the app secret via env and mounts no source; dev overri
 });
 
 test("a one-shot bootstrap seeds the stack before web starts", () => {
-  // §3 MVP bar: `bootstrap` runs after kratos+keto are healthy, seeds the admin +
+  // MVP bar: `bootstrap` runs after kratos+keto are healthy, seeds the admin +
   // JWKS, then exits; web waits for it to complete. Live seeding is boot-verified.
   const boot = compose.slice(compose.indexOf("\n  bootstrap:"));
   assert.match(boot, /node src\/bootstrap\.ts/, "bootstrap runs the seed script");

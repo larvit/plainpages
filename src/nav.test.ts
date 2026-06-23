@@ -45,7 +45,7 @@ test("composeNav drops gated subtrees, empty headers, and (with no roles) all ga
   assert.deepEqual(composeNav(), []);
 });
 
-test("composeNav keeps a node marked public for everyone — the blessed public alias (§10)", () => {
+test("composeNav keeps a node marked public for everyone — the blessed public alias", () => {
   // A header with one public child + one gated child: with no roles, the public child keeps the
   // header alive (the gated child is filtered out) — so a plugin can show a public menu option to all.
   const frag: NavNode[][] = [[{

@@ -1,5 +1,5 @@
-# Playwright E2E. Brings up the app + a Playwright runner, screenshots the live pages and the
-# html-css-foundation mockups, and asserts the live DOM computes the same design styles.
+# Playwright E2E. Brings up the app + a Playwright runner and exercises the live pages (design
+# system, theme switch, mobile layout, CSRF, landing, 404, plugin gating) — Ory-free, so it's fast.
 #   docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e
 #   docker compose -f compose.yml -f compose.e2e.yml down -v   # tear down after
 # --build rebuilds the runner (the image bakes in e2e/) so spec edits are picked up.
@@ -33,10 +33,7 @@ services:
     environment:
       BASE_URL: http://web:3000
     volumes:
-      # The mockups + their stylesheet, kept as siblings so file:// ../public/css resolves.
-      - ./html-css-foundation:/repo/html-css-foundation:ro
-      - ./public:/repo/public:ro
       # The committed dev tokenizer key — the spec signs a session JWT with it so the gated
-      # dashboard (§10) renders; web verifies it with the same key (the file it mounts read-only).
+      # dashboard renders; web verifies it with the same key (the file it mounts read-only).
       - ./ory/kratos/tokenizer/jwks.json:/repo/jwks.json:ro
       - ./e2e/artifacts:/e2e/artifacts

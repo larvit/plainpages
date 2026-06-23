@@ -8,7 +8,7 @@ import { Context, Namespace, SubjectSet } from "@ory/keto-namespace-types"
 class User implements Namespace {}
 
 // A subject set: a named collection of users (and nested groups), resolved transitively.
-// The admin "Groups" screen (§5) manages membership; checks expand it automatically.
+// The admin "Groups" screen manages membership; checks expand it automatically.
 class Group implements Namespace {
   related: {
     members: (User | SubjectSet<Group, "members">)[]

@@ -1,4 +1,4 @@
-// OAuth2 login-challenge handler (todo §6): when another app logs in *through* plainpages,
+// OAuth2 login-challenge handler: when another app logs in *through* plainpages,
 // Hydra hands the browser to /oauth2/login?login_challenge=… (hydra.yml urls.login). We
 // authenticate the user with their existing Kratos session and accept the request; Hydra then
 // proceeds to consent and mints the tokens. No first-party page needs this — it's the OAuth2

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { currentLog } from "./logger.ts";
 
-// JWKS provider: resolve the JWT verify key by the JWS `kid` (todo §4). The middleware calls
+// JWKS provider: resolve the JWT verify key by the JWS `kid`. The middleware calls
 // `getKey` per request. `staticJwks` holds a fixed set; `cachingJwks` fetches over the network
 // (or re-reads a mounted file), caches for a TTL, and reloads once on a `kid` miss so a rotated-
 // in key is picked up without a restart (README: zero-downtime rotation). `createJwksProvider`
@@ -98,7 +98,7 @@ export function cachingJwks(load: () => Promise<JsonWebKey[]>, opts: JwksCacheOp
 
 // Build the verify-key provider from the configured JWKS URL and prime it at boot (fail loud):
 // `base64://` → immutable inline set; `file://` → re-readable cache (rotation by remount/edit);
-// `http(s)://` → fetched, cached, rotation-on-miss. The §4 middleware sees only `getKey`.
+// `http(s)://` → fetched, cached, rotation-on-miss. The middleware sees only `getKey`.
 export async function createJwksProvider(jwksUrl: string, opts: JwksCacheOptions = {}): Promise<JwksProvider> {
   if (jwksUrl.startsWith("base64://")) return staticJwks(loadJwks(jwksUrl));
   const { protocol } = new URL(jwksUrl);

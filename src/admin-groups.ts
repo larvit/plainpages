@@ -1,4 +1,4 @@
-// Built-in Groups admin screen (todo §5): list / create / delete Keto groups and manage membership.
+// Built-in Groups admin screen: list / create / delete Keto groups and manage membership.
 // A group is a Keto subject set `Group:<name>#members`; a member is a user or a nested group (see
 // parseSubject). Writes go only to Keto (README "stateless"). Keto has no "create object" — a group
 // exists exactly while it has ≥1 member, so create writes its first-member tuple and delete removes

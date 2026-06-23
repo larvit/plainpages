@@ -1,4 +1,4 @@
-// Same-origin gateway for the browser E2E (todo §8). The themed login form posts straight to
+// Same-origin gateway for the browser E2E. The themed login form posts straight to
 // Kratos' flow action and Kratos sets the session cookie for its own base_url host — so for a real
 // browser, web and Kratos must look like ONE origin (cookies are host-scoped). This tiny stdlib
 // reverse proxy fronts both on a single host (the browser's only origin), exactly as a production

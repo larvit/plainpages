@@ -19,7 +19,7 @@ services:
       LOG_FORMAT: "json" # structured logs for prod pipelines; set OTLP_ENDPOINT to also export to a collector
       REQUIRE_SECURE_SECRETS: "true"
       SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
-    # Wait for the services the app talks to (kratos + keto + hydra for the §6 OAuth2 login/
+    # Wait for the services the app talks to (kratos + keto + hydra for the OAuth2 login/
     # consent handler) + the one-shot bootstrap (admin + JWKS seed).
     depends_on:
       bootstrap:
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
       hydra:
         condition: service_healthy
-    # §4 verifier reads the same tokenizer JWKS Kratos signs with (config.ts JWKS_URL).
+    # verifier reads the same tokenizer JWKS Kratos signs with (config.ts JWKS_URL).
     # Read-only — bootstrap is the only writer.
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer:ro
@@ -117,7 +117,7 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # One-shot first-boot seed (§3, the MVP bar); see src/bootstrap.ts. Idempotent, re-runs
+  # One-shot first-boot seed (the MVP bar); see src/bootstrap.ts. Idempotent, re-runs
   # cleanly. Runs once kratos+keto are healthy; web waits for it. Tokenizer dir mounted
   # read-write (the only writer) so the absent-JWKS safety net can land the key.
   bootstrap:
@@ -146,7 +146,7 @@ services:
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
   # DSN is its own `hydra` DB (init.sql); config in ory/hydra/hydra.yml. web implements the
-  # login challenge at /oauth2/login (§6, consent next). Dev permits the http issuer via --dev
+  # login challenge at /oauth2/login (consent next). Dev permits the http issuer via --dev
   # (compose.override.yml); prod sets an https issuer via env (URLS_SELF_ISSUER).
   hydra-migrate:
     image: oryd/hydra:v26.2.0

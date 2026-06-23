@@ -45,15 +45,15 @@ export interface AppOptions {
   // Off by default so edits show live; the app itself never inspects the environment.
   cache?: boolean;
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
-  denylist?: Denylist; // optional instant-revoke (§9); the hot path rejects revoked subjects, admin writes record revokes
-  hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge (§6)
-  jwks?: JwksProvider; // verify the session JWT → ctx.user/roles (§4); absent ⇒ always anonymous
-  keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion (§4)
-  kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes (§4)
-  kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion (§4)
-  log?: Log; // app-level logger (§9); per-request access log + trace span. Default: silent (tests)
+  denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
+  hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
+  jwks?: JwksProvider; // verify the session JWT → ctx.user/roles; absent ⇒ always anonymous
+  keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion
+  kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes
+  kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion
+  log?: Log; // app-level logger; per-request access log + trace span. Default: silent (tests)
   menu?: MenuConfig; // central override + branding (config/menu.ts); defaults to DEFAULT_MENU
-  plugins?: Plugin[]; // discovered manifests to mount (router); empty until §2 discovery runs
+  plugins?: Plugin[]; // discovered manifests to mount (router); empty until discovery runs
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
   publicDir?: string;
   secureCookies?: boolean; // set Secure on our session/CSRF cookies (config.secureCookies; off in dev http)
@@ -86,7 +86,7 @@ export function createApp(options: AppOptions = {}): Server {
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
   // A plugin may fully replace the public landing "/" (`home`) or the gated dashboard "/dashboard"
-  // (`dashboard`) — §10. Discovery's findConflicts guarantees at most one of each, so `find` is
+  // (`dashboard`) — Discovery's findConflicts guarantees at most one of each, so `find` is
   // unambiguous; the predicates narrow the slot to defined.
   const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
   const dashboardPlugin = plugins.find((p): p is Plugin & { dashboard: RouteHandler } => typeof p.dashboard === "function");
@@ -108,13 +108,13 @@ export function createApp(options: AppOptions = {}): Server {
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
-  // Built-in admin screens (§5) — wired only when their Ory clients are present (the writes go
+  // Built-in admin screens — wired only when their Ory clients are present (the writes go
   // there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
   // Users writes to Kratos; Groups writes to Keto and reads users from Kratos for the pickers.
   const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
   const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
   const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
-  // OAuth2 clients (§6) write to Hydra; wired only when the Hydra admin client is present.
+  // OAuth2 clients write to Hydra; wired only when the Hydra admin client is present.
   const adminClientsDeps: AdminClientsDeps | null = hydra ? { csrfSecret, hydra, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
@@ -158,7 +158,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Verify the session JWT once (cached JWKS) → ctx.user/roles; none/invalid ⇒ anonymous.
       // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
-      // clients), silently re-mint it — "stay signed in" (§4): re-read roles from Keto, re-tokenize,
+      // clients), silently re-mint it — "stay signed in": re-read roles from Keto, re-tokenize,
       // and set the fresh cookie via setHeader so it rides whatever response this request produces
       // (a dead session clears the stale cookie). This is the only place the hot path touches Ory.
       let user: User | null = null;
@@ -178,7 +178,7 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
       // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
-      // one (the form page below Set-Cookies it). Verified on our own state-changing routes (§4).
+      // one (the form page below Set-Cookies it). Verified on our own state-changing routes.
       const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
       // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
       const verifyCsrf = (submitted: string | null | undefined): boolean =>
@@ -226,7 +226,7 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      // Built-in admin screens (§5). Each handler gates (admin only; throws GuardError the catch
+      // Built-in admin screens. Each handler gates (admin only; throws GuardError the catch
       // maps), CSRF-guards mutations, and returns html/redirect. Set the page's CSRF cookie when
       // freshly minted (its forms carry the matching token); null ⇒ unknown subpath → 404.
       if (adminDeps && pathname.startsWith(ADMIN_USERS_BASE)) {
@@ -282,7 +282,7 @@ export function createApp(options: AppOptions = {}): Server {
             // A `return_to` is baked into the flow so Kratos lands there after login instead of the
             // default completion route. A first-party deep link (host-relative, from the gate's
             // return_to) is wrapped through /auth/complete so the session JWT is minted before the
-            // user reaches the page; an absolute target (the §6 OAuth2 login challenge) is passed
+            // user reaches the page; an absolute target (the OAuth2 login challenge) is passed
             // as-is — Kratos allow-lists it. localPath rejects an off-origin "//evil.com".
             const raw = ctx.url.searchParams.get("return_to");
             const local = localPath(raw);
@@ -324,14 +324,14 @@ export function createApp(options: AppOptions = {}): Server {
           }
           throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
         }
-        // Rendered inside the unified app shell (§10), so set a fresh CSRF cookie when minted — the
+        // Rendered inside the unified app shell, so set a fresh CSRF cookie when minted — the
         // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
         sendHtml(res, 200, await render("auth", { chrome: ctx.chrome, flow: buildFlowView(flow, flowType) }));
         return;
       }
 
-      // OAuth2 login challenge (§6): Hydra hands the browser here when another app logs in
+      // OAuth2 login challenge: Hydra hands the browser here when another app logs in
       // *through* us. Resolve it via the Kratos session and accept; an unauthenticated user
       // bounces to our themed login and returns here once signed in. Provider-only.
       if (hydra && kratos && pathname === "/oauth2/login" && (method === "GET" || method === "HEAD")) {
@@ -358,7 +358,7 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      // OAuth2 consent challenge (§6): after login Hydra hands the browser here. A first-party
+      // OAuth2 consent challenge: after login Hydra hands the browser here. A first-party
       // (or Hydra-skipped) client is auto-granted its scopes; a third-party client gets the themed
       // consent screen, whose CSRF-guarded POST accepts (Allow) or rejects (Deny). Provider-only.
       if (hydra && kratos && pathname === "/oauth2/consent") {
@@ -408,7 +408,7 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // OAuth2 RP-initiated logout (§6): Hydra hands the browser here to end the OAuth2 session
+      // OAuth2 RP-initiated logout: Hydra hands the browser here to end the OAuth2 session
       // (hydra.yml urls.logout). Accept the challenge and resume to Hydra's post-logout redirect;
       // the first-party POST /logout (below) owns the Kratos session + our JWT cookie. Provider-only.
       // GET-accept is safe (like the login/consent handlers): the challenge is Hydra-minted +
@@ -433,7 +433,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Login completion: where Kratos lands the browser after authenticating (kratos.yml).
       // Mint our session JWT — read roles from Keto, project onto the identity, tokenize —
-      // and store it as the cookie; no active session bounces back to sign in (§4).
+      // and store it as the cookie; no active session bounces back to sign in.
       if (pathname === "/auth/complete" && method === "GET" && kratos && kratosAdmin && keto) {
         const completed = await completeLogin({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie);
         if (!completed) {
@@ -442,7 +442,7 @@ export function createApp(options: AppOptions = {}): Server {
         }
         res.appendHeader("set-cookie", sessionCookie(completed.jwt, { secure: secureCookies }));
         // Land on the deep link the user was headed to (return_to, validated host-relative so a
-        // crafted ?return_to= can't make this an open redirect), else the gated dashboard (§9/§10).
+        // crafted ?return_to= can't make this an open redirect), else the gated dashboard.
         res.writeHead(303, { location: localPath(ctx.url.searchParams.get("return_to")) ?? "/dashboard" }).end();
         return;
       }
@@ -476,7 +476,7 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // The public landing (§10): ungated — anyone may see it. A plugin may fully own it via `home`
+        // The public landing: ungated — anyone may see it. A plugin may fully own it via `home`
         // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
         // any form it ships). Else the built-in intro page with prominent sign-in / register links.
         if (homePlugin) {
@@ -487,7 +487,7 @@ export function createApp(options: AppOptions = {}): Server {
           await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
           return;
         }
-        // Default landing in the unified app shell (§10): `user` picks "go to dashboard" vs sign-in,
+        // Default landing in the unified app shell: `user` picks "go to dashboard" vs sign-in,
         // and the shell's Sign-out form (when signed in) needs a fresh CSRF cookie.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
         sendHtml(res, 200, await render("home", { chrome: ctx.chrome, user }));
@@ -495,12 +495,12 @@ export function createApp(options: AppOptions = {}): Server {
       }
 
       if (pathname === "/dashboard" && (method === "GET" || method === "HEAD")) {
-        // The post-login app home, gated to a signed-in user (§10): anonymous bounces to sign in,
+        // The post-login app home, gated to a signed-in user: anonymous bounces to sign in,
         // remembering /dashboard as return_to.
         if (!user) { res.writeHead(303, { location: loginRedirect(ctx) }).end(); return; }
         // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
         if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        // A plugin may fully own the dashboard (§10): render its handler against its own views, native
+        // A plugin may fully own the dashboard: render its handler against its own views, native
         // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
         if (dashboardPlugin) {
           const dashCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
@@ -543,7 +543,7 @@ export function createApp(options: AppOptions = {}): Server {
   };
 
   return createServer((req, res) => {
-    // Per-request log + trace span (§9): a "request" span, continuing an upstream W3C traceparent
+    // Per-request log + trace span: a "request" span, continuing an upstream W3C traceparent
     // when present (distributed tracing across a proxy). "close" (not "finish") fires on both a
     // completed response and a premature disconnect/abort, so an aborted/truncated request is still
     // logged and its span flushed.

@@ -1,4 +1,4 @@
-// parseListQuery (todo §1): read a list-page URL into the state the building blocks render
+// parseListQuery: read a list-page URL into the state the building blocks render
 // from — search, filters, sort, pagination. The URL is the only list state (README
 // "Interactivity"), so this is the inverse of the filter-bar GET form, the sort links and the
 // pagination links: bookmarkable, shareable, reproducible. Pure; never throws.

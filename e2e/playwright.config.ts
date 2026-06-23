@@ -1,9 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Visual + functional checks against the live app (the `web` compose service, BASE_URL) and the
-// static html-css-foundation mockups (bind-mounted at /repo). Run via compose.e2e.yml. Parallel
-// per the project's E2E principle (todo §1.1); deterministic colorScheme/viewport so the
-// computed-style parity vs the reference design is stable.
+// Visual + functional checks against the live app (the `web` compose service, BASE_URL). Run via
+// compose.e2e.yml. Parallel per the project's E2E principle; deterministic colorScheme/viewport
+// so the rendered design is stable across runs.
 export default defineConfig({
   testDir: ".",
   outputDir: "artifacts/test-output",

@@ -1,6 +1,6 @@
 # Ory Kratos — identity & self-service auth. Identity schema (email, name) +
 # password login; recovery & verification run on email codes. Every self-service
-# flow returns to our own themed routes (§4 renders the fields). DSN + prod
+# flow returns to our own themed routes (renders the fields). DSN + prod
 # courier/secrets come from the env. Session→JWT tokenizer wired below (signing
 # key in tokenizer/jwks.json).
 serve:
@@ -24,7 +24,7 @@ selfservice:
     code: # email one-time code — powers recovery + verification (not login)
       enabled: true
     # Social sign-in, OFF by default → clean clone is password-only. Activate via env only
-    # (no code; the whole-array form is the only env-settable one Kratos offers); §4 derives
+    # (no code; the whole-array form is the only env-settable one Kratos offers); derives
     # the buttons from this list. SAML isn't in OSS Kratos — bridge it as OIDC (README).
     #   SELFSERVICE_METHODS_OIDC_ENABLED=true
     #   SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS=[{"id":"google","provider":"google",
@@ -41,7 +41,7 @@ selfservice:
       ui_url: http://localhost:3000/login
       after:
         # After authenticating, land on our completion route — it mints the session JWT
-        # (roles from Keto → metadata_public projection → tokenize) and sets our cookie (§4).
+        # (roles from Keto → metadata_public projection → tokenize) and sets our cookie.
         default_browser_return_url: http://localhost:3000/auth/complete
     registration:
       ui_url: http://localhost:3000/registration
@@ -82,7 +82,7 @@ identity:
       url: file:///etc/config/kratos/identity.schema.json
 
 # "Stay signed in" backbone: a long-lived Kratos session that the app re-mints the
-# short-lived (~10m) JWT off (§4). Sliding refresh — an active session is extended
+# short-lived (~10m) JWT off. Sliding refresh — an active session is extended
 # back to full lifespan only once it's within earliest_possible_extend of expiry,
 # so frequent users never lapse without a DB write per request.
 session:
@@ -92,7 +92,7 @@ session:
     name: plainpages_session
     persistent: true # survive browser restarts
     same_site: Lax
-  # Session→JWT tokenizer (§4): whoami(tokenize_as: plainpages) mints a short-lived,
+  # Session→JWT tokenizer: whoami(tokenize_as: plainpages) mints a short-lived,
   # locally-verifiable JWT so the hot path never calls Ory. Claims come from the
   # committed Jsonnet mapper (sub = identity id, email from traits, roles from the
   # metadata_public projection); signed with tokenizer/jwks.json.
@@ -105,7 +105,7 @@ session:
           claims_mapper_url: file:///etc/config/kratos/tokenizer/plainpages.jsonnet
           jwks_url: file:///etc/config/kratos/tokenizer/jwks.json
 
-# Dev throwaways — production supplies real secrets via env (§3). cipher = 32 chars.
+# Dev throwaways — production supplies real secrets via env. cipher = 32 chars.
 secrets:
   cookie:
     - PLEASE-CHANGE-ME-dev-kratos-cookie-secret

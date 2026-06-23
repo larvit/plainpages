@@ -1,4 +1,4 @@
-// OAuth2 login-challenge resolution (§6): given a Hydra login challenge, authenticate the user
+// OAuth2 login-challenge resolution: given a Hydra login challenge, authenticate the user
 // via their Kratos session and accept — or bounce an unauthenticated user to the Kratos login UI.
 import { test } from "node:test";
 import assert from "node:assert/strict";

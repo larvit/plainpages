@@ -1,7 +1,7 @@
-// Kratos admin-API client (§4): typed fetch wrappers over Ory Kratos' admin endpoints —
+// Kratos admin-API client: typed fetch wrappers over Ory Kratos' admin endpoints —
 // identity CRUD + the surgical metadata_public update the login flow projects roles into.
 // Guards the request contracts (URLs, method, JSON-Patch body, query/pagination) and the
-// result mapping (201/200/404/4xx). Live wiring is verified by login completion (§4).
+// result mapping (201/200/404/4xx). Live wiring is verified by login completion.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createKratosAdmin } from "./kratos-admin.ts";

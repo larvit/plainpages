@@ -1,4 +1,4 @@
-// URL safety helpers (todo §9). Two pure, dependency-free guards:
+// URL safety helpers. Two pure, dependency-free guards:
 //
 //   safeUrl(value)  — sanitise an untrusted URL before rendering it in an href/src attribute.
 //                     Partials escape *text*, but a URL field is emitted verbatim, so a

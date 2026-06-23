@@ -1,4 +1,4 @@
-// JWT session middleware (todo §4): verify our session cookie in-process on every request —
+// JWT session middleware: verify our session cookie in-process on every request —
 // the hot path that never calls Ory. Select the verify key by `kid` from the cached JWKS,
 // check the signature (src/jwt.ts), validate the time/issuer/audience claims, project the
 // User onto the request context. `authenticate` fails closed: any bad/expired token ⇒ null
@@ -16,14 +16,14 @@ const DEFAULT_CLOCK_SKEW_SEC = 60;
 export interface VerifyOptions {
   audience?: string | undefined; // if set, the token `aud` must include it (else skipped)
   clockSkewSec?: number | undefined;
-  denylist?: Pick<Denylist, "isRevoked"> | undefined; // optional instant-revoke (§9); a revoked sub is rejected like an expiry
+  denylist?: Pick<Denylist, "isRevoked"> | undefined; // optional instant-revoke; a revoked sub is rejected like an expiry
   issuer?: string | undefined; // if set, the token `iss` must equal it (else skipped)
   now?: number | undefined; // unix seconds; injectable for tests
 }
 
 // A rejected token (bad signature, expired, wrong iss/aud, malformed claims). `authenticate`
 // swallows it to anonymous; a caller wanting the reason can catch it. `expired` is set only for
-// a lapsed-but-otherwise-intact token — the §4 re-mint trigger (see resolveSession).
+// a lapsed-but-otherwise-intact token — the re-mint trigger (see resolveSession).
 export class TokenError extends Error {
   expired: boolean;
   constructor(message: string, expired = false) {
@@ -79,14 +79,14 @@ export async function verifyToken(token: string, jwks: JwksProvider, options: Ve
   const verified = verifyJws(token, jwk); // throws on a bad signature / disallowed alg
   validateClaims(verified.payload, options);
   const user = claimsToUser(verified.payload);
-  // Instant revoke (§9): a denylisted subject's pre-revoke token is rejected as *expired* so
-  // resolveSession routes it through the §4 re-mint (fresh roles from Keto, or a cleared session).
+  // Instant revoke: a denylisted subject's pre-revoke token is rejected as *expired* so
+  // resolveSession routes it through the re-mint (fresh roles from Keto, or a cleared session).
   if (options.denylist?.isRevoked(user.id, num(verified.payload, "iat"))) throw new TokenError("token revoked", true);
   return user;
 }
 
 export interface SessionAuth {
-  expired: boolean; // a token was present but rejected as *expired* → a re-mint candidate (§4)
+  expired: boolean; // a token was present but rejected as *expired* → a re-mint candidate
   user: User | null;
 }
 

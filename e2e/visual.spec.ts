@@ -3,10 +3,6 @@ import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
-// The mockups are bind-mounted at /repo (sibling to /repo/public so their ../public/css/ resolves).
-const MOCKUP = "file:///repo/html-css-foundation";
-const APP_SHELL = `${MOCKUP}/App%20Shell.html`;
-const AUTH = `${MOCKUP}/Auth.html`;
 const SHOTS = "artifacts/screenshots";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const SESSION_COOKIE = "plainpages_jwt"; // src/login.ts — web verifies it against the committed dev JWKS
@@ -15,7 +11,7 @@ const shot = (page: Page, name: string): Promise<Buffer> =>
   page.screenshot({ fullPage: true, path: `${SHOTS}/${name}.png` });
 
 // Sign a session JWT with the committed dev tokenizer key (bind-mounted at /repo/jwks.json), so the
-// gated dashboard (§10) renders for a "signed-in" user without standing up Ory — web verifies it
+// gated dashboard renders for a "signed-in" user without standing up Ory — web verifies it
 // with the same key by `kid`, exactly as it verifies a real Kratos-tokenizer JWT.
 function devSession(roles: string[] = []): string {
   const jwk = JSON.parse(readFileSync("/repo/jwks.json", "utf8")).keys[0];
@@ -28,16 +24,16 @@ function devSession(roles: string[] = []): string {
 
 test.beforeAll(async () => { await mkdir(SHOTS, { recursive: true }); });
 
-// The dashboard is gated (§10): a page navigation needs a session. Plant one per test — a plain
-// member (no roles) so the gated scheduling/admin nav stays filtered out, matching the mockup.
+// The dashboard is gated: a page navigation needs a session. Plant one per test — a plain
+// member (no roles) so the gated scheduling/admin nav stays filtered out.
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });
 
-test("captures live pages + reference mockups for side-by-side review", async ({ page }) => {
+test("captures the live pages for review", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toBeVisible();
-  // §10: the default /dashboard is the instructional starter, not a mock-data list.
+  // the default /dashboard is the instructional starter, not a mock-data list.
   await expect(page.getByRole("heading", { name: "Starter dashboard" })).toBeVisible();
   await shot(page, "live-01-dashboard");
 
@@ -49,35 +45,6 @@ test("captures live pages + reference mockups for side-by-side review", async ({
   await page.goto("/dashboard");
   await shot(page, "live-04-mobile");
   await page.setViewportSize({ width: 1280, height: 800 });
-
-  await page.goto(APP_SHELL);
-  await shot(page, "mockup-01-app-shell");
-  await page.goto(AUTH);
-  await shot(page, "mockup-02-auth");
-});
-
-// The live DOM reuses the foundation's classes, so the same styles.css must compute identically
-// on both — proof we render the intended graphics, independent of the (different) row data.
-const PROPS = ["backgroundColor", "borderRadius", "borderTopColor", "color", "fontSize", "fontWeight"] as const;
-const styleOf = (page: Page, selector: string): Promise<Record<string, string>> =>
-  page.locator(selector).first().evaluate((el, props) => {
-    const cs = getComputedStyle(el as Element);
-    return Object.fromEntries(props.map((p) => [p, cs.getPropertyValue(p) || (cs as unknown as Record<string, string>)[p]]));
-  }, PROPS as unknown as string[]);
-
-test("live components compute the same design-system styles as the reference mockup", async ({ page, context }) => {
-  await page.goto("/dashboard");
-  const ref = await context.newPage();
-  await ref.goto(APP_SHELL);
-
-  // Shell components appear on every page, incl. the instructional /dashboard. The data components
-  // (.filters/.table/.pager) used to live on the mock dashboard (removed in §10); they're now covered
-  // by the mockup screenshots + their unit tests, and rendered live with real data by the full-flow
-  // E2E (the admin Users list) which the Ory-free visual suite can't stand up.
-  for (const selector of [".sidebar", ".topbar", ".brand", ".btn.btn-primary", ".theme-switch"]) { // .btn-primary = the dashboard's "Browse the example plugin" CTA
-    expect(await styleOf(page, selector), `computed style mismatch for ${selector}`).toEqual(await styleOf(ref, selector));
-  }
-  await ref.close();
 });
 
 test("every icon <use> resolves to a defined <symbol> (no broken graphics)", async ({ page }) => {
@@ -93,7 +60,7 @@ test("every icon <use> resolves to a defined <symbol> (no broken graphics)", asy
 
 // (The zero-JS URL-driven list — sortable headers, ?q search — is unit-tested per component
 // (list-query/data-table/filter-bar) and exercised live with real data by the full-flow E2E's admin
-// Users list. The mock-data dashboard that used to host it in this Ory-free suite is gone (§10).)
+// Users list. The mock-data dashboard that used to host it in this Ory-free suite is gone.)
 
 test("theme switch flips the palette with no JavaScript", async ({ page }) => {
   await page.goto("/dashboard");
@@ -128,11 +95,11 @@ test("Sign-out is a CSRF-guarded POST form: the token is issued on the page, a t
   expect(res.status()).toBe(403);
 });
 
-test("the public landing at / is ungated and links to sign in + register (§10)", async ({ page, context }) => {
+test("the public landing at / is ungated and links to sign in + register", async ({ page, context }) => {
   await context.clearCookies(); // visit "/" as a logged-out visitor (drop the beforeEach session)
   await page.goto("/");
   await expect(page.locator(".landing")).toBeVisible();
-  // §10: the same app shell every page renders — the menu shows even signed out (role-filtered).
+  // the same app shell every page renders — the menu shows even signed out (role-filtered).
   await expect(page.locator(".sidebar")).toBeVisible();
   await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("link", { name: "Create account" })).toHaveAttribute("href", "/registration");
@@ -148,9 +115,9 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its public Overview is
 // reachable by anyone and its menu header shows for everyone; the shifts list stays permission-gated,
-// so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the §8 full
+// so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the full
 // E2E (full-flow.spec). Side-effect-free.
-test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login (§10)", async ({ page, request }) => {
+test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login", async ({ page, request }) => {
   // `request` is the isolated API context — it doesn't carry the beforeEach session cookie, so these
   // probes are genuinely anonymous.
   // The public overview is reachable with no session (200), not bounced to sign in.
@@ -158,13 +125,13 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   expect(pub.status()).toBe(200);
   const body = await pub.text();
   expect(body).toContain("Scheduling");
-  // Anonymous in the native shell (§10): the gated Dashboard link is hidden (it would only dead-end at
+  // Anonymous in the native shell: the gated Dashboard link is hidden (it would only dead-end at
   // /login), and the shell's Sign-in link carries the current page as return_to.
   expect(body).not.toContain('href="/dashboard"');
   expect(body).toContain('href="/login?return_to=%2Fscheduling"');
 
   // The gated shifts list still bounces (don't follow — this Ory-free suite has no /login handler);
-  // assert the gate's 303 with the requested page preserved as return_to (§9).
+  // assert the gate's 303 with the requested page preserved as return_to.
   const res = await request.get("/scheduling/shifts", { maxRedirects: 0 });
   expect(res.status()).toBe(303);
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
@@ -172,7 +139,7 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   // The signed-in member (no scheduling role) sees the public Scheduling → Overview leaf in the nav,
   // but the gated Shifts leaf is filtered out.
   await page.goto("/dashboard");
-  await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders (§10)
+  await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders
   await expect(page.locator('.sidebar a[href="/scheduling"]')).toHaveCount(1); // public Overview shown
   await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(0); // gated leaf filtered out
 });

@@ -1,6 +1,6 @@
-// Login completion (§4): turn a Kratos session into our session JWT — read roles from Keto,
+// Login completion: turn a Kratos session into our session JWT — read roles from Keto,
 // project them onto the identity, tokenize, build the cookie. Fakes the three Ory clients;
-// the live, full-stack login is verified by the §8 Playwright E2E.
+// the live, full-stack login is verified by the Playwright E2E.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { KetoClient, RelationTuple } from "./keto-client.ts";

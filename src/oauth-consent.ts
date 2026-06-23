@@ -1,4 +1,4 @@
-// OAuth2 consent-challenge handler (todo §6): after login, Hydra hands the browser to
+// OAuth2 consent-challenge handler: after login, Hydra hands the browser to
 // /oauth2/consent?consent_challenge=… (hydra.yml urls.consent). A first-party client (or one
 // Hydra already skipped) is auto-granted the requested scopes; a third-party client shows the
 // themed consent screen, then accept (allow) / reject (deny). id_token claims (email/name) come

@@ -1,4 +1,4 @@
-# Full-stack OAuth2 E2E — the §6 login-challenge handler. Another app logs in *through* us:
+# Full-stack OAuth2 E2E — the login-challenge handler. Another app logs in *through* us:
 # Hydra starts an authorization flow and hands the browser to web's /oauth2/login; web resolves
 # it via the Kratos session and accepts. Runs against the real stack (Postgres + Kratos + Keto +
 # Hydra + bootstrap + web). The runner drives the flow over HTTP (fetch, manual cookies), so it

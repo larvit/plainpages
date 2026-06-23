@@ -1,4 +1,4 @@
-// Built-in Groups admin screen (§5): the pure view-model + Keto-tuple builders. A group is a
+// Built-in Groups admin screen: the pure view-model + Keto-tuple builders. A group is a
 // Keto subject set (Group:<name>#members); membership tuples carry users (subject_id) or nested
 // groups (subject_set). The HTTP routing/gate/CSRF + live Keto/Kratos calls are exercised over
 // HTTP in app.test.ts.

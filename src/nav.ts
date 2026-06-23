@@ -1,8 +1,8 @@
-// composeNav (todo §1): merge each plugin's nav fragment into one tree, apply the central
+// composeNav: merge each plugin's nav fragment into one tree, apply the central
 // override, then permission-filter per user. Pure and I/O-free — menu gating reads the JWT
 // `roles` claim (README "The menu system"), never Keto. A node is visible iff it is `public`, or
 // declares no `permission`, or `roles` includes that permission token; a gated header hides its whole
-// subtree, and a pure header left with no children is dropped. The §2 config/menu.ts supplies
+// subtree, and a pure header left with no children is dropped. The config/menu.ts supplies
 // the override (+ branding); this helper only transforms data, so its result is per-deployment
 // up to the final role filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
 
@@ -16,10 +16,10 @@ export interface NavNode {
   label: string;
   open?: boolean;
   permission?: string; // required role token; consumed by the filter, never rendered
-  public?: boolean; // §10: show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
+  public?: boolean; // show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
 }
 
-// Central override (config/menu.ts, §2). Targets nodes by `id`; applied rename → group →
+// Central override (config/menu.ts). Targets nodes by `id`; applied rename → group →
 // order → hide, then the per-user permission filter runs last.
 export interface NavOverride {
   groups?: NavGroupSpec[]; // wrap top-level nodes (by id) under a new header

@@ -1,4 +1,4 @@
-// Hydra admin-API client (§6): typed fetch wrappers over Ory Hydra's OAuth2 login/consent
+// Hydra admin-API client: typed fetch wrappers over Ory Hydra's OAuth2 login/consent
 // challenge handshake. Guards the request contracts (URLs, method, login_challenge query,
 // JSON body) and the result mapping (200 → request/redirect, non-2xx → HydraError). Live
 // wiring is verified by the OAuth login E2E.
@@ -93,7 +93,7 @@ test("a non-2xx response throws a HydraError carrying the status", async () => {
   );
 });
 
-// OAuth2 client registration (§6): create/list/get/delete clients over Hydra's admin API.
+// OAuth2 client registration: create/list/get/delete clients over Hydra's admin API.
 test("createClient POSTs the client and returns it (incl. the one-time client_secret)", async () => {
   const created = { client_id: "c1", client_name: "Acme", client_secret: "s3cr3t", redirect_uris: ["https://acme/cb"] };
   const { calls, fetchImpl } = recorder(() => res(201, created));

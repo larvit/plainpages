@@ -2,7 +2,7 @@
 # plainpages (README: "OAuth2 provider"). The web app implements Hydra's login &
 # consent steps at the URLs below, authenticating the user via their Kratos session;
 # Hydra mints the tokens. DSN comes from the env (the per-service hydra DB). Only
-# relevant when external apps log in through us — nothing first-party needs it (§6).
+# relevant when external apps log in through us — nothing first-party needs it.
 serve:
   public:
     port: 4444
@@ -10,7 +10,7 @@ serve:
     port: 4445
 
 # issuer = the public OAuth2 URL clients use; login/consent/logout hand the browser to
-# our themed handlers (§6). Dev defaults (http) — prod overrides issuer via env (https).
+# our themed handlers. Dev defaults (http) — prod overrides issuer via env (https).
 urls:
   self:
     issuer: http://127.0.0.1:4444/

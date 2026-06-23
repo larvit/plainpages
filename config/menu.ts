@@ -1,4 +1,4 @@
-// Central menu override + branding (todo §2). Brand the app and reorder/rename/group/hide nav
+// Central menu override + branding. Brand the app and reorder/rename/group/hide nav
 // nodes (by their `id`) across all plugins — the override always wins, applied before the
 // per-user permission filter. Every field is optional; delete one to fall back to the default.
 // See src/menu-config.ts (types), src/nav.ts (NavOverride), docs/plugin-contract.md.

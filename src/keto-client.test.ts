@@ -1,7 +1,7 @@
-// Keto client (§4): typed fetch wrappers over Ory Keto's read (check/list/expand) and
+// Keto client: typed fetch wrappers over Ory Keto's read (check/list/expand) and
 // write (write/delete tuple) APIs. Guards the request contracts (URLs, ports, method,
 // query/body shape, subject_id vs subject_set) and the result mapping (allowed bool, the
-// next_page_token, 2xx/204/error). Live wiring is verified by login completion + guards (§4).
+// next_page_token, 2xx/204/error). Live wiring is verified by login completion + guards.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createKetoClient, KetoError } from "./keto-client.ts";

@@ -43,7 +43,7 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<use href="#i-menu"\s*\/?>/); // hamburger references the menu icon
 });
 
-test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a public page in the shell works (§10)", async () => {
+test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a public page in the shell works", async () => {
   const html = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x" }); // no user, no signInHref → default
   assert.match(html, /href="\/login"[^>]*>[\s\S]*?Sign in/); // a path to sign in (default target)
   assert.doesNotMatch(html, /action="\/logout"/); // a guest has no session to end
@@ -52,7 +52,7 @@ test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a p
   const withReturn = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x", signInHref: "/login?return_to=%2Fscheduling" });
   assert.match(withReturn, /href="\/login\?return_to=%2Fscheduling"[^>]*>[\s\S]*?Sign in/);
 
-  // hideSignIn (the auth pages, §10): no footer Sign-in — a Sign-in on the login page only loops back.
+  // hideSignIn (the auth pages): no footer Sign-in — a Sign-in on the login page only loops back.
   const onAuth = await render({ title: "", docTitle: "Sign in", brand: { name: "Acme" }, nav: "", body: "x", hideSignIn: true });
   assert.doesNotMatch(onAuth, />[\s\S]*?Sign in<\/a>/);
 });
@@ -77,7 +77,7 @@ test("app shell links extra per-page stylesheets via the styles slot (e.g. a plu
   assert.equal((none.match(/rel="stylesheet"/g) ?? []).length, 1);
 });
 
-test("app shell can disable the menu (§10): no sidebar, focused single-column layout", async () => {
+test("app shell can disable the menu: no sidebar, focused single-column layout", async () => {
   const bare = await render({ menu: false, title: "Focus", body: '<section id="b">x</section>', nav: '<a href="/x">Overview</a>' });
   assert.doesNotMatch(bare, /<aside class="sidebar"/); // sidebar dropped
   assert.doesNotMatch(bare, /class="hamburger"/); // and its mobile toggle
@@ -86,12 +86,12 @@ test("app shell can disable the menu (§10): no sidebar, focused single-column l
   assert.match(bare, /<section id="b">x<\/section>/);
 });
 
-test("app shell: an empty title yields no topbar <h1> so the body owns the single heading; docTitle sets <title> (§10)", async () => {
+test("app shell: an empty title yields no topbar <h1> so the body owns the single heading; docTitle sets <title>", async () => {
   // Auth/landing pass title:"" (their card/hero is the <h1>) + an explicit docTitle for the tab.
   const html = await render({ title: "", docTitle: "Sign in", brand: { name: "Acme" }, body: "<h1>Sign in</h1>" });
   assert.doesNotMatch(html, /<h1 class="page-title"/); // topbar carries no heading
   assert.match(html, /<title>Sign in<\/title>/); // explicit document title
-  assert.match(html, /<aside class="sidebar"/); // menu still shown (the point of §10)
+  assert.match(html, /<aside class="sidebar"/); // menu still shown (the whole point)
 
   const fallback = await render({ title: "", brand: { name: "Acme" } }); // no docTitle → brand
   assert.match(fallback, /<title>Acme<\/title>/);

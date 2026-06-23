@@ -1,4 +1,4 @@
-// Built-in Users admin screen (todo §5): list Kratos identities (filter/sort/paginate) +
+// Built-in Users admin screen: list Kratos identities (filter/sort/paginate) +
 // create/edit/deactivate/delete/trigger-recovery. Writes go only to Kratos via the admin client
 // (README "stateless"). Pure builders turn identities + the request URL into building-block view
 // models; `handleAdminUsers` is the imperative shell app.ts dispatches to — gated admin-only,
@@ -289,7 +289,7 @@ export interface AdminUsersDeps {
   kratosAdmin: KratosAdmin;
   menu: MenuConfig;
   render: (view: string, data: Record<string, unknown>) => Promise<string>;
-  revoke?: (sub: string) => void; // optional instant-revoke (§9): kill the target's live tokens on deactivate/delete
+  revoke?: (sub: string) => void; // optional instant-revoke: kill the target's live tokens on deactivate/delete
 }
 
 function readUserInput(form: URLSearchParams): UserInput {
@@ -378,14 +378,14 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
         if (isSelf) return { ...(await renderForm({ error: "You can't deactivate your own account.", identity })), status: 400 };
         const nextState = identity.state === "inactive" ? "active" : "inactive";
         await kratosAdmin.updateIdentity(targetId, setStatePayload(identity, nextState));
-        if (nextState === "inactive") deps.revoke?.(targetId); // §9: a deactivation takes effect now, not after the JWT TTL
+        if (nextState === "inactive") deps.revoke?.(targetId); // a deactivation takes effect now, not after the JWT TTL
         ctx.log.info("admin: user state changed", { actor: user.id, state: nextState, target: targetId });
         return { redirect: back };
       }
       if (seg[1] === "delete") {
         if (isSelf) return { ...(await renderForm({ error: "You can't delete your own account.", identity })), status: 400 };
         await kratosAdmin.deleteIdentity(targetId);
-        deps.revoke?.(targetId); // §9: the account is gone — reject its live tokens immediately
+        deps.revoke?.(targetId); // the account is gone — reject its live tokens immediately
         ctx.log.info("admin: user deleted", { actor: user.id, target: targetId });
         return { redirect: ADMIN_USERS_BASE };
       }

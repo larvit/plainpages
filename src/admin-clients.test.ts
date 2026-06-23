@@ -1,4 +1,4 @@
-// Built-in OAuth2 clients admin screen (§6): the pure view-model + Hydra-payload builders. A client
+// Built-in OAuth2 clients admin screen: the pure view-model + Hydra-payload builders. A client
 // is an Ory Hydra OAuth2 client (apps that log in *through* us); writes go only to Hydra. The
 // HTTP routing/gate/CSRF + live Hydra calls (incl. the one-time secret) are exercised in app.test.ts.
 import assert from "node:assert/strict";

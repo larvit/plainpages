@@ -1,6 +1,6 @@
-// Shell view-model builder (todo §5): the brand/theme/user/title block every app-shell page
+// Shell view-model builder: the brand/theme/user/title block every app-shell page
 // (the home dashboard, the built-in admin screens) hands to shell.ejs. Pure. Extracted so the
-// shell user is the *real* signed-in identity (§4) — no hardcoded demo profile — and branding is
+// shell user is the *real* signed-in identity — no hardcoded demo profile — and branding is
 // read from one place. The User carries no display name (the JWT holds only id/email/roles), so
 // the profile shows the email's local part as the name with the full email beneath, initials from
 // the local part; anonymous ⇒ "Guest".

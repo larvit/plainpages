@@ -15,7 +15,7 @@ import { expect, test } from "@playwright/test";
 // (compose.e2e-devstack.yml) against the plain `docker compose up` topology, so it sees
 // http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host browser
 // does. The proxied full-flow suite can't catch this regression — it fronts web + Kratos on one origin.
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap (§3)
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap
 const ADMIN_PASSWORD = "admin";
 
 async function signIn(page: import("@playwright/test").Page): Promise<void> {

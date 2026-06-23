@@ -1,4 +1,4 @@
-// paginate (todo §1): pagination math → the model pagination.ejs renders. Pure and
+// paginate: pagination math → the model pagination.ejs renders. Pure and
 // URL-free (README signature `paginate(total, page, pageSize)`); the caller maps each
 // page number to an href. Inputs are clamped/guarded so it never produces a broken model:
 // page is pinned to [1, pageCount], total/pageSize coerced to sane integers.

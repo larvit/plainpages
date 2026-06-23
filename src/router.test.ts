@@ -58,7 +58,7 @@ test("allowedMethods lists methods at a path (GET implies HEAD); empty when the 
 test("isAuthorized: open routes pass; gated routes require the role token; public is explicitly open", () => {
   const open: Route = { handler: noop, method: "GET", path: "/" };
   const gated: Route = { handler: noop, method: "GET", path: "/", permission: "x:read" };
-  const pub: Route = { handler: noop, method: "GET", path: "/", public: true }; // §10 blessed public alias
+  const pub: Route = { handler: noop, method: "GET", path: "/", public: true }; // blessed public alias
   assert.equal(isAuthorized(open, []), true);
   assert.equal(isAuthorized(gated, []), false);
   assert.equal(isAuthorized(gated, ["x:read"]), true);

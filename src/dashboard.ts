@@ -1,4 +1,4 @@
-// Dashboard view model (todo §10): the gated "/dashboard" app home. By default a short instructional
+// Dashboard view model: the gated "/dashboard" app home. By default a short instructional
 // starter — what the dashboard is and how to replace it by exporting a `dashboard` handler from a
 // plugin (views/index.ejs holds the prose). A plugin owns the real one (PluginManifest.dashboard);
 // this placeholder renders until then. Pure: `nav` is the one global menu (ctx.chrome.nav), built

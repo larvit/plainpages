@@ -1,4 +1,4 @@
-// Plugin discovery (todo §2): scan plugins/, import each folder's plugin.ts default export,
+// Plugin discovery: scan plugins/, import each folder's plugin.ts default export,
 // validate it, assemble the loaded Plugin[]. The imperative shell over plugin.ts's pure rules
 // (isValidPluginId, checkApiVersion, findConflicts). Fails loud: every per-plugin problem and
 // error-level conflict is collected into one boot-stopping Error; warn-level diagnostics
@@ -88,12 +88,12 @@ function shapeError(manifest: PluginManifest): string | null {
   for (const field of ["nav", "permissions", "routes"] as const) {
     if (manifest[field] !== undefined && !Array.isArray(manifest[field])) return `"${field}" must be an array`;
   }
-  // `home` / `dashboard` (the §10 landing-page overrides) are route handlers; the host calls them, so
+  // `home` / `dashboard` (the landing-page overrides) are route handlers; the host calls them, so
   // a non-function fails loud.
   for (const slot of ["home", "dashboard"] as const) {
     if (manifest[slot] !== undefined && typeof manifest[slot] !== "function") return `"${slot}" must be a function (a route handler)`;
   }
-  // `public` and `permission` are contradictory on the same route/nav node (§10) — "open to all" vs
+  // `public` and `permission` are contradictory on the same route/nav node — "open to all" vs
   // "needs this role". Refuse rather than silently pick one, so the author's intent is unambiguous.
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
     if (route?.public === true && route.permission != null) return `route "${route.method} ${route.path}" sets both public and permission — they are mutually exclusive`;
@@ -103,7 +103,7 @@ function shapeError(manifest: PluginManifest): string | null {
   return null;
 }
 
-// Recurse the nav fragment: a node that is both `public` and `permission`-gated is contradictory (§10).
+// Recurse the nav fragment: a node that is both `public` and `permission`-gated is contradictory.
 function findPublicNavContradiction(nodes: PluginManifest["nav"]): string | null {
   for (const node of Array.isArray(nodes) ? nodes : []) {
     if (node?.public === true && node.permission != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and permission — they are mutually exclusive`;

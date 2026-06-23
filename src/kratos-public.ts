@@ -1,4 +1,4 @@
-// Kratos public-API client (todo §4): typed `fetch` wrappers over Ory Kratos' public
+// Kratos public-API client: typed `fetch` wrappers over Ory Kratos' public
 // endpoints — self-service flow init/get/submit, browser logout, session `whoami`, and the
 // session→JWT tokenizer (`whoami?tokenize_as`). Built-in `fetch` only, no SDK dep (AGENTS.md).
 // Flow `ui.nodes` types stay loose — rendering + field-error mapping is flow-view.ts's job.

@@ -1,8 +1,8 @@
 <%#
   Recursive nav tree. Each node: { label, href?, icon?, count?, current?, open?, children? }.
   Shape is orthogonal: header (children → disclosure toggle + nested <ul>) vs leaf (spacer),
-  and clickable (href → <a>) vs static (<span>). Mirrors the html-css-foundation markup; the
-  CSS reveals children only when the sibling .nav-disc is [open]. `root` picks the outer class.
+  and clickable (href → <a>) vs static (<span>). The CSS reveals children only when the
+  sibling .nav-disc is [open]. `root` picks the outer class.
 %><%
   const nodes = locals.nodes || [];
   const root = locals.root !== false;

@@ -1,4 +1,4 @@
-// Session→JWT claims mapper for the `plainpages` tokenizer (§4). Kratos exposes the
+// Session→JWT claims mapper for the `plainpages` tokenizer. Kratos exposes the
 // session as `session`; `sub` is set from the identity id (subject_source: id) and
 // can't be overridden here. roles come from metadata_public — the per-login projection
 // of Keto roles the app refreshes at login (metadata_admin is NOT carried in the session

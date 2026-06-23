@@ -1,4 +1,4 @@
-// Config loaded once from the environment at boot (todo §0): Ory endpoints, cookie/CSRF
+// Config loaded once from the environment at boot: Ory endpoints, cookie/CSRF
 // secrets, JWKS location, listen port, behaviour toggles. Fail-loud — a bad value, a
 // missing enforced secret, a bad URL, or an out-of-range port throws here, never at
 // request time.
@@ -25,16 +25,16 @@ export interface Config {
   ketoWriteUrl: string;
   kratosAdminUrl: string;
   kratosPublicUrl: string;
-  logFormat: "json" | "text"; // §9: console/OTLP entry format (json for structured prod logs)
-  logLevel: LogLevel; // §9: minimum severity emitted
+  logFormat: "json" | "text"; // console/OTLP entry format (json for structured prod logs)
+  logLevel: LogLevel; // minimum severity emitted
   oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
-  otlpEndpoint: string | undefined; // §9: OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
-  otlpProtocol: "http/json" | "http/protobuf"; // §9: OTLP wire format (protobuf for json-averse collectors)
+  otlpEndpoint: string | undefined; // OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
+  otlpProtocol: "http/json" | "http/protobuf"; // OTLP wire format (protobuf for json-averse collectors)
   port: number;
-  revocationDenylist: boolean; // §9: enable the optional instant role/session revoke denylist
+  revocationDenylist: boolean; // enable the optional instant role/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
-  serviceName: string; // §9: OTLP service.name — an implementer brands their own logs/traces
+  serviceName: string; // OTLP service.name — an implementer brands their own logs/traces
 }
 
 type Env = Record<string, string | undefined>;
@@ -59,7 +59,7 @@ function readBool(env: Env, key: string, devDefault: boolean): boolean {
 }
 
 // An optional pinned value: present only when set non-empty. Unset ⇒ the matching claim
-// check is skipped (clean clone — the dev tokenizer sets no iss/aud; §4 verifier).
+// check is skipped (clean clone — the dev tokenizer sets no iss/aud; verifier).
 function readOptional(env: Env, key: string): string | undefined {
   return env[key] || undefined;
 }
@@ -134,9 +134,9 @@ export function loadConfig(env: Env = process.env): Config {
     appUrl: readOptionalUrl(env, "APP_URL"),
     cacheTemplates: readBool(env, "CACHE_TEMPLATES", false),
     csrfSecret: readSecret(env, "CSRF_SECRET", "dev-insecure-csrf-secret", requireSecure),
-    // Hydra admin API — the OAuth2 login/consent challenge handshake (§6); not on the first-party path.
+    // Hydra admin API — the OAuth2 login/consent challenge handshake; not on the first-party path.
     hydraAdminUrl: readUrl(env, "HYDRA_ADMIN_URL", "http://hydra:4445"),
-    // §4 verifier reads the same key the Kratos tokenizer signs with (kratos.yml jwks_url).
+    // verifier reads the same key the Kratos tokenizer signs with (kratos.yml jwks_url).
     // Kratos doesn't republish it over HTTP, so default to a file:// of the tokenizer JWKS
     // mounted into web (compose.yml). Prod overrides with a real key (README: rotation).
     jwksUrl: readUrl(env, "JWKS_URL", "file:///etc/config/kratos/tokenizer/jwks.json"),
@@ -149,7 +149,7 @@ export function loadConfig(env: Env = process.env): Config {
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
-    // §9 observability. Console-only by default (clean clone). Setting OTLP_ENDPOINT to an
+    // observability. Console-only by default (clean clone). Setting OTLP_ENDPOINT to an
     // OpenTelemetry Collector exports structured logs + per-request spans there (Loki/Tempo).
     logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),
     logLevel: readEnum(env, "LOG_LEVEL", LOG_LEVELS, "info"),
@@ -157,13 +157,13 @@ export function loadConfig(env: Env = process.env): Config {
     otlpEndpoint: readOptionalUrl(env, "OTLP_ENDPOINT"),
     otlpProtocol: readEnum(env, "OTLP_PROTOCOL", ["http/json", "http/protobuf"] as const, "http/json"),
     port: readPort(env),
-    // Optional instant-revoke (§9), off by default. When on, an admin deactivate/delete or role
+    // Optional instant-revoke, off by default. When on, an admin deactivate/delete or role
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m
     // tokenizer TTL + skew, so it outlasts any pre-revoke token).
     revocationDenylist: readBool(env, "REVOCATION_DENYLIST", false),
     revocationTtlSec: readPosInt(env, "REVOCATION_TTL_SEC", 900),
     // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
     secureCookies: readBool(env, "SECURE_COOKIES", false),
-    serviceName: env["SERVICE_NAME"] || "plainpages", // §9 OTLP service.name; empty ⇒ default
+    serviceName: env["SERVICE_NAME"] || "plainpages", // OTLP service.name; empty ⇒ default
   };
 }

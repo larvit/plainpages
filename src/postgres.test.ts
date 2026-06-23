@@ -1,4 +1,4 @@
-// Guards the Ory Postgres config (§3): each Ory service keeps its own database (the
+// Guards the Ory Postgres config: each Ory service keeps its own database (the
 // image pin is covered by compose.test.ts's global scan). Real container behaviour is
 // verified by booting postgres in CI/e2e; this catches edits.
 import { test } from "node:test";

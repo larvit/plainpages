@@ -1,4 +1,4 @@
-// Router (todo §2): pure core mapping method + pathname → a discovered plugin route. I/O-free;
+// Router: pure core mapping method + pathname → a discovered plugin route. I/O-free;
 // app.ts is the shell (build context, gate, call handler, render RouteResult). A route mounts at
 // `/<id>` + its path (fullPath, shared with conflict detection); `:name` segments → path params.
 // Specificity: a literal segment beats a `:param` (/users/new wins /users/:id), order-independent.
@@ -75,8 +75,8 @@ export function allowedMethods(plugins: Plugin[], pathname: string): string[] {
 }
 
 // Coarse permission gate: a route marked `public` (or one with no `permission`) is open; otherwise
-// the user's roles (from the session JWT, §4) must include the token. The same rule composeNav uses
-// for the menu. `public` and `permission` are mutually exclusive (discovery refuses both, §10).
+// the user's roles (from the session JWT) must include the token. The same rule composeNav uses
+// for the menu. `public` and `permission` are mutually exclusive (discovery refuses both).
 export function isAuthorized(route: Route, roles: string[]): boolean {
   return route.public === true || route.permission == null || roles.includes(route.permission);
 }

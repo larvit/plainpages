@@ -24,9 +24,9 @@ import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "views");
 
-// A session JWT signed with a throwaway test key — the §4 verify path. Wired into the shared
+// A session JWT signed with a throwaway test key — the verify path. Wired into the shared
 // `server` (and the per-test apps) so a request can present a valid session; the dashboard and the
-// gated routes need one (§10). `staticJwks([ecJwk])` is the matching verify side.
+// gated routes need one. `staticJwks([ecJwk])` is the matching verify side.
 const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
 const ecJwk: JsonWebKey = { ...(ec.publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid: "test-kid" };
 const b64url = (i: Buffer | string): string => Buffer.from(i).toString("base64url");
@@ -49,12 +49,12 @@ before(async () => {
 after(() => server.close());
 
 test("the dashboard at /dashboard: the instructional starter in the unified shell, gated to a session", async () => {
-  // The dashboard is gated to a signed-in user (§10), so present a session.
+  // The dashboard is gated to a signed-in user, so present a session.
   const res = await fetch(base + "/dashboard", { headers: { cookie: session() } });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
   const html = await res.text();
-  // The unified app shell (§10): the same sidebar/menu every page renders.
+  // The unified app shell: the same sidebar/menu every page renders.
   assert.match(html, /Plainpages/); // sidebar brand
   assert.match(html, /<aside class="sidebar"/);
   // The default is a short instructional starter, not a mock-data list.
@@ -63,7 +63,7 @@ test("the dashboard at /dashboard: the instructional starter in the unified shel
   assert.doesNotMatch(html, /<form class="filters"/); // the old mock People list is gone
   assert.doesNotMatch(html, /Avery Kline/);
 
-  // The Sign-out POST form carries a CSRF token matching the Set-Cookie issued for the page (§4).
+  // The Sign-out POST form carries a CSRF token matching the Set-Cookie issued for the page.
   const csrfCookie = (res.headers.get("set-cookie") ?? "").match(/plainpages_csrf=([^;]+)/)?.[1];
   assert.ok(csrfCookie, "GET /dashboard issues a CSRF cookie");
   assert.match(res.headers.get("set-cookie") ?? "", /plainpages_csrf=[^;]+;.*HttpOnly/);
@@ -71,24 +71,24 @@ test("the dashboard at /dashboard: the instructional starter in the unified shel
   assert.match(html, new RegExp(`name="_csrf" value="${csrfCookie!.replace(/[.]/g, "\\.")}"`));
 });
 
-test("/ is the public landing (§10): anonymous → 200 with intro + sign-in/register links, in the unified shell", async () => {
+test("/ is the public landing: anonymous → 200 with intro + sign-in/register links, in the unified shell", async () => {
   const res = await fetch(base + "/", { redirect: "manual" });
   assert.equal(res.status, 200); // public — no redirect to sign in
   const html = await res.text();
   assert.match(html, /href="\/login"/); // a prominent path to sign in
   assert.match(html, /href="\/registration"/); // and to register
-  // §10: the same app shell every page renders — the menu shows even when signed out (role-filtered).
+  // the same app shell every page renders — the menu shows even when signed out (role-filtered).
   assert.match(html, /<aside class="sidebar"/);
   assert.match(html, /class="landing-title"/); // the landing hero owns the page's single <h1>
 });
 
-test("/dashboard is gated (§10): an anonymous visitor is bounced to sign in (return_to kept)", async () => {
+test("/dashboard is gated: an anonymous visitor is bounced to sign in (return_to kept)", async () => {
   const res = await fetch(base + "/dashboard", { redirect: "manual" });
   assert.equal(res.status, 303);
   assert.equal(res.headers.get("location"), "/login?return_to=%2Fdashboard");
 });
 
-test("plugins replace either landing (§10): `home` owns the public /, `dashboard` owns the gated /dashboard", async (t) => {
+test("plugins replace either landing: `home` owns the public /, `dashboard` owns the gated /dashboard", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-home-"));
   mkdirSync(join(dir, "portal", "views"), { recursive: true });
   writeFileSync(join(dir, "portal", "views", "welcome.ejs"), `<h1>Welcome to <%= brand %></h1><a href="/login">Sign in</a>`);
@@ -134,7 +134,7 @@ test("renders branding from the menu config into the shell: logo + default theme
   assert.match(html, /id="theme-dark"\s+checked/); // config default theme reaches the switch
 });
 
-test("emits a structured access-log line per request (the injected §9 logger)", async (t) => {
+test("emits a structured access-log line per request (the injected logger)", async (t) => {
   const lines: string[] = [];
   const app = createApp({ log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }) });
   await new Promise<void>((r) => app.listen(0, r));
@@ -159,7 +159,7 @@ test("emits a structured access-log line per request (the injected §9 logger)",
   assert.ok(rec.requestId, "carries a requestId for log↔trace correlation");
 });
 
-test("ctx.log: a handler logs in the request trace, and ctx.log.fetch continues the inbound trace (§9)", async (t) => {
+test("ctx.log: a handler logs in the request trace, and ctx.log.fetch continues the inbound trace", async (t) => {
   const lines: string[] = [];
   const upstream: { traceparent: string | undefined; url: string }[] = [];
   const realFetch = globalThis.fetch;
@@ -207,7 +207,7 @@ test("ctx.log: a handler logs in the request trace, and ctx.log.fetch continues 
   assert.equal(up!.traceparent!.split("-")[1], inbound, "the upstream call continues the inbound trace");
 });
 
-test("ctx.log after a client abort doesn't throw: the request log is ended only once the handler unwinds (§9)", async (t) => {
+test("ctx.log after a client abort doesn't throw: the request log is ended only once the handler unwinds", async (t) => {
   // The request span is ended on response "close", which also fires on a premature client abort.
   // The handler keeps running after that — its ctx.log must not throw "already ended", so end() is
   // deferred until the handler settles (regression for the abort race).
@@ -260,7 +260,7 @@ test("static serving: GET sends body + content-type, HEAD headers only, unsafe p
   assert.equal((await fetch(base + "/public/%00")).status, 403);
 });
 
-test("every response carries the security headers; HSTS follows SECURE_COOKIES (§9)", async (t) => {
+test("every response carries the security headers; HSTS follows SECURE_COOKIES", async (t) => {
   // Default app (secureCookies off): a page (the public "/") and a static asset both carry the
   // hardening headers, proving they're set once up front and survive each writeHead (paths merge).
   for (const path of ["/", "/public/css/styles.css"]) {
@@ -388,7 +388,7 @@ const demoPlugin: Plugin = {
     { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data" },
     { handler: () => ({ redirect: "/demo/hello/world" }), method: "POST", path: "/go" },
     { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", permission: "demo:read" },
-    { handler: () => ({ html: "open to all" }), method: "GET", path: "/public-page", public: true }, // §10 blessed public
+    { handler: () => ({ html: "open to all" }), method: "GET", path: "/public-page", public: true }, // blessed public
     { handler: () => ({ data: { who: "Plainpages" }, view: "page" }), method: "GET", path: "/page" },
   ],
 };
@@ -443,7 +443,7 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal(denied.status, 303);
   assert.equal(denied.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
 
-  // a route marked public (§10) is reachable anonymously — no gate, no redirect.
+  // a route marked public is reachable anonymously — no gate, no redirect.
   const open = await fetch(url + "/demo/public-page", { redirect: "manual" });
   assert.equal(open.status, 200);
   assert.match(await open.text(), /open to all/);
@@ -455,7 +455,7 @@ test("mounts plugin routes: params, html/json/redirect/view results, and the per
   assert.equal((await fetch(url + "/demo/nope")).status, 404);
 });
 
-test("a plugin view renders the native chrome; its forms are CSRF-guarded via ctx.verifyCsrf (§7)", async (t) => {
+test("a plugin view renders the native chrome; its forms are CSRF-guarded via ctx.verifyCsrf", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "panelkit", "views"), { recursive: true });
   // The view composes the core shell from ctx.chrome — branding, the global nav — and its own
@@ -510,7 +510,7 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
   assert.equal(ok.status, 303);
 });
 
-// JWT middleware (§4): a verified session cookie populates ctx.user/roles, which the gate reads.
+// JWT middleware: a verified session cookie populates ctx.user/roles, which the gate reads.
 // The key + mintJwt + session() helper are hoisted above the shared `server` (top of file).
 test("a verified session JWT authorizes a role-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
@@ -533,7 +533,7 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
 
   // The dashboard wires in the permission-gated Admin section: an admin's roles surface the links;
-  // anonymous is bounced to sign in before any page renders (§10 gate on /dashboard).
+  // anonymous is bounced to sign in before any page renders (gate on /dashboard).
   const admin = await fetch(url + "/dashboard", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}` } });
   assert.match(await admin.text(), /href="\/admin\/users"/);
   const anonDash = await fetch(url + "/dashboard", { redirect: "manual" });
@@ -541,7 +541,7 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal(anonDash.headers.get("location"), "/login?return_to=%2Fdashboard");
 });
 
-test("revocation denylist (§9): a revoked subject's token stops authorizing on the hot path; a fresh re-login passes", async (t) => {
+test("revocation denylist: a revoked subject's token stops authorizing on the hot path; a fresh re-login passes", async (t) => {
   const denylist = createDenylist(); // no Ory clients ⇒ a revoked token drops straight to anonymous (no re-mint)
   const app = createApp({ denylist, jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
   await new Promise<void>((r) => app.listen(0, r));
@@ -745,7 +745,7 @@ test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via 
   assert.equal((await fetch(url2 + "/login", { redirect: "manual" })).status, 500);
 });
 
-// return_to (§9): a deep-link login lands back on the requested page. The gate redirects to
+// return_to: a deep-link login lands back on the requested page. The gate redirects to
 // /login?return_to=<host-relative path>; /login bakes that into the Kratos flow so completion
 // returns there — but a first-party path must route via /auth/complete first (to mint the JWT).
 test("login return_to: a first-party deep link is wrapped through /auth/complete; an absolute target passes through as-is", async (t) => {
@@ -764,7 +764,7 @@ test("login return_to: a first-party deep link is wrapped through /auth/complete
   await fetch(url + "/login?return_to=" + encodeURIComponent("/admin/users?q=1"), { redirect: "manual" });
   assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?return_to=%2Fadmin%2Fusers%3Fq%3D1$/);
 
-  // An absolute target (the §6 OAuth2 login challenge) is passed to Kratos unchanged — Kratos
+  // An absolute target (the OAuth2 login challenge) is passed to Kratos unchanged — Kratos
   // allow-lists it. A protocol-relative "//evil.com" is likewise not wrapped (Kratos rejects it).
   const abs = "http://localhost/oauth2/login?login_challenge=abc";
   await fetch(url + "/login?return_to=" + encodeURIComponent(abs), { redirect: "manual" });
@@ -818,7 +818,7 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
   assert.match(html, /The provided credentials are invalid\./);
 });
 
-// Login completion (§4): /auth/complete is where Kratos lands the browser after login.
+// Login completion: /auth/complete is where Kratos lands the browser after login.
 const stubAdmin = (over: Partial<KratosAdmin>): KratosAdmin => ({
   createIdentity: async () => { throw new Error("unused"); },
   createRecoveryCode: async () => ({ code: "000000", link: "http://kratos/recover" }),
@@ -848,7 +848,7 @@ const fakeKeto = (tuples: RelationTuple[] = [], over: Partial<KetoClient> = {}):
 });
 const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
 
-// Shared harness for the §5 admin-screen HTTP tests: an app on a random port with an admin JWT +
+// Shared harness for the admin-screen HTTP tests: an app on a random port with an admin JWT +
 // CSRF cookie. get(path, roles)/post(path, body) carry them; `token` is the matching CSRF field.
 const ADMIN_CSRF = "admin-secret";
 async function adminHarness(t: TestContext, opts: AppOptions = {}) {
@@ -892,7 +892,7 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
   assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
 
-  // return_to (§9): a safe host-relative target lands the user back where they were headed; an
+  // return_to: a safe host-relative target lands the user back where they were headed; an
   // off-origin one is ignored (open-redirect guard) and falls back to the dashboard.
   assert.equal((await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s", "/admin/users?q=1")).headers.get("location"), "/admin/users?q=1");
   assert.equal((await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s", "//evil.com")).headers.get("location"), "/dashboard");
@@ -935,7 +935,7 @@ test("logout (CSRF-guarded POST): valid token revokes the Kratos session + clear
   assert.equal((await post("", `_csrf=${token}`)).status, 403); // no cookie to match
 });
 
-// OAuth2 login challenge (§6): another app logs in *through* us; Hydra hands the browser here.
+// OAuth2 login challenge: another app logs in *through* us; Hydra hands the browser here.
 const stubHydra = (over: Partial<HydraAdmin> = {}): HydraAdmin => ({
   acceptConsentRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?consent_verifier=v" }),
   acceptLoginRequest: async () => ({ redirect: "http://127.0.0.1:4444/oauth2/auth?login_verifier=v" }),
@@ -1074,7 +1074,7 @@ test("OAuth2 challenge endpoints degrade identically: stale Hydra 4xx → 400, o
   }
 });
 
-// Built-in Users admin screen (§5): gate + every CRUD action over HTTP against a mock Kratos admin.
+// Built-in Users admin screen: gate + every CRUD action over HTTP against a mock Kratos admin.
 test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, recovery (CSRF-guarded)", async (t) => {
   const mk = (email: string, over: Partial<Identity> = {}): Identity =>
     ({ id: randomUUID(), schema_id: "default", state: "active", traits: { email, name: { first: "Ada", last: "Lovelace" } }, ...over });
@@ -1088,7 +1088,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
     listIdentities: async () => ({ identities: store, nextPageToken: null }),
     updateIdentity: async (id, payload) => { const it = store.find((x) => x.id === id)!; Object.assign(it, payload); return it; },
   });
-  const denylist = createDenylist(); // §9: a deactivate/delete should revoke the target's live tokens instantly
+  const denylist = createDenylist(); // a deactivate/delete should revoke the target's live tokens instantly
   const { get, post, token, url } = await adminHarness(t, { denylist, kratosAdmin });
 
   await assertAdminGate(url, get, "/admin/users");
@@ -1120,7 +1120,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal(updated.status, 303);
   assert.deepEqual((target.traits as { name: unknown }).name, { first: "Ada", last: "King" });
 
-  // Deactivate (state toggle): active → inactive, and the target's live tokens are revoked at once (§9).
+  // Deactivate (state toggle): active → inactive, and the target's live tokens are revoked at once.
   await post(`/admin/users/${target.id}/state`, `_csrf=${token}`);
   assert.equal(target.state, "inactive");
   assert.equal(denylist.isRevoked(target.id, 0), true);
@@ -1152,7 +1152,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal((await get("/admin/users/%ZZ")).status, 404);
 });
 
-// Built-in Groups admin screen (§5): gate + list/create/membership/delete over HTTP against a
+// Built-in Groups admin screen: gate + list/create/membership/delete over HTTP against a
 // fakeKeto (tuples are the only state) and a stub Kratos admin (resolves member emails).
 test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-guarded)", async (t) => {
   const ada = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b01";
@@ -1208,7 +1208,7 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   assert.equal((await get("/admin/groups/%ZZ")).status, 404);
 });
 
-// Built-in Roles & permissions admin screen (§5): gate + list/create/assign/revoke/delete over HTTP
+// Built-in Roles & permissions admin screen: gate + list/create/assign/revoke/delete over HTTP
 // against a fake in-memory Keto whose `expand` mirrors Keto's transitive resolution, so the
 // effective-access view surfaces a user reachable only through a group.
 test("admin Roles screen: gate, list, create, assign user/group, effective access (expand), revoke, delete", async (t) => {
@@ -1233,7 +1233,7 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   });
   const keto = fakeKeto(tuples, { expand: async (set) => expandSet(set) });
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const denylist = createDenylist(); // §9: granting/revoking a *user's* role revokes their live tokens (a group change is transitive → left to lag)
+  const denylist = createDenylist(); // granting/revoking a *user's* role revokes their live tokens (a group change is transitive → left to lag)
   const { get, post, token, url } = await adminHarness(t, { denylist, keto, kratosAdmin });
 
   await assertAdminGate(url, get, "/admin/roles");
@@ -1275,7 +1275,7 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=group:eng`);
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
 
-  // Unassigning a *user* membership likewise revokes that user's live token (§9), so the loss of access is immediate.
+  // Unassigning a *user* membership likewise revokes that user's live token, so the loss of access is immediate.
   await post("/admin/roles/editor/members", `_csrf=${token}&member=user:${grace}`);
   await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=user:${grace}`);
   assert.equal(denylist.isRevoked(grace, 0), true);
@@ -1299,7 +1299,7 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   assert.equal((await get("/admin/roles/%ZZ")).status, 404);
 });
 
-// Built-in OAuth2 clients admin screen (§6): gate + list/register/detail/delete over HTTP against an
+// Built-in OAuth2 clients admin screen: gate + list/register/detail/delete over HTTP against an
 // in-memory Hydra. Registration shows the one-time client_secret on the post-create page (no PRG).
 test("admin OAuth2 clients screen: gate, list, register (one-time secret), detail, delete (CSRF-guarded)", async (t) => {
   const store: OAuth2Client[] = [

@@ -1,4 +1,4 @@
-// One-command bootstrap (§3): idempotent first-boot seeding. Guards the pure payload
+// One-command bootstrap: idempotent first-boot seeding. Guards the pure payload
 // builders (Kratos create-identity body + Keto role tuple), the idempotent seedAdmin
 // orchestration (fresh 201 vs existing 409 → reuse id), and the JWKS generate-if-absent
 // safety net. Live boot is verified by running the stack; these catch contract drift.

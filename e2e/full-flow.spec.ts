@@ -1,7 +1,7 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
-// Full browser E2E (todo §8): the real Playwright UI against the live stack via the same-origin
+// Full browser E2E: the real Playwright UI against the live stack via the same-origin
 // gateway (compose.e2e-full.yml) — the browser-UI login the earlier full-stack suites deferred here.
 // Coverage is the test titles below, plus the standalone SSO test.
 //
@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 // journey and the standalone SSO test run in parallel (fullyParallel) but stay independent: each
 // uses its own browser context, and only the SSO test writes the mock-OIDC identity — keep it so
 // (no cross-group shared backend writes) or serialise the file if that ever changes.
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap (§3), holds the admin role in Keto
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap, holds the admin role in Keto
 const ADMIN_PASSWORD = "admin";
 const SSO_EMAIL = "sso-user@plainpages.local"; // minted by the mock OIDC provider on first SSO login
 const suffix = randomUUID().slice(0, 8); // unique per run so re-runs don't collide on names
@@ -103,7 +103,7 @@ test.describe.serial("authenticated admin journey", () => {
   });
 });
 
-test("return_to: a deep link while logged out returns to that page after login (§9)", async ({ page }) => {
+test("return_to: a deep link while logged out returns to that page after login", async ({ page }) => {
   test.setTimeout(90_000);
   // A gated deep link, logged out → bounced to the themed login (return_to is baked into the Kratos
   // flow server-side, so it's consumed, not shown in the settled URL).

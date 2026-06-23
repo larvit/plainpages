@@ -72,7 +72,7 @@ test("resolveSession classifies the cookie; authenticate is its fail-closed user
 
   // A valid token → the user, not expired.
   assert.deepEqual(await resolveSession(cookie(), jwks, { now: NOW }), { expired: false, user });
-  // Present but past exp → the §4 re-mint trigger (expired flagged, no user).
+  // Present but past exp → the re-mint trigger (expired flagged, no user).
   assert.deepEqual(await resolveSession(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), { expired: true, user: null });
   // No cookie / non-ours / garbage / bad-signature are NOT re-mint candidates (no Ory round-trip).
   assert.deepEqual(await resolveSession(undefined, jwks, { now: NOW }), { expired: false, user: null });
@@ -90,7 +90,7 @@ test("verifyToken honours an optional denylist: a revoked subject's token reject
   // Deny u1's tokens minted at/before NOW; a token minted after passes (a fresh re-login).
   const denylist = { isRevoked: (sub: string, iat: number | undefined) => sub === "u1" && (iat === undefined || iat <= NOW) };
 
-  // Revoked: thrown as *expired* so resolveSession flags it for the §4 re-mint (re-read Keto / clear).
+  // Revoked: thrown as *expired* so resolveSession flags it for the re-mint (re-read Keto / clear).
   await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 }), jwks, { denylist, now: NOW }), /revoked/);
   assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 })}`, jwks, { denylist, now: NOW }), { expired: true, user: null });
   // A token minted after the revoke (fresh login) is accepted; a different subject is untouched.

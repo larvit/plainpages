@@ -1,6 +1,6 @@
-// The built-in admin section of the menu (todo §5). `adminSection()` is the one definition of the
+// The built-in admin section of the menu. `adminSection()` is the one definition of the
 // permission-gated "Admin" header (Users/Groups/Roles/clients) + its gate, composed into the single
-// global menu (`buildPluginChrome`, §10) — composeNav drops the whole header + subtree for a
+// global menu (`buildPluginChrome`) — composeNav drops the whole header + subtree for a
 // non-admin. Every page (dashboard, admin, plugin, auth) renders that one menu, so there's no
 // separate admin sidebar to drift.
 

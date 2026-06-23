@@ -1,4 +1,4 @@
-// Structured logging + basic observability (todo §9), on @larvit/log (zero-dependency, OTLP-native).
+// Structured logging + basic observability, on @larvit/log (zero-dependency, OTLP-native).
 // One app-level Log holds the config (level/format/OTLP) and tags every line with service.name;
 // each request clones it into a short-lived trace span. Console always; OTLP only when configured.
 // An AsyncLocalStorage makes that per-request Log ambiently available, so every outbound `fetch`

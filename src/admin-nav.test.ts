@@ -1,4 +1,4 @@
-// Direct units for the admin section's pure nav + auth helpers (todo §8). They're security-critical
+// Direct units for the admin section's pure nav + auth helpers. They're security-critical
 // (requireAdmin/guardedForm gate every admin write) and reused across all four admin screens, so pin
 // the contract here in isolation — the admin-*.test.ts HTTP tests exercise them only end-to-end.
 import assert from "node:assert/strict";
@@ -45,7 +45,7 @@ test("adminSection: gated Admin header over the four screens; current marks the 
   assert.equal(onRoles.children?.find((c) => c.id === "users")?.current, undefined);
 });
 
-// (The in-screen admin sidebar is gone in §10 — every page renders the one global menu, built by
+// (The in-screen admin sidebar is gone in — every page renders the one global menu, built by
 // buildPluginChrome; see chrome.test.ts. adminSection above is that menu's gated Admin fragment.)
 
 // ---- auth gates ----

@@ -1,4 +1,4 @@
-// Login completion (todo §4): turn a fresh Kratos session into our locally-verifiable
+// Login completion: turn a fresh Kratos session into our locally-verifiable
 // session JWT — the one moment Ory is on the path (README: Login → session JWT):
 //   1. whoami(cookie)            → the identity (id, email); no active session ⇒ null
 //   2. read roles from Keto      → the source of truth for the `roles` claim
@@ -18,7 +18,7 @@ import type { KratosPublic } from "./kratos-public.ts";
 export const SESSION_COOKIE = "plainpages_jwt";
 
 // Mirrors kratos.yml session.lifespan (30d) so the cookie survives browser restarts; the
-// JWT inside is short-lived (~10m) and re-minted on expiry by the §4 hot path (remintSession).
+// JWT inside is short-lived (~10m) and re-minted on expiry by the hot path (remintSession).
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 // The tokenizer template (kratos.yml session.whoami.tokenizer.templates.plainpages).
@@ -91,7 +91,7 @@ export async function remintSession(deps: LoginDeps, cookie: string | undefined,
 }
 
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is
-// supplied by the caller (off in dev http; the §9 cookie hardening toggles it on for prod).
+// supplied by the caller (off in dev http; the cookie hardening toggles it on for prod).
 export function sessionCookie(jwt: string, options: { secure?: boolean } = {}): string {
   const opts: CookieOptions = { httpOnly: true, maxAge: COOKIE_MAX_AGE, path: "/", sameSite: "Lax", ...(options.secure ? { secure: true } : {}) };
   return serializeCookie(SESSION_COOKIE, jwt, opts);

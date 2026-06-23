@@ -1,4 +1,4 @@
-// Guards the Ory Keto config (§3): migrations run before the server (keto-migrate →
+// Guards the Ory Keto config: migrations run before the server (keto-migrate →
 // keto), the DSN targets the keto database, read/write APIs serve on the ports config.ts
 // points at, and the OPL declares the role/group/resource namespaces. Version pinning is
 // in compose.test.ts. Real boot is verified by running the stack; this catches edits.

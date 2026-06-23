@@ -1,4 +1,4 @@
-// Optional revocation denylist (todo §9): instant role/session revoke without putting Keto
+// Optional revocation denylist: instant role/session revoke without putting Keto
 // back on the hot path. Off by default — enable with REVOCATION_DENYLIST=true.
 //
 // The hot path verifies a short-lived (~10m) session JWT in-process, so a revoked role or a

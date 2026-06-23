@@ -103,7 +103,7 @@ test("findConflicts: duplicate nav id is an error, a shared permission token onl
   assert.ok(permDup.some((c) => c.kind === "permission" && c.level === "warn"));
 });
 
-test("findConflicts: each single slot (`home`/`dashboard`) may have one owner — two is a loud error (§10)", () => {
+test("findConflicts: each single slot (`home`/`dashboard`) may have one owner — two is a loud error", () => {
   const handler = () => ({ html: "x" });
   const homeDup = findConflicts([p({ id: "a", home: handler }), p({ id: "b", home: handler })]);
   assert.ok(homeDup.some((c) => c.kind === "home" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
@@ -124,7 +124,7 @@ test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / f
     "auth", // /auth/complete (login completion)
     "logout", // POST /logout
     "oauth2", // /oauth2/login · /consent · /logout (Hydra provider)
-    "dashboard", // the gated app home (§10)
+    "dashboard", // the gated app home
     "public", // static assets
   ]);
   for (const id of builtins) assert.ok(RESERVED_PLUGIN_IDS.has(id), `built-in mount "${id}" must be a reserved plugin id`);

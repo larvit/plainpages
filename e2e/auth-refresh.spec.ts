@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-// Full-stack auth E2E: token timeout + silent re-mint ("stay signed in", §4). Runs against the
+// Full-stack auth E2E: token timeout + silent re-mint ("stay signed in"). Runs against the
 // real Ory stack via compose.e2e-auth.yml, where the session→JWT TTL is shortened to 8s and the
 // web clock skew is 0 — so the ~10m token lapses in seconds and the hot path re-mints it from the
 // still-live Kratos session. We drive the flow over HTTP (fetch, manual cookies) because Kratos
 // and web sit on different hosts here; web's own server-side cookie relay is what we exercise.
-// The browser-UI login is owned by §8; this proves the timeout/refresh server behaviour end-to-end.
+// The browser-UI login is owned by the full-flow E2E; this proves the timeout/refresh server behaviour end-to-end.
 const WEB = process.env.BASE_URL ?? "http://web:3000";
 const KRATOS = process.env.KRATOS_PUBLIC_URL ?? "http://kratos:4433";
 const KRATOS_ADMIN = process.env.KRATOS_ADMIN_URL ?? "http://kratos:4434";
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap (§3); admin role granted in Keto
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap; admin role granted in Keto
 const ADMIN_PASSWORD = "admin";
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));

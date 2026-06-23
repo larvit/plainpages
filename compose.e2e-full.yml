@@ -1,4 +1,4 @@
-# Full browser E2E (todo §8) — the real Playwright UI flow against the live stack: password +
+# Full browser E2E — the real Playwright UI flow against the live stack: password +
 # mocked-SSO login, menu filtering by role, users/groups/roles CRUD, a plugin page, logout. A tiny
 # same-origin gateway (proxy, e2e/proxy.mjs) fronts web + Kratos on one host so the browser's cookies
 # round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.

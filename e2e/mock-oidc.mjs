@@ -1,4 +1,4 @@
-// Mock OIDC provider for the SSO browser E2E (todo §8) — a stand-in for Google/etc. so the test
+// Mock OIDC provider for the SSO browser E2E — a stand-in for Google/etc. so the test
 // never leaves the compose network. Auto-approves /authorize (no provider login UI), then signs an
 // RS256 id_token Kratos verifies against /jwks. stdlib only, in-memory, NOT app code. The single
 // host (mock-oidc:9000) is reachable by both the browser (/authorize) and Kratos (token/jwks).

@@ -1,4 +1,4 @@
-// Reference plugin (todo §7): a worked example of the contract — a list page that fetches upstream
+// Reference plugin: a worked example of the contract — a list page that fetches upstream
 // data, a CSRF-guarded form that forwards a write upstream, and permission-gated nav. Copy this
 // folder, rename it, point it at your own backend. Full contract: docs/plugin-contract.md.
 
@@ -19,7 +19,7 @@ export default definePlugin({
 
   // Merged into the global menu + filtered per user. "Overview" is `public`, so the "Scheduling"
   // header shows for everyone (even signed out); "Shifts" needs `scheduling:read`, so the gated data
-  // stays hidden until a reader signs in (§10 — a plugin may make a page + its menu option public).
+  // stays hidden until a reader signs in (a plugin may make a page + its menu option public).
   nav: [{
     children: [
       { href: SCHEDULING_PATH, id: "scheduling:overview", label: "Overview", public: true },

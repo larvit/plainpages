@@ -3,10 +3,10 @@ import type { PageChrome } from "./chrome.ts"; // type-only: no runtime import, 
 import { createLogger, type Log } from "./logger.ts";
 
 // The request context threaded to every route handler (plugin + built-in), built once
-// per request by `buildContext`: the router supplies matched path `params`, the §4 JWT
+// per request by `buildContext`: the router supplies matched path `params`, the JWT
 // middleware supplies `user` (null until then). The host's single handler argument.
 
-// The authenticated user, projected from verified session JWT claims (§4):
+// The authenticated user, projected from verified session JWT claims:
 // `id` = `sub`, plus `email` and the coarse `roles` carried in the token.
 export interface User {
   email: string;
@@ -18,7 +18,7 @@ export interface RequestContext {
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).
   chrome: PageChrome;
-  // Request-scoped logger (§9): structured, in the request's trace. `log.info/warn/error(...)` to
+  // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
   // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
   // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
   log: Log;

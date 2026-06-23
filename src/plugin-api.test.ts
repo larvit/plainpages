@@ -1,4 +1,4 @@
-// The plugin author barrel (§7): the stable surface a plugin imports. Guards that the value exports
+// The plugin author barrel: the stable surface a plugin imports. Guards that the value exports
 // stay present — removing one is a breaking contract change. The types resolve via typecheck (the
 // reference plugin imports them from here).
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// Page chrome for plugin pages (todo §7): the brand / global-nav / user / theme / csrf block a
+// Page chrome for plugin pages: the brand / global-nav / user / theme / csrf block a
 // plugin view hands to partials/shell so its page looks native — the same shell the dashboard and
 // admin screens render. Pure; the host builds it per plugin request and exposes it on ctx.chrome.
 // nav is the global menu — Dashboard + every plugin's fragment + the gated admin section — run
@@ -30,7 +30,7 @@ export interface ChromeOptions {
 
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   // The Dashboard link targets the gated /dashboard, so show it only to a signed-in user — to an
-  // anonymous visitor (a public page in the shell, §10) it would only dead-end at /login.
+  // anonymous visitor (a public page in the shell) it would only dead-end at /login.
   const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
   for (const p of opts.plugins ?? []) if (p.nav?.length) fragments.push(p.nav);
   fragments.push([adminSection()]);

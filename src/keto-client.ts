@@ -1,4 +1,4 @@
-// Keto client (todo §4): typed `fetch` wrappers over Ory Keto's relation-tuple APIs —
+// Keto client: typed `fetch` wrappers over Ory Keto's relation-tuple APIs —
 // `check` a permission, `listRelations`/`expand` to inspect them (read API), `writeTuple`/
 // `deleteTuple` to grant/revoke them (write API). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable like the kratos clients. Read/write split onto the two ports config.ts
@@ -32,7 +32,7 @@ export interface RelationList {
 
 // Keto's expand tree: a node is a set operation (union/…) or a leaf. The resolved subject
 // (subject_id xor subject_set) rides on `tuple`, not the node itself — verified against Keto
-// v26.2.0. A `subject_set` node carries its members as `children` (§5 "effective access" view).
+// v26.2.0. A `subject_set` node carries its members as `children` ("effective access" view).
 export interface ExpandTree {
   children?: ExpandTree[];
   tuple?: RelationTuple;

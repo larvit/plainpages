@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { buildDashboardModel } from "./dashboard.ts";
 import type { NavNode } from "./nav.ts";
 
-// The default /dashboard is an instructional starter (todo §10): no mock data, just the unified
+// The default /dashboard is an instructional starter: no mock data, just the unified
 // menu + shell. The host passes the one global menu (ctx.chrome.nav); the model passes it through.
 const NAV: NavNode[] = [{ href: "/dashboard", label: "Dashboard" }, { children: [{ href: "/admin/users", label: "Users" }], label: "Admin" }];
 
