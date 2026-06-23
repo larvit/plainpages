@@ -117,7 +117,7 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # One-shot first-boot seed (the MVP bar); see src/bootstrap.ts. Idempotent, re-runs
+  # One-shot first-boot seed (the MVP bar); see src/auth/bootstrap.ts. Idempotent, re-runs
   # cleanly. Runs once kratos+keto are healthy; web waits for it. Tokenizer dir mounted
   # read-write (the only writer) so the absent-JWKS safety net can land the key.
   bootstrap:
@@ -139,7 +139,7 @@ services:
       KRATOS_ADMIN_URL: http://kratos:4434
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
-    command: node src/bootstrap.ts
+    command: node src/auth/bootstrap.ts
     # Bounded retry: the seed is idempotent, so transient Ory blips recover — but a permanent
     # error must give up, not loop forever and hang `web` (gates on completion).
     restart: "on-failure:5"

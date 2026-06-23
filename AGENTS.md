@@ -37,9 +37,13 @@ commands and layout.
 Intentional, reasoned choices — an architecture review should honor them, not re-raise
 them. Revisit only if the stated reason stops holding.
 
-- **`src/` is flat on purpose.** The functional-core / imperative-shell split is
-  conceptual, not a directory layout; splitting into `core/`/`shell/` dirs was judged
-  premature for a scaffold this size. Revisit only if the flat tree stops being readable.
+- **`src/` is grouped by concern**, not flat — `http/` (request pipeline), `auth/`
+  (session-JWT hot path, guards, and the Ory REST clients), `admin/` (built-in screens),
+  `plugin-host/` (discovery/router/hooks/view-resolver + the `plugin-api.ts` author barrel),
+  and `ui/` (design-system view-models + menu/chrome); `server.ts`/`config.ts`/`logger.ts`
+  and the topology-guard `*.test.ts` stay at the root. Tests are co-located (`foo.test.ts`
+  beside `foo.ts`). Add a new module to the folder that owns its concern rather than to the
+  root; don't reintroduce a flat tree.
 - **`ctx.chrome` is lazily memoized — do not make it unconditional** or move it into the
   base request context. It protects the I/O-free hot path on the public, bot-hit landing
   (`/`). (Declined twice.)

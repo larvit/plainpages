@@ -2,7 +2,7 @@
 
 The authoritative reference for the plugin API — the product's main surface. A plugin is a
 self-contained folder under `plugins/` that the host discovers at boot; there is no
-registration step. The contract is **TypeScript** (`src/plugin.ts`), so the types here are the
+registration step. The contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types here are the
 single source of truth — this document explains them, the guarantees around them, and the rules
 the host enforces.
 
@@ -14,13 +14,13 @@ crash-isolation (one bad plugin can't take the host down) is a *non-goal* — di
 time, not in production.
 
 > **Status.** This is the contract the host implements. The types and pure rules
-> (`checkApiVersion`, `findConflicts`, `isValidPluginId`) live in `src/plugin.ts`; **discovery**
-> (`src/discovery.ts`), the **router** (`src/router.ts` — method+path match, `:name` params,
+> (`checkApiVersion`, `findConflicts`, `isValidPluginId`) live in `src/plugin-host/plugin.ts`; **discovery**
+> (`src/plugin-host/discovery.ts`), the **router** (`src/plugin-host/router.ts` — method+path match, `:name` params,
 > permission gate, `RouteResult` → response), and the **per-plugin view resolver**
-> (`src/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
+> (`src/plugin-host/view-resolver.ts` — a `view` result renders `plugins/<id>/views/`, with the core partials
 > reachable via `include()`), **per-plugin static serving** (`/public/<id>/` → the plugin's
-> `public/`, `routePublic` in `src/static.ts`), and the **central menu override + branding**
-> (`config/menu.ts`, loaded by `src/menu-config.ts`, with branding — name, logo, default theme —
+> `public/`, `routePublic` in `src/http/static.ts`), and the **central menu override + branding**
+> (`config/menu.ts`, loaded by `src/ui/menu-config.ts`, with branding — name, logo, default theme —
 > rendered in the app shell) are wired and in use by the built-in screens and the reference plugin.
 > Later phases extended this contract: the replaceable [landing pages](#the-landing-pages-home--dashboard)
 > and [public pages & menu items](#public-pages--menu-items), both documented below.
@@ -56,20 +56,20 @@ Nothing else references it; the operator stays in control through the central me
 
 ## The manifest
 
-A plugin imports its host surface from one module — `src/plugin-api.ts`, the **stable author
+A plugin imports its host surface from one module — `src/plugin-host/plugin-api.ts`, the **stable author
 barrel** (`definePlugin`, the manifest/handler types, `RequestContext`, the guards, and the
 body/CSRF/list-query helpers). That barrel *is* the contract boundary; don't reach into deeper
 `src/*` modules — the host may refactor those freely as long as the barrel holds.
 
 ```ts
-import { definePlugin } from "../../src/plugin-api.ts";
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
 import { listShifts, createShift } from "./shifts.ts";
 
 export default definePlugin({
   apiVersion: "1.0.0",                // semver of the host contract this was built against (a literal — see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
-  // `icon` is a Lucide icon by its sprite id (src/icons.ts).
+  // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
   nav: [{
     icon: "i-cal", id: "scheduling:root", label: "Scheduling",
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
@@ -101,7 +101,7 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 | `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
 | `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
-| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/icons.ts`); node `id`s must be globally unique. |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. |
 | `permissions` | no | Tokens this plugin introduces; declared for docs, conflict detection, and bootstrap seeding (see [Nav & permissions](#nav--permissions)). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
@@ -136,7 +136,7 @@ type RouteResult =
 
 ```ts
 // shifts.ts
-import { parseListQuery, type RequestContext } from "../../src/plugin-api.ts";
+import { parseListQuery, type RequestContext } from "../../src/plugin-host/plugin-api.ts";
 
 export async function listShifts(ctx: RequestContext) {
   const q = parseListQuery(ctx.url);
@@ -145,13 +145,13 @@ export async function listShifts(ctx: RequestContext) {
 }
 ```
 
-- **`view`** resolves against the plugin's own `views/` (`src/view-resolver.ts`) — nested names
+- **`view`** resolves against the plugin's own `views/` (`src/plugin-host/view-resolver.ts`) — nested names
   like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
   the core building-block partials (app shell, nav tree, data table, …) and its own
   partials/subfolders to render a full page — exactly as the built-in screens do. To load the
   plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
   extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
-- **Finer authorization than the route `permission`** uses the guards from `src/plugin-api.ts`:
+- **Finer authorization than the route `permission`** uses the guards from `src/plugin-host/plugin-api.ts`:
   `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
   to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
   {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
@@ -173,10 +173,10 @@ safety of the data it renders**:
   names), so those are injection-safe. But a URL field — nav `href`, a table cell link, a menu
   item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
   `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
-  control, pass it through **`safeUrl()`** from `src/plugin-api.ts` first — it returns the URL when
+  control, pass it through **`safeUrl()`** from `src/plugin-host/plugin-api.ts` first — it returns the URL when
   it's relative or `http(s):` and collapses anything else to `"#"`:
   ```ts
-  import { safeUrl } from "../../src/plugin-api.ts";
+  import { safeUrl } from "../../src/plugin-host/plugin-api.ts";
   return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
   ```
 
@@ -190,7 +190,7 @@ The host has two replaceable landing slots, and a plugin may own either or both:
 | `dashboard` | `/dashboard` | **signed-in session** (anonymous → `/login`, with `/dashboard` as `return_to`) | The built-in mock-data People list. |
 
 ```ts
-import { definePlugin } from "../../src/plugin-api.ts";
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
@@ -220,7 +220,7 @@ route at all (route paths always carry the `/<id>` prefix).
 
 ## RequestContext
 
-Every handler receives one argument, the `RequestContext` (`src/context.ts`), built once per
+Every handler receives one argument, the `RequestContext` (`src/http/context.ts`), built once per
 request:
 
 ```ts
@@ -275,12 +275,12 @@ from the JWT middleware and are `null`/`[]` until a session exists.
 
 ## Nav & permissions
 
-A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/nav.ts`), which
+A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/ui/nav.ts`), which
 applies the central override and then **filters per user** by the roles in the session JWT — a
 node shows iff it is `public`, declares no `permission`, or the user's roles include that token. Use
 arbitrary depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a
 **Lucide icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids
-are `ICON_NAMES` in `src/icons.ts`, and adding one means registering its lucide name there.
+are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
 
 ### Public pages & menu items
 
@@ -385,7 +385,7 @@ worked example: thin handlers bound to an injectable upstream client, unit-teste
 
 1. **Unit-test handlers as pure functions.** Keep a handler thin: parse `ctx`, fetch upstream,
    return a `RouteResult`. Test the data-shaping in isolation (mock `fetch`/upstream) with
-   `node --test`, exactly like `src/dashboard.test.ts` tests the dashboard model. No host needed.
+   `node --test`, exactly like `src/ui/dashboard.test.ts` tests the dashboard model. No host needed.
 
    ```bash
    docker compose run --rm web npm test

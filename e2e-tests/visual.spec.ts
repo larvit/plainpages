@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const SHOTS = "artifacts/screenshots";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-const SESSION_COOKIE = "plainpages_jwt"; // src/login.ts — web verifies it against the committed dev JWKS
+const SESSION_COOKIE = "plainpages_jwt"; // src/auth/login.ts — web verifies it against the committed dev JWKS
 
 const shot = (page: Page, name: string): Promise<Buffer> =>
   page.screenshot({ fullPage: true, path: `${SHOTS}/${name}.png` });

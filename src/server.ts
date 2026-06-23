@@ -1,20 +1,20 @@
-import { createApp } from "./app.ts";
+import { createApp } from "./http/app.ts";
 import { loadConfig } from "./config.ts";
-import { createDenylist } from "./denylist.ts";
-import { discoverPlugins } from "./discovery.ts";
-import { withTimeout } from "./fetch-timeout.ts";
-import { runBootHooks } from "./hooks.ts";
-import { createHydraAdmin } from "./hydra-admin.ts";
-import { createJwksProvider } from "./jwks.ts";
-import { createKetoClient } from "./keto-client.ts";
-import { createKratosAdmin } from "./kratos-admin.ts";
-import { createKratosPublic } from "./kratos-public.ts";
+import { createDenylist } from "./auth/denylist.ts";
+import { discoverPlugins } from "./plugin-host/discovery.ts";
+import { withTimeout } from "./auth/fetch-timeout.ts";
+import { runBootHooks } from "./plugin-host/hooks.ts";
+import { createHydraAdmin } from "./auth/hydra-admin.ts";
+import { createJwksProvider } from "./auth/jwks.ts";
+import { createKetoClient } from "./auth/keto-client.ts";
+import { createKratosAdmin } from "./auth/kratos-admin.ts";
+import { createKratosPublic } from "./auth/kratos-public.ts";
 import { createLogger, tracedFetch } from "./logger.ts";
-import { loadMenuConfig } from "./menu-config.ts";
+import { loadMenuConfig } from "./ui/menu-config.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
-// per request for access logging + a trace span (src/app.ts); console-only otherwise.
+// per request for access logging + a trace span (src/http/app.ts); console-only otherwise.
 const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
 // Every outbound Ory call is traced through the active request's logger (a client span continuing

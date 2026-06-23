@@ -2,7 +2,7 @@
 // data, a CSRF-guarded form that forwards a write upstream, and permission-gated nav. Copy this
 // folder, rename it, point it at your own backend. Full contract: docs/plugin-contract.md.
 
-import { definePlugin } from "../../src/plugin-api.ts";
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
 import { assertHttpUrl, createShift, createUpstream, listShifts, newShiftForm, overview, READ, SCHEDULING_PATH, SHIFTS_PATH, WRITE } from "./shifts.ts";
 
 // The upstream this plugin reads/writes — a stand-in for your real backend (the plugin is

@@ -6,7 +6,7 @@
 // pure functions against a mock upstream with no network (docs/plugin-contract.md → dev/test story).
 
 // One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
-import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-api.ts";
+import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-host/plugin-api.ts";
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";

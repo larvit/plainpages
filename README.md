@@ -32,7 +32,7 @@ landing; the gated app home is `/dashboard`.
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
 
 ```ts
-import { definePlugin } from "../../src/plugin-api.ts";
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
 
 export default definePlugin({
   apiVersion: "1.0.0",
@@ -196,7 +196,7 @@ via a central override (see [The menu system](#the-menu-system)).
 
 The full, authoritative API surface — manifest shape, handler/`RequestContext` contract,
 versioning, conflict rules, hooks, and the dev/test story — is
-**[docs/plugin-contract.md](docs/plugin-contract.md)** (`src/plugin.ts` holds the types). A
+**[docs/plugin-contract.md](docs/plugin-contract.md)** (`src/plugin-host/plugin.ts` holds the types). A
 complete, runnable reference ships in **[`plugins/scheduling/`](plugins/scheduling/)** — a
 public overview page, a permission-gated list page fetching upstream data, a CSRF-guarded
 form forwarding writes upstream, and a mix of public + role-gated nav. Copy it and adapt.
@@ -216,7 +216,7 @@ The manifest is **TypeScript** — typed, commented, no separate schema to keep 
 `id` and mount path are **derived from the folder name**, not declared:
 
 ```ts
-import { definePlugin } from "../../src/plugin-api.ts"; // the stable author barrel (see docs)
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts"; // the stable author barrel (see docs)
 import { listShifts, overview } from "./shifts.ts";
 
 export default definePlugin({
@@ -224,7 +224,7 @@ export default definePlugin({
 
   // Nav fragment, composed into the global menu. Permission-gated: items the current user can't
   // access are hidden. `public: true` shows an item to everyone (signed in or not). Arbitrary
-  // depth. `icon` is a Lucide icon by its sprite id (src/icons.ts).
+  // depth. `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
   nav: [
     {
       label: "Scheduling", icon: "i-cal",
@@ -301,13 +301,13 @@ the plugin in the build context and it's `COPY`'d in at build time — pinned an
 reproducible; mount a volume only to add plugins to an already-built image.
 
 > Discovery — scanning `plugins/`, importing each `plugin.ts` default export, and
-> validating it (id, `apiVersion`, conflicts) — runs at boot (`src/discovery.ts`); a bad
-> plugin stops startup with a precise message. The router (`src/router.ts`) then mounts
+> validating it (id, `apiVersion`, conflicts) — runs at boot (`src/plugin-host/discovery.ts`); a bad
+> plugin stops startup with a precise message. The router (`src/plugin-host/router.ts`) then mounts
 > each route at `/<id>`, resolves `:name` params, runs the permission gate, and turns the
 > handler's `RouteResult` into the response; a `view` result renders
-> `plugins/<id>/views/<view>.ejs` (`src/view-resolver.ts`), which may `include()` the core
+> `plugins/<id>/views/<view>.ejs` (`src/plugin-host/view-resolver.ts`), which may `include()` the core
 > building-block partials. A plugin's `public/` assets are served at `/public/<id>/`
-> (`src/static.ts`). The mount mechanics above are how the files get into the container
+> (`src/http/static.ts`). The mount mechanics above are how the files get into the container
 > either way.
 
 ## The menu system
@@ -315,7 +315,7 @@ reproducible; mount a volume only to add plugins to an already-built image.
 The menu is **driven entirely by config** and assembled from two sources:
 
 1. **Plugin fragments** — each plugin contributes its own `nav` (above).
-2. **A central override** — `config/menu.ts` (loaded by `src/menu-config.ts`, validated at
+2. **A central override** — `config/menu.ts` (loaded by `src/ui/menu-config.ts`, validated at
    boot) — where the operator reorders, renames, groups, or hides items (by node `id`), and
    sets branding (app name, logo, default theme). The override always wins, applied before
    the per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
@@ -332,7 +332,7 @@ counts, arbitrary depth). Branding (name, logo, default theme) renders in the ap
 the sidebar brand shows the configured logo (else a default mark), and the theme sets the
 theme-switch default.
 
-**One menu, one shell, everywhere.** There is a single menu (`src/chrome.ts`
+**One menu, one shell, everywhere.** There is a single menu (`src/ui/chrome.ts`
 `buildPluginChrome`), rendered by the same app shell on **every** page — the dashboard, the
 admin screens, plugin pages, and the login / registration / recovery / front (`/`) pages.
 So it looks identical signed in or out; it just shows fewer items to an anonymous visitor
@@ -350,7 +350,7 @@ set of reusable EJS partials + TS helpers, fully styled and zero-JS:
   pagination, form fields, badges, menus, auth cards.
 - **Helpers:** `composeNav` (menu from config), `parseListQuery`
   (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math), and the
-  auth guards a handler calls to authorize (`src/guards.ts`): `requireSession` (assert a
+  auth guards a handler calls to authorize (`src/auth/guards.ts`): `requireSession` (assert a
   session — a `GuardError` the host turns into a redirect to sign in), `can(role)` (a coarse
   JWT-claim check, zero I/O), `check(relation, object)` (the one live Keto call, for
   relationship rules).
@@ -541,7 +541,7 @@ users** on modest hardware. In return:
 
 ### Instant revoke: the optional denylist
 
-Off by default; turn it on with `REVOCATION_DENYLIST=true` (`src/denylist.ts`). For
+Off by default; turn it on with `REVOCATION_DENYLIST=true` (`src/auth/denylist.ts`). For
 security-critical revoke (offboarding, a compromised account) the ~10m role/session lag
 above is too long. When enabled, an admin **deactivating** or **deleting** a user, or
 **granting/revoking** a role to a *user*, records that subject as revoked-now; the hot path
@@ -587,10 +587,10 @@ Hydra's login & consent steps — authenticating the user via their Kratos sessi
 issues the access / refresh / id tokens those apps use. Nothing in the menu or first-party
 pages needs Hydra.
 
-The **login challenge** is wired (`src/oauth-login.ts` at `/oauth2/login`): Hydra hands the
+The **login challenge** is wired (`src/auth/oauth-login.ts` at `/oauth2/login`): Hydra hands the
 browser here, the app resolves it against the Kratos session and accepts (or bounces an
 unauthenticated user to the themed login, returning here once signed in). The **consent
-challenge** is wired too (`src/oauth-consent.ts` at `/oauth2/consent`): a first-party client
+challenge** is wired too (`src/auth/oauth-consent.ts` at `/oauth2/consent`): a first-party client
 (its Hydra `metadata.first_party: true`) — or one Hydra already skipped — is auto-granted the
 requested scopes; any other client gets a themed consent screen (naming the signed-in
 account, with a sign-out escape) whose CSRF-guarded Allow/Deny accepts or rejects. id_token
@@ -600,7 +600,7 @@ resumes to Hydra's post-logout redirect — the first-party `POST /logout` still
 the Kratos session + our JWT cookie.
 
 Those clients are registered from the admin **OAuth2 clients** screen (`/admin/clients`,
-`src/admin-clients.ts`): register (Hydra shows the generated `client_secret` **once**, on
+`src/admin/admin-clients.ts`): register (Hydra shows the generated `client_secret` **once**, on
 the confirmation page — confidential clients), list, and delete. Confidential vs public
 (PKCE) and the first-party auto-consent flag are set at registration; writes go only to
 Hydra.
@@ -744,7 +744,7 @@ Before going live, supply the production secrets and any SSO credentials — the
 manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)); the rest is
 auto-generated.
 
-Every response carries security headers (`src/security-headers.ts`, set once per request): a
+Every response carries security headers (`src/http/security-headers.ts`, set once per request): a
 strict `Content-Security-Policy` (the core is **zero-JS** — `script-src 'self'`, no inline
 scripts, so an injected `<script>` can't run), `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY` + `frame-ancestors 'none'`, `Referrer-Policy`, and — when
@@ -754,7 +754,7 @@ any header per-response via `RouteResult.headers` (e.g. to ship its own JS).
 
 A deep link reached while signed out — or after the ~10m session JWT lapses mid-task —
 bounces to the themed sign-in and, once authenticated, returns to the **page that was
-requested** (`return_to`, validated **host-relative** by `localPath` in `src/safe-url.ts`, so
+requested** (`return_to`, validated **host-relative** by `localPath` in `src/http/safe-url.ts`, so
 a crafted `?return_to=` can't turn login completion into an open redirect). If Ory is
 unreachable on the sign-in path itself, the user gets an honest **503** ("sign-in is
 temporarily unavailable"), distinct from the catch-all 500.
@@ -814,7 +814,7 @@ cookie/cipher secrets in `kratos.yml`) — a clean clone works; **never run it i
 production**. Mint a fresh key with the bundled generator:
 
 ```bash
-docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+docker compose run --rm -T --no-deps web node src/auth/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
 ```
 
 **Install in production.** Two endpoints must read the *same* key material:
@@ -840,7 +840,7 @@ container-relative; with the dev bind-mount they edit the real file).
    shell's `>` can't truncate the input before it's read:
    ```bash
    docker compose run --rm -T --no-deps web sh -c \
-     'node src/gen-jwks.ts --prepend ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
+     'node src/auth/gen-jwks.ts --prepend ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
      && mv /tmp/jwks.json ory/kratos/tokenizer/jwks.json
    ```
 2. **Restart Kratos** so it signs with the new first key: `docker compose restart kratos`.
@@ -852,7 +852,7 @@ container-relative; with the dev bind-mount they edit the real file).
 4. **Wait ~12 min**, then **prune** the superseded key:
    ```bash
    docker compose run --rm -T --no-deps web sh -c \
-     'node src/gen-jwks.ts --prune ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
+     'node src/auth/gen-jwks.ts --prune ory/kratos/tokenizer/jwks.json' > /tmp/jwks.json \
      && mv /tmp/jwks.json ory/kratos/tokenizer/jwks.json
    ```
    No Kratos restart needed — it already signs with that key; this only drops a now-unused
@@ -867,7 +867,7 @@ Skip the overlap — you want every token signed with the leaked key to die now.
 the set with a single fresh key (no `--prepend`):
 
 ```bash
-docker compose run --rm -T --no-deps web node src/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
+docker compose run --rm -T --no-deps web node src/auth/gen-jwks.ts > ory/kratos/tokenizer/jwks.json
 docker compose restart kratos
 ```
 
@@ -879,52 +879,65 @@ unnecessary here — the signature itself is already invalid.
 ## Project layout
 
 ```
-src/server.ts        Entry point — starts the HTTP server (reads PORT, default 3000)
-src/app.ts           Request routing + EJS rendering (incl. the themed Kratos self-service routes)
-src/static.ts        Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
-src/jwt.ts           JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
-src/jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint
-src/jwks.ts          JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
-src/kratos-public.ts createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize
-src/kratos-admin.ts  createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection)
-src/keto-client.ts   createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API)
-src/hydra-admin.ts   createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD
-src/fetch-timeout.ts withTimeout(): bound every outbound Ory call — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
-src/oauth-login.ts   resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login
-src/oauth-consent.ts resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes
-src/flow-view.ts     buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs
-src/login.ts         completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie
-src/gen-jwks.ts      generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
-src/bootstrap.ts     One-command bootstrap: idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
-src/cookie.ts        Cookie parse + secure Set-Cookie build (session/CSRF cookies)
-src/csrf.ts          CSRF for our own POST forms: signed double-submit token — issue/verify, cookie, request gate
-src/denylist.ts      Optional instant-revoke denylist: in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
-src/security-headers.ts Response security headers set on every reply: strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
-src/safe-url.ts      safeUrl() (sanitise an untrusted href/src to relative-or-http(s), exposed to plugins) + localPath() (host-relative redirect-allowlist guard for return_to)
-src/logger.ts        createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set
-src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + forms)
-src/context.ts       RequestContext handed to handlers + buildContext()
-src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
-src/dashboard.ts     buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler). Both render the one unified menu (ctx.chrome)
-src/admin-users.ts   Built-in Users admin screen: list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
-src/admin-groups.ts  Built-in Groups admin screen: list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
-src/admin-roles.ts   Built-in Roles admin screen: list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
-src/admin-clients.ts Built-in OAuth2 clients admin screen: list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
-src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
-src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
-src/chrome.ts        buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (unified across all pages) — exposed on ctx.chrome
-src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
-src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
-src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
-src/paginate.ts      paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
-src/plugin.ts        Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
-src/plugin-api.ts    Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
-src/discovery.ts     discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
-src/router.ts        matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
-src/guards.ts        requireSession()/can()/check(): in-handler authorization — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
-src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
-src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials
-src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot
+src/                  Node 24 + TypeScript app — strict tsc, no build step. *.test.ts sit beside their module.
+  server.ts           Entry point — starts the HTTP server (reads PORT, default 3000)
+  config.ts           Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
+  logger.ts           createLogger()/requestLogger() + the ambient request log (runWithLog/currentLog) and tracedFetch: structured logger (service.name) + per-request trace span on @larvit/log; every outbound fetch joins the trace; OTLP export when OTLP_ENDPOINT set
+  *.test.ts (compose/kratos/keto/hydra/postgres)  Topology guards with no source counterpart — assert the compose dev/prod split + ordering and each Ory service's config (they validate ory/ + the compose files)
+
+  http/               Request pipeline + HTTP primitives
+    app.ts            Request routing + EJS rendering (incl. the themed Kratos self-service routes)
+    context.ts        RequestContext handed to handlers + buildContext()
+    body.ts           readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + forms)
+    cookie.ts         Cookie parse + secure Set-Cookie build (session/CSRF cookies)
+    static.ts         Static file serving (path-traversal protection) + routePublic(): /public/<id>/ → a plugin's public/
+    safe-url.ts       safeUrl() (sanitise an untrusted href/src to relative-or-http(s), exposed to plugins) + localPath() (host-relative redirect-allowlist guard for return_to)
+    security-headers.ts  Response security headers set on every reply: strict CSP (zero-JS), nosniff, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS over https
+
+  auth/               Identity, the session-JWT hot path, guards, and the Ory REST clients
+    jwt.ts            JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
+    jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint
+    jwks.ts           JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
+    gen-jwks.ts       generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
+    login.ts          completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie
+    guards.ts         requireSession()/can()/check(): in-handler authorization — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
+    csrf.ts           CSRF for our own POST forms: signed double-submit token — issue/verify, cookie, request gate
+    denylist.ts       Optional instant-revoke denylist: in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
+    flow-view.ts      buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs
+    oauth-login.ts    resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login
+    oauth-consent.ts  resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes
+    bootstrap.ts      One-command bootstrap: idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
+    kratos-public.ts  createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize
+    kratos-admin.ts   createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection)
+    keto-client.ts    createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API)
+    hydra-admin.ts    createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD
+    fetch-timeout.ts  withTimeout(): bound every outbound Ory call — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
+
+  admin/              Built-in admin screens — the only domain screens plainpages ships
+    admin-users.ts    Users: list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
+    admin-groups.ts   Groups: list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
+    admin-roles.ts    Roles: list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
+    admin-clients.ts  OAuth2 clients: list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
+    admin-nav.ts      adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
+
+  plugin-host/        Plugin discovery, routing, hooks, view resolution + the stable author barrel
+    plugin.ts         Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
+    plugin-api.ts     Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
+    discovery.ts      discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
+    router.ts         matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
+    hooks.ts          runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
+    view-resolver.ts  renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials
+
+  ui/                 Design-system view-models + menu/chrome — the building blocks pages render from
+    chrome.ts         buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (unified across all pages) — exposed on ctx.chrome
+    shell-context.ts  buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
+    dashboard.ts      buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler). Both render the one unified menu (ctx.chrome)
+    nav.ts            composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
+    menu-config.ts    loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot
+    icons.ts          Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
+    list-query.ts     parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
+    paginate.ts       paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
+
 views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)

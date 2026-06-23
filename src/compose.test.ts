@@ -78,7 +78,7 @@ test("a one-shot bootstrap seeds the stack before web starts", () => {
   // MVP bar: `bootstrap` runs after kratos+keto are healthy, seeds the admin +
   // JWKS, then exits; web waits for it to complete. Live seeding is boot-verified.
   const boot = compose.slice(compose.indexOf("\n  bootstrap:"));
-  assert.match(boot, /node src\/bootstrap\.ts/, "bootstrap runs the seed script");
+  assert.match(boot, /node src\/auth\/bootstrap\.ts/, "bootstrap runs the seed script");
   for (const svc of ["kratos", "keto"])
     assert.match(boot, new RegExp(`${svc}:\\s*\\n\\s*condition:\\s*service_healthy`),
       `bootstrap waits for ${svc} healthy`);
