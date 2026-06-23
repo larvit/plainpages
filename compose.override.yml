@@ -25,7 +25,7 @@ services:
   # the real backend instead. Uses the pinned app image so there's nothing extra to build/pull.
   shifts-upstream:
     image: node:24.16.0-alpine3.24
-    command: node /srv/server.mjs
+    command: node /srv/server.ts
     restart: unless-stopped
     volumes:
       - ./examples/shifts-upstream:/srv:ro

@@ -83,6 +83,11 @@ one home, linking to it rather than restating (credentials, env vars, rotation s
 - Node 24 runs `.ts` directly (type stripping). Keep all TypeScript **erasable**
   (`erasableSyntaxOnly` is on): no `enum`, `namespace`, parameter properties, or
   decorators. Import local modules with their `.ts` extension.
+- **No `.mjs`.** Write modules as `.ts` (Prio 1) — even standalone scripts run in bare
+  `node:24` containers (the e2e mock servers, `examples/shifts-upstream/server.ts`): Node
+  strips types and detects ESM from syntax, no package.json needed. If a file genuinely
+  must be plain JavaScript, use `.js` (Prio 2); `"type": "module"` is already set in both
+  `package.json`s, so `.js` is ESM.
 - **No build step** and no compiled artifacts — do not add a bundler or `tsc` emit.
 - Before finishing a change, run the typecheck and tests above; both must pass.
 - Tests use the built-in `node --test` runner — no test framework dependency.

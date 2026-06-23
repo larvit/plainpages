@@ -680,9 +680,9 @@ docker compose -f compose.yml -f e2e-tests/compose.oauth.yml down -v            
 
 **Full browser flow** (`full-flow.spec.ts`) — the real Playwright UI against the live stack:
 the themed **password login** and a **mocked-SSO** login (an in-network mock OIDC provider,
-`e2e-tests/mock-oidc.mjs`), **menu filtering by role**, the **users/groups/roles** admin CRUD, a
+`e2e-tests/mock-oidc.ts`), **menu filtering by role**, the **users/groups/roles** admin CRUD, a
 permission-gated **plugin page**, and **logout**. Because the themed form posts straight to
-Kratos and cookies are host-scoped, a tiny same-origin gateway (`e2e-tests/proxy.mjs`) fronts web +
+Kratos and cookies are host-scoped, a tiny same-origin gateway (`e2e-tests/proxy.ts`) fronts web +
 Kratos on one host (`ory/kratos/e2e-proxy.yml` points Kratos at it) — exactly as a production
 reverse proxy would.
 
@@ -932,7 +932,7 @@ ory/                 Ory service config (kratos/: identity schema, kratos.yml, o
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the reference plugin (list/form over an upstream + permission-gated nav) you copy
 examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
 docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
-e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.mjs (same-origin gateway) + mock-oidc.mjs (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
+e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 ```
 

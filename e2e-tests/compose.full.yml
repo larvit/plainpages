@@ -1,6 +1,6 @@
 # Full browser E2E — the real Playwright UI flow against the live stack: password +
 # mocked-SSO login, menu filtering by role, users/groups/roles CRUD, a plugin page, logout. A tiny
-# same-origin gateway (proxy, e2e-tests/proxy.mjs) fronts web + Kratos on one host so the browser's cookies
+# same-origin gateway (proxy, e2e-tests/proxy.ts) fronts web + Kratos on one host so the browser's cookies
 # round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.
 #   docker compose -f compose.yml -f e2e-tests/compose.full.yml run --build --rm e2e
 #   docker compose -f compose.yml -f e2e-tests/compose.full.yml down -v   # tear down after
@@ -42,9 +42,9 @@ services:
   # The reference plugin's upstream (examples/shifts-upstream) so /scheduling/shifts shows real rows.
   shifts-upstream:
     image: node:24.16.0-alpine3.24
-    command: ["node", "/server.mjs"]
+    command: ["node", "/server.ts"]
     volumes:
-      - ./examples/shifts-upstream/server.mjs:/server.mjs:ro
+      - ./examples/shifts-upstream/server.ts:/server.ts:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:4000/shifts"]
       interval: 2s
@@ -55,22 +55,22 @@ services:
   # verifies via its jwks. Reachable as the same host (mock-oidc:9000) by both the browser and Kratos.
   mock-oidc:
     image: node:24.16.0-alpine3.24
-    command: ["node", "/mock-oidc.mjs"]
+    command: ["node", "/mock-oidc.ts"]
     environment:
       ISSUER: http://mock-oidc:9000
       SSO_EMAIL: sso-user@plainpages.local
     volumes:
-      - ./e2e-tests/mock-oidc.mjs:/mock-oidc.mjs:ro
+      - ./e2e-tests/mock-oidc.ts:/mock-oidc.ts:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9000/.well-known/openid-configuration"]
       interval: 2s
       timeout: 4s
       retries: 15
 
-  # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e-tests/proxy.mjs).
+  # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e-tests/proxy.ts).
   proxy:
     image: node:24.16.0-alpine3.24
-    command: ["node", "/proxy.mjs"]
+    command: ["node", "/proxy.ts"]
     depends_on:
       web:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
       KRATOS_URL: http://kratos:4433
       WEB_URL: http://web:3000
     volumes:
-      - ./e2e-tests/proxy.mjs:/proxy.mjs:ro
+      - ./e2e-tests/proxy.ts:/proxy.ts:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/public/css/styles.css"]
       interval: 2s
