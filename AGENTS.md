@@ -59,6 +59,25 @@ docker compose run --rm --no-deps web npm test           # tests
 docker compose -f compose.yml up --build -d              # production
 ```
 
+## README structure (keep it this way)
+
+`README.md` serves two readers, in this order — preserve it when editing:
+
+1. **First-time reader (top).** A one/two-sentence tagline, then a **Quick start** that gets
+   the stack up (`docker compose up`, sign in) and a *minimal* plugin live. Nothing comes
+   before Quick start — no philosophy, no rationale. Keep its commands copy-pasteable and the
+   example plugin as small as possible; deeper detail lives in its own section, linked.
+2. **Returning developer (rest).** A **Contents** ToC immediately after Quick start, then
+   sections ordered **most-used/overview first → least-used/in-depth last**: Overview →
+   Architecture → Building plugins → menu/blocks/interactivity → Configuration → Auth →
+   Email → Testing → Production → Observability → the JWT-rotation runbook → the
+   Project-layout file map → Extending. Niche ops runbooks and the file-map reference stay
+   near the end.
+
+When editing: put content in the section it belongs to (don't prepend rationale above Quick
+start); keep the ToC in sync when you add/rename/remove an `H2`/`H3`; and state each fact in
+one home, linking to it rather than restating (credentials, env vars, rotation steps).
+
 ## Rules
 
 - Node 24 runs `.ts` directly (type stripping). Keep all TypeScript **erasable**
