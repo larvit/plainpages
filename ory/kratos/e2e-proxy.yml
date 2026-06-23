@@ -1,6 +1,6 @@
-# Browser-E2E overlay (compose.e2e-full.yml) — merged after kratos.yml via a second `-c`. The
+# Browser-E2E overlay (e2e-tests/compose.full.yml) — merged after kratos.yml via a second `-c`. The
 # full-flow suite drives the real browser, so web + Kratos must share one origin (the `proxy`
-# gateway, e2e/proxy.mjs). Point Kratos' public base_url and every self-service URL at that host so
+# gateway, e2e-tests/proxy.mjs). Point Kratos' public base_url and every self-service URL at that host so
 # the flow action, the session cookie, and the after-login redirect all stay same-origin as the
 # browser sees them. The normal (10m) tokenizer TTL from kratos.yml is kept — no re-mint mid-test.
 serve:

@@ -4,8 +4,8 @@
 # runs against the *plain* `docker compose up` topology and drives the browser on the HOST network, so
 # it sees http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host
 # browser does. Merge the dev override so the live stack is byte-for-byte `docker compose up`:
-#   docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml run --build --rm e2e
-#   docker compose -f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml down -v   # tear down
+#   docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml run --build --rm e2e
+#   docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml down -v   # tear down
 services:
   web:
     # Pin APP_URL so the regression is deterministic regardless of any APP_URL exported in the shell
@@ -34,7 +34,7 @@ services:
   e2e:
     build:
       context: .
-      dockerfile: Dockerfile.e2e
+      dockerfile: e2e-tests/Dockerfile
     command: ["npx", "playwright", "test", "devstack-login.spec.ts"]
     # Host network: reach the host-published ports (web 3000, Kratos public 4433) at the very
     # hostnames a user types — localhost / 127.0.0.1 — so the cross-host CSRF-cookie split reproduces.
@@ -45,4 +45,4 @@ services:
     environment:
       BASE_URL: http://localhost:3000
     volumes:
-      - ./e2e/artifacts:/e2e/artifacts
+      - ./e2e-tests/artifacts:/e2e-tests/artifacts

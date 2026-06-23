@@ -399,7 +399,7 @@ worked example: thin handlers bound to an injectable upstream client, unit-teste
    of the stack.
 
 3. **E2E the user-facing flow.** Per AGENTS.md §6, ship a side-effect-free Playwright test in
-   `e2e/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
+   `e2e-tests/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
    service with the plugin mounted. The reference's permission-gating is covered in `visual.spec.ts`;
    its authenticated list/form happy-path is the full-E2E item (needs cross-host login infra).
 

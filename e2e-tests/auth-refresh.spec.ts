@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // Full-stack auth E2E: token timeout + silent re-mint ("stay signed in"). Runs against the
-// real Ory stack via compose.e2e-auth.yml, where the session→JWT TTL is shortened to 8s and the
+// real Ory stack via e2e-tests/compose.auth.yml, where the session→JWT TTL is shortened to 8s and the
 // web clock skew is 0 — so the ~10m token lapses in seconds and the hot path re-mints it from the
 // still-live Kratos session. We drive the flow over HTTP (fetch, manual cookies) because Kratos
 // and web sit on different hosts here; web's own server-side cookie relay is what we exercise.

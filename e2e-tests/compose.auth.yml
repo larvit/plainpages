@@ -1,9 +1,9 @@
 # Full-stack auth E2E — token timeout + silent re-mint ("stay signed in"). The Ory-free
-# visual suite (compose.e2e.yml) covers the design system; this is its full-stack counterpart:
+# visual suite (e2e-tests/compose.visual.yml) covers the design system; this is its full-stack counterpart:
 # real Postgres + Kratos + Keto + bootstrap + web, with a SHORT tokenizer TTL (ory/kratos/e2e.yml)
 # and zero clock skew, so the JWT lapses and re-mints within seconds instead of ~10m.
-#   docker compose -f compose.yml -f compose.e2e-auth.yml run --build --rm e2e
-#   docker compose -f compose.yml -f compose.e2e-auth.yml down -v   # tear down after
+#   docker compose -f compose.yml -f e2e-tests/compose.auth.yml run --build --rm e2e
+#   docker compose -f compose.yml -f e2e-tests/compose.auth.yml down -v   # tear down after
 services:
   web:
     # This suite exercises only the Kratos session → JWT re-mint; it needs Kratos + Keto + bootstrap,
@@ -38,7 +38,7 @@ services:
   e2e:
     build:
       context: .
-      dockerfile: Dockerfile.e2e
+      dockerfile: e2e-tests/Dockerfile
     depends_on:
       web:
         condition: service_healthy
@@ -48,4 +48,4 @@ services:
       KRATOS_PUBLIC_URL: http://kratos:4433
     command: ["npx", "playwright", "test", "auth-refresh.spec.ts"]
     volumes:
-      - ./e2e/artifacts:/e2e/artifacts
+      - ./e2e-tests/artifacts:/e2e-tests/artifacts

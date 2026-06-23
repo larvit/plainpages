@@ -3,20 +3,20 @@
 # that is always torn down. One reproducible command — run it locally or wire it into your CI
 # service. Docker-only (it drives `docker compose`; node/npm/tsc run inside containers, never the host).
 #
-#   bash scripts/ci.sh
+#   bash ci.sh
 #
 # Exits non-zero on the first failure. Each E2E suite OWNS a clean stack — never point two suites at
 # one backend (auth-refresh revokes the admin's sessions; full-flow writes users/groups/roles to Keto).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")"
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 
 # Pins that MUST move in lockstep: a browser/runner mismatch yields confusing E2E failures.
-step "Playwright pin lockstep (Dockerfile.e2e image == e2e/package.json @playwright/test)"
+step "Playwright pin lockstep (e2e-tests/Dockerfile image == e2e-tests/package.json @playwright/test)"
 # `|| true` so a no-match doesn't trip `set -e`/`pipefail` before the explicit check below can report.
-img=$(grep -oE 'playwright:v[0-9.]+' Dockerfile.e2e | grep -oE '[0-9.]+$' || true)
-pkg=$(grep -oE '"@playwright/test": "[0-9.]+"' e2e/package.json | grep -oE '[0-9.]+' || true)
+img=$(grep -oE 'playwright:v[0-9.]+' e2e-tests/Dockerfile | grep -oE '[0-9.]+$' || true)
+pkg=$(grep -oE '"@playwright/test": "[0-9.]+"' e2e-tests/package.json | grep -oE '[0-9.]+' || true)
 [ -n "$img" ] && [ "$img" = "$pkg" ] || { echo "Playwright pin mismatch/unreadable: image v$img vs @playwright/test $pkg"; exit 1; }
 echo "ok ($img)"
 
@@ -41,19 +41,19 @@ e2e() {
   [ "$rc" -eq 0 ] || { echo "E2E suite $1 failed (exit $rc)"; exit "$rc"; }
 }
 
-e2e compose.e2e.yml        # visual / design-system parity (Ory-free)
-e2e compose.e2e-auth.yml   # token timeout + silent re-mint
-e2e compose.e2e-oauth.yml  # OAuth2 login + consent
-e2e compose.e2e-full.yml   # full browser flow: login (password + SSO), menu, CRUD, plugin, logout
+e2e e2e-tests/compose.visual.yml    # visual / design-system parity (Ory-free)
+e2e e2e-tests/compose.auth.yml      # token timeout + silent re-mint
+e2e e2e-tests/compose.oauth.yml     # OAuth2 login + consent
+e2e e2e-tests/compose.full.yml      # full browser flow: login (password + SSO), menu, CRUD, plugin, logout
 
 # Dev-stack login regression — runs against the PLAIN `docker compose up` topology (base + override)
 # with the runner on the HOST network, so it can't use the shared e2e() helper (which merges only
 # compose.yml + the suite). Needs host networking + the host ports 3000/4433 free (Linux CI).
-step "E2E: compose.e2e-devstack.yml (dev-stack login: localhost works + 127.0.0.1 canonicalised)"
-devstack_files=(-f compose.yml -f compose.override.yml -f compose.e2e-devstack.yml)
+step "E2E: e2e-tests/compose.devstack.yml (dev-stack login: localhost works + 127.0.0.1 canonicalised)"
+devstack_files=(-f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml)
 rc=0
 docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" run --build --rm e2e || rc=$?
 docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" down -v >/dev/null 2>&1 || true
-[ "$rc" -eq 0 ] || { echo "E2E suite compose.e2e-devstack.yml failed (exit $rc)"; exit "$rc"; }
+[ "$rc" -eq 0 ] || { echo "E2E suite e2e-tests/compose.devstack.yml failed (exit $rc)"; exit "$rc"; }
 
 step "ALL GREEN"

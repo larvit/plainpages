@@ -4,4 +4,7 @@ npm-debug.log
 *.log
 .DS_Store
 
-e2e/artifacts
+e2e-tests/artifacts
+# Orchestration, not test code — keep them out of the runner image (COPY e2e-tests/ ./)
+e2e-tests/Dockerfile
+e2e-tests/compose.*.yml

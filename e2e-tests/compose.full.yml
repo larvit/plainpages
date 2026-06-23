@@ -1,9 +1,9 @@
 # Full browser E2E — the real Playwright UI flow against the live stack: password +
 # mocked-SSO login, menu filtering by role, users/groups/roles CRUD, a plugin page, logout. A tiny
-# same-origin gateway (proxy, e2e/proxy.mjs) fronts web + Kratos on one host so the browser's cookies
+# same-origin gateway (proxy, e2e-tests/proxy.mjs) fronts web + Kratos on one host so the browser's cookies
 # round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.
-#   docker compose -f compose.yml -f compose.e2e-full.yml run --build --rm e2e
-#   docker compose -f compose.yml -f compose.e2e-full.yml down -v   # tear down after
+#   docker compose -f compose.yml -f e2e-tests/compose.full.yml run --build --rm e2e
+#   docker compose -f compose.yml -f e2e-tests/compose.full.yml down -v   # tear down after
 services:
   web:
     # First-party + SSO flows need Kratos + Keto + bootstrap, not Hydra — drop it so the stack is
@@ -60,14 +60,14 @@ services:
       ISSUER: http://mock-oidc:9000
       SSO_EMAIL: sso-user@plainpages.local
     volumes:
-      - ./e2e/mock-oidc.mjs:/mock-oidc.mjs:ro
+      - ./e2e-tests/mock-oidc.mjs:/mock-oidc.mjs:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9000/.well-known/openid-configuration"]
       interval: 2s
       timeout: 4s
       retries: 15
 
-  # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e/proxy.mjs).
+  # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e-tests/proxy.mjs).
   proxy:
     image: node:24.16.0-alpine3.24
     command: ["node", "/proxy.mjs"]
@@ -78,7 +78,7 @@ services:
       KRATOS_URL: http://kratos:4433
       WEB_URL: http://web:3000
     volumes:
-      - ./e2e/proxy.mjs:/proxy.mjs:ro
+      - ./e2e-tests/proxy.mjs:/proxy.mjs:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/public/css/styles.css"]
       interval: 2s
@@ -88,7 +88,7 @@ services:
   e2e:
     build:
       context: .
-      dockerfile: Dockerfile.e2e
+      dockerfile: e2e-tests/Dockerfile
     command: ["npx", "playwright", "test", "full-flow.spec.ts"]
     depends_on:
       mock-oidc:
@@ -99,4 +99,4 @@ services:
       BASE_URL: http://proxy
       KRATOS_ADMIN_URL: http://kratos:4434
     volumes:
-      - ./e2e/artifacts:/e2e/artifacts
+      - ./e2e-tests/artifacts:/e2e-tests/artifacts

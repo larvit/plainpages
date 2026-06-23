@@ -4,4 +4,4 @@
 node_modules
 
 # Playwright E2E outputs (screenshots, html report, traces)
-e2e/artifacts/
+e2e-tests/artifacts/

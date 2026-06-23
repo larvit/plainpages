@@ -12,7 +12,7 @@ import { expect, test } from "@playwright/test";
 // browser URLs derive from it, and a real /error page replaces the 404.
 //
 // This is faithful to the user's environment: the runner uses the host network
-// (compose.e2e-devstack.yml) against the plain `docker compose up` topology, so it sees
+// (e2e-tests/compose.devstack.yml) against the plain `docker compose up` topology, so it sees
 // http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host browser
 // does. The proxied full-flow suite can't catch this regression — it fronts web + Kratos on one origin.
 const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap

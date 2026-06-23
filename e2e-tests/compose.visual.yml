@@ -1,9 +1,9 @@
 # Playwright E2E. Brings up the app + a Playwright runner and exercises the live pages (design
 # system, theme switch, mobile layout, CSRF, landing, 404, plugin gating) — Ory-free, so it's fast.
-#   docker compose -f compose.yml -f compose.e2e.yml run --build --rm e2e
-#   docker compose -f compose.yml -f compose.e2e.yml down -v   # tear down after
-# --build rebuilds the runner (the image bakes in e2e/) so spec edits are picked up.
-# Screenshots + HTML report land in ./e2e/artifacts/ (git-ignored).
+#   docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e
+#   docker compose -f compose.yml -f e2e-tests/compose.visual.yml down -v   # tear down after
+# --build rebuilds the runner (the image bakes in e2e-tests/) so spec edits are picked up.
+# Screenshots + HTML report land in ./e2e-tests/artifacts/ (git-ignored).
 services:
   web:
     # The dashboard renders mock data — no Ory needed. Drop the base file's kratos/keto
@@ -24,8 +24,8 @@ services:
   e2e:
     build:
       context: .
-      dockerfile: Dockerfile.e2e
-    # Just the Ory-free visual suite; the full-stack auth spec runs via compose.e2e-auth.yml.
+      dockerfile: e2e-tests/Dockerfile
+    # Just the Ory-free visual suite; the full-stack auth spec runs via e2e-tests/compose.auth.yml.
     command: ["npx", "playwright", "test", "visual.spec.ts"]
     depends_on:
       web:
@@ -36,4 +36,4 @@ services:
       # The committed dev tokenizer key — the spec signs a session JWT with it so the gated
       # dashboard renders; web verifies it with the same key (the file it mounts read-only).
       - ./ory/kratos/tokenizer/jwks.json:/repo/jwks.json:ro
-      - ./e2e/artifacts:/e2e/artifacts
+      - ./e2e-tests/artifacts:/e2e-tests/artifacts

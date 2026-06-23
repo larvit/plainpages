@@ -1,4 +1,4 @@
-# E2E overlay (compose.e2e-auth.yml) — merged after kratos.yml via a second `-c`. Two changes
+# E2E overlay (e2e-tests/compose.auth.yml) — merged after kratos.yml via a second `-c`. Two changes
 # that let the auth-refresh suite exercise token timeout + re-mint in seconds:
 #   1. A very short session→JWT tokenizer TTL, so the JWT lapses while the Kratos session lives.
 #   2. A public base_url on the compose-network hostname, so the Playwright runner can drive the
