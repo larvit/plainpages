@@ -252,6 +252,11 @@ state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then o
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
 secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
 
+The same shell renders **every** page (the dashboard, the admin screens, your plugin pages, and the
+login/registration/front pages), so the menu looks identical signed in or out — it just role-filters.
+A page that wants a focused, chrome-free layout passes **`menu: false`** to `partials/shell` (drops the
+sidebar, single column); everything else still renders.
+
 **`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log),
 §9) already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
 metadata values are string/number/boolean), and **`ctx.log.fetch(url, init?)`** — a drop-in `fetch`

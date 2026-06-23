@@ -37,11 +37,9 @@ test.beforeEach(async ({ context }) => {
 test("captures live pages + reference mockups for side-by-side review", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toBeVisible();
-  await expect(page.locator("table.table tbody tr").first()).toBeVisible();
+  // §10: the default /dashboard is the instructional starter, not a mock-data list.
+  await expect(page.getByRole("heading", { name: "Starter dashboard" })).toBeVisible();
   await shot(page, "live-01-dashboard");
-
-  await page.goto("/dashboard?sort=-name&status=active");
-  await shot(page, "live-02-sorted-filtered");
 
   await page.goto("/dashboard");
   await page.locator("#theme-dark").check({ force: true }); // visually-hidden radio
@@ -72,7 +70,11 @@ test("live components compute the same design-system styles as the reference moc
   const ref = await context.newPage();
   await ref.goto(APP_SHELL);
 
-  for (const selector of [".sidebar", ".topbar", ".brand", ".btn.btn-primary", ".theme-switch", ".filters", ".pager"]) {
+  // Shell components appear on every page, incl. the instructional /dashboard. The data components
+  // (.filters/.table/.pager) used to live on the mock dashboard (removed in §10); they're now covered
+  // by the mockup screenshots + their unit tests, and rendered live with real data by the full-flow
+  // E2E (the admin Users list) which the Ory-free visual suite can't stand up.
+  for (const selector of [".sidebar", ".topbar", ".brand", ".btn.btn-primary", ".theme-switch"]) { // .btn-primary = the dashboard's "Browse the example plugin" CTA
     expect(await styleOf(page, selector), `computed style mismatch for ${selector}`).toEqual(await styleOf(ref, selector));
   }
   await ref.close();
@@ -89,20 +91,9 @@ test("every icon <use> resolves to a defined <symbol> (no broken graphics)", asy
   expect(missing).toEqual([]);
 });
 
-test("sorting and search drive the list through the URL (zero-JS)", async ({ page }) => {
-  await page.goto("/dashboard");
-  const total = await page.locator("tbody tr").count();
-
-  await page.getByRole("link", { name: /Name/ }).first().click();
-  await expect(page).toHaveURL(/sort=name/);
-  await expect(page.locator("thead th").filter({ hasText: "Name" })).toHaveAttribute("aria-sort", "ascending");
-
-  await page.goto("/dashboard");
-  await page.locator('input[name="q"]').fill("Avery");
-  await page.getByRole("button", { name: /Apply filters/ }).click();
-  await expect(page).toHaveURL(/q=Avery/);
-  expect(await page.locator("tbody tr").count()).toBeLessThan(total);
-});
+// (The zero-JS URL-driven list — sortable headers, ?q search — is unit-tested per component
+// (list-query/data-table/filter-bar) and exercised live with real data by the full-flow E2E's admin
+// Users list. The mock-data dashboard that used to host it in this Ory-free suite is gone (§10).)
 
 test("theme switch flips the palette with no JavaScript", async ({ page }) => {
   await page.goto("/dashboard");
@@ -140,8 +131,9 @@ test("Sign-out is a CSRF-guarded POST form: the token is issued on the page, a t
 test("the public landing at / is ungated and links to sign in + register (§10)", async ({ page, context }) => {
   await context.clearCookies(); // visit "/" as a logged-out visitor (drop the beforeEach session)
   await page.goto("/");
-  await expect(page.locator(".landing")).toBeVisible(); // the standalone landing, not the app shell
-  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.locator(".landing")).toBeVisible();
+  // §10: the same app shell every page renders — the menu shows even signed out (role-filtered).
+  await expect(page.locator(".sidebar")).toBeVisible();
   await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("link", { name: "Create account" })).toHaveAttribute("href", "/registration");
   await shot(page, "live-05-public-landing");
@@ -180,7 +172,7 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   // The signed-in member (no scheduling role) sees the public Scheduling → Overview leaf in the nav,
   // but the gated Shifts leaf is filtered out.
   await page.goto("/dashboard");
-  await expect(page.locator(".sidebar")).toContainText("People"); // dashboard nav renders
+  await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders (§10)
   await expect(page.locator('.sidebar a[href="/scheduling"]')).toHaveCount(1); // public Overview shown
   await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(0); // gated leaf filtered out
 });

@@ -48,20 +48,20 @@ before(async () => {
 
 after(() => server.close());
 
-test("the dashboard at /dashboard: the app-shell People list, gated to a session, filterable via the URL", async () => {
+test("the dashboard at /dashboard: the instructional starter in the unified shell, gated to a session", async () => {
   // The dashboard is gated to a signed-in user (§10), so present a session.
   const res = await fetch(base + "/dashboard", { headers: { cookie: session() } });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
   const html = await res.text();
-  // Shell + building blocks composed around the mock data.
+  // The unified app shell (§10): the same sidebar/menu every page renders.
   assert.match(html, /Plainpages/); // sidebar brand
   assert.match(html, /<aside class="sidebar"/);
-  assert.match(html, /<form class="filters"/);
-  assert.match(html, /<table class="table"/);
-  assert.match(html, /<footer class="pager"/);
-  assert.match(html, /Avery Kline/); // a mock person on page 1
-  assert.match(html, /Starter dashboard/); // the default flags itself a demo to replace with a `dashboard` plugin (§10)
+  // The default is a short instructional starter, not a mock-data list.
+  assert.match(html, /Starter dashboard/);
+  assert.match(html, /export default definePlugin/); // shows how to replace it from a plugin
+  assert.doesNotMatch(html, /<form class="filters"/); // the old mock People list is gone
+  assert.doesNotMatch(html, /Avery Kline/);
 
   // The Sign-out POST form carries a CSRF token matching the Set-Cookie issued for the page (§4).
   const csrfCookie = (res.headers.get("set-cookie") ?? "").match(/plainpages_csrf=([^;]+)/)?.[1];
@@ -69,19 +69,17 @@ test("the dashboard at /dashboard: the app-shell People list, gated to a session
   assert.match(res.headers.get("set-cookie") ?? "", /plainpages_csrf=[^;]+;.*HttpOnly/);
   assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
   assert.match(html, new RegExp(`name="_csrf" value="${csrfCookie!.replace(/[.]/g, "\\.")}"`));
-
-  // A search query filters server-side: a no-match query drops every row.
-  const empty = await fetch(base + "/dashboard?q=zzz-no-such-person", { headers: { cookie: session() } });
-  assert.doesNotMatch(await empty.text(), /Avery Kline/);
 });
 
-test("/ is the public landing (§10): anonymous → 200 with intro + sign-in/register links, no gate", async () => {
+test("/ is the public landing (§10): anonymous → 200 with intro + sign-in/register links, in the unified shell", async () => {
   const res = await fetch(base + "/", { redirect: "manual" });
   assert.equal(res.status, 200); // public — no redirect to sign in
   const html = await res.text();
   assert.match(html, /href="\/login"/); // a prominent path to sign in
   assert.match(html, /href="\/registration"/); // and to register
-  assert.doesNotMatch(html, /<aside class="sidebar"/); // standalone page, not the signed-in app shell
+  // §10: the same app shell every page renders — the menu shows even when signed out (role-filtered).
+  assert.match(html, /<aside class="sidebar"/);
+  assert.match(html, /class="landing-title"/); // the landing hero owns the page's single <h1>
 });
 
 test("/dashboard is gated (§10): an anonymous visitor is bounced to sign in (return_to kept)", async () => {

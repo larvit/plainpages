@@ -1,15 +1,21 @@
 <%#
-  App shell: sidebar (brand + nav slot + footer) · topbar · content slot.
+  App shell: sidebar (brand + nav slot + footer) · topbar · content slot. The one chrome every page
+  renders (§10) — dashboard, admin, plugin, login/registration/front — so the menu is identical
+  everywhere, role-filtered to the visitor (anonymous ⇒ public items + Sign in).
   Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
   `actions` (topbar buttons), `body` (page content); `styles` is an optional array of
-  extra stylesheet hrefs (e.g. a plugin's own /public/<id>/x.css). Text locals: `title`, `brand`
-  ({ name, logo?, sub? } — logo image else the default mark), `theme` (default for the
-  theme-switch), `user`, `breadcrumbs`, `csrfToken` (the Sign-out POST form's hidden field),
-  `signInHref` (anonymous "Sign in" target, carries return_to; default /login).
-  Branding comes from config/menu.ts; `user`/`csrfToken` from §4 auth.
+  extra stylesheet hrefs (e.g. a plugin's own /public/<id>/x.css). Text locals: `title`
+  (topbar heading; empty ⇒ the page body owns the single <h1>, e.g. login/landing), `docTitle`
+  (the <title> tag; defaults to title or the brand), `brand` ({ name, logo?, sub? }), `theme`
+  (theme-switch default), `user`, `breadcrumbs`, `csrfToken` (the Sign-out form's hidden field),
+  `signInHref` (anonymous "Sign in" target; default /login). `menu` (default true) — set false to
+  drop the sidebar and render a focused single-column page (§10).
 %><%
-  const title = locals.title || "Plainpages";
   const brand = locals.brand || { name: "Plainpages" };
+  const title = locals.title || ""; // topbar heading; empty ⇒ no topbar <h1> (the body owns it)
+  const docTitle = locals.docTitle || title || brand.name;
+  const menu = locals.menu !== false; // sidebar shown by default; a page may opt out
+  const hideSignIn = locals.hideSignIn === true; // the auth pages are already a way in — no footer Sign-in there
   const user = locals.user || { name: "Guest", initials: "G", email: "" };
   const breadcrumbs = locals.breadcrumbs || [];
   const nav = locals.nav || "";
@@ -21,7 +27,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %></title>
+    <title><%= docTitle %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
     <% styles.forEach((href) => { %><link rel="stylesheet" href="<%= href %>" />
     <% }) %><link rel="icon" href="/public/favicon.svg" />
@@ -29,10 +35,13 @@
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <%- include("icons") %>
+    <% if (menu) { %>
     <!-- nav-toggle drives the mobile overlay (pure CSS) -->
     <input type="checkbox" id="nav-toggle" aria-hidden="true" tabindex="-1" />
+    <% } %>
 
-    <div class="app">
+    <div class="app<%= menu ? "" : " app-bare" %>">
+      <% if (menu) { %>
       <aside class="sidebar" aria-label="Primary">
         <div class="brand">
           <% if (brand.logo) { %><img class="brand-logo" src="<%= brand.logo %>" alt="" /><% } else { %><span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span><% } %>
@@ -66,9 +75,10 @@
                 </form>
               </div>
             </details>
-            <% } else { %>
+            <% } else if (!hideSignIn) { %>
             <%# anonymous (a public page in the shell, §10): no session to end — offer a way in instead.
-                signInHref carries this page as return_to (chrome.signInHref); falls back to bare /login. %>
+                signInHref carries this page as return_to (chrome.signInHref); falls back to bare /login.
+                Suppressed on the auth pages themselves (hideSignIn) — a Sign-in there only loops back. %>
             <a class="btn btn-primary" href="<%= locals.signInHref || '/login' %>" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg>Sign in</a>
             <% } %>
 
@@ -83,11 +93,12 @@
 
       <!-- scrim closes the mobile menu (label toggles the checkbox) -->
       <label class="scrim" for="nav-toggle" aria-label="Close menu"></label>
+      <% } %>
 
       <main class="content" id="main-content">
         <header class="topbar">
-          <label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu"><svg class="ico"><use href="#i-menu" /></svg></label>
-          <h1 class="page-title"><%= title %></h1>
+          <% if (menu) { %><label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu"><svg class="ico"><use href="#i-menu" /></svg></label><% } %>
+          <% if (title) { %><h1 class="page-title"><%= title %></h1><% } %>
           <% if (breadcrumbs.length) { %>
           <nav class="crumbs" aria-label="Breadcrumb">
             <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= c.href %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>

@@ -6,13 +6,14 @@
 // is the imperative shell app.ts dispatches to — gated admin-only, CSRF-guarded, mapping each action
 // to a RouteResult.
 
-import { ADMIN_GROUPS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
+import { ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { FieldConfig } from "./admin-users.ts";
 import type { RequestContext, User } from "./context.ts";
 import type { KetoClient, RelationQuery, RelationTuple, SubjectSet } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { parseListQuery } from "./list-query.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
+import type { NavNode } from "./nav.ts";
 import { paginate } from "./paginate.ts";
 import type { RouteResult } from "./plugin.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -120,6 +121,7 @@ export function buildGroupsListModel(opts: {
   csrfToken?: string;
   groups: GroupView[];
   menu?: MenuConfig;
+  nav?: NavNode[];
   url: URL | URLSearchParams | string;
   user?: User | null;
 }) {
@@ -147,7 +149,7 @@ export function buildGroupsListModel(opts: {
 
   return {
     filterBar: listFilterBar(state),
-    nav: adminNav(opts.user?.roles ?? [], menu, "groups"),
+    nav: opts.nav ?? [],
     pagination: listPagination(state, page),
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Admin" }, { label: "Groups" }],
@@ -214,6 +216,7 @@ export function buildGroupFormModel(opts: {
   error?: string;
   memberOptions: MemberOption[];
   menu?: MenuConfig;
+  nav?: NavNode[];
   user?: User | null;
   values?: { member?: string; name?: string };
 }) {
@@ -233,7 +236,7 @@ export function buildGroupFormModel(opts: {
       selectedMember: opts.values?.member ?? "",
       submitLabel: "Create group",
     },
-    nav: adminNav(opts.user?.roles ?? [], menu, "groups"),
+    nav: opts.nav ?? [],
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { label: "New" }],
       csrfToken: opts.csrfToken ?? "",
@@ -251,6 +254,7 @@ export function buildGroupDetailModel(opts: {
   group: { name: string };
   members: MemberView[];
   menu?: MenuConfig;
+  nav?: NavNode[];
   user?: User | null;
 }) {
   const menu = opts.menu ?? DEFAULT_MENU;
@@ -266,7 +270,7 @@ export function buildGroupDetailModel(opts: {
     error: opts.error,
     group: { name },
     members: { action: `${base}/members/delete`, rows: opts.members },
-    nav: adminNav(opts.user?.roles ?? [], menu, "groups"),
+    nav: opts.nav ?? [],
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { label: name }],
       csrfToken: opts.csrfToken ?? "",
@@ -332,22 +336,23 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
 
   const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { keto, kratosAdmin, menu, render } = deps;
+  const nav = ctx.chrome.nav; // the one global menu, role-filtered + current-marked by the host
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_GROUPS_BASE.length).split("/").filter(Boolean);
   const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
-    return { html: await render("admin/groups", { model: buildGroupsListModel({ csrfToken, groups, menu, url: ctx.url, user }) }) };
+    return { html: await render("admin/groups", { model: buildGroupsListModel({ csrfToken, groups, menu, nav, url: ctx.url, user }) }) };
   };
   const renderForm = async (extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
     const { options } = await memberCandidates(keto, kratosAdmin);
-    return { html: await render("admin/group-form", { model: buildGroupFormModel({ csrfToken, memberOptions: options, menu, user, ...extra }) }) };
+    return { html: await render("admin/group-form", { model: buildGroupFormModel({ csrfToken, memberOptions: options, menu, nav, user, ...extra }) }) };
   };
   const renderDetail = async (name: string): Promise<RouteResult> => {
     const { emailById, options } = await memberCandidates(keto, kratosAdmin);
     const members = (await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS })).map((t) => memberView(t, emailById));
-    return { html: await render("admin/group-detail", { model: buildGroupDetailModel({ candidates: options, csrfToken, group: { name }, members, menu, user }) }) };
+    return { html: await render("admin/group-detail", { model: buildGroupDetailModel({ candidates: options, csrfToken, group: { name }, members, menu, nav, user }) }) };
   };
 
   // /admin/groups — list (GET) · create (POST)
@@ -388,7 +393,7 @@ export async function handleAdminGroups(ctx: RequestContext, csrfToken: string, 
     return { html: await render("admin/confirm", { model: buildConfirmModel({
       breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { href: base, label: name }, { label: "Delete" }],
       cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete group", csrfToken,
-      current: "groups", menu, message: `Delete group ${name}? This removes the group and all its memberships.`, title: "Delete group", user,
+      menu, message: `Delete group ${name}? This removes the group and all its memberships.`, nav, title: "Delete group", user,
     }) }) };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {

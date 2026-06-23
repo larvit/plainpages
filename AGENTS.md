@@ -32,6 +32,21 @@ commands and layout.
    that way as it grows (never serialise on shared state); parallelism is what keeps it
    fast. E2E runs in Docker against the live stack — see `README.md`.
 
+## Deliberate architectural deviations (don't re-flag)
+
+Intentional, reasoned choices — an architecture review should honor them, not re-raise
+them. Revisit only if the stated reason stops holding.
+
+- **`src/` is flat on purpose.** The functional-core / imperative-shell split is
+  conceptual, not a directory layout; splitting into `core/`/`shell/` dirs was judged
+  premature for a scaffold this size. Revisit only if the flat tree stops being readable.
+- **`ctx.chrome` is lazily memoized — do not make it unconditional** or move it into the
+  base request context. It protects the I/O-free hot path on the public, bot-hit landing
+  (`/`). (Declined twice.)
+- **Email is delegated to Kratos** (it renders + sends recovery/verification mail); `web`
+  never touches SMTP. Customization is Kratos' built-in `courier.template_override_path`,
+  not app code — keeping `web` stateless and dependency-light (see [Email](README.md#email)).
+
 ## Docker only — no host tooling
 
 **Everything** (install, typecheck, test, run, build, deploy) goes through Docker /

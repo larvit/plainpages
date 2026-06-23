@@ -536,6 +536,34 @@ nav tree from the design foundation (header/leaf × clickable/static, counts,
 arbitrary depth). Branding (name, logo, default theme) renders in the app shell — the sidebar
 brand shows the configured logo (else a default mark), and the theme sets the theme-switch default.
 
+**One menu, one shell, everywhere.** There is a single menu (`src/chrome.ts` `buildPluginChrome`),
+rendered by the same app shell on **every** page — the dashboard, the admin screens, plugin pages,
+and the login / registration / recovery / front (`/`) pages. So it looks identical signed in or out;
+it just shows fewer items to an anonymous visitor (only `public` ones, plus a Sign-in link), filtered
+by the same per-user rule. The sidebar collapses to a burger on a narrow screen. A page that wants a
+focused, chrome-free layout (e.g. a print view) opts out with the shell's `menu: false`.
+
+## Email
+
+The only emails are the **recovery** and **verification** codes from Kratos' self-service flows, and
+**Kratos renders and sends them** (delegated, like the rest of identity — `web` never touches SMTP).
+Dev catches them in **mailpit** (http://localhost:8025); prod points Kratos at a real server via
+`COURIER_SMTP_CONNECTION_URI` (`courier.smtp` in `ory/kratos/kratos.yml`).
+
+**Customizing the email content** is a built-in Kratos feature — no code here. Set
+`courier.template_override_path` to a mounted directory and drop Go templates in it, keyed by type:
+
+```
+<override-path>/recovery_code/valid/email.subject.gotmpl
+<override-path>/recovery_code/valid/email.body.gotmpl        (+ email.body.plaintext.gotmpl)
+<override-path>/verification_code/valid/email.subject.gotmpl
+<override-path>/verification_code/valid/email.body.gotmpl
+```
+
+The `ory/kratos/` tree is already mounted into the Kratos container, so an override dir there is the
+simplest place. See Ory's [courier message templates](https://www.ory.sh/docs/kratos/emails-sms/custom-message-templates)
+docs for the full template-type list and the data each template receives.
+
 ## Building blocks
 
 Plainpages is a **component library, not a page generator** — you assemble pages from partials
@@ -805,14 +833,14 @@ src/logger.ts        createLogger()/requestLogger() + the ambient request log (r
 src/body.ts          readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + §5 forms)
 src/context.ts       RequestContext handed to handlers + buildContext()
 src/config.ts        Env loader — Ory endpoints, cookie/CSRF secrets, JWKS, port; validated at boot
-src/dashboard.ts     buildDashboardModel(): the built-in "/dashboard" People list view model (mock data, wires the §1 helpers); /dashboard is gated to a session, "/" is the public landing — both replaceable by a plugin `dashboard`/`home` handler (§10)
+src/dashboard.ts     buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler) (§10). Both render the one unified menu (ctx.chrome)
 src/admin-users.ts   Built-in Users admin screen (§5): list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
 src/admin-groups.ts  Built-in Groups admin screen (§5): list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
 src/admin-roles.ts   Built-in Roles admin screen (§5): list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
 src/admin-clients.ts Built-in OAuth2 clients admin screen (§6): list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
 src/admin-nav.ts     adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
 src/shell-context.ts buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
-src/chrome.ts        buildPluginChrome(): the brand/global-nav/user/theme/csrf a plugin view renders the native shell from — exposed on ctx.chrome (§7)
+src/chrome.ts        buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (§7, unified across all pages in §10) — exposed on ctx.chrome
 src/icons.ts         Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
 src/list-query.ts    parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
 src/nav.ts           composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
@@ -825,7 +853,7 @@ src/guards.ts        requireSession()/can()/check(): in-handler authorization (�
 src/hooks.ts         runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order (§2); no sandbox (a throwing hook fails loud), skipped when no plugin declares one
 src/view-resolver.ts renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials (§2)
 src/menu-config.ts   loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot (§2)
-views/               Core EJS templates: home (public "/" landing), index (app-shell dashboard at /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent screen), error (Kratos self-service flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, flow + consent + admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates, all in the one app shell (§10): home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)

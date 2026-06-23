@@ -6,7 +6,7 @@ import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { test } from "node:test";
 import {
-  ADMIN_PERMISSION, ADMIN_USERS_BASE, adminNav, adminSection, buildConfirmModel, guardedForm, requireAdmin,
+  ADMIN_PERMISSION, ADMIN_USERS_BASE, adminSection, buildConfirmModel, guardedForm, requireAdmin,
 } from "./admin-nav.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { CSRF_COOKIE, CSRF_FIELD, issueCsrfToken } from "./csrf.ts";
@@ -45,15 +45,8 @@ test("adminSection: gated Admin header over the four screens; current marks the 
   assert.equal(onRoles.children?.find((c) => c.id === "users")?.current, undefined);
 });
 
-test("adminNav: prepends Dashboard and role-filters the section (admin sees it, others get only Dashboard)", () => {
-  const forAdmin = adminNav(admin.roles, DEFAULT_MENU, "users");
-  assert.deepEqual(labels(forAdmin), ["Dashboard", "Admin"]);
-  // composeNav strips `id` from rendered nodes but keeps `current`/`href`, so match the active item by href.
-  assert.equal(forAdmin.find((n) => n.label === "Admin")!.children?.find((c) => c.href === ADMIN_USERS_BASE)?.current, true);
-
-  assert.deepEqual(labels(adminNav(member.roles, DEFAULT_MENU, "users")), ["Dashboard"]); // non-admin → gated section dropped
-  assert.deepEqual(labels(adminNav([], DEFAULT_MENU, "users")), ["Dashboard"]); // anonymous too
-});
+// (The in-screen admin sidebar is gone in §10 — every page renders the one global menu, built by
+// buildPluginChrome; see chrome.test.ts. adminSection above is that menu's gated Admin fragment.)
 
 // ---- auth gates ----
 
@@ -82,15 +75,16 @@ test("guardedForm: valid double-submit → the parsed body, bad/missing token �
 
 // ---- confirm-page model ----
 
-test("buildConfirmModel wires the danger action, message, role-filtered nav and shell", () => {
+test("buildConfirmModel wires the danger action, message, passed-in nav and shell", () => {
+  const nav = [{ label: "Dashboard" }, { label: "Admin" }];
   const model = buildConfirmModel({
     breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { label: "Delete" }],
     cancelHref: ADMIN_USERS_BASE, confirmAction: `${ADMIN_USERS_BASE}/u1/delete`, confirmLabel: "Delete user",
-    csrfToken: "tok", current: "users", menu: DEFAULT_MENU, message: "Delete ada@x.io?", title: "Delete user", user: admin,
+    csrfToken: "tok", menu: DEFAULT_MENU, message: "Delete ada@x.io?", nav, title: "Delete user", user: admin,
   });
   assert.deepEqual(model.confirm, { action: `${ADMIN_USERS_BASE}/u1/delete`, label: "Delete user" });
   assert.equal(model.message, "Delete ada@x.io?");
   assert.equal(model.cancelHref, ADMIN_USERS_BASE);
-  assert.ok(labels(model.nav).includes("Admin")); // admin user ⇒ section present in the in-screen sidebar
+  assert.equal(model.nav, nav); // the host's one global menu, passed through verbatim
   assert.equal(model.shell.title, "Delete user");
 });

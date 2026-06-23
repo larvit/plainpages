@@ -685,3 +685,9 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .btn-danger { color: var(--neg); border-color: var(--neg-bd); }
 .btn-danger:hover { background: var(--neg-bg); }
 .recovery-code code { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.04em; }
+.code-block { margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; font-size: var(--fz-sm); }
+/* Chromeless shell (§10): a page may drop the sidebar for a focused single column. */
+.app-bare { grid-template-columns: minmax(0, 1fr); }
+.app-bare .content { grid-column: 1; }
+/* Auth/landing rendered inside the app shell (§10): a roomy, centered column in the content area. */
+.shell-auth { flex: 1 1 auto; overflow-y: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }

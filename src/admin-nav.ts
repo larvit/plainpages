@@ -1,15 +1,15 @@
-// The built-in admin section of the menu (todo §5). One definition of the Users/Groups/Roles links
-// + their gate, reused two ways so they can't drift: `adminSection()` is the permission-gated
-// "Admin" header wired into the global dashboard menu (composeNav drops the whole header + subtree
-// for a non-admin), and `adminNav()` is the in-screen sidebar each admin screen renders (a link home
-// + the same section, with the active item marked `current`).
+// The built-in admin section of the menu (todo §5). `adminSection()` is the one definition of the
+// permission-gated "Admin" header (Users/Groups/Roles/clients) + its gate, composed into the single
+// global menu (`buildPluginChrome`, §10) — composeNav drops the whole header + subtree for a
+// non-admin. Every page (dashboard, admin, plugin, auth) renders that one menu, so there's no
+// separate admin sidebar to drift.
 
 import { readFormBody } from "./body.ts";
 import type { RequestContext, User } from "./context.ts";
 import { CSRF_FIELD, verifyCsrfRequest } from "./csrf.ts";
 import { GuardError, loginRedirect } from "./guards.ts";
 import { type MenuConfig } from "./menu-config.ts";
-import { composeNav, type NavNode } from "./nav.ts";
+import type { NavNode } from "./nav.ts";
 import { buildShellContext } from "./shell-context.ts";
 
 export const ADMIN_PERMISSION = "admin"; // role token gating the admin section
@@ -20,9 +20,9 @@ export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
 export type AdminScreen = "clients" | "groups" | "roles" | "users";
 
-// The "Dashboard" link to the gated app home (/dashboard). One definition, reused by the in-screen
-// admin sidebar and the plugin-page chrome (chrome.ts) so the two can't drift. It targets a gated
-// route, so the chrome hides it from anonymous visitors (a non-signed-in click only dead-ends at /login).
+// The "Dashboard" link to the gated app home (/dashboard), composed into the global menu by
+// buildPluginChrome (chrome.ts). It targets a gated route, so the chrome hides it from anonymous
+// visitors (a non-signed-in click only dead-ends at /login).
 export const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" };
 
 const ITEMS: { href: string; icon: string; id: AdminScreen; label: string }[] = [
@@ -45,11 +45,6 @@ export function adminSection(current?: AdminScreen): NavNode {
   };
 }
 
-// In-screen sidebar for the admin screens: a link home + the admin section (active item marked).
-export function adminNav(roles: string[], menu: MenuConfig, current: AdminScreen): NavNode[] {
-  return composeNav([[DASHBOARD_NAV, adminSection(current)]], menu.override, roles);
-}
-
 // The shared gate for every admin screen: a signed-in admin only. Throws GuardError that app.ts maps
 // (anonymous → /login, non-admin → 403). Returns the (non-null) user for the handler to thread on.
 export function requireAdmin(ctx: RequestContext): User {
@@ -70,16 +65,17 @@ export async function guardedForm(ctx: RequestContext, csrfSecret: string): Prom
 }
 
 // Build the model for the shared destructive-action confirm page (views/admin/confirm.ejs): a single
-// danger action behind a deliberate second step, plus a cancel link. Reused by all three screens.
+// danger action behind a deliberate second step, plus a cancel link. Reused by all admin screens.
+// `nav` is the unified global menu (ctx.chrome.nav), passed in by the handler.
 export function buildConfirmModel(opts: {
   breadcrumbs: { href?: string; label: string }[];
   cancelHref: string;
   confirmAction: string;
   confirmLabel: string;
   csrfToken: string;
-  current: AdminScreen;
   menu: MenuConfig;
   message: string;
+  nav: NavNode[];
   title: string;
   user: User | null;
 }) {
@@ -87,7 +83,7 @@ export function buildConfirmModel(opts: {
     cancelHref: opts.cancelHref,
     confirm: { action: opts.confirmAction, label: opts.confirmLabel },
     message: opts.message,
-    nav: adminNav(opts.user?.roles ?? [], opts.menu, opts.current),
+    nav: opts.nav,
     shell: buildShellContext({ breadcrumbs: opts.breadcrumbs, csrfToken: opts.csrfToken, menu: opts.menu, title: opts.title, user: opts.user }),
   };
 }

@@ -1,27 +1,39 @@
 <%#
-  Dashboard (todo §1): the app-shell "People" list. Composes the building-block partials around
-  the shell using the view model from src/dashboard.ts. EJS `include()` returns the rendered
-  string, so each partial is captured and handed to the shell as a slot. The filter form,
-  sortable headers and pager are real GET links — q/sort/page round-trip the URL, zero-JS.
+  Dashboard (todo §10): the gated post-login app home. The built-in default is a short instructional
+  starter — what /dashboard is and how to replace it from a plugin. Composes the app shell (the one
+  global menu via model.nav) around the prose. A plugin owns the real dashboard via a `dashboard`
+  handler; this renders until then. Data: model { nav, shell }.
 %><%
   const nav = include("partials/nav-tree", { nodes: model.nav });
-  // The default home is a demo over mock data (its rows/actions/links are illustrative, not wired) —
-  // say so up front so the inert affordances read as a starter to replace, not a half-built product.
-  const note = include("partials/alert", { text: "The built-in demo home over mock data. Replace it by exporting a dashboard handler from a plugin.", title: "Starter dashboard" });
-  const filters = include("partials/filter-bar", model.filterBar);
-  const table = include("partials/data-table", model.table);
-  const pager = include("partials/pagination", model.pagination);
-  const actions =
-    '<button class="btn"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-download"/></svg>Export</button>' +
-    '<button class="btn btn-primary"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add person</button>';
+  const body = `
+    <div class="form-page">
+      <section class="form-card">
+        <h2 class="card-title">Starter dashboard</h2>
+        <p>This is the built-in <code>/dashboard</code> — the gated home shown to a signed-in user.
+        It's a placeholder so a fresh clone has something here; it holds no real data.</p>
+        <p>Replace it from a plugin: export a <code>dashboard</code> handler from your plugin's
+        manifest and it owns this page, rendered against your own views with the native app shell
+        (the same menu you see now) via <code>ctx.chrome</code>.</p>
+<pre class="code-block"><code>export default definePlugin({
+  apiVersion: "1.0.0",
+  // view names plugins/&lt;id&gt;/views/&lt;view&gt;.ejs, rendered in this same shell
+  dashboard: (ctx) =&gt; ({ view: "dashboard", data: { /* … */ } }),
+});</code></pre>
+        <p>See the plugin contract in <code>docs/plugin-contract.md</code> (the landing-pages section)
+        and the bundled <code>plugins/scheduling/</code> reference.</p>
+        <div class="form-actions">
+          <a class="btn btn-primary" href="/scheduling"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-grid"/></svg>Browse the example plugin</a>
+        </div>
+      </section>
+    </div>`;
 -%>
 <%- include("partials/shell", {
-  actions,
-  body: note + filters + table + pager,
+  body,
   brand: model.shell.brand,
   breadcrumbs: model.shell.breadcrumbs,
   csrfToken: model.shell.csrfToken,
   nav,
+  signInHref: model.shell.signInHref,
   theme: model.shell.theme,
   title: model.shell.title,
   user: model.shell.user,

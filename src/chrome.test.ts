@@ -45,9 +45,14 @@ test("a permission holder sees the Dashboard link + plugin nav; current path ope
   assert.equal(chrome.user.name, "ada"); // email local part
 });
 
-test("an admin sees the gated admin section", () => {
-  const chrome = buildPluginChrome({ menu: DEFAULT_MENU, user: { email: "a@b.c", id: "u1", roles: ["admin"] } });
-  assert.ok(labels(chrome.nav).includes("Admin"));
+test("an admin sees the gated admin section; a sub-path marks its base leaf current", () => {
+  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, user: { email: "a@b.c", id: "u1", roles: ["admin"] } });
+  const admin = chrome.nav.find((n) => n.label === "Admin")!;
+  assert.ok(admin); // gated section visible to an admin
+  assert.equal(admin.open, true); // ancestor of the current leaf opened
+  // /admin/users/new is under the Users base (/admin/users) → that leaf is current, not Groups/Roles.
+  assert.equal(admin.children!.find((c) => c.label === "Users")!.current, true);
+  assert.equal(admin.children!.find((c) => c.label === "Groups")!.current, undefined);
 });
 
 test("branding logo + default theme flow through when set", () => {

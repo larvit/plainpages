@@ -324,7 +324,10 @@ export function createApp(options: AppOptions = {}): Server {
           }
           throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
         }
-        sendHtml(res, 200, await render("auth", { brand: menu.branding.name, flow: buildFlowView(flow, flowType) }));
+        // Rendered inside the unified app shell (§10), so set a fresh CSRF cookie when minted — the
+        // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.
+        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+        sendHtml(res, 200, await render("auth", { chrome: ctx.chrome, flow: buildFlowView(flow, flowType) }));
         return;
       }
 
@@ -484,8 +487,10 @@ export function createApp(options: AppOptions = {}): Server {
           await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
           return;
         }
-        // Default landing — no form, so no CSRF cookie. `user` lets it show "go to dashboard" vs sign in.
-        sendHtml(res, 200, await render("home", { brand: menu.branding.name, user }));
+        // Default landing in the unified app shell (§10): `user` picks "go to dashboard" vs sign-in,
+        // and the shell's Sign-out form (when signed in) needs a fresh CSRF cookie.
+        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+        sendHtml(res, 200, await render("home", { chrome: ctx.chrome, user }));
         return;
       }
 
@@ -504,8 +509,8 @@ export function createApp(options: AppOptions = {}): Server {
           await sendResult(res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
           return;
         }
-        // Roles from the verified JWT; branding/override come from config/menu.ts.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel(ctx.url, ctx.roles, menu, csrf.token, user, plugins) }));
+        // The one global menu (ctx.chrome.nav) + branding/override from config/menu.ts.
+        sendHtml(res, 200, await render("index", { model: buildDashboardModel({ csrfToken: csrf.token, menu, nav: ctx.chrome.nav, user }) }));
         return;
       }
 

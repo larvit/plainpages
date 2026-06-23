@@ -37,7 +37,12 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
 
   const roles = opts.user?.roles ?? [];
   const nav = composeNav(fragments, opts.menu.override, roles);
-  if (opts.currentPath) markCurrent(nav, opts.currentPath);
+  if (opts.currentPath) {
+    // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
+    // /admin/users/new marks the Users base leaf (/admin/users) and the dashboard marks Dashboard.
+    const target = bestHref(nav, opts.currentPath);
+    if (target) markCurrent(nav, target);
+  }
 
   const b = opts.menu.branding;
   return {
@@ -51,14 +56,31 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   };
 }
 
-// Mark the leaf whose href equals `path` as current and open every ancestor header so the active
+// The href of the leaf that owns `path`: an exact match, else the longest href that is a parent of
+// it (href + "/" prefixes path), so /admin/users/123 resolves to the /admin/users leaf. "/" never
+// counts as a parent (it would own everything). Returns undefined when nothing matches.
+function bestHref(nodes: NavNode[], path: string): string | undefined {
+  let best: string | undefined;
+  const visit = (ns: NavNode[]): void => {
+    for (const n of ns) {
+      if (n.href != null && (n.href === path || (n.href !== "/" && path.startsWith(`${n.href}/`)))) {
+        if (best === undefined || n.href.length > best.length) best = n.href;
+      }
+      if (n.children) visit(n.children);
+    }
+  };
+  visit(nodes);
+  return best;
+}
+
+// Mark the leaf whose href equals `target` as current and open every ancestor header so the active
 // page is revealed. Mutates the freshly-composed nodes (composeNav returns new objects each call).
 // Returns whether this subtree contains the current node.
-function markCurrent(nodes: NavNode[], path: string): boolean {
+function markCurrent(nodes: NavNode[], target: string): boolean {
   let hit = false;
   for (const node of nodes) {
-    const here = node.href === path;
-    const inChild = node.children ? markCurrent(node.children, path) : false;
+    const here = node.href === target;
+    const inChild = node.children ? markCurrent(node.children, target) : false;
     if (here) node.current = true;
     if (here || inChild) {
       if (node.children) node.open = true;

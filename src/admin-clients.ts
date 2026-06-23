@@ -5,13 +5,14 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). `handleAdminClients` is the
 // imperative shell app.ts dispatches to — gated admin-only, CSRF-guarded.
 
-import { ADMIN_CLIENTS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
+import { ADMIN_CLIENTS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import { safeDecode } from "./admin-groups.ts";
 import type { FieldConfig } from "./admin-users.ts";
 import type { RequestContext, User } from "./context.ts";
 import { HydraError, type HydraAdmin, type OAuth2Client } from "./hydra-admin.ts";
 import { parseListQuery } from "./list-query.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
+import type { NavNode } from "./nav.ts";
 import { paginate } from "./paginate.ts";
 import type { RouteResult } from "./plugin.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -110,6 +111,7 @@ export function buildClientsListModel(opts: {
   clients: OAuth2Client[];
   csrfToken?: string;
   menu?: MenuConfig;
+  nav?: NavNode[];
   url: URL | URLSearchParams | string;
   user?: User | null;
 }) {
@@ -127,7 +129,7 @@ export function buildClientsListModel(opts: {
 
   return {
     filterBar: listFilterBar(state),
-    nav: adminNav(opts.user?.roles ?? [], menu, "clients"),
+    nav: opts.nav ?? [],
     pagination: listPagination(state, page),
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "Admin" }, { label: "OAuth2 clients" }],
@@ -192,6 +194,7 @@ export function buildClientFormModel(opts: {
   csrfToken?: string;
   error?: string;
   menu?: MenuConfig;
+  nav?: NavNode[];
   user?: User | null;
   values?: Partial<ClientInput>;
 }) {
@@ -217,7 +220,7 @@ export function buildClientFormModel(opts: {
       scopeField,
       submitLabel: "Register client",
     },
-    nav: adminNav(opts.user?.roles ?? [], menu, "clients"),
+    nav: opts.nav ?? [],
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { label: "Register" }],
       csrfToken: opts.csrfToken ?? "",
@@ -233,6 +236,7 @@ export function buildClientDetailModel(opts: {
   created?: boolean; // just registered → success banner + the one-time secret (if any)
   csrfToken?: string;
   menu?: MenuConfig;
+  nav?: NavNode[];
   secret?: string; // one-time client_secret (confidential clients), shown once right after create
   user?: User | null;
 }) {
@@ -243,7 +247,7 @@ export function buildClientDetailModel(opts: {
     created: opts.created ?? false,
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
-    nav: adminNav(opts.user?.roles ?? [], menu, "clients"),
+    nav: opts.nav ?? [],
     secret: opts.secret,
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { label: opts.client.name }],
@@ -280,21 +284,22 @@ export async function handleAdminClients(ctx: RequestContext, csrfToken: string,
 
   const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { hydra, menu, render } = deps;
+  const nav = ctx.chrome.nav; // the one global menu, role-filtered + current-marked by the host
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_CLIENTS_BASE.length).split("/").filter(Boolean);
   const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderForm = async (extra: { error?: string; values?: Partial<ClientInput> }): Promise<RouteResult> =>
-    ({ html: await render("admin/client-form", { model: buildClientFormModel({ csrfToken, menu, user, ...extra }) }) });
+    ({ html: await render("admin/client-form", { model: buildClientFormModel({ csrfToken, menu, nav, user, ...extra }) }) });
   const renderDetail = async (client: OAuth2Client, extra: { created?: boolean; secret?: string } = {}): Promise<RouteResult> =>
-    ({ html: await render("admin/client-detail", { model: buildClientDetailModel({ client: toClientView(client), csrfToken, menu, user, ...extra }) }) });
+    ({ html: await render("admin/client-detail", { model: buildClientDetailModel({ client: toClientView(client), csrfToken, menu, nav, user, ...extra }) }) });
   const notFound = async (): Promise<RouteResult> => ({ html: await render("404", { title: "Not found" }), status: 404 });
 
   // /admin/clients — list (GET) · register (POST)
   if (seg.length === 0) {
     if (method === "GET") {
       const { clients } = await hydra.listClients({ pageSize: LIST_FETCH_SIZE });
-      return { html: await render("admin/clients", { model: buildClientsListModel({ clients, csrfToken, menu, url: ctx.url, user }) }) };
+      return { html: await render("admin/clients", { model: buildClientsListModel({ clients, csrfToken, menu, nav, url: ctx.url, user }) }) };
     }
     if (method === "POST") {
       const input = readClientInput(form!);
@@ -335,7 +340,7 @@ export async function handleAdminClients(ctx: RequestContext, csrfToken: string,
     return { html: await render("admin/confirm", { model: buildConfirmModel({
       breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { href: base, label: name }, { label: "Delete" }],
       cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete client", csrfToken,
-      current: "clients", menu, message: `Delete client ${name}? Apps using it can no longer sign in through Plainpages.`, title: "Delete client", user,
+      menu, message: `Delete client ${name}? Apps using it can no longer sign in through Plainpages.`, nav, title: "Delete client", user,
     }) }) };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {

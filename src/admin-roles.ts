@@ -8,7 +8,7 @@
 // Kratos is read only to label members. `handleAdminRoles` is the imperative shell app.ts dispatches
 // to — gated admin-only, CSRF-guarded.
 
-import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
+import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -27,6 +27,7 @@ import type { ExpandTree, KetoClient, RelationTuple } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
 import { parseListQuery } from "./list-query.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
+import type { NavNode } from "./nav.ts";
 import { paginate } from "./paginate.ts";
 import type { RouteResult } from "./plugin.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -105,6 +106,7 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 export function buildRolesListModel(opts: {
   csrfToken?: string;
   menu?: MenuConfig;
+  nav?: NavNode[];
   roles: RoleView[];
   url: URL | URLSearchParams | string;
   user?: User | null;
@@ -133,7 +135,7 @@ export function buildRolesListModel(opts: {
 
   return {
     filterBar: listFilterBar(state),
-    nav: adminNav(opts.user?.roles ?? [], menu, "roles"),
+    nav: opts.nav ?? [],
     pagination: listPagination(state, page),
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Admin" }, { label: "Roles" }],
@@ -200,6 +202,7 @@ export function buildRoleFormModel(opts: {
   error?: string;
   memberOptions: MemberOption[];
   menu?: MenuConfig;
+  nav?: NavNode[];
   user?: User | null;
   values?: { member?: string; name?: string };
 }) {
@@ -219,7 +222,7 @@ export function buildRoleFormModel(opts: {
       selectedMember: opts.values?.member ?? "",
       submitLabel: "Create role",
     },
-    nav: adminNav(opts.user?.roles ?? [], menu, "roles"),
+    nav: opts.nav ?? [],
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { label: "New" }],
       csrfToken: opts.csrfToken ?? "",
@@ -237,6 +240,7 @@ export function buildRoleDetailModel(opts: {
   error?: string;
   members: MemberView[];
   menu?: MenuConfig;
+  nav?: NavNode[];
   role: { name: string };
   user?: User | null;
 }) {
@@ -252,7 +256,7 @@ export function buildRoleDetailModel(opts: {
     effective: opts.effective,
     error: opts.error,
     members: { action: `${base}/members/delete`, rows: opts.members },
-    nav: adminNav(opts.user?.roles ?? [], menu, "roles"),
+    nav: opts.nav ?? [],
     role: { name },
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { label: name }],
@@ -304,24 +308,25 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
 
   const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { keto, kratosAdmin, menu, render } = deps;
+  const nav = ctx.chrome.nav; // the one global menu, role-filtered + current-marked by the host
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_ROLES_BASE.length).split("/").filter(Boolean);
   const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const roles = rolesFromTuples(await pagedTuples(keto, { namespace: ROLE_NS, relation: MEMBERS }));
-    return { html: await render("admin/roles", { model: buildRolesListModel({ csrfToken, menu, roles, url: ctx.url, user }) }) };
+    return { html: await render("admin/roles", { model: buildRolesListModel({ csrfToken, menu, nav, roles, url: ctx.url, user }) }) };
   };
   const renderForm = async (extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
     const { options } = await memberCandidates(keto, kratosAdmin);
-    return { html: await render("admin/role-form", { model: buildRoleFormModel({ csrfToken, memberOptions: options, menu, user, ...extra }) }) };
+    return { html: await render("admin/role-form", { model: buildRoleFormModel({ csrfToken, memberOptions: options, menu, nav, user, ...extra }) }) };
   };
   const renderDetail = async (name: string, error?: string): Promise<RouteResult> => {
     const { emailById, options } = await memberCandidates(keto, kratosAdmin);
     const tuples = await pagedTuples(keto, { namespace: ROLE_NS, object: name, relation: MEMBERS });
     const members = tuples.map((t) => memberView(t, emailById));
     const effective = await effectiveUsers(keto, name, tuples.length > 0, emailById);
-    const html = await render("admin/role-detail", { model: buildRoleDetailModel({ candidates: options, csrfToken, effective, members, menu, role: { name }, user, ...(error ? { error } : {}) }) });
+    const html = await render("admin/role-detail", { model: buildRoleDetailModel({ candidates: options, csrfToken, effective, members, menu, nav, role: { name }, user, ...(error ? { error } : {}) }) });
     return error ? { html, status: 400 } : { html };
   };
 
@@ -367,7 +372,7 @@ export async function handleAdminRoles(ctx: RequestContext, csrfToken: string, d
     return { html: await render("admin/confirm", { model: buildConfirmModel({
       breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { href: base, label: name }, { label: "Delete" }],
       cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete role", csrfToken,
-      current: "roles", menu, message: `Delete role ${name}? This revokes it from everyone it's assigned to.`, title: "Delete role", user,
+      menu, message: `Delete role ${name}? This revokes it from everyone it's assigned to.`, nav, title: "Delete role", user,
     }) }) };
   }
   if (seg.length === 2 && seg[1] === "delete" && method === "POST") {

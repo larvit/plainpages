@@ -5,12 +5,13 @@
 // CSRF-guarded, each action mapped to a RouteResult (render, or redirect after a write — PRG).
 
 import { safeDecode } from "./admin-groups.ts";
-import { ADMIN_USERS_BASE, adminNav, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
+import { ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-nav.ts";
 import type { RequestContext, User } from "./context.ts";
 import type { Identity, KratosAdmin, RecoveryCode } from "./kratos-admin.ts";
 import { KratosError } from "./kratos-public.ts";
 import { parseListQuery } from "./list-query.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
+import type { NavNode } from "./nav.ts";
 import { paginate } from "./paginate.ts";
 import type { RouteResult } from "./plugin.ts";
 import { buildShellContext } from "./shell-context.ts";
@@ -118,6 +119,7 @@ export function buildUsersListModel(opts: {
   csrfToken?: string;
   identities: Identity[];
   menu?: MenuConfig;
+  nav?: NavNode[]; // the unified global menu (ctx.chrome.nav); the host builds it once per request
   url: URL | URLSearchParams | string;
   user?: User | null;
 }) {
@@ -145,7 +147,7 @@ export function buildUsersListModel(opts: {
 
   return {
     filterBar: listFilterBar(state, all.length),
-    nav: adminNav(opts.user?.roles ?? [], menu, "users"),
+    nav: opts.nav ?? [],
     pagination: listPagination(state, page),
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Admin" }, { label: "Users" }],
@@ -237,6 +239,7 @@ export function buildUserFormModel(opts: {
   error?: string;
   identity?: Identity | null;
   menu?: MenuConfig;
+  nav?: NavNode[];
   recovery?: RecoveryCode;
   user?: User | null;
   values?: Partial<UserInput>;
@@ -267,7 +270,7 @@ export function buildUserFormModel(opts: {
     } : undefined,
     error: opts.error,
     form: { action: idPath, cancelHref: ADMIN_USERS_BASE, csrfToken: opts.csrfToken ?? "", fields, submitLabel: editing ? "Save changes" : "Create user" },
-    nav: adminNav(opts.user?.roles ?? [], menu, "users"),
+    nav: opts.nav ?? [],
     recovery: opts.recovery,
     shell: buildShellContext({
       breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { label: editing ? "Edit" : "New" }],
@@ -306,16 +309,17 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
 
   const user = requireAdmin(ctx); // signed-in admin only (else GuardError → /login or 403)
   const { kratosAdmin, menu, render } = deps;
+  const nav = ctx.chrome.nav; // the one global menu, role-filtered + current-marked by the host
   const method = (ctx.req.method ?? "GET").toUpperCase();
   const seg = path.slice(ADMIN_USERS_BASE.length).split("/").filter(Boolean);
   const form = await guardedForm(ctx, deps.csrfSecret); // parsed + CSRF-verified on POST, else undefined
 
   const renderList = async (): Promise<RouteResult> => {
     const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
-    return { html: await render("admin/users", { model: buildUsersListModel({ csrfToken, identities, menu, url: ctx.url, user }) }) };
+    return { html: await render("admin/users", { model: buildUsersListModel({ csrfToken, identities, menu, nav, url: ctx.url, user }) }) };
   };
   const renderForm = async (extra: Parameters<typeof buildUserFormModel>[0]): Promise<RouteResult> =>
-    ({ html: await render("admin/user-form", { model: buildUserFormModel({ csrfToken, menu, user, ...extra }) }) });
+    ({ html: await render("admin/user-form", { model: buildUserFormModel({ csrfToken, menu, nav, user, ...extra }) }) });
 
   // /admin/users  — list (GET) · create (POST)
   if (seg.length === 0) {
@@ -366,7 +370,7 @@ export async function handleAdminUsers(ctx: RequestContext, csrfToken: string, d
       return { html: await render("admin/confirm", { model: buildConfirmModel({
         breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { href: back, label: view.name }, { label: "Delete" }],
         cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: "Delete user", csrfToken,
-        current: "users", menu, message: `Delete ${view.email}? This permanently removes the account and can't be undone.`, title: "Delete user", user,
+        menu, message: `Delete ${view.email}? This permanently removes the account and can't be undone.`, nav, title: "Delete user", user,
       }) }) };
     }
     if (method === "POST") {
