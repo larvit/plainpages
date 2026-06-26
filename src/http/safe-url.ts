@@ -3,7 +3,7 @@
 //   safeUrl(value)  — sanitise an untrusted URL before rendering it in an href/src attribute.
 //                     Partials escape *text*, but a URL field is emitted verbatim, so a
 //                     `javascript:`/`data:` URL from upstream/user data would be live XSS. The
-//                     contract (docs/plugin-contract.md) is: a relative or http(s) URL is allowed,
+//                     contract (README.md → Routes & handlers) is: a relative or http(s) URL is allowed,
 //                     anything else collapses to "#". Exported to plugins via plugin-api.ts.
 //
 //   localPath(value) — validate a redirect target is a *same-origin* path (the redirect-URI

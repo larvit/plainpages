@@ -2,7 +2,7 @@
 // stable contract: definePlugin + the manifest/handler types, the RequestContext, the auth guards,
 // and the request-body/CSRF/list-query helpers the blessed pattern needs. This barrel *is* the
 // contract boundary in code — the host may refactor any other src/* freely as long as it holds, so
-// a plugin should import from here, never reach into deeper modules. See docs/plugin-contract.md.
+// a plugin should import from here, never reach into deeper modules. See README.md → Building plugins.
 
 export { definePlugin } from "./plugin.ts";
 export type { HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";

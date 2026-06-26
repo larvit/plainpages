@@ -61,9 +61,17 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [Architecture](#architecture)
   - [Stateless — no application database](#stateless--no-application-database)
 - [Building plugins](#building-plugins)
-  - [the shape](#the-plugin-shape)
-  - [landing pages](#landing-pages)
+  - [anatomy](#anatomy-of-a-plugin)
+  - [the manifest](#the-manifest)
+  - [routes & handlers](#routes--handlers)
+  - [landing pages](#the-landing-pages-home--dashboard)
+  - [RequestContext](#requestcontext)
+  - [nav & permissions](#nav--permissions)
+  - [versioning](#contract-versioning)
+  - [conflict rules](#conflict-rules)
+  - [hooks](#hooks)
   - [where they live & mounting](#where-plugins-live-and-how-to-mount-them)
+  - [local dev & test](#local-dev--test-story)
 - [The menu system](#the-menu-system)
 - [Building blocks](#building-blocks)
 - [Interactivity: zero-JS spine](#interactivity-zero-js-spine)
@@ -187,83 +195,379 @@ because the session lives in Kratos and the data lives upstream.
 
 ## Building plugins
 
-A plugin is a folder under `plugins/`. The host discovers it at boot — no registration
-step, no central wiring. The folder name is the plugin **id** *and* its **mount path**
-(`plugins/scheduling/` → `/scheduling`); neither is declared in the manifest, so they
-can't drift or be claimed twice. Each plugin is **self-contained** (its own nav, routes,
-views, CSS), so installing one is "drop the folder, restart." An operator stays in control
-via a central override (see [The menu system](#the-menu-system)).
+A plugin is a self-contained folder under `plugins/` that the host discovers at boot — no
+registration step, no central wiring. The folder name is the plugin **id** *and* its **mount
+path** (`plugins/scheduling/` → `/scheduling`); neither is declared in the manifest, so they
+can't drift or be claimed twice. Each plugin carries its own nav, routes, views, and CSS, so
+installing one is "drop the folder, restart"; an operator stays in control via a central
+override (see [The menu system](#the-menu-system)).
 
-The full, authoritative API surface — manifest shape, handler/`RequestContext` contract,
-versioning, conflict rules, hooks, and the dev/test story — is
-**[docs/plugin-contract.md](docs/plugin-contract.md)** (`src/plugin-host/plugin.ts` holds the types). A
-complete, runnable reference ships in **[`plugins/scheduling/`](plugins/scheduling/)** — a
-public overview page, a permission-gated list page fetching upstream data, a CSRF-guarded
-form forwarding writes upstream, and a mix of public + role-gated nav. Copy it and adapt.
+This is the **authoritative reference** for the plugin API — the product's main surface. The
+contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types there are the single
+source of truth; the sections below explain them, the guarantees around them, and the rules
+the host enforces. A complete, runnable example ships in
+**[`plugins/scheduling/`](plugins/scheduling/)** — a public overview page, a permission-gated
+list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend; the dev
+compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding writes
+upstream, and a mix of public + role-gated nav. Copy it and adapt.
 
-### The plugin shape
+**Design stance.** The audience is experienced developers. The API optimises for being
+**powerful, predictable, and overloadable** — a plugin can take over as much of a page as it
+wants. The host **fails loud at boot/discovery** rather than sandboxing at runtime: a malformed
+manifest, a version mismatch, or a conflict stops startup with a clear message. Runtime
+crash-isolation (one bad plugin can't take the host down) is a *non-goal* — diagnose at deploy
+time, not in production.
+
+### Anatomy of a plugin
 
 ```
-plugins/scheduling/      # folder name = the plugin id; mounted at /scheduling
-  plugin.ts              # default export: the typed manifest (see below)
+plugins/scheduling/      # folder name = the plugin id → mounted at /scheduling
+  plugin.ts              # default export: the manifest (definePlugin(...))
+  shifts.ts              # handlers, helpers — plain modules
   views/                 # EJS templates for this plugin's pages
     shifts.ejs
-  public/                # CSS / assets, served under /public/scheduling/
+  public/                # static assets, served at /public/scheduling/
     scheduling.css
 ```
 
-The manifest is **TypeScript** — typed, commented, no separate schema to keep in sync. The
-`id` and mount path are **derived from the folder name**, not declared:
+**Identity comes from the folder.** The folder name *is* the plugin `id`, and the mount path is
+`/<id>` — neither is written in the manifest, so they can't drift or be claimed twice. The id
+must be **URL/path-safe** (`isValidPluginId`: lowercase `a–z`, digits, and dashes — dashes
+anywhere; no uppercase, underscores, dots, or slashes); the host rejects a malformed folder name
+at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
+convention) its nav/permission tokens.
+
+A handful of ids are **reserved** for the host's own first-party mounts — the gated `dashboard`, the
+Kratos auth flows (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`),
+the `admin` screens, the `oauth2` provider routes, and `public` (static). Since plugin routes resolve
+first, a folder claiming one would silently shadow a built-in route, so discovery refuses it loud
+(`RESERVED_PLUGIN_IDS`). (`/` is owned by the `home` field, not a route, so it needs no reservation.)
+
+Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
+Nothing else references it; the operator stays in control through the central menu override
+(`config/menu.ts`).
+
+### The manifest
+
+A plugin imports its host surface from one module — `src/plugin-host/plugin-api.ts`, the **stable author
+barrel** (`definePlugin`, the manifest/handler types, `RequestContext`, the guards, and the
+body/CSRF/list-query helpers). That barrel *is* the contract boundary; don't reach into deeper
+`src/*` modules — the host may refactor those freely as long as the barrel holds.
 
 ```ts
-import { definePlugin } from "../../src/plugin-host/plugin-api.ts"; // the stable author barrel (see docs)
-import { listShifts, overview } from "./shifts.ts";
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
+import { listShifts, createShift } from "./shifts.ts";
 
 export default definePlugin({
-  apiVersion: "1.0.0",      // semver of the host contract this was built against (a literal — see docs)
+  apiVersion: "1.0.0",                // semver of the host contract this was built against (a literal — see Versioning)
 
-  // Nav fragment, composed into the global menu. Permission-gated: items the current user can't
-  // access are hidden. `public: true` shows an item to everyone (signed in or not). Arbitrary
-  // depth. `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
-  nav: [
-    {
-      label: "Scheduling", icon: "i-cal",
-      children: [
-        { label: "Overview", href: "/scheduling", public: true },             // shown to everyone
-        { label: "Shifts", href: "/scheduling/shifts", permission: "scheduling:read" },
-      ],
-    },
+  // Nav fragment, merged into the global menu and permission-filtered per user.
+  // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
+  nav: [{
+    icon: "i-cal", id: "scheduling:root", label: "Scheduling",
+    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
+  }],
+
+  // Permission tokens this plugin introduces. Declared for documentation, conflict detection, and
+  // bootstrap seeding (the demo admin is granted every discovered plugin's tokens). Optional.
+  permissions: [
+    { token: "scheduling:read", description: "View shifts" },
+    { token: "scheduling:write", description: "Create and edit shifts" },
   ],
 
-  // Route handlers, mounted under the plugin's path (/scheduling). `permission` is a coarse role
-  // (a JWT-claim check) enforced before the handler runs; `public: true` makes a page reachable by
-  // anyone (mutually exclusive with `permission`).
+  // Route handlers, mounted under the plugin's path (/scheduling). `permission` gates first.
   routes: [
-    { method: "GET", path: "/", public: true, handler: overview },
-    { method: "GET", path: "/shifts", permission: "scheduling:read", handler: listShifts },
+    { method: "GET",  path: "/shifts", permission: "scheduling:read",  handler: listShifts },
+    { method: "POST", path: "/shifts", permission: "scheduling:write", handler: createShift },
   ],
 });
 ```
 
-A `view` result renders against the native app shell via **`ctx.chrome`** (branding, the
-global nav, the signed-in user), and a write form guards itself with **`ctx.verifyCsrf`** +
-the token in `ctx.chrome.csrfToken`. The handler fetches its data from an upstream service
-and renders it — the plugin holds no state of its own (see
-[Stateless](#stateless--no-application-database)); the reference points
-`SCHEDULING_UPSTREAM` at its backend (the dev compose ships a tiny mock,
-`examples/shifts-upstream/`). It logs through **`ctx.log`** and traces upstream calls with
-**`ctx.log.fetch`** (or `tracedFetch`), joining the request's trace (see
-[Observability](#observability)). The simplest possible handler skips views and returns
-`{ html }` (the [Quick-start](#quick-start) plugin); most pages return a `view` so they get
-the shell for free.
+`definePlugin()` only types the object and returns it unchanged — a manifest may equally be a
+plain typed object. It types the authored shape (`PluginManifest`); the host attaches the
+folder-derived `id` to produce the loaded `Plugin`. All validation happens at discovery. Note
+there is **no `id` or `basePath`** in the manifest — both come from the folder
+([Anatomy](#anatomy-of-a-plugin)).
 
-### Landing pages
+| Field | Required | Notes |
+| --- | --- | --- |
+| `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
+| `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
+| `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. |
+| `permissions` | no | Tokens this plugin introduces; declared for docs, conflict detection, and bootstrap seeding (see [Nav & permissions](#nav--permissions)). |
+| `routes` | no | See [Routes & handlers](#routes--handlers). |
+| `hooks` | no | See [Hooks](#hooks). |
 
-There are two replaceable landing slots: `/` is a **public** front page (default: an intro
-with sign-in / register links) and `/dashboard` is the **gated** post-login app home
-(default: the People list). A plugin owns either by exporting a `home` (public `/`) or
-`dashboard` (gated `/dashboard`) handler — one owner each. See the contract's
-[landing pages section](docs/plugin-contract.md#the-landing-pages-home--dashboard).
+A plugin may be routes-only, nav-only, or hooks-only — every collection field is optional.
+
+### Routes & handlers
+
+A route is `{ method, path, permission?, public?, handler }`. `path` is **relative to the plugin's
+mount path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
+matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
+runs the `permission` gate (a coarse JWT-claim check — see [Nav & permissions](#nav--permissions)),
+and only then calls the handler with the [request context](#requestcontext). When the gate fails, an
+**anonymous** visitor is redirected to `/login` to sign in (same as the built-in admin screens); the
+requested page is preserved as `return_to`, so after signing in they land **back on the page they
+asked for**, not the dashboard. A **signed-in** user who simply lacks the role gets the **403** page.
+A route marked **`public: true`** has no gate at all — anyone reaches it (see [Public pages & menu
+items](#public-pages--menu-items)).
+
+`method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
+
+A handler returns a **`RouteResult`** (or a `Promise` of one); the host turns it into the HTTP
+response. Returning `void` is the escape hatch — the handler wrote to `ctx.res` itself.
+
+```ts
+type RouteResult =
+  | { view: string; data?: Record<string, unknown>; status?: number; headers?: Record<string, string> }
+  | { html: string;  status?: number; headers?: Record<string, string> }
+  | { json: unknown;  status?: number; headers?: Record<string, string> }  // opt-in JS enhancement
+  | { redirect: string; status?: number };                                  // 303 unless status set
+```
+
+```ts
+// shifts.ts
+import { parseListQuery, type RequestContext } from "../../src/plugin-host/plugin-api.ts";
+
+export async function listShifts(ctx: RequestContext) {
+  const q = parseListQuery(ctx.url);
+  const rows = await fetch(`${upstream}/shifts?${ctx.url.searchParams}`).then((r) => r.json());
+  return { view: "shifts", data: { rows, q } }; // renders plugins/scheduling/views/shifts.ejs
+}
+```
+
+- **`view`** resolves against the plugin's own `views/` (`src/plugin-host/view-resolver.ts`) — nested names
+  like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
+  the core building-block partials (app shell, nav tree, data table, …) and its own
+  partials/subfolders to render a full page — exactly as the built-in screens do. To load the
+  plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
+  extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
+- **Finer authorization than the route `permission`** uses the guards from `src/plugin-host/plugin-api.ts`:
+  `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
+  to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
+  {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
+  signed-in user, anonymous ⇒ denied). Throw `new GuardError(403, …)` after a failed `can`/`check`
+  to render the 403 page.
+- The handler **fetches its own data** from upstream and renders it; plugins hold no state
+  (see [Stateless](#stateless--no-application-database)). The partials only need rows.
+- `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.
+
+#### Escaping & the trust boundary
+
+The host does not sandbox plugin output (crash-isolation is a non-goal), so a handler **owns the
+safety of the data it renders**:
+
+- **Raw HTML is raw.** An `{ html }` result and the `*.html` partial fields (`cell.html`,
+  `error.html`, a menu `trigger.html`) are emitted **unescaped** — that's their purpose (slot
+  composition). Escape any untrusted content yourself before putting it there.
+- **Text is auto-escaped; URLs are not scheme-checked.** Partials escape text fields (labels,
+  names), so those are injection-safe. But a URL field — nav `href`, a table cell link, a menu
+  item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
+  `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
+  control, pass it through **`safeUrl()`** from `src/plugin-host/plugin-api.ts` first — it returns the URL when
+  it's relative or `http(s):` and collapses anything else to `"#"`:
+  ```ts
+  import { safeUrl } from "../../src/plugin-host/plugin-api.ts";
+  return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
+  ```
+
+### The landing pages (`home` & `dashboard`)
+
+The host has two replaceable landing slots, and a plugin may own either or both:
+
+| Slot | Path | Gate | Default |
+| --- | --- | --- | --- |
+| `home` | `/` | **public** — anyone | An intro page with prominent sign-in / register links. |
+| `dashboard` | `/dashboard` | **signed-in session** (anonymous → `/login`, with `/dashboard` as `return_to`) | The built-in mock-data People list. |
+
+```ts
+import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
+import { landing, board } from "./pages.ts";
+
+export default definePlugin({
+  apiVersion: "1.0.0",
+  home: landing,     // owns "/" — the public front page
+  dashboard: board,  // owns "/dashboard" — the post-login app home
+});
+```
+
+Each is a `RouteHandler` like any route's — it receives the [`RequestContext`](#requestcontext) and
+returns a `RouteResult`, typically a `view` from the plugin's own `views/`. A `dashboard` handler
+renders against the native app shell via `ctx.chrome` exactly as a route handler does; a `home`
+handler is a **public** page, so `ctx.user` may be `null` (use it to show a "go to dashboard" link to
+a signed-in visitor, or sign-in / register to an anonymous one). After login the user lands on
+`/dashboard` (or the `return_to` they were headed to), and the global menu's **Dashboard** link
+points there.
+
+For the gated `dashboard`, the host enforces the session gate first, so `ctx.user` is non-null;
+branch on `ctx.roles` *inside* to tailor the page per role. Don't gate `dashboard` itself behind a
+single permission — there's no second dashboard to fall back to, so a user lacking it would land on a
+403. (Both slots answer `GET` and `HEAD`.)
+
+Only **one** plugin may own each slot: two declaring `home` (or two declaring `dashboard`) is a
+boot-stopping conflict ([below](#conflict-rules)), never last-write-wins. Neither needs a `routes`
+entry — the host mounts them above the `/<id>` route namespace, and `/` can't be shadowed by a plugin
+route at all (route paths always carry the `/<id>` prefix).
+
+### RequestContext
+
+Every handler receives one argument, the `RequestContext` (`src/http/context.ts`), built once per
+request:
+
+```ts
+interface RequestContext {
+  chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
+  log: Log;                          // request-scoped logger, in this request's trace
+  params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
+  query: URLSearchParams;            // alias of url.searchParams
+  req: IncomingMessage;
+  res: ServerResponse;
+  roles: string[];                   // user?.roles ?? [] — coarse gate without a null-check
+  url: URL;
+  user: User | null;                 // { id, email, roles } from the verified session JWT, or null
+  verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
+}
+```
+
+**`ctx.chrome`** is the page chrome the host builds per request — `{ brand, csrfToken, nav, signInHref,
+theme, user }`. Hand it to `partials/shell` so a `view` result renders the **native app shell** (the same
+sidebar, branding, theme switch and signed-in profile as the built-in screens); `chrome.nav` is the
+global menu — your plugin's nav fragment plus the others and the admin section — already composed,
+role-filtered, and current-marked for this request (the gated **Dashboard** link is omitted for an
+anonymous visitor). `chrome.signInHref` is where the shell's anonymous **Sign in** link points — the
+current page baked in as `return_to`. Map each `chrome.*` to the matching `partials/shell` local —
+`brand`, `csrfToken`, `nav` (the rendered nav-tree), `signInHref`, `theme`, `user` — exactly as the
+reference `plugins/scheduling/views/overview.ejs` does; a value you forget simply falls back to its
+shell default (e.g. a bare `/login`), it does not error. **`ctx.verifyCsrf(submitted)`** guards a
+state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
+body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
+secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
+
+The same shell renders **every** page (the dashboard, the admin screens, your plugin pages, and the
+login/registration/front pages), so the menu looks identical signed in or out — it just role-filters.
+A page that wants a focused, chrome-free layout passes **`menu: false`** to `partials/shell` (drops the
+sidebar, single column); everything else still renders.
+
+**`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log))
+already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
+metadata values are string/number/boolean), and **`ctx.log.fetch(url, init?)`** — a drop-in `fetch`
+for upstream calls that adds a client span and propagates the trace (W3C `traceparent`) downstream.
+The barrel also exports a standalone **`tracedFetch`** (same behaviour, reads the ambient request log)
+to default an upstream client's `fetch` to — the reference plugin's `createUpstream` does exactly this,
+so its calls are traced with no per-handler wiring. Lines are correlated by a `requestId` and carry
+`service.name`; output/level/OTLP export are the host's config (it logs to console always, and to an
+OpenTelemetry Collector when `OTLP_ENDPOINT` is set).
+
+**Stability guarantee.** The fields above are the stable contract — present and non-breaking
+across a major `apiVersion`. New fields may be **added** within a major version (additive, never
+breaking). `req`/`res` are the raw Node objects and the full escape hatch; reading them is fine,
+but prefer the typed fields so a handler keeps working as the host evolves. `user`/`roles` come
+from the JWT middleware and are `null`/`[]` until a session exists.
+
+### Nav & permissions
+
+A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/ui/nav.ts`), which
+applies the central override and then **filters per user** by the roles in the session JWT — a
+node shows iff it is `public`, declares no `permission`, or the user's roles include that token. Use
+arbitrary depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a
+**Lucide icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids
+are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
+
+#### Public pages & menu items
+
+A route or nav node may be marked **`public: true`** — reachable by **anyone, signed in or not**,
+and the menu item shows for everyone. This is the same as omitting `permission` (a no-permission
+route/node is already open) but stated outright, so "public" is a **deliberate choice, not the
+accident of a forgotten gate**. `public` and `permission` are **mutually exclusive** — declaring
+both is contradictory and discovery refuses the plugin at boot.
+
+A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
+`ctx.user` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
+in place of the profile/sign-out block, the gated **Dashboard** link is hidden, and `ctx.roles` is
+empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
+**Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
+while the actual shifts list stays behind `scheduling:read`.
+
+**A `permission` token is a coarse role.** The route/nav gate passes iff the user's JWT `roles`
+include the token; those roles come from Keto at login, so an operator grants a token by writing the
+Keto tuple `Role:<token>#members@user:<id>` (or to a group) — the admin **Roles** screen does this.
+(The fine-grained, per-row tier is the separate Keto `Resource` namespace — see
+[Three tiers of "may I?"](#three-tiers-of-may-i); it is not what a route `permission` checks.)
+
+Permission tokens are a **shared global namespace** — that's deliberate, so an operator grants
+`scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
+your tokens as `<id>:<action>` to avoid accidental clashes. Declaring them in `permissions` is
+optional but recommended: it documents them, feeds conflict detection, and lets the one-command
+bootstrap seed them — the demo admin is granted every discovered plugin's declared tokens, so
+a dropped-in plugin works out of the box without editing host config.
+
+### Contract versioning
+
+Each manifest declares `apiVersion` — a **semver** string naming the host contract it was built
+against — and the host exposes the current `HOST_API_VERSION` (e.g. `"1.0.0"`). The host bumps
+**major** on a breaking manifest/handler change and **minor** on an additive one. At discovery
+the host parses both with `parseSemver` (the official semver core regex — strict: no ranges,
+`v` prefixes, or leading zeros) and applies provider/consumer semantics in `checkApiVersion`:
+
+| Plugin `apiVersion` vs host | Result | Host action |
+| --- | --- | --- |
+| same major, same minor (patch ignored) | `ok` | load |
+| same major, plugin minor **<** host minor | `warn` | load, log — additive-compatible, newer features exist |
+| same major, plugin minor **>** host minor | `refuse` | **abort boot** — plugin needs a newer host |
+| different major | `refuse` | **abort boot** — incompatible contract |
+| missing / not a valid semver | `refuse` | **abort boot** — must be declared |
+
+The plugin pins one exact version (no ranges — in keeping with the project's pinning rules); the
+*host* supplies the caret-style compatibility. `parseSemver`/`checkApiVersion` are tight,
+dependency-free functions (the `semver` package's ranges/coercion/prerelease-precedence are more
+than the contract needs).
+
+**Write a literal, never `HOST_API_VERSION`.** `apiVersion` records the version the plugin was
+*built against*. Importing the host's current constant would make every plugin always equal the
+host — the check could never fire, and a future breaking change would slip through silently.
+
+### Conflict rules
+
+Plugins are independent folders, so the host detects collisions across all discovered plugins
+with `findConflicts` and resolves them **loudly — never last-write-wins**. `error` aborts boot;
+`warn` logs and continues.
+
+| Kind | Level | Rule |
+| --- | --- | --- |
+| `id` | error | Two plugins share an `id` (folder name). Ids must be globally unique — they namespace the mount path, views/static, and the override target. |
+| `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
+| `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
+| `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
+| `permission` | warn | A permission token is declared by more than one plugin. Sharing is legitimate (shared role); namespace as `<id>:<action>` if unintended. |
+
+There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its
+uniqueness follows from the id check. `permission` is the one intentional overlap, so it warns
+rather than aborts; everything else is an error an author fixes before the host will start.
+
+Beyond cross-plugin conflicts, discovery also rejects **per-manifest shape errors** at boot: a
+non-array `nav`/`routes`/`permissions`, a non-function `home`/`dashboard`, or a route/nav node that
+sets both `public` and `permission` (mutually exclusive — [Public pages](#public-pages--menu-items)).
+
+### Hooks
+
+Optional, for reacting to system actions. A plugin's `hooks` may implement:
+
+| Hook | When | May |
+| --- | --- | --- |
+| `onBoot()` | after discovery, before the server listens | warm caches, validate upstream config |
+| `onRequest(ctx)` | before route matching | inspect, or **short-circuit** by returning a `RouteResult` |
+| `onResponse(ctx, result)` | after the handler | observe/log; cannot change the response |
+
+Hooks run in **discovery order** (plugins sorted by id). `onRequest` fires on every request that
+reaches routing (static assets bypass it); the **first** hook to return a `RouteResult` wins and
+short-circuits — later `onRequest` hooks and the route handler are skipped, and that result renders
+against its own plugin's views. `onResponse` runs for a matched route after its handler, with the
+handler's result; its return value is ignored. Hooks run with no sandbox — a throwing hook fails
+loud (boot for `onBoot`, the request for the others). Keep them cheap; `onRequest` is on the hot
+path (the host skips the pipeline entirely when no plugin declares a hook). This surface is
+intentionally small and may grow additively within the major version.
 
 ### Where plugins live (and how to mount them)
 
@@ -309,6 +613,36 @@ reproducible; mount a volume only to add plugins to an already-built image.
 > building-block partials. A plugin's `public/` assets are served at `/public/<id>/`
 > (`src/http/static.ts`). The mount mechanics above are how the files get into the container
 > either way.
+
+### Local dev & test story
+
+A plugin is a normal folder of TypeScript, so an author tests it the same way the core is tested
+— everything in Docker, no host tooling. The shipped reference (`plugins/scheduling/`) is the
+worked example: thin handlers bound to an injectable upstream client, unit-tested in
+`shifts.test.ts` with a mocked `fetch` and a hand-built `ctx` (no host).
+
+1. **Unit-test handlers as pure functions.** Keep a handler thin: parse `ctx`, fetch upstream,
+   return a `RouteResult`. Test the data-shaping in isolation (mock `fetch`/upstream) with
+   `node --test`, exactly like `src/ui/dashboard.test.ts` tests the dashboard model. No host needed.
+
+   ```bash
+   docker compose run --rm web npm test
+   ```
+
+2. **Run one plugin against the host.** Get the folder into the container's `/app/plugins/<id>`
+   — either in your clone (the dev compose bind-mounts the tree) or by bind-mounting an external
+   folder ([Where plugins live](#where-plugins-live-and-how-to-mount-them)) — and `docker compose up`;
+   the host discovers it. For an isolated harness, the host exposes plugin injection
+   (`createApp({ plugins: [myPlugin] })`) so a test can mount a single manifest and assert its
+   routes, nav, and gating without the rest of the stack.
+
+3. **E2E the user-facing flow.** Per AGENTS.md §6, ship a side-effect-free Playwright test in
+   `e2e-tests/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
+   service with the plugin mounted. The reference's permission-gating is covered in `visual.spec.ts`;
+   its authenticated list/form happy-path is the full-E2E item (needs cross-host login infra).
+
+The validation an author hits is the same the host runs: bad `apiVersion` or a conflict
+([Conflict rules](#conflict-rules)) stops boot with a precise message naming the plugin(s) involved.
 
 ## The menu system
 
@@ -944,7 +1278,6 @@ config/menu.ts       Central menu override + branding (optional; defaults apply 
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the reference plugin (list/form over an upstream + permission-gated nav) you copy
 examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
-docs/                Reference docs (plugin-contract.md — the authoritative plugin API)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 ```

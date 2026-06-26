@@ -1,5 +1,5 @@
 // Plugin lifecycle hooks: the host invokes the optional PluginHooks a plugin may declare
-// (docs/plugin-contract.md → Hooks). No sandbox — a throwing hook fails loud (boot for onBoot, the
+// (README.md → Hooks). No sandbox — a throwing hook fails loud (boot for onBoot, the
 // request for the others). Hooks run in discovery order (plugins sorted by id). app.ts skips these
 // entirely when no plugin declares the hook, so the no-hooks hot path stays free.
 

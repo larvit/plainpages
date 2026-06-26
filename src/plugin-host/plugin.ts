@@ -1,5 +1,5 @@
 // The plugin contract — the product's main API surface: the machine-readable types +
-// pure rules; `docs/plugin-contract.md` is the prose reference, discovery/router wire it to FS+HTTP.
+// pure rules; README.md (Building plugins) is the prose reference, discovery/router wire it to FS+HTTP.
 // Powerful, predictable, fails loud at boot/discovery rather than sandboxing at runtime.
 //
 // A plugin's identity is its folder under plugins/: folder name = `id` (isValidPluginId), mount =
@@ -123,7 +123,7 @@ export interface VersionCheck {
   message: string;
 }
 
-// Provider/consumer semver check (full table in docs/plugin-contract.md): same major+minor → ok,
+// Provider/consumer semver check (full table in README.md → Contract versioning): same major+minor → ok,
 // plugin minor < host → warn, else (newer minor, major mismatch, malformed) → refuse. Patch is
 // ignored. Discovery maps refuse→throw, warn→log.
 export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HOST_API_VERSION): VersionCheck {

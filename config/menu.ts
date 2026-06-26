@@ -1,7 +1,7 @@
 // Central menu override + branding. Brand the app and reorder/rename/group/hide nav
 // nodes (by their `id`) across all plugins — the override always wins, applied before the
 // per-user permission filter. Every field is optional; delete one to fall back to the default.
-// See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), docs/plugin-contract.md.
+// See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), README.md (Building plugins).
 
 import { defineMenu } from "../src/ui/menu-config.ts";
 

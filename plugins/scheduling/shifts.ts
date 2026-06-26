@@ -3,9 +3,9 @@
 // host renders. The plugin holds no state of its own (README "Stateless") — data lives upstream.
 //
 // Handlers are factories bound to a ShiftsUpstream, and `fetch` is injectable, so they unit-test as
-// pure functions against a mock upstream with no network (docs/plugin-contract.md → dev/test story).
+// pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
-// One import from the host's plugin-api barrel — the stable author surface (see docs/plugin-contract.md).
+// One import from the host's plugin-api barrel — the stable author surface (see README.md → Building plugins).
 import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-host/plugin-api.ts";
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
