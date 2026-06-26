@@ -20,6 +20,10 @@ services:
       interval: 2s
       timeout: 4s
       retries: 15
+    # plugins/ is empty in the image; bind the reference example in as the `scheduling` plugin so the
+    # nav-gating spec has a drop-in plugin to assert against.
+    volumes:
+      - ./examples/scheduling-plugin:/app/plugins/scheduling:ro
 
   e2e:
     build:

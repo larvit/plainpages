@@ -28,6 +28,16 @@ services:
       interval: 2s
       timeout: 4s
       retries: 30
+    # plugins/ is empty in the image; bind the reference example in as the `scheduling` plugin so the
+    # browser flow can open its gated /scheduling/shifts page.
+    volumes:
+      - ./examples/scheduling-plugin:/app/plugins/scheduling:ro
+
+  # bootstrap grants the demo admin every discovered plugin's permission tokens, so it needs the
+  # reference plugin present too — else the admin lacks scheduling:read/write and the gated page 403s.
+  bootstrap:
+    volumes:
+      - ./examples/scheduling-plugin:/app/plugins/scheduling:ro
 
   # Browser-facing URLs (base_url, every ui_url, the after-login redirect) move to the gateway host.
   # `--dev`: the browser hits the gateway over http, but Kratos marks cookies Secure for a

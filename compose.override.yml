@@ -15,14 +15,15 @@ services:
       LOG_LEVEL: "debug" # verbose by default while developing (base defaults to info)
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
-      SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # reference plugin → the dev mock backend
+      SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # backs the reference plugin once you copy it into plugins/
     volumes:
       - .:/app
       - /app/node_modules
 
-  # Dev mock backend for the reference plugin (plugins/scheduling). A stand-in for the customer's
-  # real scheduling service — stdlib-only, in-memory, no auth. Prod points SCHEDULING_UPSTREAM at
-  # the real backend instead. Uses the pinned app image so there's nothing extra to build/pull.
+  # Mock backend ready for the reference plugin (examples/scheduling-plugin): plugins/ ships empty, so
+  # the plugin is opt-in — `cp -r examples/scheduling-plugin plugins/scheduling`, restart, and this
+  # backs it (SCHEDULING_UPSTREAM above points here). Stand-in for the customer's real service —
+  # stdlib-only, in-memory, no auth. Prod points SCHEDULING_UPSTREAM at the real backend instead.
   shifts-upstream:
     image: node:24.16.0-alpine3.24
     command: node /srv/server.ts

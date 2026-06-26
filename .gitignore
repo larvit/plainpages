@@ -5,3 +5,7 @@ node_modules
 
 # Playwright E2E outputs (screenshots, html report, traces)
 e2e-tests/artifacts/
+
+# plugins/ is a drop-in mount point, not committed code — keep it empty (see examples/ for the reference)
+/plugins/*
+!/plugins/.gitkeep

@@ -53,7 +53,7 @@ is the plugin id *and* the mount path) and "Hello" is in the menu. That's the wh
 
 From here, render real pages against the app shell and fetch upstream data — see
 [Building plugins](#building-plugins) and the runnable reference in
-[`plugins/scheduling/`](plugins/scheduling/).
+[`examples/scheduling-plugin/`](examples/scheduling-plugin/).
 
 ## Contents
 
@@ -205,11 +205,15 @@ override (see [The menu system](#the-menu-system)).
 This is the **authoritative reference** for the plugin API — the product's main surface. The
 contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types there are the single
 source of truth; the sections below explain them, the guarantees around them, and the rules
-the host enforces. A complete, runnable example ships in
-**[`plugins/scheduling/`](plugins/scheduling/)** — a public overview page, a permission-gated
-list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend; the dev
-compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding writes
-upstream, and a mix of public + role-gated nav. Copy it and adapt.
+the host enforces. A complete, runnable example lives in
+**[`examples/scheduling-plugin/`](examples/scheduling-plugin/)** — a public overview page, a
+permission-gated list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend;
+the dev compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding
+writes upstream, and a mix of public + role-gated nav. It is **not** pre-installed — `plugins/`
+ships empty so you mount your own; the E2E suites bind-mount this example onto
+`/app/plugins/scheduling` to exercise it. To run it in dev, copy it in
+(`cp -r examples/scheduling-plugin plugins/scheduling`, then restart) — the dev compose already
+points `SCHEDULING_UPSTREAM` at its mock backend. Copy it to `plugins/<id>/` and adapt.
 
 **Design stance.** The audience is experienced developers. The API optimises for being
 **powerful, predictable, and overloadable** — a plugin can take over as much of a page as it
@@ -439,11 +443,11 @@ role-filtered, and current-marked for this request (the gated **Dashboard** link
 anonymous visitor). `chrome.signInHref` is where the shell's anonymous **Sign in** link points — the
 current page baked in as `return_to`. Map each `chrome.*` to the matching `partials/shell` local —
 `brand`, `csrfToken`, `nav` (the rendered nav-tree), `signInHref`, `theme`, `user` — exactly as the
-reference `plugins/scheduling/views/overview.ejs` does; a value you forget simply falls back to its
+reference `examples/scheduling-plugin/views/overview.ejs` does; a value you forget simply falls back to its
 shell default (e.g. a bare `/login`), it does not error. **`ctx.verifyCsrf(submitted)`** guards a
 state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
-secret and sets the cookie; the plugin never touches it. (See the reference: `plugins/scheduling/`.)
+secret and sets the cookie; the plugin never touches it. (See the reference: `examples/scheduling-plugin/`.)
 
 The same shell renders **every** page (the dashboard, the admin screens, your plugin pages, and the
 login/registration/front pages), so the menu looks identical signed in or out — it just role-filters.
@@ -617,7 +621,7 @@ reproducible; mount a volume only to add plugins to an already-built image.
 ### Local dev & test story
 
 A plugin is a normal folder of TypeScript, so an author tests it the same way the core is tested
-— everything in Docker, no host tooling. The shipped reference (`plugins/scheduling/`) is the
+— everything in Docker, no host tooling. The reference example (`examples/scheduling-plugin/`) is the
 worked example: thin handlers bound to an injectable upstream client, unit-tested in
 `shifts.test.ts` with a mocked `fetch` and a hand-built `ctx` (no host).
 
@@ -1276,8 +1280,8 @@ views/               Core EJS templates, all in the one app shell: home (public 
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
-plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships scheduling/ — the reference plugin (list/form over an upstream + permission-gated nav) you copy
-examples/            Non-app helpers; shifts-upstream/ is the dev mock backend the reference plugin reads/writes (stand-in for your real service)
+plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the reference example onto /app/plugins/scheduling
+examples/            Non-app helpers: scheduling-plugin/ is the reference plugin (list/form over an upstream + permission-gated nav) you copy into plugins/; shifts-upstream/ is the dev mock backend it reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 ```
