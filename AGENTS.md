@@ -31,6 +31,13 @@ commands and layout.
    Tests stay independent and side-effect-free so the suite runs `fullyParallel` — keep it
    that way as it grows (never serialise on shared state); parallelism is what keeps it
    fast. E2E runs in Docker against the live stack — see `README.md`.
+7. **Powerful, fail-loud plugins** — the plugin API is the product's main surface and the
+   only way to add domain features. It optimises for being **powerful, predictable, and
+   overloadable** (a plugin can take over as much of a page as it wants), and the host
+   **fails loud at boot/discovery** (bad manifest, version mismatch, or conflict stops
+   startup with a clear message) rather than sandboxing at runtime. Runtime crash-isolation
+   is a deliberate **non-goal** — diagnose at deploy time, not in production. Keep this
+   contract stable; see `README.md` → Building plugins.
 
 ## Deliberate architectural deviations (don't re-flag)
 
@@ -72,11 +79,15 @@ docker compose -f compose.yml up --build -d              # production
    before Quick start — no philosophy, no rationale. Keep its commands copy-pasteable and the
    example plugin as small as possible; deeper detail lives in its own section, linked.
 2. **Returning developer (rest).** A **Contents** ToC immediately after Quick start, then
-   sections ordered **most-used/overview first → least-used/in-depth last**: Overview →
-   Architecture → Building plugins → menu/blocks/interactivity → Configuration → Auth →
-   Email → Testing → Production → Observability → the JWT-rotation runbook → the
-   Project-layout file map → Extending. Niche ops runbooks and the file-map reference stay
-   near the end.
+   sections ordered by **what a developer adopting Plainpages reaches for, in priority
+   order** — not by architectural layering. The value that sets the order: getting up and
+   running **building plugins** comes first, then **configuring and securing** the system
+   (Configuration, Auth); the **inner workings** (Architecture) and ops/runbooks are
+   deliberately deferred — they're not top of mind when starting out. Concretely: Overview →
+   Building plugins → menu/blocks/interactivity → Configuration → Auth → Email →
+   Architecture → Testing → Production → Observability → the JWT-rotation runbook → the
+   Project-layout file map → Extending. When adding a section, place it by this value (how
+   early an adopter needs it), not by where it sits in the stack.
 
 When editing: put content in the section it belongs to (don't prepend rationale above Quick
 start); keep the ToC in sync when you add/rename/remove an `H2`/`H3`; and state each fact in
@@ -100,6 +111,10 @@ one home, linking to it rather than restating (credentials, env vars, rotation s
   versions** — never ranges (`^`, `~`) and never digests/hashes. npm deps are kept
   exact by `.npmrc` (`save-exact=true`) + `npm ci`; the base image by tag (e.g.
   `node:24.16.0-alpine3.24`).
+- A plugin's `apiVersion` is a **hand-written literal** semver — the host version the
+  plugin was built against — bumped by hand on rebuild, **never** the host's
+  `HOST_API_VERSION` constant. Importing the constant makes every plugin always equal the
+  host, so `checkApiVersion` can never fire and a breaking change slips through silently.
 - Run the stability reviewer agent after every implementation of something that can be like
   a PR. That includes any change pushed directly to master.
   Skip this if the changes are purely documentation and/or comments.

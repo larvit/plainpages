@@ -1,32 +1,27 @@
 # Plainpages
 
-A self-hostable **foundation for admin and operational web UIs** — the back-office you
-build for a webshop, a school scheduling system, a water-treatment plant, or any tool
-where staff register, find, and work with data. It ships the parts that are the same
-every time — **authentication, authorization, a config-driven menu, and a server-rendered,
-zero-JS design system** — and lets you add everything domain-specific by **dropping in
-plugin folders**.
+A self-hostable **foundation for server-rendered web applications** — **public pages,
+access-controlled pages, or any mix**, built from a **zero-JS design system** with a
+**config-driven menu** and **optional authentication & authorization** baked in (any page
+can be public or gated). You add everything domain-specific by **dropping in plugin
+folders** — the admin UI for a webshop, a public service portal, a school scheduler, a
+water-treatment dashboard — without rebuilding auth, the menu, and the design system every
+time.
 
 ## Quick start
 
-> **Requirements:** **Docker** and **Docker Compose** — and nothing else. Never run
-> `node`/`npm`/`tsc` on the host; every command goes through Compose.
+> **Requirements:** **Docker** and **Docker Compose** — and nothing else.
 
 **1. Clone and start the whole stack.**
 
 ```bash
 git clone ssh://git@gitea.larvit.se:21022/larvit/plainpages.git
 cd plainpages
-docker compose up        # http://localhost:3000, live-reloads on source changes
+docker compose up -d        # http://localhost:3000, live-reloads on source changes
 ```
 
-One command brings up `web` + Postgres + Ory (Kratos/Keto/Hydra), generates the JWT
-signing key, seeds a demo admin, and prints a banner with the login URL — no key
-generation, no hand-edited Ory config, no separate database.
-
 **2. Sign in.** Open <http://localhost:3000> and sign in as the seeded admin —
-**`admin@plainpages.local` / `admin`** (change before production). `/` is the public
-landing; the gated app home is `/dashboard`.
+**`admin@plainpages.local` / `admin`**.
 
 **3. Add your first plugin.** The clone is bind-mounted into the container, so a new
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
@@ -58,8 +53,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 ## Contents
 
 - [Overview](#overview)
-- [Architecture](#architecture)
-  - [Stateless — no application database](#stateless--no-application-database)
+  - [how it compares](#how-it-compares)
 - [Building plugins](#building-plugins)
   - [anatomy](#anatomy-of-a-plugin)
   - [the manifest](#the-manifest)
@@ -85,6 +79,8 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [three tiers](#three-tiers-of-may-i)
   - [OAuth2 (Hydra)](#oauth2-provider-hydra)
 - [Email](#email)
+- [Architecture](#architecture)
+  - [Stateless](#stateless)
 - [Testing](#testing)
   - [end-to-end](#end-to-end-playwright)
   - [the full gate](#the-full-gate-one-command)
@@ -96,12 +92,17 @@ From here, render real pages against the app shell and fetch upstream data — s
 
 ## Overview
 
-Plainpages gives you the boring-but-hard parts of a back-office and stays out of your
-domain logic. The only screens it ships itself are the ones for running the system:
-**users, groups, and permissions**. Everything else is a plugin.
+Plainpages gives you the boring-but-hard parts of a web app — a design system, a menu,
+sessions, and access control — and stays out of your domain logic. **Any page can be public
+or gated**, so the same foundation serves a purely public site, a fully locked-down internal
+tool, or the common middle: a public front with an authenticated area behind it. Its **sweet
+spot** is the **back-office and operational tooling** you'd otherwise hand-roll for the tenth
+time, but nothing ties it to internal-only use. The only screens it ships itself are the ones
+for running the system: **users, groups, and permissions**. Everything else is a plugin.
 
-**Who it's for.** Experienced developers building back-office, admin, and dashboard
-products — for their own use or for a client. You know HTTP, Docker, and identity
+**Who it's for.** Experienced developers building server-rendered web products — back-office
+and operational tools, dashboards, portals, or public sites with a gated area — for their own
+use or for a client. You know HTTP, Docker, and identity
 providers, and you'd rather assemble pages from building blocks than fight a framework or
 hand-roll auth for the tenth time. It's not a no-code tool and doesn't hide its moving
 parts: if "Ory is down ⇒ no logins" (see [Auth](#auth-sessions--permissions)) reads as
@@ -125,6 +126,15 @@ production. The shape doesn't change as it grows: every plugin is the same self-
 folder, the hot path is the same I/O-free JWT check, and there's no app database to scale
 or migrate.
 
+**Plugins are the extension model — powerful, predictable, fail-loud.** Everything
+domain-specific is a plugin, and the plugin API is the product's main surface, written for
+experienced developers. It optimises for being **powerful, predictable, and overloadable** —
+a plugin can take over as much of a page as it wants. The host **fails loud at boot/discovery**
+rather than sandboxing at runtime: a malformed manifest, a version mismatch, or a conflict
+stops startup with a clear message. Runtime crash-isolation (one bad plugin can't take the
+host down) is a deliberate **non-goal** — diagnose at deploy time, not in production. See
+[Building plugins](#building-plugins).
+
 **Low-end by design.** Plainpages deliberately targets **low-end systems, odd hardware,
 and low-bandwidth environments** — a tablet on a factory floor, an old thin client at a
 reception desk, a remote site on a flaky link. That's *why* the baseline is boring,
@@ -137,70 +147,34 @@ landmarks, one `<h1>` per page, lists and tables with proper headers, a skip lin
 ARIA (`aria-current`/`aria-sort`) only where the platform leaves a gap (see
 [AGENTS.md](AGENTS.md)).
 
-> **Status.** The full architecture this README describes is built and exercised
-> end-to-end by the Playwright suites (see [Testing](#testing)): the Node 24 + EJS server,
-> the zero-JS **design system** (app shell, nav tree, data table, filters, pagination,
-> forms), the **plugin host** (discovery, router, per-plugin views + static, the
-> `config/menu.ts` override + branding), the **Ory stack** (Postgres, Kratos + the
-> session→JWT tokenizer, Keto, Hydra), the **auth** wiring that consumes it (themed
-> sign-in / register / reset / SSO, the session→JWT hot path, the users/groups/roles admin
-> screens), **Hydra's login / consent / logout handlers**, and **production & ops
-> hardening** (the prod compose profile, response security headers, **structured logging +
-> OTLP observability**, the [JWT key-rotation runbook](#jwt-signing-key--rotation)).
+### How it compares
 
-## Architecture
+The space around Plainpages is crowded, but it splits into families that each share **one**
+of its traits and miss the rest. Here's the map — established names per family, and where
+Plainpages sits relative to them:
 
-Plainpages runs as a small set of containers, orchestrated by Docker Compose:
+| Family · examples | What it is | Where Plainpages differs |
+| --- | --- | --- |
+| **Modular app frameworks** — Odoo · Frappe · OrchardCore · ABP | extend by dropping a **module folder** in; server-rendered | Closest in *shape* to the plugin model, but each is **metadata/model-driven with its own ORM/DB** and a large framework. Plainpages keeps the folder model while staying **stateless, framework-light, and component-not-generator**. |
+| **Developer portals / IDPs** — Backstage · Port · Cortex · Roadie · OpsLevel · Compass | plugin-based internal platforms with a service catalog | Closest on the **plugin** axis, but heavy **React SPAs** with a build step, built to catalog services. Plainpages is **zero-JS, few-deps, no-build** and renders general pages, not a catalog. |
+| **Model-driven auto-admin** — Django Admin · AdminJS · Filament · ActiveAdmin · EasyAdmin · Sonata · sqladmin · Starlette-admin | generate a CRUD UI **from your ORM/DB models** | Plainpages is a **component library, not a generator** — there is **no app DB** to model against; handlers fetch from upstream and you assemble the page. |
+| **Schema-driven content platforms** — KeystoneJS · Payload · Directus · Strapi · Wagtail | define a content schema, get an admin **+ API**; they own the data | Plainpages owns **no data** and isn't schema-first; it renders pages over services you already run, rather than being the system of record. |
+| **Naked-objects / runtime UI** — Apache Causeway · OpenXava · JHipster | the UI is **auto-projected from domain objects** (the generator extreme) | The opposite stance: Plainpages hands you **building blocks to assemble**, with no domain model driving the screen. |
+| **Low-code builders** — Retool · Appsmith · ToolJet · Budibase · NocoBase · ILLA | drag-and-drop GUI builders, **client-JS-heavy**, runtime state | Plainpages is **code-first and zero-JS** — server-rendered HTML versioned in your repo, no visual editor or runtime app state. |
+| **Code-first internal-tool platforms** — Windmill · Lowdefy · Superblocks | turn **scripts/config into auto-generated UIs** | Closest in *spirit* (for developers, self-hosted), but script/workflow-runner-centric. Plainpages gives you **full pages you control**, not a UI inferred from a function signature. |
+| **Hypermedia / zero-JS movement** — htmx · Hotwire/Turbo · Unpoly · Datastar | the **server-rendered-HTML philosophy** Plainpages is built on | These are *techniques*, not a foundation — no auth, menu, or plugins. Plainpages is what you **assemble with** the approach (and plugins may opt into htmx). *(Phoenix LiveView shares it but trades in a stateful socket.)* |
+| **CSS-only admin shells** — AdminLTE · Tabler · Bootstrap themes | a **visual shell** — markup + styles only | No backend, auth, routing, or extension model. Plainpages **includes the shell** and adds the hard-every-time parts. |
+| **Themed auth UI on Ory** — Kratos self-service UIs (`ory/kratos-selfservice-ui-node`, `kratos-admin-ui`) | the **login / registration screens** over Ory | The one *slice* with a direct off-the-shelf alternative: Plainpages reimplements it inside its own shell, so you could swap it out to avoid maintaining that part. |
 
-| Container      | Role |
-| -------------- | ---- |
-| `web`          | The Node 24 + TypeScript app: server-rendered EJS, the plugin host, the building-block partials. Stays tiny. |
-| `kratos`       | **Ory Kratos** — identity: login, registration, password reset, SSO, sessions. |
-| `keto`         | **Ory Keto** — permissions: the authorization decisions (`can user X do Y on Z?`). |
-| `hydra`        | **Ory Hydra** — OAuth2/OIDC provider, so other apps can log in *through* plainpages. |
-| `postgres`     | **Ory's** storage only (Kratos/Keto/Hydra). The `web` app never connects to it. |
-
-The `web` app is an Ory **relying party**: it never stores passwords. At login it turns
-the Kratos session into a short-lived, **locally-validated JWT** (the Kratos session
-tokenizer) carrying the user's coarse roles — so every later request gates the menu and
-pages by **verifying the JWT in-process, with no per-request call to Ory**. Keto answers
-the rarer fine-grained checks; Hydra is used only when the app acts as an OAuth2 **login &
-consent provider** for other apps. It reaches the Ory services over their **REST APIs
-using Node's built-in `fetch`** — no SDK dependency. See
-[Auth, sessions & permissions](#auth-sessions--permissions).
-
-In **dev** the host-facing Ory ports are published — Kratos public `4433` (where the browser
-POSTs self-service flows) and Hydra public `4444`; **prod** (`docker compose -f compose.yml
-up`) keeps them internal.
-
-So the `web` app is **stateless** and its npm footprint stays tiny — a small, pinned set
-of runtime deps (today **`ejs`** for templating, **`lucide-static`** for icons, and
-**`@larvit/log`** — itself zero-dependency — for structured/OTLP logging), grown only with
-justification and never a framework. Auth, sessions, SSO, and OAuth2 add *services*, not
-npm packages; data lives upstream.
-
-### Stateless — no application database
-
-Plainpages and its plugins hold **no state of their own**. The only database in the stack
-is **Postgres, and it belongs to Ory** (Kratos/Keto/Hydra); the `web` app never connects
-to it.
-
-A plugin gets its data by **calling an upstream service** from its route handler — a REST
-API, an ERP, a plant historian, the customer's own backend — and renders the response with
-the building blocks; writes are forwarded the same way. The partials only need rows to
-render and don't care where they came from.
-
-This keeps `web` trivially scalable and crash-safe: any instance can serve any request,
-because the session lives in Kratos and the data lives upstream.
+No family combines the whole set: **[drop-in plugin folders](#building-plugins)**, a **zero-JS
+server-rendered** design system, **[optional auth](#auth-sessions--permissions)** (any page
+public or gated), **no app database**, and a **framework-light TypeScript** core with no build
+step. Each neighbour shares one trait and trades away the rest — Plainpages is the intersection.
 
 ## Building plugins
 
 A plugin is a self-contained folder under `plugins/` that the host discovers at boot — no
-registration step, no central wiring. The folder name is the plugin **id** *and* its **mount
-path** (`plugins/scheduling/` → `/scheduling`); neither is declared in the manifest, so they
-can't drift or be claimed twice. Each plugin carries its own nav, routes, views, and CSS, so
-installing one is "drop the folder, restart"; an operator stays in control via a central
-override (see [The menu system](#the-menu-system)).
+registration step, no central wiring. Each plugin carries its own nav, routes, views, and CSS.
 
 This is the **authoritative reference** for the plugin API — the product's main surface. The
 contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types there are the single
@@ -210,29 +184,30 @@ the host enforces. A complete, runnable example lives in
 permission-gated list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend;
 the dev compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding
 writes upstream, and a mix of public + role-gated nav. It is **not** pre-installed — `plugins/`
-ships empty so you mount your own; the E2E suites bind-mount this example onto
-`/app/plugins/scheduling` to exercise it. To run it in dev, copy it in
+ships empty so you mount your own. To run it in dev, copy it in
 (`cp -r examples/scheduling-plugin plugins/scheduling`, then restart) — the dev compose already
 points `SCHEDULING_UPSTREAM` at its mock backend. Copy it to `plugins/<id>/` and adapt.
-
-**Design stance.** The audience is experienced developers. The API optimises for being
-**powerful, predictable, and overloadable** — a plugin can take over as much of a page as it
-wants. The host **fails loud at boot/discovery** rather than sandboxing at runtime: a malformed
-manifest, a version mismatch, or a conflict stops startup with a clear message. Runtime
-crash-isolation (one bad plugin can't take the host down) is a *non-goal* — diagnose at deploy
-time, not in production.
 
 ### Anatomy of a plugin
 
 ```
-plugins/scheduling/      # folder name = the plugin id → mounted at /scheduling
-  plugin.ts              # default export: the manifest (definePlugin(...))
-  shifts.ts              # handlers, helpers — plain modules
-  views/                 # EJS templates for this plugin's pages
-    shifts.ejs
-  public/                # static assets, served at /public/scheduling/
-    scheduling.css
+plugins/things/          # the plugin folder — its name is the id AND the mount path (→ /things)
+  plugin.ts              # REQUIRED — the one fixed filename; default-exports the manifest (definePlugin(...))
+  views/                 # fixed name, optional — EJS the host renders for a { view } result
+    things.ejs           #   your view files; a handler picks one with { view: "things" }
+  public/                # fixed name, optional — static assets, served at /public/things/
+    things.css           #   your asset files
+  handlers.ts            # your code, any names/layout — host never looks here; plugin.ts imports it
+  service.ts             #   e.g. route handlers, upstream calls, domain helpers — design as you wish
 ```
+
+**Only `plugin.ts` is required.** The host looks for exactly that filename and its
+default-exported manifest. `views/` and `public/` are the two fixed folder *names* it resolves
+against — used only if the plugin renders views or serves assets — but the files inside are
+yours to name. Everything else (handlers, upstream clients, their filenames and folder layout)
+the host never sees; `plugin.ts` simply imports it. The `handlers.ts`/`service.ts` split above is
+just an example — name and arrange your modules however you like, or keep a routes-only plugin to a
+single `plugin.ts`.
 
 **Identity comes from the folder.** The folder name *is* the plugin `id`, and the mount path is
 `/<id>` — neither is written in the manifest, so they can't drift or be claimed twice. The id
@@ -260,29 +235,25 @@ body/CSRF/list-query helpers). That barrel *is* the contract boundary; don't rea
 
 ```ts
 import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
-import { listShifts, createShift } from "./shifts.ts";
+import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "1.0.0",                // semver of the host contract this was built against (a literal — see Versioning)
+  apiVersion: "1.0.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
-  nav: [{
-    icon: "i-cal", id: "scheduling:root", label: "Scheduling",
-    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
-  }],
+  nav: [{ href: "/things", icon: "i-cal", id: "things:list", label: "Things", permission: "things:read" }],
 
-  // Permission tokens this plugin introduces. Declared for documentation, conflict detection, and
-  // bootstrap seeding (the demo admin is granted every discovered plugin's tokens). Optional.
+  // Permission tokens this plugin introduces. Optional — see Nav & permissions.
   permissions: [
-    { token: "scheduling:read", description: "View shifts" },
-    { token: "scheduling:write", description: "Create and edit shifts" },
+    { token: "things:read", description: "View things" },
+    { token: "things:write", description: "Create and edit things" },
   ],
 
-  // Route handlers, mounted under the plugin's path (/scheduling). `permission` gates first.
+  // Route handlers, mounted under the plugin's path (/things). `permission` gates first.
   routes: [
-    { method: "GET",  path: "/shifts", permission: "scheduling:read",  handler: listShifts },
-    { method: "POST", path: "/shifts", permission: "scheduling:write", handler: createShift },
+    { method: "GET",  path: "/", permission: "things:read",  handler: listThings },
+    { method: "POST", path: "/", permission: "things:write", handler: createThings },
   ],
 });
 ```
@@ -295,11 +266,11 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `apiVersion` | yes | Semver the plugin was built against — a **literal**, not `HOST_API_VERSION`. See [Versioning](#contract-versioning). |
+| `apiVersion` | yes | Semver string of the host contract the plugin was built against. See [Versioning](#contract-versioning). |
 | `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. |
-| `permissions` | no | Tokens this plugin introduces; declared for docs, conflict detection, and bootstrap seeding (see [Nav & permissions](#nav--permissions)). |
+| `permissions` | no | Tokens this plugin introduces. See [Nav & permissions](#nav--permissions). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 
@@ -308,7 +279,7 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 ### Routes & handlers
 
 A route is `{ method, path, permission?, public?, handler }`. `path` is **relative to the plugin's
-mount path `/<id>`** (so `/shifts` in the `scheduling` plugin serves `/scheduling/shifts`); the host
+mount path `/<id>`** (so `path: "/:id"` in the `things` plugin serves `/things/:id`); the host
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
 runs the `permission` gate (a coarse JWT-claim check — see [Nav & permissions](#nav--permissions)),
 and only then calls the handler with the [request context](#requestcontext). When the gate fails, an
@@ -324,26 +295,33 @@ A handler returns a **`RouteResult`** (or a `Promise` of one); the host turns it
 response. Returning `void` is the escape hatch — the handler wrote to `ctx.res` itself.
 
 ```ts
+// Optional on every variant below: status (HTTP status code) and headers (extra response headers).
+type ResponseMeta = { status?: number; headers?: Record<string, string> };
+
 type RouteResult =
-  | { view: string; data?: Record<string, unknown>; status?: number; headers?: Record<string, string> }
-  | { html: string;  status?: number; headers?: Record<string, string> }
-  | { json: unknown;  status?: number; headers?: Record<string, string> }  // opt-in JS enhancement
-  | { redirect: string; status?: number };                                  // 303 unless status set
+  // Render the plugin's own view (plugins/<id>/views/<name>.ejs) with `data`.
+  | ResponseMeta & { view: string; data?: Record<string, unknown> }
+  // Pre-rendered HTML, sent as-is.
+  | ResponseMeta & { html: string }
+  // JSON body
+  | ResponseMeta & { json: unknown }
+  // Redirect to a URL (takes only status, no headers).
+  | { redirect: string; status?: number };
 ```
 
 ```ts
-// shifts.ts
+// handlers.ts
 import { parseListQuery, type RequestContext } from "../../src/plugin-host/plugin-api.ts";
 
-export async function listShifts(ctx: RequestContext) {
+export async function listThings(ctx: RequestContext) {
   const q = parseListQuery(ctx.url);
-  const rows = await fetch(`${upstream}/shifts?${ctx.url.searchParams}`).then((r) => r.json());
-  return { view: "shifts", data: { rows, q } }; // renders plugins/scheduling/views/shifts.ejs
+  const rows = await fetch(`${upstream}/things?${ctx.url.searchParams}`).then((r) => r.json());
+  return { view: "things", data: { rows, q } }; // renders plugins/things/views/things.ejs
 }
 ```
 
 - **`view`** resolves against the plugin's own `views/` (`src/plugin-host/view-resolver.ts`) — nested names
-  like `"shifts/edit"` work, and an out-of-bounds name is refused. The template may `include()`
+  like `"things/edit"` work, and an out-of-bounds name is refused. The template may `include()`
   the core building-block partials (app shell, nav tree, data table, …) and its own
   partials/subfolders to render a full page — exactly as the built-in screens do. To load the
   plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
@@ -355,7 +333,7 @@ export async function listShifts(ctx: RequestContext) {
   signed-in user, anonymous ⇒ denied). Throw `new GuardError(403, …)` after a failed `can`/`check`
   to render the 403 page.
 - The handler **fetches its own data** from upstream and renders it; plugins hold no state
-  (see [Stateless](#stateless--no-application-database)). The partials only need rows.
+  (see [Stateless](#stateless)). The partials only need rows.
 - `default` status: `200` for `view`/`html`/`json`, `303` for `redirect`.
 
 #### Escaping & the trust boundary
@@ -424,7 +402,7 @@ request:
 interface RequestContext {
   chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
   log: Log;                          // request-scoped logger, in this request's trace
-  params: Record<string, string>;   // path params from the route match, e.g. /shifts/:id → { id }
+  params: Record<string, string>;   // path params from the route match, e.g. /things/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
   res: ServerResponse;
@@ -527,10 +505,6 @@ The plugin pins one exact version (no ranges — in keeping with the project's p
 *host* supplies the caret-style compatibility. `parseSemver`/`checkApiVersion` are tight,
 dependency-free functions (the `semver` package's ranges/coercion/prerelease-precedence are more
 than the contract needs).
-
-**Write a literal, never `HOST_API_VERSION`.** `apiVersion` records the version the plugin was
-*built against*. Importing the host's current constant would make every plugin always equal the
-host — the check could never fire, and a future breaking change would slip through silently.
 
 ### Conflict rules
 
@@ -967,6 +941,51 @@ is the simplest place. See Ory's
 [courier message templates](https://www.ory.sh/docs/kratos/emails-sms/custom-message-templates)
 docs for the full template-type list and the data each template receives.
 
+## Architecture
+
+Plainpages runs as a small set of containers, orchestrated by Docker Compose:
+
+| Container      | Role |
+| -------------- | ---- |
+| `web`          | The Node 24 + TypeScript app: server-rendered EJS, the plugin host, the building-block partials. Stays tiny. |
+| `kratos`       | **Ory Kratos** — identity: login, registration, password reset, SSO, sessions. |
+| `keto`         | **Ory Keto** — permissions: the authorization decisions (`can user X do Y on Z?`). |
+| `hydra`        | **Ory Hydra** — OAuth2/OIDC provider, so other apps can log in *through* plainpages. |
+| `postgres`     | **Ory's** storage (Kratos/Keto/Hydra). |
+
+The `web` app is an Ory **relying party**: it never stores passwords. At login it turns
+the Kratos session into a short-lived, **locally-validated JWT** (the Kratos session
+tokenizer) carrying the user's coarse roles — so every later request gates the menu and
+pages by **verifying the JWT in-process, with no per-request call to Ory**. Keto answers
+the rarer fine-grained checks; Hydra is used only when the app acts as an OAuth2 **login &
+consent provider** for other apps. It reaches the Ory services over their **REST APIs
+using Node's built-in `fetch`** — no SDK dependency. See
+[Auth, sessions & permissions](#auth-sessions--permissions).
+
+In **dev** the host-facing Ory ports are published — Kratos public `4433` (where the browser
+POSTs self-service flows) and Hydra public `4444`; **prod** (`docker compose -f compose.yml
+up`) keeps them internal.
+
+So the `web` app is **stateless** and its npm footprint stays tiny — a small, pinned set
+of runtime deps (today **`ejs`** for templating, **`lucide-static`** for icons, and
+**`@larvit/log`** — itself zero-dependency — for structured/OTLP logging), grown only with
+justification and never a framework. Auth, sessions, SSO, and OAuth2 add *services*, not
+npm packages; data lives upstream.
+
+### Stateless
+
+Plainpages hold **no state of its own**. The only database in the stack
+is **Postgres** and is used by Ory (Kratos/Keto/Hydra); the `web` app never connects
+to it.
+
+Plugins are encouraged to save state by **calling an upstream service** from its route handler
+— a REST API, an ERP, a plant historian, the customer's own backend — and renders the response with
+the building blocks; writes are forwarded the same way. The partials only need rows to
+render and don't care where they came from.
+
+This keeps `web` trivially scalable and crash-safe: any instance can serve any request,
+because the session lives in Kratos and the data lives upstream.
+
 ## Testing
 
 Type check and unit tests run off the Ory stack — units need no Postgres/Kratos/Keto, and
@@ -985,7 +1004,8 @@ service — no Node/browsers on the host. There are five suites:
 **Visual + design system** (`visual.spec.ts`) — Ory-free, so it stays fast. It screenshots
 the live pages and asserts the rendered design system — the app shell, theme switch, mobile
 off-canvas layout, icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and
-plugin permission-gating.
+plugin permission-gating — the last exercised by bind-mounting the reference example
+(`examples/scheduling-plugin/`) onto `/app/plugins/scheduling`.
 
 ```bash
 docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e   # run the suite
@@ -1299,3 +1319,9 @@ All versions are pinned to **exact, human-readable semantic versions** (no range
 digests): npm deps via `.npmrc` (`save-exact=true`) + the committed lockfile (`npm ci`), and
 container images by tag in the `Dockerfile` / compose files (e.g. `node:24.16.0-alpine3.24`,
 pinned Ory and Postgres tags).
+
+A plugin's `apiVersion` follows the same pin-it-by-hand spirit: write a **literal** semver — the
+host version the plugin was built against — and bump it by hand on rebuild. Never set it from the
+host's `HOST_API_VERSION` constant: that would make the plugin always equal the host, so the
+compatibility check ([Contract versioning](#contract-versioning)) could never fire and a breaking
+change would slip through silently.
