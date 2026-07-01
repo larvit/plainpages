@@ -19,9 +19,11 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      # Mount your own menu/branding override into the empty config/ dir (defaults apply otherwise):
+      # - ./config:/app/config:ro   # your config/menu.ts — see examples/config/menu.ts for a template
 
-  # Mock backend ready for the reference plugin (examples/scheduling-plugin): plugins/ ships empty, so
-  # the plugin is opt-in — `cp -r examples/scheduling-plugin plugins/scheduling`, restart, and this
+  # Mock backend ready for the reference plugin (examples/plugins/scheduling): plugins/ ships empty, so
+  # the plugin is opt-in — `cp -r examples/plugins/scheduling plugins/scheduling`, restart, and this
   # backs it (SCHEDULING_UPSTREAM above points here). Stand-in for the customer's real service —
   # stdlib-only, in-memory, no auth. Prod points SCHEDULING_UPSTREAM at the real backend instead.
   shifts-upstream:

@@ -6,6 +6,10 @@
   "engines": {
     "node": ">=24"
   },
+  "imports": {
+    "#menu-config": "./src/ui/menu-config.ts",
+    "#plugin-api": "./src/plugin-host/plugin-api.ts"
+  },
   "scripts": {
     "start": "node src/server.ts",
     "dev": "node --watch src/server.ts",

@@ -5,8 +5,8 @@
 // Handlers are factories bound to a ShiftsUpstream, and `fetch` is injectable, so they unit-test as
 // pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
-// One import from the host's plugin-api barrel — the stable author surface (see README.md → Building plugins).
-import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "../../src/plugin-host/plugin-api.ts";
+// One import from the host's #plugin-api barrel — the stable author surface (see README.md → Building plugins).
+import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "#plugin-api";
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";

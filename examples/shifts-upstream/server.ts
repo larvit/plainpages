@@ -1,4 +1,4 @@
-// Dev-only mock upstream for the reference plugin (examples/scheduling-plugin) — a stand-in for the
+// Dev-only mock upstream for the reference plugin (examples/plugins/scheduling) — a stand-in for the
 // customer's real backend, ready for when you copy the reference plugin into plugins/. NOT part
 // of the app: stdlib only, in-memory (state resets on restart), no auth. Point SCHEDULING_UPSTREAM
 // at your real service in production.

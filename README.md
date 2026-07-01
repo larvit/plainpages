@@ -27,7 +27,7 @@ docker compose up -d        # http://localhost:3000, live-reloads on source chan
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
 
 ```ts
-import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
+import { definePlugin } from "#plugin-api";
 
 export default definePlugin({
   apiVersion: "1.0.0",
@@ -48,7 +48,7 @@ is the plugin id *and* the mount path) and "Hello" is in the menu. That's the wh
 
 From here, render real pages against the app shell and fetch upstream data — see
 [Building plugins](#building-plugins) and the runnable reference in
-[`examples/scheduling-plugin/`](examples/scheduling-plugin/).
+[`examples/plugins/scheduling/`](examples/plugins/scheduling/).
 
 ## Contents
 
@@ -180,12 +180,12 @@ This is the **authoritative reference** for the plugin API — the product's mai
 contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types there are the single
 source of truth; the sections below explain them, the guarantees around them, and the rules
 the host enforces. A complete, runnable example lives in
-**[`examples/scheduling-plugin/`](examples/scheduling-plugin/)** — a public overview page, a
+**[`examples/plugins/scheduling/`](examples/plugins/scheduling/)** — a public overview page, a
 permission-gated list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend;
 the dev compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding
 writes upstream, and a mix of public + role-gated nav. It is **not** pre-installed — `plugins/`
 ships empty so you mount your own. To run it in dev, copy it in
-(`cp -r examples/scheduling-plugin plugins/scheduling`, then restart) — the dev compose already
+(`cp -r examples/plugins/scheduling plugins/scheduling`, then restart) — the dev compose already
 points `SCHEDULING_UPSTREAM` at its mock backend. Copy it to `plugins/<id>/` and adapt.
 
 ### Anatomy of a plugin
@@ -228,13 +228,18 @@ Nothing else references it; the operator stays in control through the central me
 
 ### The manifest
 
-A plugin imports its host surface from one module — `src/plugin-host/plugin-api.ts`, the **stable author
-barrel** (`definePlugin`, the manifest/handler types, `RequestContext`, the guards, and the
-body/CSRF/list-query helpers). That barrel *is* the contract boundary; don't reach into deeper
-`src/*` modules — the host may refactor those freely as long as the barrel holds.
+A plugin imports its host surface from one module — **`#plugin-api`** (a Node [subpath
+import](https://nodejs.org/api/packages.html#subpath-imports) mapped to `src/plugin-host/plugin-api.ts`
+in the root `package.json`), the **stable author barrel** (`definePlugin`, the manifest/handler types,
+`RequestContext`, the guards, and the body/CSRF/list-query helpers). Using `#plugin-api` (not a relative
+`../../src/...` path) means the same import works at any folder depth and survives host refactors — it
+resolves against the app's `package.json` wherever your plugin folder sits under it. That barrel *is* the
+contract boundary; don't reach into deeper `src/*` modules — the host may refactor those freely as long as
+the barrel holds. (Keep your plugin a plain folder — no `package.json` of its own — so `#plugin-api`
+resolves against the host's.)
 
 ```ts
-import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
+import { definePlugin } from "#plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
@@ -311,7 +316,7 @@ type RouteResult =
 
 ```ts
 // handlers.ts
-import { parseListQuery, type RequestContext } from "../../src/plugin-host/plugin-api.ts";
+import { parseListQuery, type RequestContext } from "#plugin-api";
 
 export async function listThings(ctx: RequestContext) {
   const q = parseListQuery(ctx.url);
@@ -326,7 +331,7 @@ export async function listThings(ctx: RequestContext) {
   partials/subfolders to render a full page — exactly as the built-in screens do. To load the
   plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
   extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
-- **Finer authorization than the route `permission`** uses the guards from `src/plugin-host/plugin-api.ts`:
+- **Finer authorization than the route `permission`** uses the guards from `#plugin-api`:
   `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
   to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
   {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
@@ -348,10 +353,10 @@ safety of the data it renders**:
   names), so those are injection-safe. But a URL field — nav `href`, a table cell link, a menu
   item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute: a `javascript:` or
   `data:` URL from upstream/user data becomes live XSS. When a URL comes from data you don't
-  control, pass it through **`safeUrl()`** from `src/plugin-host/plugin-api.ts` first — it returns the URL when
+  control, pass it through **`safeUrl()`** from `#plugin-api` first — it returns the URL when
   it's relative or `http(s):` and collapses anything else to `"#"`:
   ```ts
-  import { safeUrl } from "../../src/plugin-host/plugin-api.ts";
+  import { safeUrl } from "#plugin-api";
   return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
   ```
 
@@ -365,7 +370,7 @@ The host has two replaceable landing slots, and a plugin may own either or both:
 | `dashboard` | `/dashboard` | **signed-in session** (anonymous → `/login`, with `/dashboard` as `return_to`) | The built-in mock-data People list. |
 
 ```ts
-import { definePlugin } from "../../src/plugin-host/plugin-api.ts";
+import { definePlugin } from "#plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
@@ -421,11 +426,11 @@ role-filtered, and current-marked for this request (the gated **Dashboard** link
 anonymous visitor). `chrome.signInHref` is where the shell's anonymous **Sign in** link points — the
 current page baked in as `return_to`. Map each `chrome.*` to the matching `partials/shell` local —
 `brand`, `csrfToken`, `nav` (the rendered nav-tree), `signInHref`, `theme`, `user` — exactly as the
-reference `examples/scheduling-plugin/views/overview.ejs` does; a value you forget simply falls back to its
+reference `examples/plugins/scheduling/views/overview.ejs` does; a value you forget simply falls back to its
 shell default (e.g. a bare `/login`), it does not error. **`ctx.verifyCsrf(submitted)`** guards a
 state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then on POST read your own
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
-secret and sets the cookie; the plugin never touches it. (See the reference: `examples/scheduling-plugin/`.)
+secret and sets the cookie; the plugin never touches it. (See the reference: `examples/plugins/scheduling/`.)
 
 The same shell renders **every** page (the dashboard, the admin screens, your plugin pages, and the
 login/registration/front pages), so the menu looks identical signed in or out — it just role-filters.
@@ -567,7 +572,7 @@ mount it read-only:
 services:
   web:
     volumes:
-      - ../scheduling-plugin:/app/plugins/scheduling:ro   # host path : /app/plugins/<id>
+      - ../my-plugin:/app/plugins/my-plugin:ro   # host path : /app/plugins/<id>
 ```
 
 ```bash
@@ -582,6 +587,14 @@ bind mount matches the edit-and-reload loop. For a **baked** production image, j
 the plugin in the build context and it's `COPY`'d in at build time — pinned and
 reproducible; mount a volume only to add plugins to an already-built image.
 
+`#plugin-api` resolves against the *nearest* `package.json`, which at runtime must be the host's
+at `/app` — so the mounted `plugins/<id>/` folder must **not** contain a `package.json` of its own
+(one there becomes the plugin's scope, lacks the `#plugin-api` mapping, and boot fails loud). A
+plugin kept in its own repo therefore mounts as just its subfolder, with the repo's `package.json`
+kept outside the mount. To typecheck it against the barrel there, typecheck it mounted under the
+host tree, or vendor a type stub of the barrel and map `#plugin-api` to that (an `imports` target
+can't escape its own package scope, so it can't point at the host's file directly).
+
 > Discovery — scanning `plugins/`, importing each `plugin.ts` default export, and
 > validating it (id, `apiVersion`, conflicts) — runs at boot (`src/plugin-host/discovery.ts`); a bad
 > plugin stops startup with a precise message. The router (`src/plugin-host/router.ts`) then mounts
@@ -595,7 +608,7 @@ reproducible; mount a volume only to add plugins to an already-built image.
 ### Local dev & test story
 
 A plugin is a normal folder of TypeScript, so an author tests it the same way the core is tested
-— everything in Docker, no host tooling. The reference example (`examples/scheduling-plugin/`) is the
+— everything in Docker, no host tooling. The reference example (`examples/plugins/scheduling/`) is the
 worked example: thin handlers bound to an injectable upstream client, unit-tested in
 `shifts.test.ts` with a mocked `fetch` and a hand-built `ctx` (no host).
 
@@ -631,6 +644,18 @@ The menu is **driven entirely by config** and assembled from two sources:
    boot) — where the operator reorders, renames, groups, or hides items (by node `id`), and
    sets branding (app name, logo, default theme). The override always wins, applied before
    the per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
+
+   `config/` is an **empty drop-in mount point** (like `plugins/`): it ships empty, and you
+   supply `config/menu.ts` by copying the template ([`examples/config/menu.ts`](examples/config/menu.ts))
+   in or bind-mounting your own dir onto `/app/config` (a commented example sits in
+   `compose.override.yml`). The file imports its typed builder from **`#menu-config`** (the
+   subpath import mapped to `src/ui/menu-config.ts`), so it resolves wherever it's mounted
+   (keep the mounted `config/` a plain dir — no `package.json` of its own — or `#menu-config`
+   resolves against that instead and boot fails loud):
+   ```ts
+   import { defineMenu } from "#menu-config";
+   export default defineMenu({ branding: { name: "Acme Ops" }, override: { hide: ["teams"] } });
+   ```
 
 Every nav item may carry a `permission`; the rendered tree is **filtered per user** by
 reading the roles in the session JWT (no per-request authz call — see
@@ -1005,7 +1030,7 @@ service — no Node/browsers on the host. There are five suites:
 the live pages and asserts the rendered design system — the app shell, theme switch, mobile
 off-canvas layout, icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and
 plugin permission-gating — the last exercised by bind-mounting the reference example
-(`examples/scheduling-plugin/`) onto `/app/plugins/scheduling`.
+(`examples/plugins/scheduling/`) onto `/app/plugins/scheduling`.
 
 ```bash
 docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e   # run the suite
@@ -1280,7 +1305,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
 
   plugin-host/        Plugin discovery, routing, hooks, view resolution + the stable author barrel
     plugin.ts         Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
-    plugin-api.ts     Stable plugin author barrel — the one module a plugin imports (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
+    plugin-api.ts     Stable plugin author barrel — the one module a plugin imports, as `#plugin-api` (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
     discovery.ts      discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
     router.ts         matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
     hooks.ts          runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
@@ -1291,17 +1316,17 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     shell-context.ts  buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
     dashboard.ts      buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler). Both render the one unified menu (ctx.chrome)
     nav.ts            composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
-    menu-config.ts    loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding), validated at boot
+    menu-config.ts    loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding, imported as `#menu-config`), validated at boot
     icons.ts          Used-icon registry + sprite builder from lucide-static (regenerates partials/icons.ejs)
     list-query.ts     parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
     paginate.ts       paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 
 views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
-config/menu.ts       Central menu override + branding (optional; defaults apply if absent)
+config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the reference example onto /app/plugins/scheduling
-examples/            Non-app helpers: scheduling-plugin/ is the reference plugin (list/form over an upstream + permission-gated nav) you copy into plugins/; shifts-upstream/ is the dev mock backend it reads/writes (stand-in for your real service)
+examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav — copied into plugins/) and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 ```

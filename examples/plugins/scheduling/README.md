@@ -1,7 +1,8 @@
 # Scheduling — the reference plugin
 
-A worked example of the [plugin contract](../../README.md#building-plugins). Copy this folder, rename
-it (the folder name becomes the plugin id and mount path), and point it at your own backend.
+A worked example of the [plugin contract](../../../README.md#building-plugins). Copy this folder into
+`plugins/` (it keeps the id and mount path `scheduling`) and point it at your own backend — the folder
+name *is* the plugin id and mount path, so rename it only if you want a different one.
 
 What it demonstrates:
 

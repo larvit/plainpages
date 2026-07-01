@@ -57,6 +57,22 @@ them. Revisit only if the stated reason stops holding.
 - **Email is delegated to Kratos** (it renders + sends recovery/verification mail); `web`
   never touches SMTP. Customization is Kratos' built-in `courier.template_override_path`,
   not app code — keeping `web` stateless and dependency-light (see [Email](README.md#email)).
+- **Plugins and config import the host only via package.json `imports`** — `#plugin-api`
+  → `src/plugin-host/plugin-api.ts`, `#menu-config` → `src/ui/menu-config.ts` — never a
+  relative `../../src/*` path. These two barrels are the whole author/operator contract
+  surface; the `src/*` behind them may be refactored freely. Depth-independent and
+  refactor-stable by design — don't "fix" a `#`-import back to a relative path.
+- **A plugin/config folder must stay a plain folder — no `package.json` of its own.** Node
+  resolves `#`-specifiers against the nearest parent `package.json`; a `package.json` inside
+  the folder becomes its own scope and `#plugin-api`/`#menu-config` stop resolving. Accepted
+  cost of the `#`-import contract (fits the stateless, no-per-plugin-deps ethos). A plugin
+  kept in its own repo typechecks against the barrel only when mounted under the host tree
+  (or by adding a local `imports` map / vendored stub).
+- **`examples/` mirrors the drop-in mount dirs** — `examples/plugins/<id>/` copies to
+  `plugins/<id>/`, `examples/config/menu.ts` to `config/menu.ts`. Both mirror folders are in
+  `tsconfig.include` and resolve the host surface via `#`-imports, so each example typechecks
+  in place *and* copies across unchanged. Never commit real plugins/config into the root
+  mount dirs (`plugins/`, `config/`) — they ship empty (`.gitkeep`, git-ignored otherwise).
 
 ## Docker only — no host tooling
 

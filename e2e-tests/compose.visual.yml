@@ -23,7 +23,7 @@ services:
     # plugins/ is empty in the image; bind the reference example in as the `scheduling` plugin so the
     # nav-gating spec has a drop-in plugin to assert against.
     volumes:
-      - ./examples/scheduling-plugin:/app/plugins/scheduling:ro
+      - ./examples/plugins/scheduling:/app/plugins/scheduling:ro
 
   e2e:
     build:
