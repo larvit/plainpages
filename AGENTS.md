@@ -5,7 +5,7 @@ commands and layout.
 
 ## Project priorities (do not erode)
 
-1. **Simplicity** — prefer the smallest, most readable solution.
+1. **Simplicity** — prefer the solution that is easiest to understand, smallest, and most readable.
 2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`,
    `@larvit/log` — the last itself zero-dependency, for structured/OTLP logging).
    Prefer the Node standard library; justify any new dependency; do not add
@@ -16,7 +16,8 @@ commands and layout.
    folders** under `plugins/` that fetch their data from upstream services, not as
    core code. See `README.md` for the architecture.
 3. **Strict TypeScript** — `tsconfig.json` is strict (incl. `noUncheckedIndexedAccess`,
-   `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way.
+   `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way. Prefer
+   exact types and limit nullable and multi option types when possible. KISS.
 4. **Environment-agnostic** — the app never asks *which environment* it runs in; there is
    no `NODE_ENV` (or equivalent) branching. Every behaviour is an **explicit config
    toggle** (e.g. `CACHE_TEMPLATES`, `REQUIRE_SECURE_SECRETS`, a future "disable email"),
@@ -128,7 +129,8 @@ one home, linking to it rather than restating (credentials, env vars, rotation s
 - **No build step** and no compiled artifacts — do not add a bundler or `tsc` emit.
 - Before finishing a change, run the typecheck and tests above; both must pass.
 - Tests use the built-in `node --test` runner — no test framework dependency.
-- English everywhere. Keep code comments short and information-dense.
+- English everywhere. Keep code comments short and information-dense. Self explained code
+  without any comment at all is the preferred solution.
 - Pin all dependencies and Docker images to exact, human-readable **semantic
   versions** — never ranges (`^`, `~`) and never digests/hashes. npm deps are kept
   exact by `.npmrc` (`save-exact=true`) + `npm ci`; the base image by tag (e.g.
@@ -144,5 +146,8 @@ one home, linking to it rather than restating (credentials, env vars, rotation s
   has to re-handle HEAD. Factor shared per-request setup (auth gate, `ctx.system` capability
   resolution, target fetch) into a small `withX` wrapper — see `examples/plugins/admin/`.
 - Run the stability reviewer agent after every implementation of something that can be like
-  a PR. That includes any change pushed directly to master.
+  a PR. That includes any change pushed directly to main.
   Skip this if the changes are purely documentation and/or comments.
+- Use well formed, standard compliant, rich URIs. Prefer state in the URL over POST:ing in for
+  for example list pages with filters and pagination. Do: "ids=x&ids=y" and not "ids[]=x&ids[]=y"
+  and not "ids=x,y".
