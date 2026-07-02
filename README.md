@@ -1319,7 +1319,8 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
   *.test.ts (compose/kratos/keto/hydra/postgres)  Topology guards with no source counterpart — assert the compose dev/prod split + ordering and each Ory service's config (they validate ory/ + the compose files)
 
   http/               Request pipeline + HTTP primitives
-    app.ts            Request routing + EJS rendering (incl. the themed Kratos self-service routes)
+    app.ts            createApp(): the request pipeline — security headers, static, canonical host, session verify/re-mint, CSRF, hooks, plugin routes, then the internal route table → RouteResult rendering
+    builtin-routes.ts The internal route table's contract: BuiltinRoute + the request's CSRF mint + matchBuiltinRoute() (exact path, GET answers HEAD)
     context.ts        RequestContext handed to handlers + buildContext()
     body.ts           readFormBody(): read + size-cap an x-www-form-urlencoded request body (CSRF gate + forms)
     cookie.ts         Cookie parse + secure Set-Cookie build (session/CSRF cookies)
@@ -1339,6 +1340,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     flow-view.ts      buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs
     oauth-login.ts    resolveLoginChallenge(): authenticate a Hydra login challenge via the Kratos session → accept, or bounce to /login
     oauth-consent.ts  resolveConsentChallenge()/acceptConsent()/rejectConsent(): auto-accept first-party, else show the consent screen → grant scopes
+    routes.ts         buildAuthRoutes(): the built-in auth/OAuth2 endpoints as named handlers on the internal route table — themed flow pages, /oauth2/* challenges, /auth/complete, POST /logout, /error; only what the wired clients support is registered
     bootstrap.ts      One-command bootstrap: idempotent first-boot seed — JWKS-if-absent, demo admin in Kratos, admin role in Keto
     kratos-public.ts  createKratosPublic(): Kratos public-API fetch client — self-service flow init/get/submit, browser logout, whoami, session→JWT tokenize
     kratos-admin.ts   createKratosAdmin(): Kratos admin-API fetch client — identity CRUD + surgical metadata_public update (login role projection)

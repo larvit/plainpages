@@ -9,3 +9,16 @@ For each todo item, interview the user extensively to deeply understand the scop
 - [ ] Build and publish docker image as CI/CD.
 - [ ] Add i18n support.
 - [ ] Set up CI/CD. Tests on push to any branch. Require PR to main and don't allow merge if tests does not pass. Publish docker image on valid semver tag. Sync up to github when merging to main.
+
+## Architectural review findings (2026-07-02)
+
+Prioritized. Overall verdict: architecture is sound (contract-first plugin API, functional core/imperative shell, strong test seams); these are refinements.
+
+- [x] **HIGH — Split `handleRequest` in `src/http/app.ts` (~380 lines).** It mixes the request pipeline with inline implementations of ~10 built-in endpoints (Kratos flows, /oauth2/*, /auth/complete, /logout, /, /dashboard, 404/405). Extract each endpoint into a named handler (auth/OAuth2 group → `src/auth/` route module) with the same `(req, res, ctx)` shape plugin routes use; reduce `handleRequest` to pipeline → internal route table → `sendResult`.
+- [ ] **MEDIUM — Add complexity/method-size static analysis to the CI gate.** Only `tsc --strict` today; a size/complexity rule would have caught the `app.ts` growth. Also when wiring CI/CD: keep the merge gate fast (typecheck + units + Ory-free `visual` suite; heavy e2e suites required-but-separate) and make the pipeline the only path to a published image (build once at tag, promote).
+- [ ] **MEDIUM — De-duplicate `examples/plugins/admin/admin-groups.ts` and `admin-roles.ts` (~80% identical).** Same "Keto membership object admin" concept twice; extract a parameterized helper keyed on `{ namespace, base, labels, columns }`, leave roles' effective-access view as the only delta. Matters extra because this is the reference plugin people copy.
+- [ ] **MEDIUM→LOW — Add a list-page view-model helper in `src/ui/`.** Every list screen (users, groups, roles, shifts) hand-rewrites the same ~40 lines bridging `parseListQuery`/`paginate` to the EJS partials; at minimum a `buildPaginationModel(page, hrefFor)` block.
+- [ ] **LOW→MEDIUM — Retire `src/ui/shell-context.ts`.** `ShellModel`/`buildShellContext` has one consumer left (dashboard) and duplicates `PageChrome` on almost every field, incl. identical brand-assembly in `chrome.ts` and `shell-context.ts`. Fold the dashboard onto `ctx.chrome` + title/breadcrumbs; keep `shellUser` as the shared primitive.
+- [ ] **LOW — Fix stale doc references to removed `docs/plugin-contract.md`** in `views/index.ejs` (user-visible dashboard text; also links /scheduling as if pre-installed) and `examples/plugins/scheduling/views/shifts.ejs`.
+- [ ] **LOW — Decide (once) on a `ctx.system` facade.** `#plugin-api` exposes raw Ory client shapes, so an Ory client refactor is a major `apiVersion` bump. AGENTS.md accepts this; revisit only if external plugin authors appear. Record the decision.
+- [ ] **LOW — README/AGENTS.md gaps:** state the intended lifetime/horizon explicitly, add a short domain glossary (host, manifest, chrome, nav fragment, permission token, system plugin, denylist…), and note the expected plugin-author population (first-party vs external) to justify the versioning machinery.

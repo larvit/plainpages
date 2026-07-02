@@ -3,32 +3,29 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { readFormBody } from "./body.ts";
+import { type BuiltinRoute, matchBuiltinRoute, type RequestCsrf } from "./builtin-routes.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
-import { buildContext, type User } from "./context.ts";
-import { CSRF_FIELD, csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
+import { buildContext, type RequestContext, type User } from "./context.ts";
+import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
 import type { Denylist } from "../auth/denylist.ts";
 import { buildDashboardModel } from "../ui/dashboard.ts";
 import { PLUGINS_DIR } from "../plugin-host/discovery.ts";
 import { GuardError, loginRedirect } from "../auth/guards.ts";
-import { AUTH_FLOWS, buildFlowView } from "../auth/flow-view.ts";
 import { runRequestHooks, runResponseHooks } from "../plugin-host/hooks.ts";
-import { HydraError, type HydraAdmin } from "../auth/hydra-admin.ts";
+import type { HydraAdmin } from "../auth/hydra-admin.ts";
 import type { JwksProvider } from "../auth/jwks.ts";
 import { resolveSession, type VerifyOptions } from "../auth/jwt-middleware.ts";
 import type { KetoClient } from "../auth/keto-client.ts";
 import type { KratosAdmin } from "../auth/kratos-admin.ts";
-import { type Flow, KratosError, type KratosPublic } from "../auth/kratos-public.ts";
+import type { KratosPublic } from "../auth/kratos-public.ts";
 import { createLogger, type Log, requestLogger, runWithLog } from "../logger.ts";
-import { clearSessionCookie, completeLogin, remintSession, sessionCookie } from "../auth/login.ts";
-import { resolveLoginChallenge } from "../auth/oauth-login.ts";
-import { acceptConsent, rejectConsent, resolveConsentChallenge } from "../auth/oauth-consent.ts";
+import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import type { Plugin, RouteHandler, RouteResult } from "../plugin-host/plugin.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
+import { buildAuthRoutes } from "../auth/routes.ts";
 import { securityHeaders } from "./security-headers.ts";
-import { localPath } from "./safe-url.ts";
 import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "../plugin-host/view-resolver.ts";
 
@@ -115,6 +112,46 @@ export function createApp(options: AppOptions = {}): Server {
     res.end(html);
   };
 
+  // The public landing "/": ungated — anyone may see it. A plugin may fully own it via `home`
+  // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
+  // any form it ships). Else the built-in intro page with prominent sign-in / register links
+  // (`user` picks "go to dashboard" vs sign-in; the shell's Sign-out form needs the CSRF cookie).
+  const serveHome = async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult | null> => {
+    csrf.setCookie();
+    if (homePlugin) {
+      const result = (await homePlugin.home(ctx)) ?? null;
+      if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
+      await sendResult(ctx.res, result, (view, data) => renderView(homePlugin.id, view, data));
+      return null;
+    }
+    return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
+  };
+
+  // The post-login app home "/dashboard", gated to a signed-in user: anonymous bounces to sign
+  // in, remembering /dashboard as return_to. A plugin may fully own it via `dashboard` — its
+  // handler renders against its own views, same path as a plugin route. Else the built-in
+  // mock-data People list with the one global menu (ctx.chrome.nav) + branding from config/menu.ts.
+  const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult | null> => {
+    if (!ctx.user) return { redirect: loginRedirect(ctx), status: 303 };
+    // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
+    csrf.setCookie();
+    if (dashboardPlugin) {
+      const result = (await dashboardPlugin.dashboard(ctx)) ?? null;
+      if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
+      await sendResult(ctx.res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
+      return null;
+    }
+    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, nav: ctx.chrome.nav, user: ctx.user }) }, view: "index" };
+  };
+
+  // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/
+  // routes.ts, capability-gated on the wired clients) plus the two landing slots above.
+  const builtinRoutes: BuiltinRoute[] = [
+    ...buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secureCookies }),
+    { handler: serveHome, method: "GET", path: "/" },
+    { handler: serveDashboard, method: "GET", path: "/dashboard" },
+  ];
+
   // The request handler. Run inside runWithLog (below) so the per-request logger is ambient: every
   // outbound fetch (the Ory clients via tracedFetch) and any deep module joins this request's trace
   // and correlation with no logger threaded through their signatures.
@@ -171,8 +208,13 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
       // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
-      // one (the form page below Set-Cookies it). Verified on our own state-changing routes.
+      // one (a page-emitting handler Set-Cookies it via csrfMint). Verified on our own
+      // state-changing routes.
       const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
+      const csrfMint: RequestCsrf = {
+        setCookie: (): void => { if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies })); },
+        token: csrf.token,
+      };
       // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
       const verifyCsrf = (submitted: string | null | undefined): boolean =>
         verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
@@ -192,7 +234,7 @@ export function createApp(options: AppOptions = {}): Server {
         if (short) {
           // Set the fresh CSRF cookie like every other page-emitting path, so a form the hook
           // renders (its token is in ctx.chrome.csrfToken) has the matching double-submit cookie.
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+          csrfMint.setCookie();
           await sendResult(res, short.result, (view, data) => renderView(short.plugin.id, view, data));
           return;
         }
@@ -212,262 +254,19 @@ export function createApp(options: AppOptions = {}): Server {
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }
-        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
+        csrfMint.setCookie();
         const result = (await match.route.handler(routeCtx)) ?? null;
         if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
         await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
         return;
       }
 
-      // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
-      const flowType = AUTH_FLOWS[pathname];
-      if (kratos && flowType && (method === "GET" || method === "HEAD")) {
-        // Already signed in? Re-authenticating / re-registering is pointless — send them to the app
-        // dashboard. (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
-        if (ctx.user && (pathname === "/login" || pathname === "/registration")) {
-          res.writeHead(303, { location: "/dashboard" }).end();
-          return;
-        }
-        const cookie = req.headers.cookie;
-        const flowId = ctx.url.searchParams.get("flow");
-        // Only the Kratos calls are in the try, so a render/buildFlowView bug below falls through to
-        // the catch-all 500 (with a stack), not the "Ory unreachable" 503.
-        let flow: Flow;
-        try {
-          if (!flowId) {
-            // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
-            // A `return_to` is baked into the flow so Kratos lands there after login instead of the
-            // default completion route. A first-party deep link (host-relative, from the gate's
-            // return_to) is wrapped through /auth/complete so the session JWT is minted before the
-            // user reaches the page; an absolute target (the OAuth2 login challenge) is passed
-            // as-is — Kratos allow-lists it. localPath rejects an off-origin "//evil.com".
-            const raw = ctx.url.searchParams.get("return_to");
-            const local = localPath(raw);
-            let returnTo: string | undefined;
-            if (local) {
-              const origin = `${secureCookies ? "https" : "http"}://${req.headers.host ?? "127.0.0.1:3000"}`;
-              const complete = new URL(`${origin}/auth/complete`);
-              complete.searchParams.set("return_to", local);
-              returnTo = complete.toString();
-            } else if (raw) returnTo = raw;
-            const { flow: initiated, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });
-            if (setCookie.length) res.appendHeader("set-cookie", setCookie);
-            res.writeHead(303, { location: `${pathname}?flow=${initiated.id}` }).end();
-            return;
-          }
-          flow = await kratos.getFlow(flowType, flowId, cookie ? { cookie } : {});
-        } catch (err) {
-          // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
-          if (err instanceof KratosError && [403, 404, 410].includes(err.status)) {
-            res.writeHead(303, { location: pathname }).end();
-            return;
-          }
-          // Already authenticated at Kratos but no app JWT yet (e.g. straight after registration, whose
-          // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.user
-          // is null and the "already signed in" short-circuit above can't fire). Initialising a login/
-          // registration flow then returns Kratos 400 `session_already_available`. Recover by completing
-          // login (mint the JWT from the live session), honouring return_to — never a 500.
-          if (err instanceof KratosError && err.status === 400 && err.body.includes("session_already_available")) {
-            const local = localPath(ctx.url.searchParams.get("return_to"));
-            res.writeHead(303, { location: local ? `/auth/complete?return_to=${encodeURIComponent(local)}` : "/auth/complete" }).end();
-            return;
-          }
-          // Ory unreachable (Kratos 5xx / connection refused / timeout): "Ory down ⇒ no logins" is
-          // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
-          if (!(err instanceof KratosError) || err.status >= 500) {
-            reqLog.warn("auth flow failed (Ory unreachable?)", { error: String(err), path: pathname });
-            sendHtml(res, 503, await render("503", { title: "Sign-in unavailable" }));
-            return;
-          }
-          throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
-        }
-        // Rendered inside the unified app shell, so set a fresh CSRF cookie when minted — the
-        // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.
-        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        sendHtml(res, 200, await render("auth", { chrome: ctx.chrome, flow: buildFlowView(flow, flowType) }));
-        return;
-      }
-
-      // OAuth2 login challenge: Hydra hands the browser here when another app logs in
-      // *through* us. Resolve it via the Kratos session and accept; an unauthenticated user
-      // bounces to our themed login and returns here once signed in. Provider-only.
-      if (hydra && kratos && pathname === "/oauth2/login" && (method === "GET" || method === "HEAD")) {
-        const challenge = ctx.url.searchParams.get("login_challenge");
-        if (!challenge) {
-          res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing login_challenge");
-          return;
-        }
-        // Absolute return target so Kratos lands back here post-login. Host reflects what the
-        // browser used (so it matches Kratos' allowed_return_urls); scheme follows SECURE_COOKIES.
-        // A spoofed Host can't escape — Kratos validates return_to against its allow-list.
-        const origin = `${secureCookies ? "https" : "http"}://${req.headers.host ?? "127.0.0.1:3000"}`;
-        const selfUrl = `${origin}/oauth2/login?login_challenge=${encodeURIComponent(challenge)}`;
-        try {
-          const { redirect } = await resolveLoginChallenge({ hydra, kratos }, challenge, req.headers.cookie, selfUrl);
-          res.writeHead(303, { location: redirect }).end();
-        } catch (err) {
-          // A stale/invalid/consumed challenge (Hydra 4xx — back button, slow login, re-used URL) is
-          // user-reachable: tell them to restart rather than 500. A 5xx (Hydra down) rethrows → 500.
-          if (err instanceof HydraError && err.status < 500) {
-            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This sign-in request has expired. Please start again from the application you were signing in to.");
-          } else throw err;
-        }
-        return;
-      }
-
-      // OAuth2 consent challenge: after login Hydra hands the browser here. A first-party
-      // (or Hydra-skipped) client is auto-granted its scopes; a third-party client gets the themed
-      // consent screen, whose CSRF-guarded POST accepts (Allow) or rejects (Deny). Provider-only.
-      if (hydra && kratos && pathname === "/oauth2/consent") {
-        const consentDeps = { hydra, kratos };
-        try {
-          if (method === "GET" || method === "HEAD") {
-            const challenge = ctx.url.searchParams.get("consent_challenge");
-            if (!challenge) {
-              res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing consent_challenge");
-              return;
-            }
-            const { redirect, view } = await resolveConsentChallenge(consentDeps, challenge, req.headers.cookie);
-            if (redirect) {
-              res.writeHead(303, { location: redirect }).end();
-              return;
-            }
-            // Third-party: show the consent screen, carrying a CSRF token its form echoes back.
-            if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-            sendHtml(res, 200, await render("oauth-consent", { brand: menu.branding.name, consent: view, csrfField: CSRF_FIELD, csrfToken: csrf.token }));
-            return;
-          }
-          if (method === "POST") {
-            const form = await readFormBody(req);
-            if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
-              reqLog.warn("csrf rejected", { path: pathname });
-              sendHtml(res, 403, await render("403", { title: "Forbidden" }));
-              return;
-            }
-            const challenge = form.get("consent_challenge");
-            if (!challenge) {
-              res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing consent_challenge");
-              return;
-            }
-            const redirect = form.get("decision") === "allow"
-              ? await acceptConsent(consentDeps, challenge, req.headers.cookie)
-              : await rejectConsent(consentDeps, challenge);
-            res.writeHead(303, { location: redirect }).end();
-            return;
-          }
-        } catch (err) {
-          // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500 (as /oauth2/login).
-          if (err instanceof HydraError && err.status < 500) {
-            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This authorization request has expired. Please start again from the application you were signing in to.");
-            return;
-          }
-          throw err;
-        }
-      }
-
-      // OAuth2 RP-initiated logout: Hydra hands the browser here to end the OAuth2 session
-      // (hydra.yml urls.logout). Accept the challenge and resume to Hydra's post-logout redirect;
-      // the first-party POST /logout (below) owns the Kratos session + our JWT cookie. Provider-only.
-      // GET-accept is safe (like the login/consent handlers): the challenge is Hydra-minted +
-      // single-use, so a forged GET can't fabricate one — we skip only the optional "confirm logout?".
-      if (hydra && pathname === "/oauth2/logout" && (method === "GET" || method === "HEAD")) {
-        const challenge = ctx.url.searchParams.get("logout_challenge");
-        if (!challenge) {
-          res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Missing logout_challenge");
-          return;
-        }
-        try {
-          const { redirect } = await hydra.acceptLogoutRequest(challenge);
-          res.writeHead(303, { location: redirect }).end();
-        } catch (err) {
-          // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500.
-          if (err instanceof HydraError && err.status < 500) {
-            res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("This logout request has expired. Please start again from the application you were signing out of.");
-          } else throw err;
-        }
-        return;
-      }
-
-      // Login completion: where Kratos lands the browser after authenticating (kratos.yml).
-      // Mint our session JWT — read roles from Keto, project onto the identity, tokenize —
-      // and store it as the cookie; no active session bounces back to sign in.
-      if (pathname === "/auth/complete" && method === "GET" && kratos && kratosAdmin && keto) {
-        const completed = await completeLogin({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie);
-        if (!completed) {
-          res.writeHead(303, { location: "/login" }).end();
-          return;
-        }
-        res.appendHeader("set-cookie", sessionCookie(completed.jwt, { secure: secureCookies }));
-        // Land on the deep link the user was headed to (return_to, validated host-relative so a
-        // crafted ?return_to= can't make this an open redirect), else the gated dashboard.
-        res.writeHead(303, { location: localPath(ctx.url.searchParams.get("return_to")) ?? "/dashboard" }).end();
-        return;
-      }
-
-      // Logout: a state change, so a CSRF-guarded POST (the shell submits a form, not a GET link).
-      // Clear our local JWT and revoke the Kratos session — Kratos' own cookie lives on its origin,
-      // so redirect to its logout URL (it revokes the session, clears plainpages_session, then lands
-      // on /login per kratos.yml). No active session ⇒ just clear our cookie and go to /login.
-      if (pathname === "/logout" && method === "POST" && kratos) {
-        const form = await readFormBody(req);
-        if (!verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted: form.get(CSRF_FIELD) })) {
-          reqLog.warn("csrf rejected", { path: pathname });
-          sendHtml(res, 403, await render("403", { title: "Forbidden" }));
-          return;
-        }
-        const flow = await kratos.createLogoutFlow(req.headers.cookie ? { cookie: req.headers.cookie } : {});
-        res.appendHeader("set-cookie", clearSessionCookie({ secure: secureCookies }));
-        reqLog.info("logout", { sub: user?.id ?? "" });
-        res.writeHead(303, { location: flow?.logoutUrl ?? "/login" }).end();
-        return;
-      }
-
-      // Kratos' self-service error sink (kratos.yml flows.error.ui_url → /error). A flow that fails a
-      // security/expiry check redirects the browser here with ?id=<uuid>. Render a themed page with a
-      // path back into sign-in instead of the catch-all 404 ("Page not found") it used to hit. The
-      // canonical-host redirect above prevents the common cause (a lost cross-host CSRF cookie); this
-      // is the honest fallback for any genuine flow error. The id is shown only for support reference.
-      if (pathname === "/error" && (method === "GET" || method === "HEAD")) {
-        sendHtml(res, 200, await render("error", { id: ctx.url.searchParams.get("id"), title: "Sign-in problem" }));
-        return;
-      }
-
-      if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-        // The public landing: ungated — anyone may see it. A plugin may fully own it via `home`
-        // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
-        // any form it ships). Else the built-in intro page with prominent sign-in / register links.
-        if (homePlugin) {
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          const homeCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) });
-          const result = (await homePlugin.home(homeCtx)) ?? null;
-          if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
-          await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
-          return;
-        }
-        // Default landing in the unified app shell: `user` picks "go to dashboard" vs sign-in,
-        // and the shell's Sign-out form (when signed in) needs a fresh CSRF cookie.
-        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        sendHtml(res, 200, await render("home", { chrome: ctx.chrome, user }));
-        return;
-      }
-
-      if (pathname === "/dashboard" && (method === "GET" || method === "HEAD")) {
-        // The post-login app home, gated to a signed-in user: anonymous bounces to sign in,
-        // remembering /dashboard as return_to.
-        if (!user) { res.writeHead(303, { location: loginRedirect(ctx) }).end(); return; }
-        // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
-        if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-        // A plugin may fully own the dashboard: render its handler against its own views, native
-        // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
-        if (dashboardPlugin) {
-          const dashCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) });
-          const result = (await dashboardPlugin.dashboard(dashCtx)) ?? null;
-          if (anyResponseHooks) await runResponseHooks(plugins, dashCtx, result);
-          await sendResult(res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
-          return;
-        }
-        // The one global menu (ctx.chrome.nav) + branding/override from config/menu.ts.
-        sendHtml(res, 200, await render("index", { model: buildDashboardModel({ csrfToken: csrf.token, menu, nav: ctx.chrome.nav, user }) }));
+      // Built-in endpoints (the auth/OAuth2 group, the landing slots, /error) from the internal
+      // route table — same handler shape as plugin routes; a `view` result renders the core views,
+      // null means the handler wrote to ctx.res itself.
+      const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
+      if (builtin) {
+        await sendResult(res, await builtin.handler(ctx, csrfMint), render);
         return;
       }
 
