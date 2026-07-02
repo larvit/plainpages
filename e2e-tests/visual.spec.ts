@@ -25,7 +25,7 @@ function devSession(roles: string[] = []): string {
 test.beforeAll(async () => { await mkdir(SHOTS, { recursive: true }); });
 
 // The dashboard is gated: a page navigation needs a session. Plant one per test — a plain
-// member (no roles) so the gated scheduling/admin nav stays filtered out.
+// member (no roles) so the gated scheduling nav stays filtered out.
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });

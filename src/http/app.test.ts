@@ -21,8 +21,14 @@ import { KratosError, type Flow, type FlowType, type KratosPublic, type Session,
 import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
+import adminManifest from "../../examples/plugins/admin/plugin.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
+// The admin screens ship as a drop-in example plugin; the HTTP-level admin tests mount it via
+// createApp (with stub Ory clients on ctx.system + views from examples/plugins) exactly as an
+// operator would after copying it into plugins/.
+const examplesPluginsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples", "plugins");
+const adminPlugin: Plugin = { ...adminManifest, id: "admin" };
 
 // A session JWT signed with a throwaway test key — the verify path. Wired into the shared
 // `server` (and the per-test apps) so a request can present a valid session; the dashboard and the
@@ -532,10 +538,11 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   assert.equal(noCookie.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
   assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
 
-  // The dashboard wires in the permission-gated Admin section: an admin's roles surface the links;
-  // anonymous is bounced to sign in before any page renders (gate on /dashboard).
-  const admin = await fetch(url + "/dashboard", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}` } });
-  assert.match(await admin.text(), /href="\/admin\/users"/);
+  // The gated dashboard renders for any signed-in user; anonymous is bounced to sign in before any
+  // page renders (gate on /dashboard). The Admin section links come from the admin plugin — its nav
+  // composition + role-filtering is covered in the admin-screen tests below.
+  const dash = await fetch(url + "/dashboard", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}` } });
+  assert.equal(dash.status, 200);
   const anonDash = await fetch(url + "/dashboard", { redirect: "manual" });
   assert.equal(anonDash.status, 303);
   assert.equal(anonDash.headers.get("location"), "/login?return_to=%2Fdashboard");
@@ -852,7 +859,7 @@ const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockK
 // CSRF cookie. get(path, roles)/post(path, body) carry them; `token` is the matching CSRF field.
 const ADMIN_CSRF = "admin-secret";
 async function adminHarness(t: TestContext, opts: AppOptions = {}) {
-  const app = createApp({ csrfSecret: ADMIN_CSRF, jwks: staticJwks([ecJwk]), ...opts });
+  const app = createApp({ csrfSecret: ADMIN_CSRF, jwks: staticJwks([ecJwk]), pluginsDir: examplesPluginsDir, plugins: [adminPlugin], ...opts });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
@@ -1093,6 +1100,11 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
 
   await assertAdminGate(url, get, "/admin/users");
 
+  // Nav: the admin plugin's section composes into the one global menu for an admin, and is filtered
+  // out for a signed-in non-admin (the gate on the section header) — proving the drop-in nav fragment.
+  assert.match(await (await get("/dashboard")).text(), /href="\/admin\/users"/);
+  assert.doesNotMatch(await (await get("/dashboard", ["scheduling:read"])).text(), /href="\/admin\/users"/);
+
   // List: the admin sees the rows + the "add" link; the status filter narrows server-side.
   const listHtml = await (await get("/admin/users")).text();
   assert.match(listHtml, /ada@example\.com/);
@@ -1110,6 +1122,11 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   const before = store.length;
   assert.equal((await post("/admin/users", "email=x%40y.z")).status, 403);
   assert.equal(store.length, before);
+
+  // CSRF also guards a POST to an *existing* target (the per-route :id handlers), not just the
+  // collection: a delete with no token is refused (403) and removes nothing.
+  assert.equal((await post(`/admin/users/${store[1]!.id}/delete`, "")).status, 403);
+  assert.ok(store.some((x) => x.id === store[1]!.id));
 
   // Edit: email is read-only + prefilled; a post rewrites the name.
   const target = store[0]!;

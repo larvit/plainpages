@@ -10,7 +10,7 @@ What it demonstrates:
   service and renders the rows with the core building blocks (`shifts.ejs` → app shell, filter-bar,
   data-table). Search round-trips the URL; zero-JS. (It fetches **all** rows for brevity — for a
   large list, parse `page`/`pageSize` from `parseListQuery`, forward them upstream as a `?limit`/
-  `?offset`, and render `pagination.ejs` with `paginate()`, exactly as the built-in admin screens do.)
+  `?offset`, and render `pagination.ejs` with `paginate()`, exactly as the admin example plugin does.)
 - **A form that forwards a write upstream** — `GET /scheduling/shifts/new` renders the form,
   `POST /scheduling/shifts` CSRF-verifies it (`ctx.verifyCsrf`) and forwards the create upstream,
   then POST-redirect-GET. The form body lives in the plugin's own `views/partials/shift-form.ejs`,

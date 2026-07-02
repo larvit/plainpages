@@ -1,0 +1,21 @@
+<%#
+  Roles admin list: the same building blocks as the Groups screen, around the shell, backed
+  by live Keto Role subject sets (admin-roles.ts). Filter/sort/page round-trip the URL.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const filters = include("partials/filter-bar", model.filterBar);
+  const table = include("partials/data-table", model.table);
+  const pager = include("partials/pagination", model.pagination);
+  const actions = '<a class="btn btn-primary" href="/admin/roles/new"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add role</a>';
+-%>
+<%- include("partials/shell", {
+  actions,
+  body: filters + table + pager,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

@@ -40,7 +40,6 @@ test("discovers each folder's manifest, sorted, id derived from the folder name"
 const badCases: Array<{ name: string; files: Record<string, string>; match: RegExp }> = [
   { name: "invalid folder name", files: { "Bad_Name/plugin.ts": full("x") }, match: /Bad_Name/ },
   { name: "reserved id shadows a host route", files: { "login/plugin.ts": full("login") }, match: /login.*reserved/s },
-  { name: "reserved admin id shadows the admin screens", files: { "admin/plugin.ts": full("admin") }, match: /admin.*reserved/s },
   { name: "reserved oauth2 id shadows the provider routes", files: { "oauth2/plugin.ts": full("oauth2") }, match: /oauth2.*reserved/s },
   { name: "missing plugin.ts", files: { "broken/readme.txt": "x" }, match: /broken.*plugin\.ts/s },
   { name: "no default export", files: { "named-only/plugin.ts": "export const x = 1;" }, match: /named-only.*default/s },
@@ -69,6 +68,13 @@ test("a route + nav node may be marked public and load fine", async (t) => {
   assert.equal(plugins.length, 1);
   assert.equal(plugins[0]?.routes?.[0]?.public, true);
   assert.equal(plugins[0]?.nav?.[0]?.public, true);
+});
+
+test("`admin` is not reserved — the admin screens ship as a drop-in plugin mounted at /admin", async (t) => {
+  const dir = scaffold(t, { "admin/plugin.ts": full("admin") });
+  const plugins = await discoverPlugins({ dir });
+  assert.equal(plugins.length, 1);
+  assert.equal(plugins[0]?.id, "admin");
 });
 
 test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers", async (t) => {

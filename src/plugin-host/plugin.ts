@@ -89,12 +89,13 @@ export function isValidPluginId(id: string): boolean {
 }
 
 // Ids the host reserves for its own first-party mount segments (the gated /dashboard, the auth flows,
-// /auth/complete, /logout, the /admin screens, the /oauth2 provider routes, the /public/ static).
-// Plugin routes resolve before these, so a folder named one of them would silently shadow a
-// built-in route — discovery refuses it, loud like any conflict. ("/" is owned by the `home` field,
-// not a route, so it can't be shadowed and needs no reservation.)
+// /auth/complete, /logout, the /oauth2 provider routes, the /public/ static). Plugin routes resolve
+// before these, so a folder named one of them would silently shadow a built-in route — discovery
+// refuses it, loud like any conflict. ("/" is owned by the `home` field, not a route, so it can't be
+// shadowed and needs no reservation.) Note `admin` is NOT reserved: the admin screens ship as a
+// drop-in plugin (examples/plugins/admin, mounted at /admin), not a built-in route.
 export const RESERVED_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  "admin", "auth", "dashboard", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
+  "auth", "dashboard", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
 ]);
 
 export interface Semver {

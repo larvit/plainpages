@@ -45,12 +45,14 @@ Intentional, reasoned choices — an architecture review should honor them, not 
 them. Revisit only if the stated reason stops holding.
 
 - **`src/` is grouped by concern**, not flat — `http/` (request pipeline), `auth/`
-  (session-JWT hot path, guards, and the Ory REST clients), `admin/` (built-in screens),
-  `plugin-host/` (discovery/router/hooks/view-resolver + the `plugin-api.ts` author barrel),
-  and `ui/` (design-system view-models + menu/chrome); `server.ts`/`config.ts`/`logger.ts`
-  and the topology-guard `*.test.ts` stay at the root. Tests are co-located (`foo.test.ts`
-  beside `foo.ts`). Add a new module to the folder that owns its concern rather than to the
-  root; don't reintroduce a flat tree.
+  (session-JWT hot path, guards, and the Ory REST clients), `plugin-host/`
+  (discovery/router/hooks/view-resolver + the `plugin-api.ts` author barrel + `system.ts`, the
+  `ctx.system` capability surface), and `ui/` (design-system view-models + menu/chrome);
+  `server.ts`/`config.ts`/`logger.ts` and the topology-guard `*.test.ts` stay at the root. Tests
+  are co-located (`foo.test.ts` beside `foo.ts`). Add a new module to the folder that owns its
+  concern rather than to the root; don't reintroduce a flat tree. The core ships **no domain
+  screens** — even the admin GUI (users/groups/roles) is a drop-in plugin (`examples/plugins/admin/`),
+  not `src/` code.
 - **`ctx.chrome` is lazily memoized — do not make it unconditional** or move it into the
   base request context. It protects the I/O-free hot path on the public, bot-hit landing
   (`/`). (Declined twice.)
@@ -62,6 +64,10 @@ them. Revisit only if the stated reason stops holding.
   relative `../../src/*` path. These two barrels are the whole author/operator contract
   surface; the `src/*` behind them may be refactored freely. Depth-independent and
   refactor-stable by design — don't "fix" a `#`-import back to a relative path.
+  **One caveat:** `#plugin-api` re-exports the Ory client types for the `ctx.system` surface
+  (`KratosAdmin`/`KetoClient`/`HydraAdmin` + their DTOs and error classes). Those shapes are
+  therefore **contract-visible** — changing them is a plugin-API break needing a major
+  `apiVersion` bump, not a free refactor. Keep the Ory clients stable, or bump the version.
 - **A plugin/config folder must stay a plain folder — no `package.json` of its own.** Node
   resolves `#`-specifiers against the nearest parent `package.json`; a `package.json` inside
   the folder becomes its own scope and `#plugin-api`/`#menu-config` stop resolving. Accepted
@@ -131,6 +137,12 @@ one home, linking to it rather than restating (credentials, env vars, rotation s
   plugin was built against — bumped by hand on rebuild, **never** the host's
   `HOST_API_VERSION` constant. Importing the constant makes every plugin always equal the
   host, so `checkApiVersion` can never fire and a breaking change slips through silently.
+- **Plugin route handlers are thin and per-route, keyed on `ctx.params`.** Register one handler
+  per `{method, path}` in the manifest (the host extracts `:id`/`:name` and 404s malformed
+  `%`-encoding — no manual path-slicing/decoding). Don't funnel many routes into one dispatcher
+  that re-parses `ctx.url.pathname`: it duplicates the URL shape, ignores the router's params, and
+  has to re-handle HEAD. Factor shared per-request setup (auth gate, `ctx.system` capability
+  resolution, target fetch) into a small `withX` wrapper — see `examples/plugins/admin/`.
 - Run the stability reviewer agent after every implementation of something that can be like
   a PR. That includes any change pushed directly to master.
   Skip this if the changes are purely documentation and/or comments.

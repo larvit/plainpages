@@ -1,0 +1,21 @@
+<%#
+  Users admin list: the same building blocks as the dashboard, around the shell, but
+  backed by live Kratos identities (admin-users.ts). Filter/sort/page all round-trip the URL.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const filters = include("partials/filter-bar", model.filterBar);
+  const table = include("partials/data-table", model.table);
+  const pager = include("partials/pagination", model.pagination);
+  const actions = '<a class="btn btn-primary" href="/admin/users/new"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add user</a>';
+-%>
+<%- include("partials/shell", {
+  actions,
+  body: filters + table + pager,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

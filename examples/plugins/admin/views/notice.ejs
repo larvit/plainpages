@@ -1,0 +1,17 @@
+<%#
+  Admin notice page — a single message in the app shell, reused for not-found (404) and
+  capability-unavailable (503). The shell renders `title` as the page <h1>; the body is one line.
+  Data: chrome, title, message.
+%><%
+  const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/notice-body", { message });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  csrfToken: chrome.csrfToken,
+  nav: navHtml,
+  theme: chrome.theme,
+  title,
+  user: chrome.user,
+}) %>

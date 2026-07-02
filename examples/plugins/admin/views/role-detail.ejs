@@ -1,0 +1,16 @@
+<%#
+  Role admin detail page: the role-detail body (members · effective access) in the shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/role-detail-body", { add: model.add, csrfToken: model.csrfToken, del: model.delete, effective: model.effective, error: model.error, members: model.members, role: model.role });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

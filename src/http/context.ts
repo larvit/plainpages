@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PageChrome } from "../ui/chrome.ts"; // type-only: no runtime import, so no cycle
+import type { SystemCapabilities } from "../plugin-host/system.ts"; // type-only
 import { createLogger, type Log } from "../logger.ts";
 
 // The request context threaded to every route handler (plugin + built-in), built once
@@ -27,6 +28,9 @@ export interface RequestContext {
   req: IncomingMessage;
   res: ServerResponse;
   roles: string[]; // user?.roles ?? [] — coarse gate without a null-check
+  // Privileged host services (Ory admin clients + instant-revoke) for a system plugin. Undefined
+  // unless the host wired them; every field optional. Ordinary domain plugins ignore it.
+  system?: SystemCapabilities;
   url: URL;
   user: User | null;
   // Gate a first-party form submission: true iff `submitted` matches this request's signed CSRF
@@ -41,6 +45,7 @@ export interface BuildContextOptions {
   chrome?: () => PageChrome;
   log?: Log;
   params?: Record<string, string>;
+  system?: SystemCapabilities;
   user?: User | null;
   verifyCsrf?: (submitted: string | null | undefined) => boolean;
 }
@@ -68,6 +73,7 @@ export function buildContext(
     req,
     res,
     roles: user?.roles ?? [],
+    ...(options.system ? { system: options.system } : {}),
     url,
     user,
     verifyCsrf: options.verifyCsrf ?? (() => false), // fail-closed unless the host binds the secret

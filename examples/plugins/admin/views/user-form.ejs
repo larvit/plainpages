@@ -1,0 +1,16 @@
+<%#
+  Users admin create/edit page: the user-form body captured into the app shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/user-form-body", { edit: model.edit, error: model.error, form: model.form, recovery: model.recovery });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

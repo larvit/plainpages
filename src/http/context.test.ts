@@ -46,6 +46,14 @@ test("buildContext defaults a missing request URL to /", () => {
   assert.equal(buildContext(req, res).url.pathname, "/");
 });
 
+test("buildContext exposes ctx.system only when the host supplies it (else undefined)", () => {
+  const { req, res } = reqRes("/admin/users");
+  assert.equal(buildContext(req, res).system, undefined); // absent by default — a plugin must degrade
+  const revoke = (): void => {};
+  const system = { revoke };
+  assert.equal(buildContext(req, res, { system }).system, system); // threaded through unchanged
+});
+
 test("buildContext provides a logger: a silent default, or the host's request logger", () => {
   const { req, res } = reqRes("/");
   assert.equal(typeof buildContext(req, res).log.info, "function"); // always present (silent default)

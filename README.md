@@ -23,7 +23,18 @@ docker compose up -d        # http://localhost:3000, live-reloads on source chan
 **2. Sign in.** Open <http://localhost:3000> and sign in as the seeded admin —
 **`admin@plainpages.local` / `admin`**.
 
-**3. Add your first plugin.** The clone is bind-mounted into the container, so a new
+**3. Enable user & group admin (optional).** The core ships **no admin GUI** — the Users / Groups
+/ Roles / OAuth2-clients screens are a drop-in plugin. Copy it in to mount them at `/admin/*`:
+
+```bash
+cp -r examples/plugins/admin plugins/admin
+docker compose restart web
+```
+
+The seeded admin already holds the `admin` role, so the **Admin** section now shows in the menu.
+See [`examples/plugins/admin/`](examples/plugins/admin/).
+
+**4. Add your first plugin.** The clone is bind-mounted into the container, so a new
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
 
 ```ts
@@ -60,6 +71,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [routes & handlers](#routes--handlers)
   - [landing pages](#the-landing-pages-home--dashboard)
   - [RequestContext](#requestcontext)
+  - [system capabilities (ctx.system)](#system-capabilities-the-ctxsystem-surface)
   - [nav & permissions](#nav--permissions)
   - [versioning](#contract-versioning)
   - [conflict rules](#conflict-rules)
@@ -97,8 +109,9 @@ sessions, and access control — and stays out of your domain logic. **Any page 
 or gated**, so the same foundation serves a purely public site, a fully locked-down internal
 tool, or the common middle: a public front with an authenticated area behind it. Its **sweet
 spot** is the **back-office and operational tooling** you'd otherwise hand-roll for the tenth
-time, but nothing ties it to internal-only use. The only screens it ships itself are the ones
-for running the system: **users, groups, and permissions**. Everything else is a plugin.
+time, but nothing ties it to internal-only use. The core itself ships **no domain screens at
+all** — even the screens for running the system (**users, groups, permissions**) are a **drop-in
+plugin** you opt into ([`examples/plugins/admin/`](examples/plugins/admin/)). Everything is a plugin.
 
 **Who it's for.** Experienced developers building server-rendered web products — back-office
 and operational tools, dashboards, portals, or public sites with a gated area — for their own
@@ -110,11 +123,15 @@ obvious rather than surprising, you're the audience.
 
 **Included vs. what you add.**
 
-- **Included:** themed sign-in / register / reset (Kratos-backed), and the admin screens
-  for **users, groups, permissions** (users via Kratos, the relationship graph via Keto).
-- **You add:** everything domain-specific, as **plugins** — a list page, a form, a
-  scheduler, a register, a dashboard — built from the same building blocks the built-in
-  screens use.
+- **Included in the core:** themed sign-in / register / reset (Kratos-backed), the design
+  system + app shell, the config-driven menu, sessions, and access control. No domain screens.
+- **Opt-in admin plugin:** the **users, groups, roles, and OAuth2-clients** screens (users via
+  Kratos, the relationship graph via Keto, OAuth2 clients via Hydra) ship as
+  [`examples/plugins/admin/`](examples/plugins/admin/) — copy it into `plugins/` to get a GUI for
+  user & group admin. It's an ordinary plugin, using the privileged
+  [`ctx.system`](#system-capabilities-the-ctxsystem-surface) surface to reach Ory.
+- **You add:** everything else domain-specific, as **plugins** — a list page, a form, a
+  scheduler, a register, a dashboard — built from the same building blocks the admin plugin uses.
 
 **Priorities (unchanged from day one):** **simplicity, few dependencies, strict
 TypeScript, no build step, Docker-only, environment-agnostic** (no `NODE_ENV` — every
@@ -218,9 +235,10 @@ convention) its nav/permission tokens.
 
 A handful of ids are **reserved** for the host's own first-party mounts — the gated `dashboard`, the
 Kratos auth flows (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`),
-the `admin` screens, the `oauth2` provider routes, and `public` (static). Since plugin routes resolve
-first, a folder claiming one would silently shadow a built-in route, so discovery refuses it loud
-(`RESERVED_PLUGIN_IDS`). (`/` is owned by the `home` field, not a route, so it needs no reservation.)
+the `oauth2` provider routes, and `public` (static). Since plugin routes resolve first, a folder
+claiming one would silently shadow a built-in route, so discovery refuses it loud
+(`RESERVED_PLUGIN_IDS`). (`/` is owned by the `home` field, not a route, so it needs no reservation;
+`admin` is **not** reserved — the admin screens are themselves a drop-in plugin mounted at `/admin`.)
 
 Installing a plugin is "drop the folder, restart." Removing one is "delete the folder, restart."
 Nothing else references it; the operator stays in control through the central menu override
@@ -288,7 +306,7 @@ mount path `/<id>`** (so `path: "/:id"` in the `things` plugin serves `/things/:
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
 runs the `permission` gate (a coarse JWT-claim check — see [Nav & permissions](#nav--permissions)),
 and only then calls the handler with the [request context](#requestcontext). When the gate fails, an
-**anonymous** visitor is redirected to `/login` to sign in (same as the built-in admin screens); the
+**anonymous** visitor is redirected to `/login` to sign in; the
 requested page is preserved as `return_to`, so after signing in they land **back on the page they
 asked for**, not the dashboard. A **signed-in** user who simply lacks the role gets the **403** page.
 A route marked **`public: true`** has no gate at all — anyone reaches it (see [Public pages & menu
@@ -328,7 +346,7 @@ export async function listThings(ctx: RequestContext) {
 - **`view`** resolves against the plugin's own `views/` (`src/plugin-host/view-resolver.ts`) — nested names
   like `"things/edit"` work, and an out-of-bounds name is refused. The template may `include()`
   the core building-block partials (app shell, nav tree, data table, …) and its own
-  partials/subfolders to render a full page — exactly as the built-in screens do. To load the
+  partials/subfolders to render a full page — exactly as the admin plugin's screens do. To load the
   plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
   extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
 - **Finer authorization than the route `permission`** uses the guards from `#plugin-api`:
@@ -412,6 +430,7 @@ interface RequestContext {
   req: IncomingMessage;
   res: ServerResponse;
   roles: string[];                   // user?.roles ?? [] — coarse gate without a null-check
+  system?: SystemCapabilities;       // privileged Ory clients + instant-revoke, for a system plugin (see below); undefined unless the host wired them
   url: URL;
   user: User | null;                 // { id, email, roles } from the verified session JWT, or null
   verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
@@ -420,9 +439,10 @@ interface RequestContext {
 
 **`ctx.chrome`** is the page chrome the host builds per request — `{ brand, csrfToken, nav, signInHref,
 theme, user }`. Hand it to `partials/shell` so a `view` result renders the **native app shell** (the same
-sidebar, branding, theme switch and signed-in profile as the built-in screens); `chrome.nav` is the
-global menu — your plugin's nav fragment plus the others and the admin section — already composed,
-role-filtered, and current-marked for this request (the gated **Dashboard** link is omitted for an
+sidebar, branding, theme switch and signed-in profile every page uses); `chrome.nav` is the
+global menu — your plugin's nav fragment plus every other installed plugin's (the admin section among
+them, when that plugin is present) — already composed, role-filtered, and current-marked for this
+request (the gated **Dashboard** link is omitted for an
 anonymous visitor). `chrome.signInHref` is where the shell's anonymous **Sign in** link points — the
 current page baked in as `return_to`. Map each `chrome.*` to the matching `partials/shell` local —
 `brand`, `csrfToken`, `nav` (the rendered nav-tree), `signInHref`, `theme`, `user` — exactly as the
@@ -432,7 +452,7 @@ state-changing form: render `chrome.csrfToken` in a hidden `_csrf` field, then o
 body and `if (!ctx.verifyCsrf(form.get("_csrf"))) throw new GuardError(403, …)`. The host owns the
 secret and sets the cookie; the plugin never touches it. (See the reference: `examples/plugins/scheduling/`.)
 
-The same shell renders **every** page (the dashboard, the admin screens, your plugin pages, and the
+The same shell renders **every** page (the dashboard, your plugin pages — the admin plugin's included, and the
 login/registration/front pages), so the menu looks identical signed in or out — it just role-filters.
 A page that wants a focused, chrome-free layout passes **`menu: false`** to `partials/shell` (drops the
 sidebar, single column); everything else still renders.
@@ -452,6 +472,36 @@ across a major `apiVersion`. New fields may be **added** within a major version 
 breaking). `req`/`res` are the raw Node objects and the full escape hatch; reading them is fine,
 but prefer the typed fields so a handler keeps working as the host evolves. `user`/`roles` come
 from the JWT middleware and are `null`/`[]` until a session exists.
+
+### System capabilities (the `ctx.system` surface)
+
+Most plugins fetch their own data from an upstream service they configure ([the scheduling
+reference](examples/plugins/scheduling/) points `SCHEDULING_UPSTREAM` at its backend). A **system
+plugin** — one that administers *Plainpages' own* identity stack rather than a domain service —
+needs the host's Ory admin clients and the instant-revoke hook instead. The host exposes those on
+**`ctx.system`**, and re-exports the client types + their error classes from `#plugin-api`:
+
+```ts
+interface SystemCapabilities {          // every field optional — present only when the host wired it
+  hydra?: HydraAdmin;                   // OAuth2 client admin (register/list/delete Hydra clients)
+  keto?: KetoClient;                    // relationship read/write (groups, roles)
+  kratosAdmin?: KratosAdmin;            // identity admin (create/edit/deactivate/delete users)
+  revoke?: (sub: string) => void;       // instant-revoke a subject's live tokens (needs the denylist)
+}
+```
+
+`ctx.system` is **`undefined` unless the host wired at least one** of these (Kratos/Keto configured,
+Hydra configured, the [revocation denylist](#instant-revoke-the-optional-denylist) enabled). A system
+plugin treats every field as optional and **degrades when absent** — the host never fails a request
+over it. The built-in **admin plugin** ([`examples/plugins/admin/`](examples/plugins/admin/)) is the
+reference consumer: its Users screen uses `ctx.system.kratosAdmin`, Groups/Roles use `ctx.system.keto`,
+OAuth2 clients use `ctx.system.hydra`, and a deactivate/delete or user role-change calls
+`ctx.system.revoke` so the change lands now instead of after the JWT TTL; where a capability is missing
+the screen renders a themed 503.
+
+This is a **privileged** surface — it hands a plugin the keys to identity and permissions. It's meant
+for first-party system plugins you author or vendor, the same trust level as any plugin (the host
+doesn't sandbox — [crash-isolation is a non-goal](#overview)). An ordinary domain plugin ignores it.
 
 ### Nav & permissions
 
@@ -670,8 +720,8 @@ the sidebar brand shows the configured logo (else a default mark), and the theme
 theme-switch default.
 
 **One menu, one shell, everywhere.** There is a single menu (`src/ui/chrome.ts`
-`buildPluginChrome`), rendered by the same app shell on **every** page — the dashboard, the
-admin screens, plugin pages, and the login / registration / recovery / front (`/`) pages.
+`buildPluginChrome`), rendered by the same app shell on **every** page — the dashboard, plugin
+pages (the admin plugin's screens included), and the login / registration / recovery / front (`/`) pages.
 So it looks identical signed in or out; it just shows fewer items to an anonymous visitor
 (only `public` ones, plus a Sign-in link), filtered by the same per-user rule. The sidebar
 collapses to a burger on a narrow screen. A page that wants a focused, chrome-free layout
@@ -936,11 +986,11 @@ claims (email, name) come from the Kratos identity. RP-initiated **logout** is w
 resumes to Hydra's post-logout redirect — the first-party `POST /logout` still owns ending
 the Kratos session + our JWT cookie.
 
-Those clients are registered from the admin **OAuth2 clients** screen (`/admin/clients`,
-`src/admin/admin-clients.ts`): register (Hydra shows the generated `client_secret` **once**, on
-the confirmation page — confidential clients), list, and delete. Confidential vs public
-(PKCE) and the first-party auto-consent flag are set at registration; writes go only to
-Hydra.
+Those clients are registered from the admin plugin's **OAuth2 clients** screen (`/admin/clients`,
+`examples/plugins/admin/admin-clients.ts`, when that plugin is installed): register (Hydra shows the
+generated `client_secret` **once**, on the confirmation page — confidential clients), list, and
+delete. Confidential vs public (PKCE) and the first-party auto-consent flag are set at registration;
+writes go only to Hydra.
 
 ## Email
 
@@ -1296,16 +1346,10 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     hydra-admin.ts    createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD
     fetch-timeout.ts  withTimeout(): bound every outbound Ory call — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
 
-  admin/              Built-in admin screens — the only domain screens plainpages ships
-    admin-users.ts    Users: list Kratos identities (filter/sort/paginate) + create/edit/deactivate/delete/recovery; gated + CSRF-guarded
-    admin-groups.ts   Groups: list Keto subject sets + create/delete + membership (add/remove users & nested groups); writes only to Keto, gated + CSRF-guarded
-    admin-roles.ts    Roles: list/create/delete Keto roles + assign to users/groups + "effective access" (Keto expand → transitive members); reuses the Groups membership helpers, writes only to Keto, gated + CSRF-guarded
-    admin-clients.ts  OAuth2 clients: list/register/delete Hydra OAuth2 clients (apps that log in through us); register shows the one-time client_secret; writes only to Hydra, gated + CSRF-guarded
-    admin-nav.ts      adminSection(): the permission-gated "Admin" menu section (Users · Groups · Roles · OAuth2 clients), wired into the global dashboard menu + the in-screen admin nav (adminNav) so they can't drift
-
   plugin-host/        Plugin discovery, routing, hooks, view resolution + the stable author barrel
     plugin.ts         Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()
-    plugin-api.ts     Stable plugin author barrel — the one module a plugin imports, as `#plugin-api` (definePlugin, ctx/result types, guards, body/CSRF/list-query helpers)
+    plugin-api.ts     Stable plugin author barrel — the one module a plugin imports, as `#plugin-api` (definePlugin, ctx/result types, guards, body/CSRF/list-query/paginate helpers, and the ctx.system Ory client types)
+    system.ts         SystemCapabilities: the privileged ctx.system surface (Ory admin clients + instant-revoke) a system plugin uses; the host populates it from the wired clients, the admin plugin consumes it
     discovery.ts      discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
     router.ts         matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
     hooks.ts          runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
@@ -1313,7 +1357,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
 
   ui/                 Design-system view-models + menu/chrome — the building blocks pages render from
     chrome.ts         buildPluginChrome(): the one global menu + brand/user/theme/csrf every page renders the shell from (unified across all pages) — exposed on ctx.chrome
-    shell-context.ts  buildShellContext(): brand/theme/user view-model shared by the dashboard + admin screens (real signed-in user, no demo profile)
+    shell-context.ts  buildShellContext(): brand/theme/user view-model for the dashboard shell (real signed-in user, no demo profile)
     dashboard.ts      buildDashboardModel(): the gated "/dashboard" app home — a short instructional starter (replace it with a plugin `dashboard` handler); "/" is the public landing (a plugin `home` handler). Both render the one unified menu (ctx.chrome)
     nav.ts            composeNav(): merge plugin nav fragments + central override, role-filter → nav-tree model
     menu-config.ts    loadMenuConfig()/defineMenu(): read config/menu.ts (central override + branding, imported as `#menu-config`), validated at boot
@@ -1321,12 +1365,12 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     list-query.ts     parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
     paginate.ts       paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 
-views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), admin/ (Users/Groups/Roles/Clients lists + create/edit/detail + delete-confirm), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent/admin bodies, menu/popover, theme switch, icon sprite)
+views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Roles/Clients + confirm bodies)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
-plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the reference example onto /app/plugins/scheduling
-examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav — copied into plugins/) and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the plugin reads/writes (stand-in for your real service)
+plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
+examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 ```

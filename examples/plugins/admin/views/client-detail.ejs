@@ -1,0 +1,17 @@
+<%#
+  OAuth2 client detail page: the client-detail body (info · one-time secret · delete) in the
+  shell. Doubles as the post-register page when `created`/`secret` are set.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/client-detail-body", { client: model.client, created: model.created, csrfToken: chrome.csrfToken, del: model.delete, secret: model.secret });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

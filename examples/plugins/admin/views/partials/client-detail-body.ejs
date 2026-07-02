@@ -1,0 +1,38 @@
+<%#
+  Admin OAuth2 client detail body, captured into the shell content slot. Config:
+    client  { firstParty, id, name, public, redirectUris[], scopes[] }
+    created bool        just registered → success banner
+    secret? string      one-time client secret (confidential clients), shown once right after create
+    del     { action }  delete the client
+    csrfToken
+%><%
+  const c = locals.client;
+  const del = locals.del;
+-%>
+<div class="form-page">
+<% if (locals.created) { -%>
+<%- include("partials/alert", { text: "Client registered.", tone: "pos" }) %>
+<% } -%>
+<% if (locals.secret) { -%>
+  <section class="form-card" aria-labelledby="secret-h">
+    <h2 class="card-title" id="secret-h">Client secret</h2>
+    <p class="field-hint">Copy these now — the secret can't be shown again. Store them where the app reads its credentials.</p>
+    <div class="field"><label for="cid">Client ID</label><input class="input" id="cid" type="text" value="<%= c.id %>" readonly></div>
+    <div class="field"><label for="csecret">Client secret</label><input class="input" id="csecret" type="text" value="<%= locals.secret %>" readonly></div>
+  </section>
+<% } -%>
+  <section class="form-card" aria-labelledby="client-h">
+    <h2 class="card-title" id="client-h"><%= c.name %></h2>
+    <dl class="detail-list">
+      <dt>Client ID</dt><dd><%= c.id %></dd>
+      <dt>Type</dt><dd><%= c.public ? "Public (PKCE)" : "Confidential" %></dd>
+      <dt>Consent</dt><dd><%= c.firstParty ? "First-party (auto-granted)" : "Shows the consent screen" %></dd>
+      <dt>Scopes</dt><dd><%= c.scopes.length ? c.scopes.join(" ") : "—" %></dd>
+      <dt>Redirect URIs</dt><dd><% if (c.redirectUris.length) { %><ul class="plain-list"><% c.redirectUris.forEach((u) => { %><li><%= u %></li><% }) %></ul><% } else { %>—<% } %></dd>
+    </dl>
+  </section>
+  <section class="form-card admin-actions" aria-label="Client actions">
+    <p class="field-hint">To change a client, delete and re-register — this issues a new client ID and secret. The secret is shown only once, at registration.</p>
+    <a class="btn btn-danger" href="<%= del.action %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete client</a>
+  </section>
+</div>

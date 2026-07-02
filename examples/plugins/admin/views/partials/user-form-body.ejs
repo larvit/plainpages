@@ -1,0 +1,36 @@
+<%#
+  Admin user create/edit form body, captured into the shell content slot. Config:
+    form  { action, csrfToken, submitLabel, cancelHref, fields: field.ejs config[] }
+    edit? { nextLabel, stateAction, recoveryAction, deleteAction }   (edit mode only)
+    recovery? { code? }   shown after a recovery code is generated (recovery is code-based)
+    error?   string              shown when a write was rejected
+%><%
+  const form = locals.form;
+  const edit = locals.edit;
+  const recovery = locals.recovery;
+-%>
+<div class="form-page">
+<% if (locals.error) { -%>
+<%- include("partials/alert", { text: locals.error, tone: "neg" }) %>
+<% } -%>
+<% if (recovery) { -%>
+  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong>Recovery code generated</strong><span>Give it to the user — they enter it on the <a href="/recovery">password-reset screen</a> to set a new password (generate a fresh one if it has expired).</span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
+<% } -%>
+  <form class="form-card" method="post" action="<%= form.action %>">
+    <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
+<% form.fields.forEach((field) => { -%>
+    <%- include("partials/field", field) %>
+<% }) -%>
+    <div class="form-actions">
+      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
+    </div>
+  </form>
+<% if (edit) { -%>
+  <section class="form-card admin-actions" aria-label="Account actions">
+    <form method="post" action="<%= edit.recoveryAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-mail"/></svg>Generate recovery code</button></form>
+    <form method="post" action="<%= edit.stateAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><%= edit.nextLabel %></button></form>
+    <a class="btn btn-danger" href="<%= edit.deleteAction %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete user</a>
+  </section>
+<% } -%>
+</div>

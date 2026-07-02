@@ -1,0 +1,16 @@
+<%#
+  OAuth2 client register page: the client-form body captured into the app shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/client-form-body", { error: model.error, form: model.form });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

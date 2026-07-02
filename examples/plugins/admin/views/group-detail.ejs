@@ -1,0 +1,16 @@
+<%#
+  Group admin detail / membership page: the group-detail body in the app shell.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  const body = include("partials/group-detail-body", { add: model.add, csrfToken: model.csrfToken, del: model.delete, error: model.error, group: model.group, members: model.members });
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

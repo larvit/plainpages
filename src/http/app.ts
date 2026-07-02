@@ -3,11 +3,6 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ejs from "ejs";
-import { ADMIN_CLIENTS_BASE, ADMIN_GROUPS_BASE, ADMIN_ROLES_BASE, ADMIN_USERS_BASE } from "../admin/admin-nav.ts";
-import { type AdminClientsDeps, handleAdminClients } from "../admin/admin-clients.ts";
-import { type AdminGroupsDeps, handleAdminGroups } from "../admin/admin-groups.ts";
-import { type AdminRolesDeps, handleAdminRoles } from "../admin/admin-roles.ts";
-import { type AdminUsersDeps, handleAdminUsers } from "../admin/admin-users.ts";
 import { readFormBody } from "./body.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type User } from "./context.ts";
@@ -30,6 +25,7 @@ import { resolveLoginChallenge } from "../auth/oauth-login.ts";
 import { acceptConsent, rejectConsent, resolveConsentChallenge } from "../auth/oauth-consent.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import type { Plugin, RouteHandler, RouteResult } from "../plugin-host/plugin.ts";
+import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
@@ -80,6 +76,12 @@ export function createApp(options: AppOptions = {}): Server {
   const keto = options.keto;
   const kratos = options.kratos;
   const kratosAdmin = options.kratosAdmin;
+  // Privileged host services handed to a system plugin via ctx.system — the Ory admin clients and
+  // the instant-revoke hook. Only the wired capabilities are present; with none wired ctx.system
+  // stays undefined, so an ordinary deployment (no Ory, hence no system plugin) pays nothing.
+  const system: SystemCapabilities | undefined = kratosAdmin || keto || hydra || revoke
+    ? { ...(hydra ? { hydra } : {}), ...(keto ? { keto } : {}), ...(kratosAdmin ? { kratosAdmin } : {}), ...(revoke ? { revoke } : {}) }
+    : undefined;
   // Silent default so unit/integration tests stay quiet; server.ts injects the configured logger.
   const log = options.log ?? createLogger({ level: "none" });
   const menu = options.menu ?? DEFAULT_MENU;
@@ -99,23 +101,14 @@ export function createApp(options: AppOptions = {}): Server {
   // Response security headers, fixed at boot (only HSTS depends on the https deployment signal).
   const secHeaderEntries = Object.entries(securityHeaders({ secure: secureCookies }));
 
-  // `views: [viewsDir]` lets a view in a subfolder (e.g. admin/users.ejs) include() the shared
-  // partials/ by the same root-relative name top-level views use (EJS tries relative first).
+  // `views: [viewsDir]` lets a view in a subfolder (e.g. partials/…) include() the shared partials/
+  // by the same root-relative name top-level views use (EJS tries relative first).
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
     ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache, views: [viewsDir] });
 
   // A `view` RouteResult renders plugins/<id>/views/<view>.ejs; such views may include() the core
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
-
-  // Built-in admin screens — wired only when their Ory clients are present (the writes go
-  // there). They render core views via `render` and are gated/CSRF-guarded inside the handler.
-  // Users writes to Kratos; Groups writes to Keto and reads users from Kratos for the pickers.
-  const adminDeps: AdminUsersDeps | null = kratosAdmin ? { csrfSecret, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
-  const adminGroupsDeps: AdminGroupsDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render } : null;
-  const adminRolesDeps: AdminRolesDeps | null = kratosAdmin && keto ? { csrfSecret, keto, kratosAdmin, menu, render, ...(revoke ? { revoke } : {}) } : null;
-  // OAuth2 clients write to Hydra; wired only when the Hydra admin client is present.
-  const adminClientsDeps: AdminClientsDeps | null = hydra ? { csrfSecret, hydra, menu, render } : null;
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -190,8 +183,8 @@ export function createApp(options: AppOptions = {}): Server {
       let chromeMemo: PageChrome | undefined;
       const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }));
 
-      // base context (no route params yet); reused for onRequest + the built-in admin screens.
-      const ctx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
+      // base context (no route params yet); reused for onRequest hooks and the landing routes.
+      const ctx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) });
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -210,7 +203,7 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome, log: reqLog, params: match.params, user, verifyCsrf });
+        const routeCtx = buildContext(req, res, { chrome, log: reqLog, params: match.params, user, verifyCsrf, ...(system ? { system } : {}) });
         if (!isAuthorized(match.route, routeCtx.roles)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the role gets the 403 page.
@@ -224,42 +217,6 @@ export function createApp(options: AppOptions = {}): Server {
         if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
         await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
         return;
-      }
-
-      // Built-in admin screens. Each handler gates (admin only; throws GuardError the catch
-      // maps), CSRF-guards mutations, and returns html/redirect. Set the page's CSRF cookie when
-      // freshly minted (its forms carry the matching token); null ⇒ unknown subpath → 404.
-      if (adminDeps && pathname.startsWith(ADMIN_USERS_BASE)) {
-        const result = await handleAdminUsers(ctx, csrf.token, adminDeps);
-        if (result) {
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
-          return;
-        }
-      }
-      if (adminGroupsDeps && pathname.startsWith(ADMIN_GROUPS_BASE)) {
-        const result = await handleAdminGroups(ctx, csrf.token, adminGroupsDeps);
-        if (result) {
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
-          return;
-        }
-      }
-      if (adminRolesDeps && pathname.startsWith(ADMIN_ROLES_BASE)) {
-        const result = await handleAdminRoles(ctx, csrf.token, adminRolesDeps);
-        if (result) {
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
-          return;
-        }
-      }
-      if (adminClientsDeps && pathname.startsWith(ADMIN_CLIENTS_BASE)) {
-        const result = await handleAdminClients(ctx, csrf.token, adminClientsDeps);
-        if (result) {
-          if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          await sendResult(res, result, () => Promise.reject(new Error("admin screens return html, not view")));
-          return;
-        }
       }
 
       // Themed Kratos self-service pages (login/registration/recovery/verification/settings).
@@ -481,7 +438,7 @@ export function createApp(options: AppOptions = {}): Server {
         // any form it ships). Else the built-in intro page with prominent sign-in / register links.
         if (homePlugin) {
           if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies }));
-          const homeCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
+          const homeCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) });
           const result = (await homePlugin.home(homeCtx)) ?? null;
           if (anyResponseHooks) await runResponseHooks(plugins, homeCtx, result);
           await sendResult(res, result, (view, data) => renderView(homePlugin.id, view, data));
@@ -503,7 +460,7 @@ export function createApp(options: AppOptions = {}): Server {
         // A plugin may fully own the dashboard: render its handler against its own views, native
         // shell via ctx.chrome — same path as a plugin route. Else the built-in mock-data People list.
         if (dashboardPlugin) {
-          const dashCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf });
+          const dashCtx = buildContext(req, res, { chrome, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) });
           const result = (await dashboardPlugin.dashboard(dashCtx)) ?? null;
           if (anyResponseHooks) await runResponseHooks(plugins, dashCtx, result);
           await sendResult(res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
