@@ -1,0 +1,11 @@
+name: CI
+on:
+  push:
+    branches-ignore: [main]
+
+jobs:
+  full-gate:
+    runs-on: docker-host
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - run: bash ci.sh

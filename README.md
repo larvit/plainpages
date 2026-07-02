@@ -96,6 +96,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [Testing](#testing)
   - [end-to-end](#end-to-end-playwright)
   - [the full gate](#the-full-gate-one-command)
+- [CI/CD](#cicd)
 - [Production & deployment](#production--deployment)
 - [Observability](#observability)
 - [JWT signing key & rotation](#jwt-signing-key--rotation)
@@ -1161,6 +1162,26 @@ Each E2E suite **owns a clean stack** — never point two suites at one backend 
 revokes the admin's sessions; full-flow writes users/groups/roles to Keto), which is why the
 gate runs them serially, one stack up/down per suite.
 
+## CI/CD
+
+Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
+[`ci.sh`](#the-full-gate-one-command) — the exact gate you run locally:
+
+| Workflow | Trigger | Does |
+| --- | --- | --- |
+| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`) |
+
+`main` is not re-tested on push — its commits are meant to arrive already green from a
+gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
+
+**One-time server setup** — register an
+[act_runner](https://docs.gitea.com/usage/actions/act-runner) in host mode with the label
+`docker-host` (config: `labels: ["docker-host:host"]`) on a machine with Docker Engine +
+Compose, git, and Node + github.com access (for `actions/checkout`). Runs must **never
+overlap** — the e2e stacks use fixed compose project names and the devstack suite uses host
+networking — so register exactly **one** `docker-host` runner, keep its capacity at 1, and
+keep host ports 3000/4433 free.
+
 ## Production & deployment
 
 ```bash
@@ -1375,6 +1396,7 @@ plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
+.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main; see CI/CD
 ```
 
 ## Extending the core
