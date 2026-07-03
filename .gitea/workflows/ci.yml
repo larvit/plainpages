@@ -9,3 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
       - run: bash ci.sh
+      - name: Push app image tagged with the commit hash
+        env:
+          IMAGE: gitea.larvit.se/${{ github.repository }}:${{ github.sha }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login gitea.larvit.se -u "$REGISTRY_USER" --password-stdin
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+      - name: Log out of the registry
+        if: always()
+        run: docker logout gitea.larvit.se

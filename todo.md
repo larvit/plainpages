@@ -6,9 +6,9 @@
 - [x] CI/CD - Test on push to any branch except main. (`.gitea/workflows/ci.yml` runs `bash ci.sh`; the one-time act_runner setup it needs is documented in README → CI/CD.)
 - [x] CI/CD - Require PR to main and don't allow merge if tests does not pass. Only allow linear history and history that leaves the last commit hash on main the exact same as on the branch we just merged in. (Gitea branch protection on main + fast-forward-only merge style, set via API; documented in README → CI/CD.)
 - [x] CI/CD - Sync up to github after every successful merge to main, URL: git@github.com:larvit/plainpages.git - also note the true home top of the README. Force push to github, it should only ever be a mirror of the gitea.larvit.se repository. (`.gitea/workflows/mirror.yml` force-pushes main + tags over HTTPS with a dedicated account's PAT in the `MIRROR_GITHUB_TOKEN` secret; setup documented in README → CI/CD.)
-- [ ] CI/CD - Build docker images as part of the requirements to be able to merge to main. Push them with the git commit hash as docker tag. Push to container registry at Gitea.
+- [x] CI/CD - Build docker images as part of the requirements to be able to merge to main. Push them with the git commit hash as docker tag. Push to container registry at Gitea. (`ci.yml` builds + pushes `gitea.larvit.se/larvit/plainpages:<commit hash>` after a green gate — with ff-only merges that is the main commit's image; auth via the `DOCKER_REGISTRY_USER` variable + `DOCKER_REGISTRY_TOKEN` secret, retention via an org cleanup rule; documented in README → CI/CD.)
 - [ ] CI/CD - Re-tag docker images from git hash to semver when a semver git tag is pushed.
-- [ ] CI/CD - Require human to make docker hub account - sync docker images to docker hub after each deploy build.
+- [ ] CI/CD - Sync docker images to docker hub after each re-tag to git tags.
 - [ ] CI/CD - Setup renovate bot.
 - [ ] Add an e2e test for the admin plugin's OAuth2-clients (Hydra) screen. The full-flow e2e suite runs without Hydra (compose.full.yml), so /admin/clients register/detail/delete is only unit-covered (src/http/app.test.ts); wire Hydra into an e2e stack and drive the screen in the browser.
 - [ ] Build and publish docker image as CI/CD.

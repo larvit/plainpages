@@ -1173,7 +1173,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`) |
+| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`), then build + push the app image |
 | `mirror.yml` | push to `main`, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
@@ -1184,6 +1184,23 @@ no repo files involved): direct pushes are blocked, changes land via PR only, th
 `CI / full-gate (push)` status must be green (admins included), and the only merge style is
 **fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
 the merged branch, which is why the branch's push-triggered status carries over.
+
+**Container images** — after a green gate, `ci.yml` builds the app image and pushes it to the
+Gitea container registry as `gitea.larvit.se/larvit/plainpages:<full commit hash>`. Because
+merges are fast-forward-only, the image for any `main` commit already exists — it was built
+and pushed by that exact commit's branch gate; nothing is rebuilt after merge (build once,
+promote by re-tagging). One-time setup: on an account with package write in the `larvit` org,
+create a Gitea access token with `read:package` + `write:package`, and store the account name
+as the Actions **variable** `DOCKER_REGISTRY_USER` and the token as the Actions **secret**
+`DOCKER_REGISTRY_TOKEN` (a `GITEA_` prefix is rejected — reserved, like `GITHUB_`). Because
+this step runs
+inside the required gate, a missing/expired token (or registry outage) fails every branch's
+gate and blocks **all** merges until restored — set the secrets before this lands, and use a
+non-expiring token or track its expiry. Retention: hash tags
+accumulate one image per gated push, so an org-level package **cleanup rule**
+(org Settings → Packages, applied by Gitea's daily cleanup cron) prunes them — type
+`container`, remove versions matching `^[0-9a-f]{40}$` older than 30 days, keep the 10 most
+recent and anything matching `^v?\d+\.\d+\.\d+$|^latest$` (semver tags are never pruned).
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
 read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,
