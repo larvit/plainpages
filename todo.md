@@ -1,12 +1,10 @@
-For each todo item, interview the user extensively to deeply understand the scope and goal of each.
-
 - [x] Organize the files in src in to folders so it is easier to understand the structure of the code.
 - [x] Move docs/plugin-contract.md into README.md and remove the docs folder.
 - [x] The plugins/scheduling is an example and shouldn't be committed to the plugins directory since that should be empty to be able to be mounted in via docker or other means for the users/develoeprs using this application/framework. Put it in the examples folder instead.
 - [x] The config folder should be empty and the current settings in the menu.ts should be the fallback default. IF a menu.ts where to appear in that folder, it should override the default settings with whatever is in it. The idea is the folder should be empty by default and you mount it in your docker container with your config.
 - [x] Make the internal admin pages for users groups etc into a plugin instead in the examples folder and remove them from the internal source. Add a part in the quick start about copying this plugin into the plugins folder to enable GUI user- and group admining.
 - [x] CI/CD - Test on push to any branch except main. (`.gitea/workflows/ci.yml` runs `bash ci.sh`; the one-time act_runner setup it needs is documented in README → CI/CD.)
-- [ ] CI/CD - Require PR to main and don't allow merge if tests does not pass. Only allow linear history and history that leaves the last commit hash on main the exact same as on the branch we just merged in.
+- [x] CI/CD - Require PR to main and don't allow merge if tests does not pass. Only allow linear history and history that leaves the last commit hash on main the exact same as on the branch we just merged in. (Gitea branch protection on main + fast-forward-only merge style, set via API; documented in README → CI/CD.)
 - [ ] CI/CD - Sync up to github after every successful merge to main, URL: git@github.com:larvit/plainpages.git - also note the true home top of the README. Force push to github, it should only ever be a mirror of the gitea.larvit.se repository.
 - [ ] CI/CD - Build docker images as part of the requirements to be able to merge to main. Push them with the git commit hash as docker tag. Push to container registry at Gitea.
 - [ ] CI/CD - Re-tag docker images from git hash to semver when a semver git tag is pushed.

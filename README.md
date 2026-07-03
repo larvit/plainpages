@@ -1174,6 +1174,12 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
 
+**Merge gate on `main`** (Gitea branch protection + repo merge settings, set via the API —
+no repo files involved): direct pushes are blocked, changes land via PR only, the
+`CI / full-gate (push)` status must be green (admins included), and the only merge style is
+**fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
+the merged branch, which is why the branch's push-triggered status carries over.
+
 **One-time server setup** — register an
 [act_runner](https://docs.gitea.com/usage/actions/act-runner) in host mode with the label
 `docker-host` (config: `labels: ["docker-host:host"]`) on a machine with Docker Engine +
