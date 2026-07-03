@@ -3,6 +3,12 @@
 Guidance for AI agents and contributors working in this repo. Read `README.md` for
 commands and layout.
 
+## How to work with tasks
+
+Use the file `todo.md`.
+
+For each todo item, interview the user extensively to deeply understand the scope and goal of each. When done, run the stability reviewer agent in a loop and address all feedback until there is none. If you are not very confident of how to address it, ask the user. Check the completed task in this file. Commit all changes and push to a new branch, create a PR and merge it when the CI/CD turns green.
+
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the solution that is easiest to understand, smallest, and most readable.
