@@ -8,6 +8,10 @@ folders** — the admin UI for a webshop, a public service portal, a school sche
 water-treatment dashboard — without rebuilding auth, the menu, and the design system every
 time.
 
+> **True home: <https://gitea.larvit.se/larvit/plainpages>** — development, issues, and PRs
+> live there. [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
+> read-only mirror, force-synced on every merge to `main`.
+
 ## Quick start
 
 > **Requirements:** **Docker** and **Docker Compose** — and nothing else.
@@ -1170,6 +1174,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`) |
+| `mirror.yml` | push to `main`, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1179,6 +1184,15 @@ no repo files involved): direct pushes are blocked, changes land via PR only, th
 `CI / full-gate (push)` status must be green (admins included), and the only merge style is
 **fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
 the merged branch, which is why the branch's push-triggered status carries over.
+
+**GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
+read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,
+overwriting any drift (refs deleted on Gitea are not pruned). One-time setup: a dedicated
+GitHub machine account with write access to the GitHub repo (whose `main` must not block
+force-pushes), and a fine-grained PAT scoped to that repo (Contents: read & write), stored
+as the Gitea Actions secret `MIRROR_GITHUB_TOKEN` (repo Settings → Actions → Secrets; Gitea
+rejects secret names starting with `GITHUB_`/`GITEA_`). Trigger the workflow manually for
+the first sync — until the secret exists, the mirror job fails loud on each merge.
 
 **One-time server setup** — register an
 [act_runner](https://docs.gitea.com/usage/actions/act-runner) in host mode with the label
@@ -1402,7 +1416,8 @@ plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
-.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main; see CI/CD
+.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
+                     mirror.yml — force-sync main + tags to the GitHub mirror; see CI/CD
 ```
 
 ## Extending the core

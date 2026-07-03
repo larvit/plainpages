@@ -1,0 +1,17 @@
+name: Mirror
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  github-mirror:
+    runs-on: docker-host
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+      - run: |
+          git push --force \
+            "https://x-access-token:${{ secrets.MIRROR_GITHUB_TOKEN }}@github.com/larvit/plainpages.git" \
+            refs/remotes/origin/main:refs/heads/main 'refs/tags/*:refs/tags/*'
