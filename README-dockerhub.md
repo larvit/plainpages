@@ -15,37 +15,144 @@ Pin the exact `X.Y.Z` you deploy.
 ## Quick start
 
 This image is the Plainpages web app plus its one-shot bootstrap seeder. It runs
-alongside Ory Kratos, Keto, Hydra and Postgres, all wired by the repo's compose files:
+alongside its Ory sidecars (Kratos, Keto) and Postgres — and it **ships their config**,
+so there is nothing to clone. In an empty directory, save this as `compose.yml`:
+
+```yaml
+services:
+  web:
+    image: larvit/plainpages:0.0.2
+    ports:
+      - "3000:3000"
+    environment:
+      APP_URL: http://localhost:3000
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
+    volumes:
+      - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer:ro
+      - ./plugins:/app/plugins
+    restart: unless-stopped
+
+  # One-shot, idempotent seed: signing key if absent + the admin@plainpages.local / admin user.
+  bootstrap:
+    image: larvit/plainpages:0.0.2
+    command: node src/auth/bootstrap.ts
+    depends_on:
+      kratos:
+        condition: service_healthy
+      keto:
+        condition: service_healthy
+    volumes:
+      - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
+      - ./plugins:/app/plugins:ro
+    restart: "on-failure:5"
+
+  postgres:
+    image: postgres:18.4-alpine3.23
+    environment:
+      POSTGRES_DB: ory
+      POSTGRES_PASSWORD: ory
+      POSTGRES_USER: ory
+    volumes:
+      - ./ory/postgres/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ory -d ory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  kratos-migrate:
+    image: oryd/kratos:v26.2.0
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://ory:ory@postgres:5432/kratos?sslmode=disable
+    volumes:
+      - ./ory/kratos:/etc/config/kratos:ro
+    restart: on-failure
+
+  kratos:
+    image: oryd/kratos:v26.2.0
+    command: serve -c /etc/config/kratos/kratos.yml --watch-courier
+    ports:
+      - "4433:4433" # the login form POSTs straight to Kratos from the browser
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://ory:ory@postgres:5432/kratos?sslmode=disable
+    volumes:
+      - ./ory/kratos:/etc/config/kratos:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4433/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  keto-migrate:
+    image: oryd/keto:v26.2.0
+    command: -c /etc/config/keto/keto.yml migrate up -y
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://ory:ory@postgres:5432/keto?sslmode=disable
+    volumes:
+      - ./ory/keto:/etc/config/keto:ro
+    restart: on-failure
+
+  keto:
+    image: oryd/keto:v26.2.0
+    command: serve -c /etc/config/keto/keto.yml
+    depends_on:
+      keto-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://ory:ory@postgres:5432/keto?sslmode=disable
+    volumes:
+      - ./ory/keto:/etc/config/keto:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4466/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Catches Kratos' recovery/verification emails — UI on http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.30.1
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+```
+
+Extract the Ory config the image ships, then start:
 
 ```bash
-git clone https://gitea.larvit.se/larvit/plainpages.git
-cd plainpages
+docker run --rm larvit/plainpages:0.0.2 tar -cf - ory | tar -xf -
+mkdir -p plugins
 docker compose up -d
 ```
 
 Open <http://localhost:3000> and sign in as `admin@plainpages.local` / `admin`.
-(The dev stack builds the image locally and live-reloads.)
 
-To deploy this published image instead of building, add an override and run the
-production stack:
-
-```yaml
-# compose.image.yml
-services:
-  bootstrap:
-    image: larvit/plainpages:0.0.2
-    pull_policy: missing
-  web:
-    image: larvit/plainpages:0.0.2
-    pull_policy: missing
-```
-
-```bash
-CSRF_SECRET=<long random> docker compose -f compose.yml -f compose.image.yml up -d
-```
-
-Production expects https and real secrets (`CSRF_SECRET`, `POSTGRES_USER`/`PASSWORD`,
-a fresh JWT signing key) — see the repo README → Production & deployment.
+This quick start runs http-on-localhost with dev-throwaway secrets, and omits Hydra (the
+OAuth2 provider — only needed when other apps log in *through* Plainpages). For
+production — https, real secrets (`CSRF_SECRET`, Postgres credentials, a fresh JWT
+signing key), Hydra — see the repo README → Production & deployment.
 
 ## Configuration
 
@@ -67,7 +174,8 @@ Full list (JWT/JWKS, timeouts, instant revoke): repo README → Configuration.
 
 ## Your first plugin
 
-Everything domain-specific is a plugin folder. Create `plugins/hello/plugin.ts`:
+Everything domain-specific is a plugin folder — the compose above mounts `./plugins`
+into the app. Create `plugins/hello/plugin.ts`:
 
 ```ts
 import { definePlugin } from "#plugin-api";
@@ -76,7 +184,7 @@ export default definePlugin({
   apiVersion: "1.0.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
-    { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello</h1>" }) },
+    { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
   ],
 });
 ```
