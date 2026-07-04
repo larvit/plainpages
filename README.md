@@ -1177,6 +1177,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
+| `renovate.yml` | nightly cron, or manual | open dependency-update PRs and automerge them once the gate is green |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1237,6 +1238,22 @@ force-pushes), and a fine-grained PAT scoped to that repo (Contents: read & writ
 as the Gitea Actions secret `MIRROR_GITHUB_TOKEN` (repo Settings → Actions → Secrets; Gitea
 rejects secret names starting with `GITHUB_`/`GITEA_`). Trigger the workflow manually for
 the first sync — until the secret exists, the mirror job fails loud on each merge.
+
+**Dependency updates** — `renovate.yml` runs [Renovate](https://docs.renovatebot.com)
+nightly (self-hosted, this repo only) against [`renovate.json`](renovate.json), opening PRs
+that bump npm deps (both `package.json`s), Docker base images (both Dockerfiles +
+`compose*.yml`), Gitea action versions, and the image tags pinned inside workflow `run:`
+steps (a custom regex manager, so nothing pinned drifts unmanaged). Version-locked sets move
+together in one PR — the Ory images (kratos/keto/hydra) and the Playwright runner + its
+browser image — and every bump keeps the existing **exact semver pin** exact, never widening
+to a range or adding a digest. Each PR
+runs through the normal gate on its `renovate/*` branch and, with `"automerge": true`,
+Renovate merges it once `CI / full-gate (push)` is green (rebasing stale branches so the
+fast-forward-only merge still holds) — routine bumps land untouched; only a red gate needs a
+human. One-time setup: reuse the shared `renovate@larvit.se` bot — give it write access to
+this repo and store its Gitea PAT as the Actions **secret** `RENOVATE_TOKEN`. Until it
+exists, the nightly job fails loud (and, like the other secrets, a `GITEA_` prefix is
+rejected).
 
 **One-time server setup** — register an
 [act_runner](https://docs.gitea.com/usage/actions/act-runner) in host mode with the label

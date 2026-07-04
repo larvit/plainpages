@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "automerge": true,
+  "packageRules": [
+    {
+      "description": "Ory services share one release train - update kratos, keto and hydra together",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["oryd/kratos", "oryd/keto", "oryd/hydra"],
+      "groupName": "Ory stack"
+    },
+    {
+      "description": "Playwright runner and its browser image are version-locked - bump together",
+      "matchPackageNames": ["@playwright/test", "mcr.microsoft.com/playwright"],
+      "groupName": "Playwright"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Pin the Renovate image the Renovate workflow runs",
+      "managerFilePatterns": [".gitea/workflows/renovate.yml"],
+      "matchStrings": ["renovate/renovate:(?<currentValue>[0-9][^\\s\"']*)"],
+      "depNameTemplate": "renovate/renovate",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Pin the node image registry-cleanup runs cleanup.ts in",
+      "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml"],
+      "matchStrings": ["\\snode:(?<currentValue>[0-9][^\\s\"']*)"],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
