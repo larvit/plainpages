@@ -1174,7 +1174,8 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`), then build + push the app image |
-| `mirror.yml` | push to `main`, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
+| `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest` |
+| `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1200,7 +1201,13 @@ non-expiring token or track its expiry. Retention: hash tags
 accumulate one image per gated push, so an org-level package **cleanup rule**
 (org Settings → Packages, applied by Gitea's daily cleanup cron) prunes them — type
 `container`, remove versions matching `^[0-9a-f]{40}$` older than 30 days, keep the 10 most
-recent and anything matching `^v?\d+\.\d+\.\d+$|^latest$` (semver tags are never pruned).
+recent and anything matching `^\d+(\.\d+){0,2}$|^latest$` (release tags are never pruned).
+
+**Releases** — pushing a semver git tag (`git tag v1.2.3 && git push origin v1.2.3`) runs
+`release.yml`, which pulls that commit's hash image from the registry and re-tags it as
+`1.2.3`, `1.2`, `1`, and `latest` — nothing is rebuilt, the released image is byte-identical
+to the gated one. It fails loud if no hash image exists: release tags must point at a commit
+that went through the gate (in practice, any `main` commit).
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
 read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,
@@ -1216,8 +1223,9 @@ the first sync — until the secret exists, the mirror job fails loud on each me
 `docker-host` (config: `labels: ["docker-host:host"]`) on a machine with Docker Engine +
 Compose, git, and Node + github.com access (for `actions/checkout`). Runs must **never
 overlap** — the e2e stacks use fixed compose project names and the devstack suite uses host
-networking — so register exactly **one** `docker-host` runner, keep its capacity at 1, and
-keep host ports 3000/4433 free.
+networking, and the workflows share the Docker daemon's registry login (`ci.yml` and
+`release.yml` each log in and log out) — so register exactly **one** `docker-host` runner,
+keep its capacity at 1, and keep host ports 3000/4433 free.
 
 ## Production & deployment
 

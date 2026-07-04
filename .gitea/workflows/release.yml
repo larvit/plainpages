@@ -1,0 +1,29 @@
+name: Release
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+jobs:
+  retag-image:
+    runs-on: docker-host
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Promote the commit-hash image to semver + latest
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
+          REPO: gitea.larvit.se/${{ github.repository }}
+        run: |
+          COMMIT=$(git rev-parse 'HEAD^{commit}')
+          VERSION=${GIT_TAG#v}
+          printf '%s' "$REGISTRY_TOKEN" | docker login gitea.larvit.se -u "$REGISTRY_USER" --password-stdin
+          docker pull "$REPO:$COMMIT" \
+            || { echo "No image $REPO:$COMMIT - release tags must point at a commit whose branch passed the CI gate"; exit 1; }
+          for TAG in "$VERSION" "${VERSION%.*}" "${VERSION%%.*}" latest; do
+            docker tag "$REPO:$COMMIT" "$REPO:$TAG"
+            docker push "$REPO:$TAG"
+          done
+      - name: Log out of the registry
+        if: always()
+        run: docker logout gitea.larvit.se
