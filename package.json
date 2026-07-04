@@ -15,7 +15,7 @@
     "dev": "node --watch src/server.ts",
     "gen-jwks": "node src/auth/gen-jwks.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/**/*.test.ts\" \"plugins/**/*.test.ts\" \"examples/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\" \"plugins/**/*.test.ts\" \"examples/**/*.test.ts\" \"registry-cleanup/**/*.test.ts\""
   },
   "dependencies": {
     "@larvit/log": "2.3.0",

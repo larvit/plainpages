@@ -1176,6 +1176,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`), then build + push the app image |
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest` |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
+| `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1197,11 +1198,16 @@ as the Actions **variable** `DOCKER_REGISTRY_USER` and the token as the Actions 
 this step runs
 inside the required gate, a missing/expired token (or registry outage) fails every branch's
 gate and blocks **all** merges until restored — set the secrets before this lands, and use a
-non-expiring token or track its expiry. Retention: hash tags
-accumulate one image per gated push, so an org-level package **cleanup rule**
-(org Settings → Packages, applied by Gitea's daily cleanup cron) prunes them — type
-`container`, remove versions matching `^[0-9a-f]{40}$` older than 30 days, keep the 10 most
-recent and anything matching `^\d+(\.\d+){0,2}$|^latest$` (release tags are never pruned).
+non-expiring token or track its expiry. Retention: hash tags accumulate one image per gated
+push, so the nightly `registry-cleanup.yml` prunes them precisely
+([`registry-cleanup/cleanup.ts`](registry-cleanup/cleanup.ts), run in a `node:24` container):
+a hash tag survives only while its commit is a **branch head** or carries a **`vX.Y.Z`
+release tag**; deleted alongside are the untagged `sha256:…` child manifests (arch image +
+provenance) that no surviving tag references. Named tags (`1.2.3`, `latest`, …) are never
+touched. It reuses `DOCKER_REGISTRY_USER`/`DOCKER_REGISTRY_TOKEN` — no extra setup. Don't
+add a pattern-based org cleanup rule for this package (and remove it if one exists): its
+age/count heuristics can't see branch heads or release tags and would delete images the
+workflow protects.
 
 **Releases** — pushing a semver git tag (`git tag v1.2.3 && git push origin v1.2.3`) runs
 `release.yml`, which pulls that commit's hash image from the registry and re-tags it as

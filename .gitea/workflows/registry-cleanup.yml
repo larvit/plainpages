@@ -1,0 +1,22 @@
+name: Registry cleanup
+on:
+  schedule:
+    - cron: '43 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  prune-stale-images:
+    runs-on: docker-host
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Delete hash images that are neither release-tagged nor a branch head
+        env:
+          REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
+          REPO_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            -e REGISTRY_TOKEN -e REGISTRY_USER -e REPO_TOKEN -e REPOSITORY -e SERVER_URL \
+            node:24.16.0-alpine3.24 node registry-cleanup/cleanup.ts
