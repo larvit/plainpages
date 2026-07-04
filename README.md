@@ -1194,7 +1194,10 @@ and pushed by that exact commit's branch gate; nothing is rebuilt after merge (b
 promote by re-tagging). One-time setup: on an account with package write in the `larvit` org,
 create a Gitea access token with `read:package` + `write:package`, and store the account name
 as the Actions **variable** `DOCKER_REGISTRY_USER` and the token as the Actions **secret**
-`DOCKER_REGISTRY_TOKEN` (a `GITEA_` prefix is rejected — reserved, like `GITHUB_`). Because
+`DOCKER_REGISTRY_TOKEN` (a `GITEA_` prefix is rejected — reserved, like `GITHUB_`). The
+package is **org-owned** (the image path starts with `larvit/`), so it lists under
+`larvit/-/packages`, not the repo — link it once to the repo's Packages tab:
+`POST /api/v1/packages/larvit/container/plainpages/-/link/plainpages`. Because
 this step runs
 inside the required gate, a missing/expired token (or registry outage) fails every branch's
 gate and blocks **all** merges until restored — set the secrets before this lands, and use a
