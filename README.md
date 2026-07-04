@@ -1224,7 +1224,10 @@ repository on Docker Hub, generate a read/write access token **scoped to that re
 account-wide PAT can push to every repo under the account), and store the account name as
 the Actions **variable** `DOCKERHUB_USER` and the token as the Actions **secret**
 `DOCKERHUB_TOKEN`. Until they exist, a release run fails at the Docker Hub step — after the
-Gitea re-tag has succeeded — so set them, then re-run the workflow.
+Gitea re-tag has succeeded — so set them, then re-run the workflow. The Docker Hub
+repository **description** is maintained by hand: its source is
+[`README-dockerhub.md`](README-dockerhub.md) — paste it into the repository overview on
+Docker Hub when it changes.
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
 read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,
@@ -1460,6 +1463,7 @@ e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + aut
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 .gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
                      mirror.yml — force-sync main + tags to the GitHub mirror; see CI/CD
+README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/plainpages) — pasted into the Docker Hub overview by hand when it changes; see CI/CD
 ```
 
 ## Extending the core

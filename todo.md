@@ -9,7 +9,8 @@
 - [x] CI/CD - Build docker images as part of the requirements to be able to merge to main. Push them with the git commit hash as docker tag. Push to container registry at Gitea. (`ci.yml` builds + pushes `gitea.larvit.se/larvit/plainpages:<commit hash>` after a green gate — with ff-only merges that is the main commit's image; auth via the `DOCKER_REGISTRY_USER` variable + `DOCKER_REGISTRY_TOKEN` secret, retention via an org cleanup rule; documented in README → CI/CD.)
 - [x] CI/CD - Re-tag docker images from git hash to semver when a semver git tag is pushed. (`release.yml` on a `vX.Y.Z` tag pulls the commit-hash image and re-tags it `X.Y.Z`/`X.Y`/`X`/`latest`, failing loud if the gated image is missing; tag pushes also trigger the GitHub mirror; documented in README → CI/CD.)
 - [x] CI/CD - Sync docker images to docker hub after each re-tag to git tags. (`release.yml` pushes the same `X.Y.Z`/`X.Y`/`X`/`latest` tags to `docker.io/larvit/plainpages` after the Gitea re-tag — releases only, no hash tags; auth via the `DOCKERHUB_USER` variable + `DOCKERHUB_TOKEN` secret; documented in README → CI/CD.)
-- [ ] CI/CD - Setup renovate bot.
+- [x] Write a short text on how to use this docker image to publish on docker hub and save it to README-dockerhub.md (tagline, tags, compose quick start + published-image override, env table, first plugin; pasted into the Docker Hub overview by hand — noted in README → CI/CD.)
+- [ ] CI/CD - Setup renovate bot. Check how other repos on this Gitea is setup you can get access to, there should be a number of renovate bot activated ones.
 - [ ] Add an e2e test for the admin plugin's OAuth2-clients (Hydra) screen. The full-flow e2e suite runs without Hydra (compose.full.yml), so /admin/clients register/detail/delete is only unit-covered (src/http/app.test.ts); wire Hydra into an e2e stack and drive the screen in the browser.
 - [ ] Build and publish docker image as CI/CD.
 - [ ] Add i18n support.
