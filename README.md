@@ -1174,7 +1174,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`), then build + push the app image |
-| `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest` |
+| `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
 
@@ -1216,7 +1216,15 @@ workflow protects.
 `release.yml`, which pulls that commit's hash image from the registry and re-tags it as
 `1.2.3`, `1.2`, `1`, and `latest` — nothing is rebuilt, the released image is byte-identical
 to the gated one. It fails loud if no hash image exists: release tags must point at a commit
-that went through the gate (in practice, any `main` commit).
+that went through the gate (in practice, any `main` commit). The same four tags are then
+synced to [Docker Hub](https://hub.docker.com/r/larvit/plainpages) (`larvit/plainpages`) —
+releases only, no hash tags. One-time setup: create the public `larvit/plainpages`
+repository on Docker Hub, generate a read/write access token **scoped to that repository**
+(an organization access token, or a token on a dedicated single-purpose account — an
+account-wide PAT can push to every repo under the account), and store the account name as
+the Actions **variable** `DOCKERHUB_USER` and the token as the Actions **secret**
+`DOCKERHUB_TOKEN`. Until they exist, a release run fails at the Docker Hub step — after the
+Gitea re-tag has succeeded — so set them, then re-run the workflow.
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
 read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,

@@ -24,6 +24,25 @@ jobs:
             docker tag "$REPO:$COMMIT" "$REPO:$TAG"
             docker push "$REPO:$TAG"
           done
-      - name: Log out of the registry
+      - name: Sync the release tags to Docker Hub
+        env:
+          DOCKERHUB_REPO: docker.io/${{ github.repository }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
+          GIT_TAG: ${{ github.ref_name }}
+          REPO: gitea.larvit.se/${{ github.repository }}
+        run: |
+          COMMIT=$(git rev-parse 'HEAD^{commit}')
+          VERSION=${GIT_TAG#v}
+          [ -n "$DOCKERHUB_USER" ] && [ -n "$DOCKERHUB_TOKEN" ] \
+            || { echo "Set the DOCKERHUB_USER variable + DOCKERHUB_TOKEN secret (README -> CI/CD)"; exit 1; }
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USER" --password-stdin
+          for TAG in "$VERSION" "${VERSION%.*}" "${VERSION%%.*}" latest; do
+            docker tag "$REPO:$COMMIT" "$DOCKERHUB_REPO:$TAG"
+            docker push "$DOCKERHUB_REPO:$TAG"
+          done
+      - name: Log out of the registries
         if: always()
-        run: docker logout gitea.larvit.se
+        run: |
+          docker logout gitea.larvit.se
+          docker logout docker.io

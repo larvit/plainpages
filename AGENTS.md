@@ -86,6 +86,11 @@ them. Revisit only if the stated reason stops holding.
   `tsconfig.include` and resolve the host surface via `#`-imports, so each example typechecks
   in place *and* copies across unchanged. Never commit real plugins/config into the root
   mount dirs (`plugins/`, `config/`) — they ship empty (`.gitkeep`, git-ignored otherwise).
+- **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
+  `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
+  concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),
+  and tokens sit in that file between login and logout. Accepted for a single-maintainer
+  cadence; serialize with a workflow `concurrency` group if it ever bites.
 
 ## Docker only — no host tooling
 
