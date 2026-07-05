@@ -2,6 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "automerge": true,
+  "commitBody": "Release-Bump: {{{updateType}}}",
   "packageRules": [
     {
       "description": "Ory services share one release train - update kratos, keto and hydra together",
@@ -26,8 +27,8 @@
     },
     {
       "customType": "regex",
-      "description": "Pin the node image registry-cleanup runs cleanup.ts in",
-      "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml"],
+      "description": "Pin the node image workflow run-steps invoke (registry-cleanup, auto-release)",
+      "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml", ".gitea/workflows/renovate.yml"],
       "matchStrings": ["\\snode:(?<currentValue>[0-9][^\\s\"']*)"],
       "depNameTemplate": "node",
       "datasourceTemplate": "docker"

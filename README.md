@@ -1177,7 +1177,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
-| `renovate.yml` | nightly cron, or manual | open dependency-update PRs and automerge them once the gate is green |
+| `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green, then cut one release tag for the run |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1254,6 +1254,22 @@ human. One-time setup: reuse the shared `renovate@larvit.se` bot — give it wri
 this repo and store its Gitea PAT as the Actions **secret** `RENOVATE_TOKEN`. Until it
 exists, the nightly job fails loud (and, like the other secrets, a `GITEA_` prefix is
 rejected).
+
+**Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`, `needs:
+renovate`) cuts **one** `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main`
+since the last tag (it targets `origin/main`, and **skips** when the tip isn't a Renovate commit —
+a human owns that release — or when nothing new merged). Renovate stamps every commit with a
+`Release-Bump: <updateType>` trailer (`commitBody` in `renovate.json`); the job takes the highest
+trailer on those commits — any dependency's `major`/`minor`/`patch` maps straight through,
+defaulting to `patch`.
+**Pre-1.0 the level shifts down** — a dep major bumps the `0.x` minor, dep minor/patch bump the
+`0.x` patch (see [`auto-release/next-version.ts`](auto-release/next-version.ts), unit-tested) — so
+routine bumps never auto-cross into `1.0.0`; `1.0.0` stays a deliberate hand-cut tag. It's
+**tag-only** (no source commits): the tag hands off to `release.yml`, which promotes the
+already-built image, and is pushed with renovate-bot's PAT so `release.yml` actually fires (a tag
+pushed by the built-in Actions token wouldn't trigger it). The plugin-contract version
+(`HOST_API_VERSION`) is deliberately **not** touched here — it moves only when the plugin API
+itself changes, by hand.
 
 **One-time server setup** — register an
 [act_runner](https://docs.gitea.com/usage/actions/act-runner) in host mode with the label

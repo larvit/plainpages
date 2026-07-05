@@ -20,3 +20,40 @@ jobs:
             -e RENOVATE_REPOSITORIES=${{ github.repository }} \
             -e RENOVATE_TOKEN \
             renovate/renovate:43.251.0
+
+  # After the renovate job, cut ONE tag covering the renovate-bot commits merged to main since the
+  # last tag (batch per run). Targets origin/main — the real post-merge tip; the checkout SHA is the
+  # trigger-time tip and lags the merges this run made. Skips when main's tip isn't a Renovate commit
+  # (a human owns that release) or nothing new merged. ff-only merges keep the renovate commit's
+  # authorship on the tip, so the author checks are reliable. Level = highest `Release-Bump:` trailer;
+  # pre-1.0 shifts down (auto-release/next-version.ts). Tag-only — release.yml promotes the
+  # already-built image; pushed with renovate-bot's PAT so release.yml fires (the built-in token won't).
+  auto-release:
+    runs-on: docker-host
+    needs: renovate
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Tag a release for what Renovate merged
+        env:
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --force --quiet origin '+refs/heads/main:refs/remotes/origin/main' '+refs/tags/*:refs/tags/*'
+          if [ "$(git log -1 --format='%ae' origin/main)" != "renovate@larvit.se" ]; then
+            echo "main tip not authored by Renovate — a human owns this release; skipping"; exit 0
+          fi
+          LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          LATEST=${LATEST:-v0.0.0}
+          if [ -z "$(git log "${LATEST}..origin/main" --author='renovate@larvit.se' --format='%H')" ]; then
+            echo "No untagged renovate commits since ${LATEST} — nothing to release"; exit 0
+          fi
+          BUMPS=$(git log "${LATEST}..origin/main" --author='renovate@larvit.se' \
+                  --format='%(trailers:key=Release-Bump,valueonly)' | { grep -vx '' || true; })
+          NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.16.0-alpine3.24 \
+                 node auto-release/next-version.ts "$LATEST" $BUMPS)
+          echo "Releasing $LATEST -> $NEXT"
+          git tag "$NEXT" origin/main
+          git push "https://renovate-bot:${RENOVATE_TOKEN}@gitea.larvit.se/${REPO}.git" "$NEXT"
