@@ -54,7 +54,7 @@ services:
 
   # The reference plugin's upstream (examples/shifts-upstream) so /scheduling/shifts shows real rows.
   shifts-upstream:
-    image: node:24.16.0-alpine3.24
+    image: node:24.18.0-alpine3.24
     command: ["node", "/server.ts"]
     volumes:
       - ./examples/shifts-upstream/server.ts:/server.ts:ro
@@ -67,7 +67,7 @@ services:
   # Mock OIDC provider for the SSO login test — stdlib Node, auto-approves, signs an id_token Kratos
   # verifies via its jwks. Reachable as the same host (mock-oidc:9000) by both the browser and Kratos.
   mock-oidc:
-    image: node:24.16.0-alpine3.24
+    image: node:24.18.0-alpine3.24
     command: ["node", "/mock-oidc.ts"]
     environment:
       ISSUER: http://mock-oidc:9000
@@ -82,7 +82,7 @@ services:
 
   # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e-tests/proxy.ts).
   proxy:
-    image: node:24.16.0-alpine3.24
+    image: node:24.18.0-alpine3.24
     command: ["node", "/proxy.ts"]
     depends_on:
       web:

@@ -1,5 +1,5 @@
 # Node 24 runs TypeScript directly (type stripping) — no build step. Pinned exact tag.
-FROM node:24.16.0-alpine3.24
+FROM node:24.18.0-alpine3.24
 
 WORKDIR /app
 

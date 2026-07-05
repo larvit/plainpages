@@ -19,4 +19,4 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
             -e REGISTRY_TOKEN -e REGISTRY_USER -e REPO_TOKEN -e REPOSITORY -e SERVER_URL \
-            node:24.16.0-alpine3.24 node registry-cleanup/cleanup.ts
+            node:24.18.0-alpine3.24 node registry-cleanup/cleanup.ts

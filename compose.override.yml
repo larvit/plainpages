@@ -27,7 +27,7 @@ services:
   # backs it (SCHEDULING_UPSTREAM above points here). Stand-in for the customer's real service —
   # stdlib-only, in-memory, no auth. Prod points SCHEDULING_UPSTREAM at the real backend instead.
   shifts-upstream:
-    image: node:24.16.0-alpine3.24
+    image: node:24.18.0-alpine3.24
     command: node /srv/server.ts
     restart: unless-stopped
     volumes:
