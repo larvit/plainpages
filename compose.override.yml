@@ -36,7 +36,7 @@ services:
   # Dev mail catcher — Kratos recovery/verification emails land here (web UI on 8025).
   # kratos.yml points the courier at smtp://mailpit:1025; prod uses a real SMTP via env.
   mailpit:
-    image: axllent/mailpit:v1.30.3
+    image: axllent/mailpit:v1.30.4
     ports:
       - "8025:8025"
     restart: unless-stopped
