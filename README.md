@@ -837,14 +837,23 @@ both default to `localhost` (the dev override sets `APP_URL=http://localhost:300
 
 A clean clone needs **none** of the above — `docker compose up` brings up the whole stack
 with dev-throwaway secrets, an auto-generated signing key, and a seeded admin (see
-[Quick start](#quick-start)). Exactly **two** things can't be auto-generated, and **both
-are production-only** — neither blocks a clean clone:
+[Quick start](#quick-start)). What can't be auto-generated is **production-only** — none of it
+blocks a clean clone:
 
-1. **Production secrets** — replace the committed dev throwaway `CSRF_SECRET` (env), plus
-   the **JWT signing key** (mount a real `jwks.json` or set `…_JWKS_URL` — see
-   [JWT signing key & rotation](#jwt-signing-key--rotation)). Set
-   `REQUIRE_SECURE_SECRETS=true` and the app refuses to boot until `CSRF_SECRET` is supplied
-   and differs from the throwaway.
+1. **Production secrets** — every value below ships as a committed dev throwaway that works
+   out of the box and **must** be replaced before a deploy faces the internet. Only the first
+   is enforced: `REQUIRE_SECURE_SECRETS=true` refuses to boot on a missing or throwaway
+   `CSRF_SECRET` and **nothing else** — the rest fail silently, so treat this as a checklist.
+
+   | Secret | Where | Protects |
+   | --- | --- | --- |
+   | `CSRF_SECRET` | web env | signs our double-submit CSRF token |
+   | JWT signing key | mount a real `jwks.json` or set `…_JWKS_URL` | mints/verifies the session JWT — see [rotation](#jwt-signing-key--rotation) |
+   | `SECRETS_COOKIE` | kratos env | signs Kratos' session + anti-CSRF cookies |
+   | `SECRETS_CIPHER` | kratos env (32 chars) | encrypts credentials at rest |
+   | `SECRETS_SYSTEM` | hydra env | encrypts OAuth2 tokens + consent at rest |
+   | `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose env | the Ory databases (default `ory`/`ory`) |
+
 2. **SSO provider client id/secret** — **optional**; password login works without them.
    Supplying a provider's creds via env activates it; no creds ⇒ no SSO button (see
    [Social sign-in (SSO)](#social-sign-in-sso)).
@@ -1008,17 +1017,19 @@ what defends what, and which guarantees are deliberately not offered.
 - **The browser is not trusted.** Cookies, form fields, URLs and headers are attacker-controlled
   until verified or escaped. Nothing is believed because of where it arrived from.
 - **The session JWT is trusted only after verification** — signature against the JWKS key its
-  `kid` names, then `exp`/`nbf` and the optional `iss`/`aud`. Before that it is bytes.
-- **The private container network is the *only* thing guarding the Ory admin APIs.** Kratos
-  admin (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching
-  them *is* full identity and permission control. `compose.yml` publishes none of them (guarded
-  by `src/compose.test.ts`); dev publishes only the two ports a browser must reach. Never
-  expose an admin port, and never front one with a proxy that lacks its own auth.
+  `kid` names (or the sole key, when the set has one), then a **mandatory** `exp`, plus `nbf`
+  and the optional `iss`/`aud`. Before that it is bytes.
+- **The private container network is the *only* thing guarding the Ory APIs.** Kratos admin
+  (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching them
+  *is* full identity and permission control. Keto **read** (`4466`) cannot write, but discloses
+  the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six
+  (guarded by `src/compose.test.ts`); dev publishes only the two Ory ports a browser must reach.
+  Never expose one, and never front one with a proxy that lacks its own auth.
 - **Plugins are trusted code**, in-process and unsandboxed — a plugin can do anything the host
   can. Vetting happens when you mount one, not at runtime (AGENTS.md: crash isolation is a
   deliberate non-goal).
-- **Row-level rules belong upstream**, in the service that owns the data — see
-  [three tiers](#three-tiers-of-may-i).
+- **Attribute-based row rules belong upstream**, in the service that owns the data;
+  relationship-based ones go to Keto — see [three tiers](#three-tiers-of-may-i).
 
 **The JWT is signed, not encrypted.** Claims are base64: a signed-in user can read their own
 `sub`, `email` and `roles`. `HttpOnly` keeps page JavaScript out of the cookie, not the user.
@@ -1028,29 +1039,40 @@ Never put anything in a claim you wouldn't show them.
 
 | Threat | Defense |
 | --- | --- |
-| Forged or tampered token | signature verified against the `kid`'s JWKS key; the `alg` allowlist is `RS256`/`ES256` only — **never `HS*` or `none`**, either of which lets an attacker-supplied key verify (`src/auth/jwt.ts`) |
-| `alg` confusion | a key's own `alg` must match the header's, and its type must match the family |
-| Replayed expired token | `exp`/`nbf`, `JWT_CLOCK_SKEW_SEC` leeway |
+| Forged or tampered token | signature verified by `kid`; `alg` allowlist is `RS256`/`ES256` only — **never `HS*` or `none`**, either of which lets a forged token verify (`src/auth/jwt.ts`) |
+| `alg` confusion | a key that pins an `alg` must match the header's; the key type must always match the family |
+| Replayed expired token | `exp` is mandatory — a token without one is rejected, never treated as eternal; `JWT_CLOCK_SKEW_SEC` leeway |
 | Token minted for another deployment | optional `JWT_ISSUER` / `JWT_AUDIENCE` pinning |
-| Stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` (`SECURE_COOKIES`), ~10m TTL, plus the [denylist](#instant-revoke-the-optional-denylist) |
-| CSRF on our own forms | signed double-submit token (`src/auth/csrf.ts`) + `SameSite=Lax`; Kratos' flows carry Kratos' own token |
-| XSS | EJS `<%= %>` escapes; CSP `script-src 'self'` with no `'unsafe-inline'` (`src/http/security-headers.ts`) |
+| Stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` (`SECURE_COOKIES`) — but see the real session lifetime below |
+| CSRF on our own forms | signed double-submit token, **opt-in per handler** via `ctx.verifyCsrf` (`src/auth/csrf.ts`) + `SameSite=Lax`; Kratos' flows carry Kratos' own token |
+| XSS | EJS `<%= %>` escapes; CSP `script-src 'self'` with no `'unsafe-inline'` (`src/http/security-headers.ts`) — the `*.html` slots stay [raw by contract](#routes--handlers) |
 | Clickjacking | `frame-ancestors 'none'` + `X-Frame-Options: DENY` |
 | Open redirect via `return_to` | validated host-relative (`localPath`, `src/http/safe-url.ts`) |
-| Privilege escalation | roles are authored **only** in Keto; the identity projection is a derived read-only cache, re-read from Keto at every mint |
+| Privilege escalation | roles authored only in Keto, re-read at every mint — see [login & the session JWT](#login-and-the-session-jwt) |
 | Downgrade / MIME sniffing | HSTS when `SECURE_COOKIES=true`, `X-Content-Type-Options: nosniff` |
 | A hung Ory parking requests | `ORY_TIMEOUT_SEC` per outbound call |
 
-**Fail closed.** Every rejection converges on two outcomes: a missing, malformed, expired or
-revoked token yields *anonymous* — never a partly-trusted user — and an anonymous or
-under-privileged request is denied (`requireSession` bounces to `/login`; `can`/`check` return
-`false`). No verification failure degrades into access.
+**The JWT's ~10m TTL is not the session lifetime.** The browser also holds Kratos'
+`plainpages_session` cookie (30 days, sliding), and *that* is what silently re-mints a lapsed
+JWT. So a stolen cookie jar is worth 30 days of re-mintable access, not ten minutes. Only our
+two cookies obey `SECURE_COOKIES`; the Kratos one takes its flags from Kratos' own config.
+
+**Fail closed — with one deliberate exception.** A token that cannot be verified (missing,
+malformed, bad signature, wrong `iss`/`aud`) yields *anonymous*, never a partly-trusted user,
+and anonymous or under-privileged is denied (`requireSession` bounces to `/login`; `can`/`check`
+return `false`). An **expired or revoked** token instead triggers a re-mint against the live
+Kratos session — full re-authentication with roles re-read from Keto, or a cleared cookie if
+that session is dead; Ory unreachable ⇒ anonymous. Revoking a role therefore *downgrades* a
+user promptly without signing them out; **ending a session outright means deactivating or
+deleting the identity.**
 
 **Not guaranteed** — accepted, and stated where each mechanism is: role changes
 [lag up to one token TTL and sign-in needs Ory up](#two-trade-offs--both-deliberate), and the
 denylist is [single-instance and skips group changes](#instant-revoke-the-optional-denylist).
-Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true` and `SECURE_COOKIES=true` over the
-production secrets — see [what you must supply](#what-you-must-supply-the-only-manual-prep).
+Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true`, `SECURE_COOKIES=true`, and replacing
+**every** committed dev secret — see
+[what you must supply](#what-you-must-supply-the-only-manual-prep). `REQUIRE_SECURE_SECRETS`
+guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's or Postgres' throwaways.
 
 ## Email
 
@@ -1452,7 +1474,7 @@ container-relative; with the dev bind-mount they edit the real file).
 2. **Restart Kratos** so it signs with the new first key: `docker compose restart kratos`.
    (web needs no restart — it hot-reloads the file. The hot path verifies JWTs locally, so a
    brief Kratos blip only touches login/re-mint.)
-3. **Verify** new logins mint the new `kid` — decode the `plainpages_session` cookie's JWT
+3. **Verify** new logins mint the new `kid` — decode the `plainpages_jwt` cookie
    header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
    present the new key.
 4. **Wait ~12 min**, then **prune** the superseded key:
