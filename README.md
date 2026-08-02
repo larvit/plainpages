@@ -1173,7 +1173,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`), then build + push the app image |
+| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`) — skipped on a docs-only branch — then build + push the app image |
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
@@ -1187,6 +1187,12 @@ no repo files involved): direct pushes are blocked, changes land via PR only, th
 `CI / full-gate (push)` status must be green (admins included), and the only merge style is
 **fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
 the merged branch, which is why the branch's push-triggered status carries over.
+
+**Docs-only branches skip the gate** — when every path a branch changes against its merge-base
+with `main` ends in `.md`, `ci.yml` skips `bash ci.sh`. The job itself still runs and still
+builds + pushes the commit-hash image, so `CI / full-gate (push)` reports green and neither the
+merge gate nor `release.yml` notices the difference. Everything else in a diff — code, compose,
+Ory config, the workflows themselves — runs the full gate, as does an empty or unreadable diff.
 
 **Container images** — after a green gate, `ci.yml` builds the app image and pushes it to the
 Gitea container registry as `gitea.larvit.se/larvit/plainpages:<full commit hash>`. Because
@@ -1494,7 +1500,7 @@ plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
-.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
+.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main, skipped for docs-only branches;
                      mirror.yml — force-sync main + tags to the GitHub mirror; see CI/CD
 README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/plainpages) — pasted into the Docker Hub overview by hand when it changes; see CI/CD
 ```
