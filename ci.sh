@@ -40,14 +40,17 @@ pkg=$(grep -oE '"@playwright/test": "[0-9.]+"' e2e-tests/package.json | grep -oE
 [ -n "$img" ] && [ "$img" = "$pkg" ] || { echo "Playwright pin mismatch/unreadable: image v$img vs @playwright/test $pkg"; exit 1; }
 echo "ok ($img)"
 
-# --build: without it a stale web image from a previous branch supplies node_modules (the
-# source is bind-mounted but deps are baked in), so a dep bump gets typechecked/tested
+# Explicit rebuild: without it a stale web image from a previous branch supplies node_modules
+# (the source is bind-mounted but deps are baked in), so a dep bump gets typechecked/tested
 # against the OLD packages. Cheap when deps are unchanged (npm ci layer is cache-keyed).
+step "Build web image"
+docker compose build web
+
 step "Typecheck"
-docker compose run --build --rm --no-deps web npm run typecheck
+docker compose run --rm --no-deps web npm run typecheck
 
 step "Unit tests"
-units=$(docker compose run --build --rm --no-deps web npm test 2>&1) || { echo "$units"; exit 1; }
+units=$(docker compose run --rm --no-deps web npm test 2>&1) || { echo "$units"; exit 1; }
 echo "$units" | grep -E '^. (tests|pass|fail) ' || true
 # Sanity floor: catch a glob that matches too few files (a full empty glob already exits non-zero above).
 count=$(echo "$units" | grep -oE 'tests [0-9]+' | grep -oE '[0-9]+' | head -1 || true)
