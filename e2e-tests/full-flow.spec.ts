@@ -97,7 +97,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("h1")).toHaveText("Client registered");
     const clientId = await page.locator("#cid").inputValue();
     expect(clientId).toBeTruthy();
-    await expect(page.locator("#csecret")).not.toHaveValue("");
+    await expect(page.locator("#csecret")).toHaveValue(/.+/);
 
     // Listed; the row header links to the plain detail, which never shows the secret again.
     await page.goto("/admin/clients");
