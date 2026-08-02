@@ -12,10 +12,9 @@ cd "$(dirname "$0")"
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 
-# Docs-only fast path: when nothing but *.md changed since main there is nothing here to break,
-# so the gate no-ops. Committed changes AND the working tree both count — a dirty tree carrying
-# real code must never skip. Anything that can't be determined (no git, no reachable main, no
-# merge-base, offline with no origin/main) falls through to the full gate, never to a skip.
+# Docs-only fast path: nothing but *.md changed since main, so there is nothing here to break.
+# The working tree counts too — a dirty tree carrying real code must never skip. Anything
+# undeterminable (no git, no reachable main, no merge-base) falls through to the gate, never a skip.
 docs_only() {
 	local base changed
 	git rev-parse --git-dir >/dev/null 2>&1 || return 1

@@ -127,6 +127,14 @@ When editing: put content in the section it belongs to (don't prepend rationale 
 start); keep the ToC in sync when you add/rename/remove an `H2`/`H3`; and state each fact in
 one home, linking to it rather than restating (credentials, env vars, rotation steps).
 
+**Don't document internals here.** How a script reaches a decision, why one run behaved
+differently from another, what a function guards — a developer doesn't need it day to day and
+can read it off the code or a run's log in seconds. Prose like that only makes the README
+longer and harder to consume, for humans and machines alike. It belongs in the code it
+describes, or nowhere. The README earns its length on what you cannot dig out: how to use and
+operate Plainpages, the external contracts, and one-time setup (secrets, accounts, tokens).
+Same test before adding a row to a table or the file map — a clause, not a paragraph.
+
 ## Rules
 
 - Node 24 runs `.ts` directly (type stripping). Keep all TypeScript **erasable**

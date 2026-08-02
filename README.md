@@ -1166,12 +1166,6 @@ Each E2E suite **owns a clean stack** — never point two suites at one backend 
 revokes the admin's sessions; full-flow writes users/groups/roles to Keto), which is why the
 gate runs them serially, one stack up/down per suite.
 
-It **no-ops on a docs-only change** — when every path that differs from `main` (committed *and*
-uncommitted) ends in `.md`, there is nothing here to break, so it prints why and exits 0.
-Anything it can't determine — no reachable `main`, no merge-base, offline — runs the full gate,
-never a skip. The check lives here rather than in the workflow, so `bash ci.sh` on your branch
-tells you exactly what CI will do.
-
 ## CI/CD
 
 Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
@@ -1194,12 +1188,6 @@ no repo files involved): direct pushes are blocked, changes land via PR only, th
 **fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
 the merged branch, which is why the branch's push-triggered status carries over.
 
-**Docs-only branches skip the gate** — [`ci.sh` no-ops](#the-full-gate-one-command) when a branch
-changes nothing but `*.md`. The job itself still runs and still builds + pushes the commit-hash
-image, so `CI / full-gate (push)` reports green and neither the merge gate nor `release.yml`
-notices the difference. This is why `ci.yml` checks out with `fetch-depth: 0` — a shallow clone
-has no merge-base to compare against.
-
 **Container images** — after a green gate, `ci.yml` builds the app image and pushes it to the
 Gitea container registry as `gitea.larvit.se/larvit/plainpages:<full commit hash>`. Because
 merges are fast-forward-only, the image for any `main` commit already exists — it was built
@@ -1215,12 +1203,9 @@ this step runs
 inside the required gate, a missing/expired token (or registry outage) fails every branch's
 gate and blocks **all** merges until restored — set the secrets before this lands, and use a
 non-expiring token or track its expiry. Retention: hash tags accumulate one image per gated
-push, so the nightly `registry-cleanup.yml` prunes them precisely
-([`registry-cleanup/cleanup.ts`](registry-cleanup/cleanup.ts), run in a `node:24` container):
-a hash tag survives only while its commit is a **branch head** or carries a **`vX.Y.Z`
-release tag**; deleted alongside are the untagged `sha256:…` child manifests (arch image +
-provenance) that no surviving tag references. Named tags (`1.2.3`, `latest`, …) are never
-touched. It reuses `DOCKER_REGISTRY_USER`/`DOCKER_REGISTRY_TOKEN` — no extra setup. Don't
+push, so the nightly `registry-cleanup.yml` prunes them
+([`registry-cleanup/cleanup.ts`](registry-cleanup/cleanup.ts) defines what survives).
+It reuses `DOCKER_REGISTRY_USER`/`DOCKER_REGISTRY_TOKEN` — no extra setup. Don't
 add a pattern-based org cleanup rule for this package (and remove it if one exists): its
 age/count heuristics can't see branch heads or release tags and would delete images the
 workflow protects.
@@ -1271,12 +1256,10 @@ rejected).
 renovate`) cuts **one** `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main`
 since the last tag (it targets `origin/main`, and **skips** when the tip isn't a Renovate commit —
 a human owns that release — or when nothing new merged). Renovate stamps every commit with a
-`Release-Bump: <updateType>` trailer (`commitBody` in `renovate.json`); the job takes the highest
-trailer on those commits — any dependency's `major`/`minor`/`patch` maps straight through,
-defaulting to `patch`.
-**Pre-1.0 the level shifts down** — a dep major bumps the `0.x` minor, dep minor/patch bump the
-`0.x` patch (see [`auto-release/next-version.ts`](auto-release/next-version.ts), unit-tested) — so
-routine bumps never auto-cross into `1.0.0`; `1.0.0` stays a deliberate hand-cut tag. It's
+`Release-Bump: <updateType>` trailer (`commitBody` in `renovate.json`), and
+[`auto-release/next-version.ts`](auto-release/next-version.ts) (unit-tested) turns the highest
+trailer on those commits into the next version — pre-1.0 it never auto-crosses into `1.0.0`,
+which stays a deliberate hand-cut tag. It's
 **tag-only** (no source commits): the tag hands off to `release.yml`, which promotes the
 already-built image, and is pushed with renovate-bot's PAT so `release.yml` actually fires (a tag
 pushed by the built-in Actions token wouldn't trigger it). The plugin-contract version
@@ -1505,7 +1488,7 @@ ory/                 Ory service config (kratos/: identity schema, kratos.yml, o
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
-ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`); no-ops on a docs-only change
+ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 .gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
                      mirror.yml — force-sync main + tags to the GitHub mirror; see CI/CD
 README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/plainpages) — pasted into the Docker Hub overview by hand when it changes; see CI/CD

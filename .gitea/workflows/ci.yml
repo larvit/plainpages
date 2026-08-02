@@ -11,8 +11,6 @@ jobs:
         with:
           fetch-depth: 0 # ci.sh's docs-only check needs history; checkout defaults to depth 1
       - run: bash ci.sh
-      # Runs even when ci.sh no-ops on a docs-only branch: release.yml re-tags this exact image, and
-      # ff-only merges make every branch head a main commit - one without an image is unreleasable.
       - name: Push app image tagged with the commit hash
         env:
           IMAGE: gitea.larvit.se/${{ github.repository }}:${{ github.sha }}
