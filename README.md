@@ -1023,13 +1023,13 @@ what defends what, and which guarantees are deliberately not offered.
 - **The browser is not trusted.** Cookies, form fields, URLs and headers are attacker-controlled
   until verified or escaped. Nothing is believed because of where it arrived from.
 - **The session JWT is trusted only after verification** — signature against the JWKS key its
-  `kid` names (or the sole key, when the token carries no `kid`), then a **mandatory** `exp`, plus `nbf`
-  and the optional `iss`/`aud`. Before that it is bytes.
+  `kid` names (or the sole key, when the token carries no `kid`), then a **mandatory** `exp`,
+  plus `nbf` and the optional `iss`/`aud`. Before that it is bytes.
 - **The private container network is the *only* thing guarding the Ory APIs.** Kratos admin
   (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching them
   *is* full identity and permission control. Keto **read** (`4466`) cannot write, but discloses
-  the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six Ory ports
-  (guarded by `src/compose.test.ts`); dev publishes only the two Ory ports a browser must reach.
+  the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six
+  Ory ports (guarded by `src/compose.test.ts`); dev publishes only the two a browser must reach.
   Never expose one, and never front one with a proxy that lacks its own auth.
 - **Plugins are trusted code**, in-process and unsandboxed — a plugin can do anything the host
   can. Vetting happens when you mount one, not at runtime (AGENTS.md: crash isolation is a
@@ -1080,7 +1080,8 @@ denylist is [single-instance and skips group changes](#instant-revoke-the-option
 Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true`, `SECURE_COOKIES=true`, and replacing
 **every** committed dev secret — see
 [what you must supply](#what-you-must-supply-the-only-manual-prep). `REQUIRE_SECURE_SECRETS`
-guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's, Postgres' or the demo admin's throwaways.
+guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's, Postgres' or the demo admin's
+throwaways.
 
 ## Email
 
