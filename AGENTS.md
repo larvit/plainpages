@@ -7,7 +7,7 @@ commands and layout.
 
 Use the file `todo.md`.
 
-For each todo item, interview the user extensively to deeply understand the scope and goal of each. When done, run the stability reviewer agent in a loop and address all feedback until there is none. If you are not very confident of how to address it, ask the user. Check the completed task in this file. Commit all changes and push to a new branch, create a PR and merge it when the CI/CD turns green.
+For each todo item, interview the user extensively to deeply understand the scope and goal of each. When done, check the completed task in this file. Commit all changes and push to a new branch, create a PR and merge it when the CI/CD turns green.
 
 ## Project priorities (do not erode)
 
@@ -168,9 +168,6 @@ Same test before adding a row to a table or the file map — a clause, not a par
   that re-parses `ctx.url.pathname`: it duplicates the URL shape, ignores the router's params, and
   has to re-handle HEAD. Factor shared per-request setup (auth gate, `ctx.system` capability
   resolution, target fetch) into a small `withX` wrapper — see `examples/plugins/admin/`.
-- Run the stability reviewer agent after every implementation of something that can be like
-  a PR. That includes any change pushed directly to main.
-  Skip this if the changes are purely documentation and/or comments.
 - Use well formed, standard compliant, rich URIs. Prefer state in the URL over POST:ing in for
   for example list pages with filters and pagination. Do: "ids=x&ids=y" and not "ids[]=x&ids[]=y"
   and not "ids=x,y".
