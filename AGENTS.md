@@ -150,6 +150,10 @@ Same test before adding a row to a table or the file map — a clause, not a par
 - Tests use the built-in `node --test` runner — no test framework dependency.
 - English everywhere. Keep code comments short and information-dense. Self explained code
   without any comment at all is the preferred solution.
+- Do not comment about history in the code or README. Like "This function included X before,
+  but it moved to Y".
+- Do not comment about the abscense of things, if it is not very undexpected. Banned is things
+  like "This function does not calculate pi, that is done in function Z".
 - Pin all dependencies and Docker images to exact, human-readable **semantic
   versions** — never ranges (`^`, `~`) and never digests/hashes. npm deps are kept
   exact by `.npmrc` (`save-exact=true`) + `npm ci`; the base image by tag (e.g.

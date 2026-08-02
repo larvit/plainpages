@@ -15,6 +15,7 @@
 - [x] CI/CD - When renovate updates a dependency - also release a new version of plainpages based on what got updated with Renovate. Major typescript? New apiVersion + new major. A tiny patch to ejs? Only patch release etc. Before implementing, explain in detail how you will solve this. (`renovate.yml` gains an `auto-release` job (`needs: renovate`) that cuts one `vX.Y.Z` tag per run for what Renovate merged; level = highest `Release-Bump:` trailer Renovate stamps via `commitBody`, any dep's major/minor/patch mapped straight through (default patch). Decoupled from `apiVersion` (tag-only, `HOST_API_VERSION` untouched — a "major" is just a bigger image tag, never a plugin break); pre-1.0 shifts down so nothing auto-crosses into 1.0.0. Pure `auto-release/next-version.ts` + unit tests; tag pushed with renovate-bot's PAT so `release.yml` fires; documented in README → CI/CD.)
 - [ ] Add an e2e test for the admin plugin's OAuth2-clients (Hydra) screen. The full-flow e2e suite runs without Hydra (compose.full.yml), so /admin/clients register/detail/delete is only unit-covered (src/http/app.test.ts); wire Hydra into an e2e stack and drive the screen in the browser.
 - [ ] Build and publish docker image as CI/CD.
+- [ ] The human developer understands the security model in the auth in this project.
 - [ ] Add i18n support.
 
 ## Architectural review findings (2026-07-02)
