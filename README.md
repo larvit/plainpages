@@ -1166,6 +1166,12 @@ Each E2E suite **owns a clean stack** — never point two suites at one backend 
 revokes the admin's sessions; full-flow writes users/groups/roles to Keto), which is why the
 gate runs them serially, one stack up/down per suite.
 
+It **no-ops on a docs-only change** — when every path that differs from `main` (committed *and*
+uncommitted) ends in `.md`, there is nothing here to break, so it prints why and exits 0.
+Anything it can't determine — no reachable `main`, no merge-base, offline — runs the full gate,
+never a skip. The check lives here rather than in the workflow, so `bash ci.sh` on your branch
+tells you exactly what CI will do.
+
 ## CI/CD
 
 Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
@@ -1173,7 +1179,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`) — skipped on a docs-only branch — then build + push the app image |
+| `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`, a no-op on a docs-only branch), then build + push the app image |
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
@@ -1188,11 +1194,11 @@ no repo files involved): direct pushes are blocked, changes land via PR only, th
 **fast-forward-only** — history stays linear and `main`'s head is the exact commit hash of
 the merged branch, which is why the branch's push-triggered status carries over.
 
-**Docs-only branches skip the gate** — when every path a branch changes against its merge-base
-with `main` ends in `.md`, `ci.yml` skips `bash ci.sh`. The job itself still runs and still
-builds + pushes the commit-hash image, so `CI / full-gate (push)` reports green and neither the
-merge gate nor `release.yml` notices the difference. Everything else in a diff — code, compose,
-Ory config, the workflows themselves — runs the full gate, as does an empty or unreadable diff.
+**Docs-only branches skip the gate** — [`ci.sh` no-ops](#the-full-gate-one-command) when a branch
+changes nothing but `*.md`. The job itself still runs and still builds + pushes the commit-hash
+image, so `CI / full-gate (push)` reports green and neither the merge gate nor `release.yml`
+notices the difference. This is why `ci.yml` checks out with `fetch-depth: 0` — a shallow clone
+has no merge-base to compare against.
 
 **Container images** — after a green gate, `ci.yml` builds the app image and pushes it to the
 Gitea container registry as `gitea.larvit.se/larvit/plainpages:<full commit hash>`. Because
@@ -1499,8 +1505,8 @@ ory/                 Ory service config (kratos/: identity schema, kratos.yml, o
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
-ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
-.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main, skipped for docs-only branches;
+ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`); no-ops on a docs-only change
+.gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
                      mirror.yml — force-sync main + tags to the GitHub mirror; see CI/CD
 README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/plainpages) — pasted into the Docker Hub overview by hand when it changes; see CI/CD
 ```

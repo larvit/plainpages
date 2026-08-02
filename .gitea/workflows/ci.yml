@@ -9,27 +9,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 0 # the merge-base below needs history; checkout defaults to depth 1
-      - name: Detect a docs-only branch
-        id: scope
-        run: |
-          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
-          base=$(git merge-base refs/remotes/origin/main HEAD) \
-            || { echo 'No merge-base with main - running the gate'; echo 'docs_only=false' >> "$GITHUB_OUTPUT"; exit 0; }
-          changed=$(git diff --name-only "$base" HEAD)
-          printf '%s\n' "$changed"
-          # Skip only when there IS a diff and every path is *.md. An empty diff, an unreadable
-          # range, anything else - fall through to the gate.
-          if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -qvE '\.md$'; then
-            echo 'docs_only=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'docs_only=false' >> "$GITHUB_OUTPUT"
-          fi
-      - name: Full gate
-        if: steps.scope.outputs.docs_only != 'true'
-        run: bash ci.sh
-      # Never gated on docs_only: release.yml re-tags this exact image, and ff-only merges make
-      # every branch head a main commit - a main commit without an image is an unreleasable one.
+          fetch-depth: 0 # ci.sh's docs-only check needs history; checkout defaults to depth 1
+      - run: bash ci.sh
+      # Runs even when ci.sh no-ops on a docs-only branch: release.yml re-tags this exact image, and
+      # ff-only merges make every branch head a main commit - one without an image is unreleasable.
       - name: Push app image tagged with the commit hash
         env:
           IMAGE: gitea.larvit.se/${{ github.repository }}:${{ github.sha }}

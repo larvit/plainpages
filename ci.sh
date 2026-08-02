@@ -12,6 +12,27 @@ cd "$(dirname "$0")"
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 
+# Docs-only fast path: when nothing but *.md changed since main there is nothing here to break,
+# so the gate no-ops. Committed changes AND the working tree both count — a dirty tree carrying
+# real code must never skip. Anything that can't be determined (no git, no reachable main, no
+# merge-base, offline with no origin/main) falls through to the full gate, never to a skip.
+docs_only() {
+	local base changed
+	git rev-parse --git-dir >/dev/null 2>&1 || return 1
+	git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main 2>/dev/null || true
+	base=$(git merge-base refs/remotes/origin/main HEAD 2>/dev/null) || return 1
+	changed=$(
+		{ git diff --name-only "$base" HEAD && git status --porcelain --untracked-files=all | cut -c4-; } 2>/dev/null
+	) || return 1
+	[ -n "$changed" ] || return 1
+	! printf '%s\n' "$changed" | grep -qvE '\.md$'
+}
+
+if docs_only; then
+	step "Only *.md changed since main — nothing to test, skipping the gate"
+	exit 0
+fi
+
 # Pins that MUST move in lockstep: a browser/runner mismatch yields confusing E2E failures.
 step "Playwright pin lockstep (e2e-tests/Dockerfile image == e2e-tests/package.json @playwright/test)"
 # `|| true` so a no-match doesn't trip `set -e`/`pipefail` before the explicit check below can report.
