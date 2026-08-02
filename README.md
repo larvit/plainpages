@@ -853,10 +853,12 @@ blocks a clean clone:
    | `SECRETS_CIPHER` | kratos env (32 chars) | encrypts credentials at rest |
    | `SECRETS_SYSTEM` | hydra env | encrypts OAuth2 tokens + consent at rest |
    | `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose env | the Ory databases (default `ory`/`ory`) |
+   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | bootstrap env | the seeded first admin login (default `admin@plainpages.local` / `admin`) |
 
-   `CSRF_SECRET` and the Postgres pair are interpolated from the host environment. The three
-   Ory secrets are **not**: `compose.yml` passes only `DSN` to `kratos`/`hydra`, so add them to
-   those services' `environment:` (or an `env_file:`) or they silently stay on the throwaways.
+   `CSRF_SECRET`, the Postgres pair and the admin pair are interpolated from the host
+   environment. The three Ory secrets are **not**: `compose.yml` passes only `DSN` to
+   `kratos`/`hydra`, so add them to those services' `environment:` (or an `env_file:`) or they
+   silently stay on the throwaways.
 
 2. **SSO provider client id/secret** — **optional**; password login works without them.
    Supplying a provider's creds via env activates it; no creds ⇒ no SSO button (see
@@ -1069,8 +1071,8 @@ Kratos session, roles re-read from Keto, or a cleared cookie if that session is 
 unreachable ⇒ anonymous. None of this is a session kill — a *revoked* state exists only with the
 [denylist](#instant-revoke-the-optional-denylist) on (off by default), and it resolves through
 that same re-mint. **Offboarding:** with the denylist on, revoking a role downgrades the user at
-once and deactivating or deleting the identity ends the session; with it off, both land within
-one token TTL.
+once (on the instance that handled it) and deactivating or deleting the identity ends the
+session; with it off, both land within one token TTL.
 
 **Not guaranteed** — accepted, and stated where each mechanism is: role changes
 [lag up to one token TTL and sign-in needs Ory up](#two-trade-offs--both-deliberate), and the
@@ -1078,7 +1080,7 @@ denylist is [single-instance and skips group changes](#instant-revoke-the-option
 Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true`, `SECURE_COOKIES=true`, and replacing
 **every** committed dev secret — see
 [what you must supply](#what-you-must-supply-the-only-manual-prep). `REQUIRE_SECURE_SECRETS`
-guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's or Postgres' throwaways.
+guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's, Postgres' or the demo admin's throwaways.
 
 ## Email
 
@@ -1480,7 +1482,8 @@ container-relative; with the dev bind-mount they edit the real file).
 2. **Restart Kratos** so it signs with the new first key: `docker compose restart kratos`.
    (web needs no restart — it hot-reloads the file. The hot path verifies JWTs locally, so a
    brief Kratos blip only touches login/re-mint.)
-3. **Verify** new logins mint the new `kid` — decode the `plainpages_jwt` cookie's JWT header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
+3. **Verify** new logins mint the new `kid` — decode the `plainpages_jwt` cookie's JWT
+   header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
    present the new key.
 4. **Wait ~12 min**, then **prune** the superseded key:
    ```bash
