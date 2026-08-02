@@ -5,7 +5,7 @@
 // plugin may deliberately shadow a core partial). The router calls this for a `view` RouteResult.
 
 import { isAbsolute, join, relative } from "node:path";
-import * as ejs from "ejs";
+import ejs from "ejs";
 
 const CONTROL_CHARS = /[\x00-\x1f]/;
 

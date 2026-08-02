@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import * as ejs from "ejs";
+import ejs from "ejs";
 import { ICON_NAMES, buildIconSprite } from "./icons.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import * as ejs from "ejs";
+import ejs from "ejs";
 
 const dataTable = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "data-table.ejs");
 const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(dataTable, data);
