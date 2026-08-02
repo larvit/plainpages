@@ -89,8 +89,10 @@ them. Revisit only if the stated reason stops holding.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
   concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),
-  and tokens sit in that file between login and logout. Accepted for a single-maintainer
-  cadence; serialize with a workflow `concurrency` group if it ever bites.
+  and tokens sit in that file between login and logout. Same class: concurrent runs share the
+  workspace dir, so ci.sh's web-image build races another run's container creation on the
+  `<project>-web` tag. Accepted for a single-maintainer cadence; serialize with a workflow
+  `concurrency` group if it ever bites.
 
 ## Docker only — no host tooling
 

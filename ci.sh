@@ -40,6 +40,12 @@ pkg=$(grep -oE '"@playwright/test": "[0-9.]+"' e2e-tests/package.json | grep -oE
 [ -n "$img" ] && [ "$img" = "$pkg" ] || { echo "Playwright pin mismatch/unreadable: image v$img vs @playwright/test $pkg"; exit 1; }
 echo "ok ($img)"
 
+# Explicit rebuild: without it a stale web image from a previous branch supplies node_modules
+# (the source is bind-mounted but deps are baked in), so a dep bump gets typechecked/tested
+# against the OLD packages. Cheap when deps are unchanged (npm ci layer is cache-keyed).
+step "Build web image"
+docker compose build web
+
 step "Typecheck"
 docker compose run --rm --no-deps web npm run typecheck
 
