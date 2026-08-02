@@ -94,6 +94,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [instant revoke](#instant-revoke-the-optional-denylist)
   - [three tiers](#three-tiers-of-may-i)
   - [OAuth2 (Hydra)](#oauth2-provider-hydra)
+  - [security model](#security-model)
 - [Email](#email)
 - [Architecture](#architecture)
   - [Stateless](#stateless)
@@ -996,6 +997,60 @@ Those clients are registered from the admin plugin's **OAuth2 clients** screen (
 generated `client_secret` **once**, on the confirmation page — confidential clients), list, and
 delete. Confidential vs public (PKCE) and the first-party auto-consent flag are set at registration;
 writes go only to Hydra.
+
+### Security model
+
+Everything above is *how* auth works. This is what to check a change against: who is trusted,
+what defends what, and which guarantees are deliberately not offered.
+
+**Trust boundaries.**
+
+- **The browser is not trusted.** Cookies, form fields, URLs and headers are attacker-controlled
+  until verified or escaped. Nothing is believed because of where it arrived from.
+- **The session JWT is trusted only after verification** — signature against the JWKS key its
+  `kid` names, then `exp`/`nbf` and the optional `iss`/`aud`. Before that it is bytes.
+- **The private container network is the *only* thing guarding the Ory admin APIs.** Kratos
+  admin (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching
+  them *is* full identity and permission control. `compose.yml` publishes none of them (guarded
+  by `src/compose.test.ts`); dev publishes only the two ports a browser must reach. Never
+  expose an admin port, and never front one with a proxy that lacks its own auth.
+- **Plugins are trusted code**, in-process and unsandboxed — a plugin can do anything the host
+  can. Vetting happens when you mount one, not at runtime (AGENTS.md: crash isolation is a
+  deliberate non-goal).
+- **Row-level rules belong upstream**, in the service that owns the data — see
+  [three tiers](#three-tiers-of-may-i).
+
+**The JWT is signed, not encrypted.** Claims are base64: a signed-in user can read their own
+`sub`, `email` and `roles`. `HttpOnly` keeps page JavaScript out of the cookie, not the user.
+Never put anything in a claim you wouldn't show them.
+
+**What defends what.**
+
+| Threat | Defense |
+| --- | --- |
+| Forged or tampered token | signature verified against the `kid`'s JWKS key; the `alg` allowlist is `RS256`/`ES256` only — **never `HS*` or `none`**, either of which lets an attacker-supplied key verify (`src/auth/jwt.ts`) |
+| `alg` confusion | a key's own `alg` must match the header's, and its type must match the family |
+| Replayed expired token | `exp`/`nbf`, `JWT_CLOCK_SKEW_SEC` leeway |
+| Token minted for another deployment | optional `JWT_ISSUER` / `JWT_AUDIENCE` pinning |
+| Stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` (`SECURE_COOKIES`), ~10m TTL, plus the [denylist](#instant-revoke-the-optional-denylist) |
+| CSRF on our own forms | signed double-submit token (`src/auth/csrf.ts`) + `SameSite=Lax`; Kratos' flows carry Kratos' own token |
+| XSS | EJS `<%= %>` escapes; CSP `script-src 'self'` with no `'unsafe-inline'` (`src/http/security-headers.ts`) |
+| Clickjacking | `frame-ancestors 'none'` + `X-Frame-Options: DENY` |
+| Open redirect via `return_to` | validated host-relative (`localPath`, `src/http/safe-url.ts`) |
+| Privilege escalation | roles are authored **only** in Keto; the identity projection is a derived read-only cache, re-read from Keto at every mint |
+| Downgrade / MIME sniffing | HSTS when `SECURE_COOKIES=true`, `X-Content-Type-Options: nosniff` |
+| A hung Ory parking requests | `ORY_TIMEOUT_SEC` per outbound call |
+
+**Fail closed.** Every rejection converges on two outcomes: a missing, malformed, expired or
+revoked token yields *anonymous* — never a partly-trusted user — and an anonymous or
+under-privileged request is denied (`requireSession` bounces to `/login`; `can`/`check` return
+`false`). No verification failure degrades into access.
+
+**Not guaranteed** — accepted, and stated where each mechanism is: role changes
+[lag up to one token TTL and sign-in needs Ory up](#two-trade-offs--both-deliberate), and the
+denylist is [single-instance and skips group changes](#instant-revoke-the-optional-denylist).
+Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true` and `SECURE_COOKIES=true` over the
+production secrets — see [what you must supply](#what-you-must-supply-the-only-manual-prep).
 
 ## Email
 
