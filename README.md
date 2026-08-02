@@ -854,6 +854,10 @@ blocks a clean clone:
    | `SECRETS_SYSTEM` | hydra env | encrypts OAuth2 tokens + consent at rest |
    | `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose env | the Ory databases (default `ory`/`ory`) |
 
+   `CSRF_SECRET` and the Postgres pair are interpolated from the host environment. The three
+   Ory secrets are **not**: `compose.yml` passes only `DSN` to `kratos`/`hydra`, so add them to
+   those services' `environment:` (or an `env_file:`) or they silently stay on the throwaways.
+
 2. **SSO provider client id/secret** — **optional**; password login works without them.
    Supplying a provider's creds via env activates it; no creds ⇒ no SSO button (see
    [Social sign-in (SSO)](#social-sign-in-sso)).
@@ -1017,12 +1021,12 @@ what defends what, and which guarantees are deliberately not offered.
 - **The browser is not trusted.** Cookies, form fields, URLs and headers are attacker-controlled
   until verified or escaped. Nothing is believed because of where it arrived from.
 - **The session JWT is trusted only after verification** — signature against the JWKS key its
-  `kid` names (or the sole key, when the set has one), then a **mandatory** `exp`, plus `nbf`
+  `kid` names (or the sole key, when the token carries no `kid`), then a **mandatory** `exp`, plus `nbf`
   and the optional `iss`/`aud`. Before that it is bytes.
 - **The private container network is the *only* thing guarding the Ory APIs.** Kratos admin
   (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching them
   *is* full identity and permission control. Keto **read** (`4466`) cannot write, but discloses
-  the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six
+  the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six Ory ports
   (guarded by `src/compose.test.ts`); dev publishes only the two Ory ports a browser must reach.
   Never expose one, and never front one with a proxy that lacks its own auth.
 - **Plugins are trusted code**, in-process and unsandboxed — a plugin can do anything the host
@@ -1045,7 +1049,7 @@ Never put anything in a claim you wouldn't show them.
 | Token minted for another deployment | optional `JWT_ISSUER` / `JWT_AUDIENCE` pinning |
 | Stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` (`SECURE_COOKIES`) — but see the real session lifetime below |
 | CSRF on our own forms | signed double-submit token, **opt-in per handler** via `ctx.verifyCsrf` (`src/auth/csrf.ts`) + `SameSite=Lax`; Kratos' flows carry Kratos' own token |
-| XSS | EJS `<%= %>` escapes; CSP `script-src 'self'` with no `'unsafe-inline'` (`src/http/security-headers.ts`) — the `*.html` slots stay [raw by contract](#routes--handlers) |
+| XSS | EJS `<%= %>` escapes; the CSP blocks inline script ([headers](#production--deployment)) — the `*.html` slots stay [raw by contract](#escaping--the-trust-boundary) |
 | Clickjacking | `frame-ancestors 'none'` + `X-Frame-Options: DENY` |
 | Open redirect via `return_to` | validated host-relative (`localPath`, `src/http/safe-url.ts`) |
 | Privilege escalation | roles authored only in Keto, re-read at every mint — see [login & the session JWT](#login-and-the-session-jwt) |
@@ -1060,11 +1064,13 @@ two cookies obey `SECURE_COOKIES`; the Kratos one takes its flags from Kratos' o
 **Fail closed — with one deliberate exception.** A token that cannot be verified (missing,
 malformed, bad signature, wrong `iss`/`aud`) yields *anonymous*, never a partly-trusted user,
 and anonymous or under-privileged is denied (`requireSession` bounces to `/login`; `can`/`check`
-return `false`). An **expired or revoked** token instead triggers a re-mint against the live
-Kratos session — full re-authentication with roles re-read from Keto, or a cleared cookie if
-that session is dead; Ory unreachable ⇒ anonymous. Revoking a role therefore *downgrades* a
-user promptly without signing them out; **ending a session outright means deactivating or
-deleting the identity.**
+return `false`). An **expired** token instead triggers a re-mint: re-validation against the live
+Kratos session, roles re-read from Keto, or a cleared cookie if that session is dead; Ory
+unreachable ⇒ anonymous. None of this is a session kill — a *revoked* state exists only with the
+[denylist](#instant-revoke-the-optional-denylist) on (off by default), and it resolves through
+that same re-mint. **Offboarding:** with the denylist on, revoking a role downgrades the user at
+once and deactivating or deleting the identity ends the session; with it off, both land within
+one token TTL.
 
 **Not guaranteed** — accepted, and stated where each mechanism is: role changes
 [lag up to one token TTL and sign-in needs Ory up](#two-trade-offs--both-deliberate), and the
@@ -1474,8 +1480,7 @@ container-relative; with the dev bind-mount they edit the real file).
 2. **Restart Kratos** so it signs with the new first key: `docker compose restart kratos`.
    (web needs no restart — it hot-reloads the file. The hot path verifies JWTs locally, so a
    brief Kratos blip only touches login/re-mint.)
-3. **Verify** new logins mint the new `kid` — decode the `plainpages_jwt` cookie
-   header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
+3. **Verify** new logins mint the new `kid` — decode the `plainpages_jwt` cookie's JWT header, or watch web's logs for a `jwks reload on kid miss` debug line as old clients
    present the new key.
 4. **Wait ~12 min**, then **prune** the superseded key:
    ```bash

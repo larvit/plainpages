@@ -29,8 +29,10 @@ test("verifyToken: a valid token → User, selecting the verify key by kid acros
   assert.deepEqual(user, { email: "a@b.c", id: "u1", roles: ["admin"] });
 });
 
-test("verifyToken rejects expiry and future nbf, with clock-skew leeway", async () => {
+test("verifyToken requires exp, rejects expiry and future nbf, with clock-skew leeway", async () => {
   const opts = { clockSkewSec: 60, now: NOW };
+  // No exp ⇒ rejected outright: an exp-less token must never read as eternal.
+  await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, exp: undefined }), jwks, opts), /missing exp/);
   await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, exp: NOW - 120 }), jwks, opts), /expired/);
   // exp 30s in the past but inside the 60s skew → still accepted.
   await verifyToken(mint(k1.privateKey, "k1", { ...valid, exp: NOW - 30 }), jwks, opts);
