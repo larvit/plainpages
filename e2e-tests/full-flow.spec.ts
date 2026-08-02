@@ -85,6 +85,35 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("main")).toContainText(role);
   });
 
+  test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {
+    const name = `e2e-client-${suffix}`;
+    await page.goto("/admin/clients");
+    await page.getByRole("link", { name: "Register client" }).click();
+    await page.fill('input[name="name"]', name);
+    await page.fill('textarea[name="redirectUris"]', "https://app.example.com/callback");
+    await page.locator('.form-card button[type="submit"]').click();
+
+    // Hydra returns the secret exactly once, so the POST renders the detail directly (no PRG).
+    await expect(page.locator("h1")).toHaveText("Client registered");
+    const clientId = await page.locator("#cid").inputValue();
+    expect(clientId).toBeTruthy();
+    await expect(page.locator("#csecret")).not.toHaveValue("");
+
+    // Listed; the row header links to the plain detail, which never shows the secret again.
+    await page.goto("/admin/clients");
+    const row = page.locator("tr", { hasText: name });
+    await expect(row).toBeVisible();
+    await row.getByRole("link", { name }).click();
+    await expect(page).toHaveURL(new RegExp(`/admin/clients/${clientId}`));
+    await expect(page.locator("#csecret")).toHaveCount(0);
+
+    // Delete through the confirm interstitial (danger link on the detail → confirm form's button).
+    await page.getByRole("link", { name: "Delete client" }).click();
+    await page.getByRole("button", { name: "Delete client" }).click();
+    await expect(page).toHaveURL(/\/admin\/clients(\?|$)/);
+    await expect(page.locator("tr", { hasText: name })).toHaveCount(0);
+  });
+
   test("plugin page: the reference plugin renders its upstream shifts inside the native shell", async () => {
     await page.goto("/scheduling/shifts");
     await expect(page.locator("h1")).toHaveText("Shifts");

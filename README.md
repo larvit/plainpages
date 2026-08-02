@@ -1118,8 +1118,9 @@ docker compose -f compose.yml -f e2e-tests/compose.oauth.yml down -v            
 
 **Full browser flow** (`full-flow.spec.ts`) — the real Playwright UI against the live stack:
 the themed **password login** and a **mocked-SSO** login (an in-network mock OIDC provider,
-`e2e-tests/mock-oidc.ts`), **menu filtering by role**, the **users/groups/roles** admin CRUD, a
-permission-gated **plugin page**, and **logout**. Because the themed form posts straight to
+`e2e-tests/mock-oidc.ts`), **menu filtering by role**, the **users/groups/roles** admin CRUD, the
+**OAuth2-clients** admin screen (register → one-time secret → delete; Hydra is part of this
+stack for it), a permission-gated **plugin page**, and **logout**. Because the themed form posts straight to
 Kratos and cookies are host-scoped, a tiny same-origin gateway (`e2e-tests/proxy.ts`) fronts web +
 Kratos on one host (`ory/kratos/e2e-proxy.yml` points Kratos at it) — exactly as a production
 reverse proxy would.

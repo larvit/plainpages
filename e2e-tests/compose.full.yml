@@ -1,17 +1,21 @@
 # Full browser E2E — the real Playwright UI flow against the live stack: password +
-# mocked-SSO login, menu filtering by role, users/groups/roles CRUD, a plugin page, logout. A tiny
+# mocked-SSO login, menu filtering by role, users/groups/roles/OAuth2-clients CRUD, a plugin page,
+# logout. A tiny
 # same-origin gateway (proxy, e2e-tests/proxy.ts) fronts web + Kratos on one host so the browser's cookies
 # round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.
 #   docker compose -f compose.yml -f e2e-tests/compose.full.yml run --build --rm e2e
 #   docker compose -f compose.yml -f e2e-tests/compose.full.yml down -v   # tear down after
 services:
   web:
-    # First-party + SSO flows need Kratos + Keto + bootstrap, not Hydra — drop it so the stack is
-    # leaner. SSO is enabled here only (clean clone stays password-only): the mock provider's whole
-    # array is the env-settable form Kratos offers, mapped through the committed claims jsonnet.
+    # Kratos + Keto + bootstrap back the login/role flows; Hydra backs the admin plugin's
+    # OAuth2-clients screen. SSO is enabled here only (clean clone stays password-only): the mock
+    # provider's whole array is the env-settable form Kratos offers, mapped through the committed
+    # claims jsonnet.
     depends_on: !override
       bootstrap:
         condition: service_completed_successfully
+      hydra:
+        condition: service_healthy
       kratos:
         condition: service_healthy
       keto:
@@ -51,6 +55,10 @@ services:
       SELFSERVICE_METHODS_OIDC_ENABLED: "true"
       SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS: >-
         [{"id":"mock","provider":"generic","label":"Mock SSO","client_id":"plainpages-e2e","client_secret":"e2e-secret","issuer_url":"http://mock-oidc:9000","scope":["openid","email"],"mapper_url":"file:///etc/config/kratos/oidc/claims.jsonnet"}]
+
+  # --dev permits the http issuer (the base file drops it for an https prod issuer).
+  hydra:
+    command: serve all --dev -c /etc/config/hydra/hydra.yml
 
   # The reference plugin's upstream (examples/shifts-upstream) so /scheduling/shifts shows real rows.
   shifts-upstream:
