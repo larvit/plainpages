@@ -1249,8 +1249,8 @@ Renovate merges it once `CI / full-gate (push)` is green (rebasing stale branche
 fast-forward-only merge still holds) — routine bumps land untouched; only a red gate needs a
 human. One-time setup: reuse the shared `renovate@larvit.se` bot — give it write access to
 this repo and store its Gitea PAT as the Actions **secret** `RENOVATE_TOKEN`. Until it
-exists, the nightly job fails loud (and, like the other secrets, a `GITEA_` prefix is
-rejected). Also store a **scopeless** (read-only) github.com PAT as the secret
+exists, the nightly job fails loud (and, like the other secrets, a `GITEA_`/`GITHUB_`
+prefix is rejected). Also store a **scopeless** (read-only) github.com PAT as the secret
 `RENOVATE_GITHUB_TOKEN` — the workflow hands it to Renovate as `GITHUB_COM_TOKEN`, so
 lookups of github.com-hosted deps (actions, Playwright, changelogs) run authenticated
 instead of tripping the anonymous 60-requests/hour limit.
