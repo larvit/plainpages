@@ -22,7 +22,7 @@ test("buildShellContext maps branding + breadcrumbs, omitting unset optional fie
     menu: { branding: { logo: "/l.svg", name: "Acme", sub: "Ops", theme: "dark" }, override: {} },
     signInHref: "/login?return_to=%2Fx",
     title: "Users",
-    user: { email: "a@b.c", id: "u1", roles: ["admin"] },
+    identity: { email: "a@b.c", id: "u1", roles: ["admin"] },
   });
   assert.deepEqual(full.brand, { logo: "/l.svg", name: "Acme", sub: "Ops" });
   assert.equal(full.theme, "dark");

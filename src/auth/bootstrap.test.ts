@@ -20,13 +20,13 @@ test("identityPayload is a valid Kratos create-identity body with a password cre
   assert.equal(body.credentials.password.config.password, "admin");
 });
 
-test("roleTuple grants a role to user:<id> in the Role namespace", () => {
+test("roleTuple grants a role to identity:<id> in the Role namespace", () => {
   const id = randomUUID();
   assert.deepEqual(roleTuple(id, "admin"), {
     namespace: "Role",
     object: "admin",
     relation: "members",
-    subject_id: `user:${id}`,
+    subject_id: `identity:${id}`,
   });
 });
 
@@ -65,8 +65,8 @@ test("seedAdmin on a fresh stack creates the identity and grants every role (one
   assert.equal(puts.length, 2); // one grant per role
   assert.ok(puts.every((p) => p.method === "PUT"));
   assert.deepEqual(puts.map((p) => p.body), [
-    { namespace: "Role", object: "admin", relation: "members", subject_id: `user:${id}` },
-    { namespace: "Role", object: "scheduling:read", relation: "members", subject_id: `user:${id}` },
+    { namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${id}` },
+    { namespace: "Role", object: "scheduling:read", relation: "members", subject_id: `identity:${id}` },
   ]);
 });
 
@@ -94,7 +94,7 @@ test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants 
   });
 
   assert.deepEqual(result, { created: false, id, roles: ["admin"] });
-  assert.deepEqual(granted, { namespace: "Role", object: "admin", relation: "members", subject_id: `user:${id}` });
+  assert.deepEqual(granted, { namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${id}` });
 });
 
 test("seedAdmin fails loud on an unexpected Kratos error", async () => {

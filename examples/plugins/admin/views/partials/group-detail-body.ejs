@@ -1,7 +1,7 @@
 <%#
   Admin group membership body, captured into the shell content slot. Config:
     group   { name }
-    members { action, rows: { kind:"group"|"user", label, subject }[] }   action = remove-member endpoint
+    members { action, rows: { kind:"group"|"identity", label, subject }[] }   action = remove-member endpoint
     add     { action, options: {label,value}[] }                          action = add-member endpoint
     del     { action }                                                     delete the whole group
     csrfToken, error?

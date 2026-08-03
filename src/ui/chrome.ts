@@ -5,7 +5,7 @@
 // admin plugin is installed) — run through composeNav (override + per-user filter) and
 // current-marked for the request path.
 
-import type { User } from "../http/context.ts";
+import type { SessionIdentity } from "../http/context.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
@@ -29,17 +29,17 @@ export interface ChromeOptions {
   currentPath?: string; // request pathname; the matching nav leaf is marked current
   menu: MenuConfig;
   plugins?: Plugin[];
-  user?: User | null;
+  identity?: SessionIdentity | null;
 }
 
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   // The Dashboard link targets the gated /dashboard, so show it only to a signed-in user — to an
   // anonymous visitor (a public page in the shell) it would only dead-end at /login. The admin
   // section, when present, is just another plugin's nav fragment (examples/plugins/admin).
-  const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
+  const fragments: NavNode[][] = opts.identity ? [[DASHBOARD_NAV]] : [];
   for (const p of opts.plugins ?? []) if (p.nav?.length) fragments.push(p.nav);
 
-  const roles = opts.user?.roles ?? [];
+  const roles = opts.identity?.roles ?? [];
   const nav = composeNav(fragments, opts.menu.override, roles);
   if (opts.currentPath) {
     // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
@@ -56,7 +56,7 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     // Anonymous "Sign in" returns to the current page (it's host-relative, our own pathname).
     signInHref: opts.currentPath ? `/login?return_to=${encodeURIComponent(opts.currentPath)}` : "/login",
     ...(b.theme != null ? { theme: b.theme } : {}),
-    user: shellUser(opts.user),
+    user: shellUser(opts.identity),
   };
 }
 

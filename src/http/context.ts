@@ -5,11 +5,11 @@ import { createLogger, type Log } from "../logger.ts";
 
 // The request context threaded to every route handler (plugin + built-in), built once
 // per request by `buildContext`: the router supplies matched path `params`, the JWT
-// middleware supplies `user` (null until then). The host's single handler argument.
+// middleware supplies `identity` (null until then). The host's single handler argument.
 
-// The authenticated user, projected from verified session JWT claims:
+// The authenticated Kratos identity, projected from verified session JWT claims:
 // `id` = `sub`, plus `email` and the coarse `roles` carried in the token.
-export interface User {
+export interface SessionIdentity {
   email: string;
   id: string;
   roles: string[];
@@ -19,6 +19,8 @@ export interface RequestContext {
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).
   chrome: PageChrome;
+  // The signed-in Kratos identity, or null when anonymous.
+  identity: SessionIdentity | null;
   // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
   // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
   // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
@@ -27,12 +29,11 @@ export interface RequestContext {
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
   req: IncomingMessage;
   res: ServerResponse;
-  roles: string[]; // user?.roles ?? [] — coarse gate without a null-check
+  roles: string[]; // identity?.roles ?? [] — coarse gate without a null-check
   // Privileged host services (Ory admin clients + instant-revoke) for a system plugin. Undefined
   // unless the host wired them; every field optional. Ordinary domain plugins ignore it.
   system?: SystemCapabilities;
   url: URL;
-  user: User | null;
   // Gate a first-party form submission: true iff `submitted` matches this request's signed CSRF
   // cookie (double-submit). The host binds the secret; a plugin calls it after reading its body.
   verifyCsrf(submitted: string | null | undefined): boolean;
@@ -43,10 +44,10 @@ export interface BuildContextOptions {
   // ctx.chrome (a json/redirect handler, or the public "/" with a standalone home, pays nothing).
   // The host's factory is memoised, so the menu composes at most once per request across contexts.
   chrome?: () => PageChrome;
+  identity?: SessionIdentity | null;
   log?: Log;
   params?: Record<string, string>;
   system?: SystemCapabilities;
-  user?: User | null;
   verifyCsrf?: (submitted: string | null | undefined) => boolean;
 }
 
@@ -62,20 +63,20 @@ export function buildContext(
   options: BuildContextOptions = {},
 ): RequestContext {
   const url = new URL(req.url ?? "/", "http://localhost");
-  const user = options.user ?? null;
+  const identity = options.identity ?? null;
   const buildChrome = options.chrome;
   let chromeMemo: PageChrome | undefined; // resolve the factory at most once per context
   return {
     get chrome(): PageChrome { return (chromeMemo ??= buildChrome ? buildChrome() : ANON_CHROME); },
+    identity,
     log: options.log ?? SILENT_LOG,
     params: options.params ?? {},
     query: url.searchParams,
     req,
     res,
-    roles: user?.roles ?? [],
+    roles: identity?.roles ?? [],
     ...(options.system ? { system: options.system } : {}),
     url,
-    user,
     verifyCsrf: options.verifyCsrf ?? (() => false), // fail-closed unless the host binds the secret
   };
 }

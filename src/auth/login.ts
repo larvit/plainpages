@@ -6,7 +6,7 @@
 //   4. whoami(tokenize_as)       → the signed JWT { sub, email, roles }, stored as our cookie
 // Order matters: the projection is written before tokenizing, because the claims mapper
 // reads only the identity, never Keto.
-import type { User } from "../http/context.ts";
+import type { SessionIdentity } from "../http/context.ts";
 import { serializeCookie, type CookieOptions } from "../http/cookie.ts";
 import { currentLog } from "../logger.ts";
 import type { KetoClient } from "./keto-client.ts";
@@ -37,13 +37,13 @@ export interface CompletedLogin {
   roles: string[];
 }
 
-// The coarse roles a user holds — directly (`Role:<name>#members@user:<id>`) or transitively via a
+// The coarse roles a user holds — directly (`Role:<name>#members@identity:<id>`) or transitively via a
 // group that is a member of the role. Enumerates the defined roles (the distinct objects in the Role
 // namespace) and asks Keto to resolve each membership, so a role granted to a group reaches the JWT —
 // matching the OPL model and the admin "Effective access" view. At login/refresh only, never per
 // request; role count is small, so the per-role checks are cheap and run in parallel.
 export async function readRoles(keto: KetoClient, identityId: string): Promise<string[]> {
-  const subject_id = `user:${identityId}`;
+  const subject_id = `identity:${identityId}`;
   const names = new Set<string>();
   let pageToken: string | undefined;
   do {
@@ -76,7 +76,7 @@ export async function completeLogin(deps: LoginDeps, cookie: string | undefined)
 
 export interface Reminted {
   setCookie: string; // a fresh JWT cookie on success, else a cookie that clears the stale one
-  user: User | null;
+  identity: SessionIdentity | null;
 }
 
 // Re-mint the session JWT on TTL expiry — "stay signed in" (README): the ~10m token lapsed but
@@ -86,8 +86,8 @@ export interface Reminted {
 // anonymous instead of re-hitting Ory on every one.
 export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
   const completed = await completeLogin(deps, cookie);
-  if (!completed) return { setCookie: clearSessionCookie(options), user: null };
-  return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email ?? "", id: completed.identityId, roles: completed.roles } };
+  if (!completed) return { setCookie: clearSessionCookie(options), identity: null };
+  return { setCookie: sessionCookie(completed.jwt, options), identity: { email: completed.email ?? "", id: completed.identityId, roles: completed.roles } };
 }
 
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is

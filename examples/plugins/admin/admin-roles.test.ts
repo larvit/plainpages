@@ -18,7 +18,7 @@ import type { ExpandTree, RelationTuple } from "#plugin-api";
 
 const uid = (n: number) => `01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b${String(n).padStart(2, "0")}`;
 const userTuple = (role: string, n: number): RelationTuple =>
-  ({ namespace: "Role", object: role, relation: "members", subject_id: `user:${uid(n)}` });
+  ({ namespace: "Role", object: role, relation: "members", subject_id: `identity:${uid(n)}` });
 const groupTuple = (role: string, group: string): RelationTuple =>
   ({ namespace: "Role", object: role, relation: "members", subject_set: { namespace: "Group", object: group, relation: "members" } });
 
@@ -26,14 +26,14 @@ test("isValidRoleName + roleMemberTuple map the form value to a Role tuple over 
   for (const ok of ["admin", "editor", "team-a", "a1_b9"]) assert.equal(isValidRoleName(ok), true, ok);
   for (const bad of ["", "Admin", "a b", "-bad", "a".repeat(65)]) assert.equal(isValidRoleName(bad), false, bad);
 
-  assert.deepEqual(roleMemberTuple("editor", `user:${uid(2)}`), { namespace: "Role", object: "editor", relation: "members", subject_id: `user:${uid(2)}` });
+  assert.deepEqual(roleMemberTuple("editor", `identity:${uid(2)}`), { namespace: "Role", object: "editor", relation: "members", subject_id: `identity:${uid(2)}` });
   assert.deepEqual(roleMemberTuple("editor", "group:eng"), { namespace: "Role", object: "editor", relation: "members", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
-  for (const bad of ["", "user:not-a-uuid", "group:Bad Name", "nope:x"]) assert.equal(roleMemberTuple("editor", bad), null, bad);
+  for (const bad of ["", "identity:not-a-uuid", "group:Bad Name", "nope:x"]) assert.equal(roleMemberTuple("editor", bad), null, bad);
 });
 
 test("expandToEffectiveUsers flattens an expand tree → sorted distinct user ids, transitive through groups", () => {
   // The subject rides on each node's `tuple` (Keto v26.2.0 shape, verified live).
-  const leaf = (n: number): ExpandTree => ({ tuple: { namespace: "", object: "", relation: "", subject_id: `user:${uid(n)}` }, type: "leaf" });
+  const leaf = (n: number): ExpandTree => ({ tuple: { namespace: "", object: "", relation: "", subject_id: `identity:${uid(n)}` }, type: "leaf" });
   const tree: ExpandTree = {
     children: [
       leaf(1), // direct
@@ -71,7 +71,7 @@ test("buildRolesListModel filters by search, sorts, paginates; the name links to
 });
 
 test("buildRoleFormModel: a create form with a required name field + member options (user or group)", () => {
-  const options = [{ label: "ada@example.com", value: `user:${uid(1)}` }, { label: "eng (group)", value: "group:eng" }];
+  const options = [{ label: "ada@example.com", value: `identity:${uid(1)}` }, { label: "eng (group)", value: "group:eng" }];
   const m = buildRoleFormModel({ csrfToken: "tok.sig", memberOptions: options });
   assert.equal(m.title, "New role");
   assert.equal(m.form.action, "/admin/roles");
@@ -89,8 +89,8 @@ test("buildRoleFormModel: a create form with a required name field + member opti
 test("buildRoleDetailModel: members → rows, add-options exclude current members, effective access listed, actions wired", () => {
   const members = [memberView(userTuple("admin", 1), new Map([[uid(1), "ada@example.com"]])), memberView(groupTuple("admin", "eng"), new Map())];
   const candidates = [
-    { label: "ada@example.com", value: `user:${uid(1)}` }, // already a member → excluded
-    { label: "grace@example.com", value: `user:${uid(2)}` },
+    { label: "ada@example.com", value: `identity:${uid(1)}` }, // already a member → excluded
+    { label: "grace@example.com", value: `identity:${uid(2)}` },
     { label: "eng (group)", value: "group:eng" }, // already a member → excluded
     { label: "ops (group)", value: "group:ops" },
   ];
@@ -100,7 +100,7 @@ test("buildRoleDetailModel: members → rows, add-options exclude current member
   assert.equal(m.members.rows.length, 2);
   assert.equal(m.members.action, "/admin/roles/admin/members/delete");
   assert.equal(m.add.action, "/admin/roles/admin/members");
-  assert.deepEqual(m.add.options.map((o) => o.value), [`user:${uid(2)}`, "group:ops"]);
+  assert.deepEqual(m.add.options.map((o) => o.value), [`identity:${uid(2)}`, "group:ops"]);
   assert.deepEqual(m.effective.map((e) => e.label), ["ada@example.com", "grace@example.com"]);
   assert.equal(m.delete.action, "/admin/roles/admin/delete");
 });

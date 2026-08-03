@@ -1,7 +1,7 @@
 <%#
   Admin role detail body, captured into the shell content slot. Config:
     role      { name }
-    members   { action, rows: { kind:"group"|"user", label, subject }[] }   action = revoke endpoint
+    members   { action, rows: { kind:"group"|"identity", label, subject }[] }   action = revoke endpoint
     effective { label }[]                                                    users who hold the role (expand)
     add       { action, options: {label,value}[] }                          action = assign endpoint
     del       { action }                                                     delete the whole role

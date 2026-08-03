@@ -8,7 +8,7 @@
 // Kratos is read only to label members. Below the builders are thin per-route handlers (keyed on
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
-import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
+import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SessionIdentity } from "#plugin-api";
 import { ADMIN_ROLE, ADMIN_ROLES_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
@@ -54,7 +54,7 @@ export function expandToEffectiveUsers(tree: ExpandTree | null | undefined): str
   const walk = (node?: ExpandTree | null): void => {
     if (!node) return;
     const subjectId = node.tuple?.subject_id;
-    if (subjectId?.startsWith("user:")) ids.add(subjectId.slice("user:".length));
+    if (subjectId?.startsWith("identity:")) ids.add(subjectId.slice("identity:".length));
     node.children?.forEach(walk);
   };
   walk(tree);
@@ -231,11 +231,11 @@ export function buildRoleDetailModel(opts: {
 
 // ---- request handler (imperative shell) ----
 
-// instant-revoke: a role change for a `user:<id>` member must take effect now, so revoke that
+// instant-revoke: a role change for a `identity:<id>` member must take effect now, so revoke that
 // user's live tokens (a re-mint then re-reads roles from Keto). A `group:<name>` change is
 // transitive across many users — left to lag (documented), so only direct user members revoke.
 function revokeUserMember(revoke: ((sub: string) => void) | undefined, member: string): void {
-  if (revoke && member.startsWith("user:")) revoke(member.slice("user:".length));
+  if (revoke && member.startsWith("identity:")) revoke(member.slice("identity:".length));
 }
 
 // A role exists exactly while it has ≥1 member (Keto has no create-object).
@@ -250,13 +250,13 @@ async function effectiveUsers(keto: KetoClient, name: string, hasMembers: boolea
   if (!hasMembers) return [];
   const tree = await keto.expand({ namespace: ROLE_NS, object: name, relation: MEMBERS }, { maxDepth: EXPAND_MAX_DEPTH });
   return expandToEffectiveUsers(tree)
-    .map((id) => ({ label: emailById.get(id) ?? `user:${id}` }))
+    .map((id) => ({ label: emailById.get(id) ?? `identity:${id}` }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 // Shared per-request deps for the Roles screen, resolved by `withRoles`: the gate + the Keto and
 // Kratos capabilities (else a themed 503). Each route below is a thin handler over these.
-interface RolesDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
+interface RolesDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: SessionIdentity; }
 
 function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
@@ -360,7 +360,7 @@ export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_ROLE && member === `user:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
+  if (name === ADMIN_ROLE && member === `identity:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
   const tuple = roleMemberTuple(name, member);
   if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: role unassigned", { actor: user.id, member, role: name }); }
   return { redirect: detailHref(name) };

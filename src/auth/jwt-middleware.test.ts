@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type JsonWebKey, type KeyObject } from "node:crypto";
 import { test } from "node:test";
 import { staticJwks } from "./jwks.ts";
-import { authenticate, claimsToUser, resolveSession, verifyToken } from "./jwt-middleware.ts";
+import { authenticate, claimsToIdentity, resolveSession, verifyToken } from "./jwt-middleware.ts";
 import { SESSION_COOKIE } from "./login.ts";
 
 const b64url = (input: Buffer | string): string => Buffer.from(input).toString("base64url");
@@ -59,31 +59,31 @@ test("verifyToken rejects a bad signature and an unknown kid", async () => {
   await assert.rejects(verifyToken(mint(k1.privateKey, "nope", valid), jwks, { now: NOW }), /no JWKS key/);
 });
 
-test("claimsToUser requires sub + email, defaults roles to [], keeps only string roles", () => {
-  assert.throws(() => claimsToUser({ email: "a@b.c", exp: NOW }), /sub/);
-  assert.throws(() => claimsToUser({ email: "a@b.c", exp: NOW, sub: "" }), /sub/); // empty sub rejected too
-  assert.throws(() => claimsToUser({ exp: NOW, sub: "u" }), /email/);
-  assert.throws(() => claimsToUser({ email: "", exp: NOW, sub: "u" }), /email/); // empty email rejected (the shell keys signed-in vs anonymous off it)
-  assert.deepEqual(claimsToUser({ email: "a@b.c", sub: "u" }).roles, []); // roles absent
-  assert.deepEqual(claimsToUser({ email: "a@b.c", roles: ["a", 1, "b"], sub: "u" }).roles, ["a", "b"]);
+test("claimsToIdentity requires sub + email, defaults roles to [], keeps only string roles", () => {
+  assert.throws(() => claimsToIdentity({ email: "a@b.c", exp: NOW }), /sub/);
+  assert.throws(() => claimsToIdentity({ email: "a@b.c", exp: NOW, sub: "" }), /sub/); // empty sub rejected too
+  assert.throws(() => claimsToIdentity({ exp: NOW, sub: "u" }), /email/);
+  assert.throws(() => claimsToIdentity({ email: "", exp: NOW, sub: "u" }), /email/); // empty email rejected (the shell keys signed-in vs anonymous off it)
+  assert.deepEqual(claimsToIdentity({ email: "a@b.c", sub: "u" }).roles, []); // roles absent
+  assert.deepEqual(claimsToIdentity({ email: "a@b.c", roles: ["a", 1, "b"], sub: "u" }).roles, ["a", "b"]);
 });
 
-test("resolveSession classifies the cookie; authenticate is its fail-closed user projection", async () => {
+test("resolveSession classifies the cookie; authenticate is its fail-closed identity projection", async () => {
   const cookie = (extra: Record<string, unknown> = {}, kid = "k1") => `${SESSION_COOKIE}=${mint(k1.privateKey, kid, { ...valid, ...extra })}`;
-  const user = { email: "a@b.c", id: "u1", roles: ["admin"] };
+  const identity = { email: "a@b.c", id: "u1", roles: ["admin"] };
 
   // A valid token → the user, not expired.
-  assert.deepEqual(await resolveSession(cookie(), jwks, { now: NOW }), { expired: false, user });
+  assert.deepEqual(await resolveSession(cookie(), jwks, { now: NOW }), { expired: false, identity });
   // Present but past exp → the re-mint trigger (expired flagged, no user).
-  assert.deepEqual(await resolveSession(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), { expired: true, user: null });
+  assert.deepEqual(await resolveSession(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), { expired: true, identity: null });
   // No cookie / non-ours / garbage / bad-signature are NOT re-mint candidates (no Ory round-trip).
-  assert.deepEqual(await resolveSession(undefined, jwks, { now: NOW }), { expired: false, user: null });
-  assert.deepEqual(await resolveSession("other=1", jwks, { now: NOW }), { expired: false, user: null });
-  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), { expired: false, user: null });
-  assert.deepEqual(await resolveSession(cookie({}, "nope"), jwks, { now: NOW }), { expired: false, user: null });
+  assert.deepEqual(await resolveSession(undefined, jwks, { now: NOW }), { expired: false, identity: null });
+  assert.deepEqual(await resolveSession("other=1", jwks, { now: NOW }), { expired: false, identity: null });
+  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=not.a.jwt`, jwks, { now: NOW }), { expired: false, identity: null });
+  assert.deepEqual(await resolveSession(cookie({}, "nope"), jwks, { now: NOW }), { expired: false, identity: null });
 
   // authenticate() is the convenience wrapper — resolveSession(...).user, dropping the flag.
-  assert.deepEqual(await authenticate(cookie(), jwks, { now: NOW }), user);
+  assert.deepEqual(await authenticate(cookie(), jwks, { now: NOW }), identity);
   assert.equal(await authenticate(cookie({ exp: NOW - 999 }), jwks, { now: NOW }), null); // expired ⇒ null
   assert.equal(await authenticate(undefined, jwks, { now: NOW }), null);
 });
@@ -94,7 +94,7 @@ test("verifyToken honours an optional denylist: a revoked subject's token reject
 
   // Revoked: thrown as *expired* so resolveSession flags it for the re-mint (re-read Keto / clear).
   await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 }), jwks, { denylist, now: NOW }), /revoked/);
-  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 })}`, jwks, { denylist, now: NOW }), { expired: true, user: null });
+  assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 })}`, jwks, { denylist, now: NOW }), { expired: true, identity: null });
   // A token minted after the revoke (fresh login) is accepted; a different subject is untouched.
   assert.deepEqual(await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW + 5 }), jwks, { denylist, now: NOW }), { email: "a@b.c", id: "u1", roles: ["admin"] });
   await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5, sub: "u2" }), jwks, { denylist, now: NOW });

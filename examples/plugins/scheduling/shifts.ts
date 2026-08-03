@@ -188,7 +188,7 @@ export function newShiftForm(): RouteHandler {
 // Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
 // gate lets an anonymous visitor through and the menu option shows for everyone. The real data
 // (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
-// else a prompt to sign in. ctx.user may be null here, so read the role via can() (zero I/O).
+// else a prompt to sign in. ctx.identity may be null here, so read the role via can() (zero I/O).
 export function overview(): RouteHandler {
   return (ctx) => ({
     data: { breadcrumbs: [{ label: "Overview" }], canRead: can(ctx, READ), chrome: ctx.chrome, shiftsHref: SHIFTS_PATH, title: "Scheduling" },

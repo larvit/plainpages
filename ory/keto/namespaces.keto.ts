@@ -4,23 +4,23 @@
 // identity ids (== the JWT `sub`).
 import { Context, Namespace, SubjectSet } from "@ory/keto-namespace-types"
 
-// A human identity. Subjects are written as `user:<kratos-identity-id>`.
-class User implements Namespace {}
+// A Kratos identity. Subjects are written as `identity:<kratos-identity-id>`.
+class Identity implements Namespace {}
 
 // A subject set: a named collection of users (and nested groups), resolved transitively.
 // The admin "Groups" screen manages membership; checks expand it automatically.
 class Group implements Namespace {
   related: {
-    members: (User | SubjectSet<Group, "members">)[]
+    members: (Identity | SubjectSet<Group, "members">)[]
   }
 }
 
 // A coarse role — the source of truth for the JWT `roles` claim. At login the app reads
-// `role:<name>#members@user:<id>` from Keto and projects the result into the token
+// `Role:<name>#members@identity:<id>` from Keto and projects the result into the token
 // (README: Login → session JWT). A group can hold a role, so members can be users or groups.
 class Role implements Namespace {
   related: {
-    members: (User | SubjectSet<Group, "members">)[]
+    members: (Identity | SubjectSet<Group, "members">)[]
   }
 }
 
@@ -29,9 +29,9 @@ class Role implements Namespace {
 // Grants accept a user directly or any member of a group.
 class Resource implements Namespace {
   related: {
-    owners: (User | SubjectSet<Group, "members">)[]
-    editors: (User | SubjectSet<Group, "members">)[]
-    viewers: (User | SubjectSet<Group, "members">)[]
+    owners: (Identity | SubjectSet<Group, "members">)[]
+    editors: (Identity | SubjectSet<Group, "members">)[]
+    viewers: (Identity | SubjectSet<Group, "members">)[]
   }
 
   permits = {

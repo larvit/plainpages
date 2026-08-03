@@ -22,10 +22,10 @@ export function identityPayload(email: string, password: string) {
   };
 }
 
-// Coarse-role grant: `Role:<role>#members@user:<id>`. Subject ids are `user:<kratos-id>`
+// Coarse-role grant: `Role:<role>#members@identity:<id>`. Subject ids are `identity:<kratos-id>`
 // (namespaces.keto.ts) — the source of truth the login flow projects into the JWT roles.
 export function roleTuple(identityId: string, role: string) {
-  return { namespace: "Role", object: role, relation: "members", subject_id: `user:${identityId}` };
+  return { namespace: "Role", object: role, relation: "members", subject_id: `identity:${identityId}` };
 }
 
 // The roles to grant the demo admin = the configured base (ADMIN_ROLES, default just `admin`)

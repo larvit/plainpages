@@ -3,7 +3,7 @@
 // (themed not-found / capability-unavailable). Ported from the former built-in admin screens;
 // everything imports the host only through the #plugin-api barrel.
 
-import { can, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type User } from "#plugin-api";
+import { can, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type SessionIdentity } from "#plugin-api";
 
 export const ADMIN_ROLE = "admin"; // the role gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";
@@ -32,7 +32,7 @@ export const ADMIN_NAV: NavNode = {
 // The admin gate: a signed-in admin only. Each route already declares `role: "admin"`, so the
 // host enforces this before the handler runs; this is defence-in-depth and what a direct unit test
 // relies on. Returns the (non-null) user for the handler to thread on. GuardError → /login or 403.
-export function requireAdmin(ctx: RequestContext): User {
+export function requireAdmin(ctx: RequestContext): SessionIdentity {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
   if (!can(ctx, ADMIN_ROLE)) throw new GuardError(403, "admin role required");
   return user;

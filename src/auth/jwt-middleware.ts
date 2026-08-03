@@ -3,7 +3,7 @@
 // check the signature (src/auth/jwt.ts), validate the time/issuer/audience claims, project the
 // User onto the request context. `authenticate` fails closed: any bad/expired token ⇒ null
 // (anonymous), so the route renders signed-out and the role gate denies.
-import type { User } from "../http/context.ts";
+import type { SessionIdentity } from "../http/context.ts";
 import { parseCookies } from "../http/cookie.ts";
 import type { Denylist } from "./denylist.ts";
 import { decodeJws, verifyJws } from "./jwt.ts";
@@ -61,7 +61,7 @@ export function validateClaims(payload: Record<string, unknown>, options: Verify
 // Map verified claims → the request User. sub/email are required and non-empty (the tokenizer
 // always sets them; an empty email would read as anonymous in the shell); roles defaults to [] and
 // keeps only string entries (defensive).
-export function claimsToUser(payload: Record<string, unknown>): User {
+export function claimsToIdentity(payload: Record<string, unknown>): SessionIdentity {
   const sub = payload["sub"];
   if (typeof sub !== "string" || sub === "") throw new TokenError("token missing sub");
   const email = payload["email"];
@@ -72,13 +72,13 @@ export function claimsToUser(payload: Record<string, unknown>): User {
 
 // Verify a session JWT end-to-end: select the key by `kid`, check the signature, validate
 // claims, project the User. Throws TokenError / the underlying verify error on any failure.
-export async function verifyToken(token: string, jwks: JwksProvider, options: VerifyOptions = {}): Promise<User> {
+export async function verifyToken(token: string, jwks: JwksProvider, options: VerifyOptions = {}): Promise<SessionIdentity> {
   const { header } = decodeJws(token); // unverified — only to read `kid` for key selection
   const jwk = await jwks.getKey(header.kid);
   if (!jwk) throw new TokenError(`no JWKS key for kid ${header.kid ?? "(none)"}`);
   const verified = verifyJws(token, jwk); // throws on a bad signature / disallowed alg
   validateClaims(verified.payload, options);
-  const user = claimsToUser(verified.payload);
+  const user = claimsToIdentity(verified.payload);
   // Instant revoke: a denylisted subject's pre-revoke token is rejected as *expired* so
   // resolveSession routes it through the re-mint (fresh roles from Keto, or a cleared session).
   if (options.denylist?.isRevoked(user.id, num(verified.payload, "iat"))) throw new TokenError("token revoked", true);
@@ -87,7 +87,7 @@ export async function verifyToken(token: string, jwks: JwksProvider, options: Ve
 
 export interface SessionAuth {
   expired: boolean; // a token was present but rejected as *expired* → a re-mint candidate
-  user: User | null;
+  identity: SessionIdentity | null;
 }
 
 // The request middleware: read our session cookie, verify it → the User (fail-closed: any
@@ -96,15 +96,15 @@ export interface SessionAuth {
 // expired session, never for anonymous or garbage requests.
 export async function resolveSession(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<SessionAuth> {
   const token = parseCookies(cookieHeader)[SESSION_COOKIE];
-  if (!token) return { expired: false, user: null };
+  if (!token) return { expired: false, identity: null };
   try {
-    return { expired: false, user: await verifyToken(token, jwks, options) };
+    return { expired: false, identity: await verifyToken(token, jwks, options) };
   } catch (err) {
-    return { expired: err instanceof TokenError && err.expired, user: null };
+    return { expired: err instanceof TokenError && err.expired, identity: null };
   }
 }
 
 // Convenience for callers that don't re-mint: just the User, or null.
-export async function authenticate(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<User | null> {
-  return (await resolveSession(cookieHeader, jwks, options)).user;
+export async function authenticate(cookieHeader: string | undefined, jwks: JwksProvider, options: VerifyOptions = {}): Promise<SessionIdentity | null> {
+  return (await resolveSession(cookieHeader, jwks, options)).identity;
 }

@@ -5,7 +5,7 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). Below the builders are thin
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
-import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
+import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type SessionIdentity } from "#plugin-api";
 import { ADMIN_CLIENTS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -235,7 +235,7 @@ function readClientInput(form: URLSearchParams): ClientInput {
 
 // Shared per-request deps for the OAuth2-clients screen, resolved by `withClients`: the gate + the
 // Hydra capability (else a themed 503). Each route below is a thin handler over these.
-interface ClientsDeps { ctx: RequestContext; hydra: HydraAdmin; user: User; }
+interface ClientsDeps { ctx: RequestContext; hydra: HydraAdmin; user: SessionIdentity; }
 
 function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {

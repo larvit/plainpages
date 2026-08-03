@@ -105,7 +105,7 @@ test("plugins replace either landing: `home` owns the public /, `dashboard` owns
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const portal: Plugin = {
     apiVersion: "1.0.0",
-    dashboard: (ctx) => ({ data: { chrome: ctx.chrome, user: ctx.user }, view: "board" }),
+    dashboard: (ctx) => ({ data: { chrome: ctx.chrome, user: ctx.identity }, view: "board" }),
     home: () => ({ data: { brand: "Acme" }, view: "welcome" }),
     id: "portal",
   };
@@ -125,7 +125,7 @@ test("plugins replace either landing: `home` owns the public /, `dashboard` owns
   assert.equal(board.status, 200);
   const html = await board.text();
   assert.match(html, /<h1 class="page-title">My Portal<\/h1>/); // its own title in the native shell
-  assert.match(html, /Hi a@b\.c/); // its handler rendered, with ctx.user
+  assert.match(html, /Hi a@b\.c/); // its handler rendered, with ctx.identity
   assert.doesNotMatch(html, /Avery Kline/); // the built-in mock People list is gone — fully replaced
 });
 
@@ -516,7 +516,7 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
   assert.equal(ok.status, 303);
 });
 
-// JWT middleware: a verified session cookie populates ctx.user/roles, which the gate reads.
+// JWT middleware: a verified session cookie populates ctx.identity/roles, which the gate reads.
 // The key + mintJwt + session() helper are hoisted above the shared `server` (top of file).
 test("a verified session JWT authorizes a role-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
@@ -569,7 +569,7 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   const nowSec = Math.floor(Date.now() / 1000);
   const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" });
   const live = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session);
-  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "user:u1" }] }) });
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "identity:u1" }] }) });
   const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
 
   // Live Kratos session: the lapsed token is re-minted — the gated route runs AND a fresh cookie rides the response.
@@ -727,7 +727,7 @@ test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a s
 });
 
 test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via /auth/complete, never 500", async (t) => {
-  // After registration's `session` hook the user holds a Kratos session but no app JWT — so ctx.user
+  // After registration's `session` hook the user holds a Kratos session but no app JWT — so ctx.identity
   // is null and the "already signed in" short-circuit can't fire. Initialising a login/registration
   // flow then returns Kratos 400 `session_already_available`; recover by completing login (mint the
   // JWT from the live session), preserving return_to — never fall through to the catch-all 500.
@@ -884,7 +884,7 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   let projected: unknown;
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
-  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `user:${identity.id}` }] }) });
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${identity.id}` }] }) });
   const complete = async (app: ReturnType<typeof createApp>, cookie?: string, returnTo?: string) => {
     await new Promise<void>((r) => app.listen(0, r));
     t.after(() => app.close());
@@ -1178,7 +1178,7 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
     { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
     { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
   ];
-  const tuples: RelationTuple[] = [{ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` }];
+  const tuples: RelationTuple[] = [{ namespace: "Group", object: "eng", relation: "members", subject_id: `identity:${ada}` }];
   const keto = fakeKeto(tuples);
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token, url } = await adminHarness(t, { keto, kratosAdmin });
@@ -1192,26 +1192,26 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
 
   // Create: the form renders; a valid post writes the first-member tuple and redirects to the detail.
   assert.match(await (await get("/admin/groups/new")).text(), /Create group/);
-  const created = await post("/admin/groups", `_csrf=${token}&name=design&member=user:${grace}`);
+  const created = await post("/admin/groups", `_csrf=${token}&name=design&member=identity:${grace}`);
   assert.equal(created.status, 303);
   assert.equal(created.headers.get("location"), "/admin/groups/design");
-  assert.ok(tuples.some((tp) => tp.object === "design" && tp.subject_id === `user:${grace}`));
+  assert.ok(tuples.some((tp) => tp.object === "design" && tp.subject_id === `identity:${grace}`));
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
-  assert.equal((await post("/admin/groups", `_csrf=${token}&name=Bad Name&member=user:${grace}`)).status, 400);
-  assert.equal((await post("/admin/groups", `_csrf=${token}&name=eng&member=user:${grace}`)).status, 400); // already exists
-  assert.equal((await post("/admin/groups", `name=x&member=user:${grace}`)).status, 403);
+  assert.equal((await post("/admin/groups", `_csrf=${token}&name=Bad Name&member=identity:${grace}`)).status, 400);
+  assert.equal((await post("/admin/groups", `_csrf=${token}&name=eng&member=identity:${grace}`)).status, 400); // already exists
+  assert.equal((await post("/admin/groups", `name=x&member=identity:${grace}`)).status, 403);
   assert.equal(tuples.length, before);
 
   // Detail: lists the current member by email.
   assert.match(await (await get("/admin/groups/eng")).text(), /ada@example\.com/);
 
   // Add a member, then remove it.
-  await post("/admin/groups/eng/members", `_csrf=${token}&member=user:${grace}`);
-  assert.ok(tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
-  await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
-  assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
+  await post("/admin/groups/eng/members", `_csrf=${token}&member=identity:${grace}`);
+  assert.ok(tuples.some((tp) => tp.object === "eng" && tp.subject_id === `identity:${grace}`));
+  await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=identity:${grace}`);
+  assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `identity:${grace}`));
 
   // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
   assert.match(await (await get("/admin/groups/eng/delete")).text(), /Cancel/);
@@ -1237,8 +1237,8 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   ];
   // grace is in the `eng` group; `editor` is an existing role whose only direct member is ada.
   const tuples: RelationTuple[] = [
-    { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${grace}` },
-    { namespace: "Role", object: "editor", relation: "members", subject_id: `user:${ada}` },
+    { namespace: "Group", object: "eng", relation: "members", subject_id: `identity:${grace}` },
+    { namespace: "Role", object: "editor", relation: "members", subject_id: `identity:${ada}` },
   ];
   // Mirror Keto's expand shape: the subject rides on `tuple`, set nodes carry members as children.
   const expandSet = (set: SubjectSet): ExpandTree => ({
@@ -1262,17 +1262,17 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
 
   // Create: a valid post writes the first-member tuple and redirects to the detail.
   assert.match(await (await get("/admin/roles/new")).text(), /Create role/);
-  const created = await post("/admin/roles", `_csrf=${token}&name=viewer&member=user:${ada}`);
+  const created = await post("/admin/roles", `_csrf=${token}&name=viewer&member=identity:${ada}`);
   assert.equal(created.status, 303);
   assert.equal(created.headers.get("location"), "/admin/roles/viewer");
-  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "viewer" && tp.subject_id === `user:${ada}`));
+  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "viewer" && tp.subject_id === `identity:${ada}`));
   assert.equal(denylist.isRevoked(ada, 0), true); // assigning a role to a user revokes their stale token so the grant lands now
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
-  assert.equal((await post("/admin/roles", `_csrf=${token}&name=Bad Name&member=user:${ada}`)).status, 400);
-  assert.equal((await post("/admin/roles", `_csrf=${token}&name=editor&member=user:${ada}`)).status, 400); // already exists
-  assert.equal((await post("/admin/roles", `name=x&member=user:${ada}`)).status, 403);
+  assert.equal((await post("/admin/roles", `_csrf=${token}&name=Bad Name&member=identity:${ada}`)).status, 400);
+  assert.equal((await post("/admin/roles", `_csrf=${token}&name=editor&member=identity:${ada}`)).status, 400); // already exists
+  assert.equal((await post("/admin/roles", `name=x&member=identity:${ada}`)).status, 403);
   assert.equal(tuples.length, before);
 
   // Detail: ada (direct) is in the effective-access list; grace (only reachable via a group) is not
@@ -1293,8 +1293,8 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
 
   // Unassigning a *user* membership likewise revokes that user's live token, so the loss of access is immediate.
-  await post("/admin/roles/editor/members", `_csrf=${token}&member=user:${grace}`);
-  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=user:${grace}`);
+  await post("/admin/roles/editor/members", `_csrf=${token}&member=identity:${grace}`);
+  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=identity:${grace}`);
   assert.equal(denylist.isRevoked(grace, 0), true);
 
   // Delete the role: a confirm step (GET) then the POST removes every member tuple, back to the list.
@@ -1305,11 +1305,11 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor"));
 
   // Self-protection: the admin role can't be deleted, nor can you revoke your own admin (sub admin1).
-  tuples.push({ namespace: "Role", object: "admin", relation: "members", subject_id: "user:admin1" });
+  tuples.push({ namespace: "Role", object: "admin", relation: "members", subject_id: "identity:admin1" });
   assert.equal((await post("/admin/roles/admin/delete", `_csrf=${token}`)).status, 400);
   assert.ok(tuples.some((tp) => tp.object === "admin"));
-  assert.equal((await post("/admin/roles/admin/members/delete", `_csrf=${token}&member=user:admin1`)).status, 400);
-  assert.ok(tuples.some((tp) => tp.object === "admin" && tp.subject_id === "user:admin1"));
+  assert.equal((await post("/admin/roles/admin/members/delete", `_csrf=${token}&member=identity:admin1`)).status, 400);
+  assert.ok(tuples.some((tp) => tp.object === "admin" && tp.subject_id === "identity:admin1"));
 
   // An invalid role name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/roles/Bad%20Name")).status, 404);

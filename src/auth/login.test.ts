@@ -9,7 +9,7 @@ import type { KratosPublic, Session } from "./kratos-public.ts";
 import { completeLogin, readRoles, remintSession, SESSION_COOKIE, sessionCookie } from "./login.ts";
 
 const ID = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
-const roleTuple = (object: string): RelationTuple => ({ namespace: "Role", object, relation: "members", subject_id: `user:${ID}` });
+const roleTuple = (object: string): RelationTuple => ({ namespace: "Role", object, relation: "members", subject_id: `identity:${ID}` });
 
 const ketoStub = (over: Partial<KetoClient> = {}): KetoClient => ({
   check: async () => false,
@@ -49,11 +49,11 @@ test("readRoles returns roles held directly OR transitively (enumerate defined r
     // subjects vary (a direct user, a group) and a name repeats across pages → de-duped.
     listRelations: async (q) => {
       listQ.push(q);
-      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [role("editor", { subject_id: "user:other" })] };
+      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [role("editor", { subject_id: "identity:other" })] };
       return { nextPageToken: "p2", tuples: [
         role("editor", { subject_set: { namespace: "Group", object: "eng", relation: "members" } }),
-        role("admin", { subject_id: `user:${ID}` }),
-        role("viewer", { subject_id: "user:stranger" }),
+        role("admin", { subject_id: `identity:${ID}` }),
+        role("viewer", { subject_id: "identity:stranger" }),
       ] };
     },
     // Keto resolves transitively: the user holds editor (via a group) + admin (direct), not viewer.
@@ -105,12 +105,12 @@ test("remintSession: a live Kratos session → fresh cookie + refreshed user; a 
 
   // TTL lapsed but the Kratos session lives → re-read roles from Keto, re-tokenize, fresh cookie.
   const live = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic }, "plainpages_session=s");
-  assert.deepEqual(live.user, { email: "admin@plainpages.local", id: ID, roles: ["admin"] });
+  assert.deepEqual(live.identity, { email: "admin@plainpages.local", id: ID, roles: ["admin"] });
   assert.match(live.setCookie, /^plainpages_jwt=h\.p\.s;.*Max-Age=2592000.*HttpOnly/);
 
   // Kratos session also gone → clear the stale JWT so the next request falls through to anonymous.
   const dead = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic: publicStub() }, undefined);
-  assert.equal(dead.user, null);
+  assert.equal(dead.identity, null);
   assert.match(dead.setCookie, /^plainpages_jwt=;.*Max-Age=0/);
 });
 

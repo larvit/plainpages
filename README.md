@@ -206,18 +206,25 @@ separate "permission" object to define, register, or wire up.
 
 - **Group** answers *who* — a reusable set of people. Optional: a role can be granted straight to a user.
 - **Role** answers *what* — its **name is the string** you write in a manifest's `role:` gate.
-- **A relation tuple** is the grant: `Role:<name>#members@user:<id>`, or `@Group:<name>#members`.
+- **A relation tuple** is the grant: `Role:<name>#members@identity:<id>`, or `@Group:<name>#members`.
 - **Resource** answers *which row* — a live check, run only where a plugin explicitly asks for it.
 
 | Entity | Lives in | Answers | Example |
 | --- | --- | --- | --- |
-| **User** | Kratos | who you are | the identity behind `user:0198f2c1-…` |
+| **Identity** | Kratos | who you are | `identity:0198f2c1-…` |
 | **Group** | Keto | who — a reusable set | `Group:support` |
 | **Role** | Keto | what you may do | `Role:scheduling:read` |
 | **Resource** | Keto | which specific row | `Resource:shift-4471` |
 
 Identities live in Kratos; every authorization edge is a Keto relation tuple. The app itself
-stores none of it — it is [stateless](#stateless). The model is `ory/keto/namespaces.keto.ts`.
+stores none of it — it is [stateless](#stateless).
+
+**Keto ships no entities of its own.** Its entire model is one primitive —
+`namespace:object#relation@subject` — so the four namespaces above are *ours*, declared in
+`ory/keto/namespaces.keto.ts`; Keto only supplies the machinery that resolves them (including
+transitively, through nested groups). `Identity` is named to match Kratos, which owns that
+record. `Group`, `Role` and `Resource` have no upstream counterpart to match, so they use the
+ordinary words.
 
 > **On the word "permission".** Ory uses it for the fine-grained `Resource` tier — the `permits`
 > block (`view`/`edit`/`delete`). Plainpages therefore never uses it for the coarse tier: what a
@@ -527,12 +534,12 @@ export default definePlugin({
 Each is a `RouteHandler` like any route's — it receives the [`RequestContext`](#requestcontext) and
 returns a `RouteResult`, typically a `view` from the plugin's own `views/`. A `dashboard` handler
 renders against the native app shell via `ctx.chrome` exactly as a route handler does; a `home`
-handler is a **public** page, so `ctx.user` may be `null` (use it to show a "go to dashboard" link to
+handler is a **public** page, so `ctx.identity` may be `null` (use it to show a "go to dashboard" link to
 a signed-in visitor, or sign-in / register to an anonymous one). After login the user lands on
 `/dashboard` (or the `return_to` they were headed to), and the global menu's **Dashboard** link
 points there.
 
-For the gated `dashboard`, the host enforces the session gate first, so `ctx.user` is non-null;
+For the gated `dashboard`, the host enforces the session gate first, so `ctx.identity` is non-null;
 branch on `ctx.roles` *inside* to tailor the page per role. Don't gate `dashboard` itself behind a
 single role — there's no second dashboard to fall back to, so a user lacking it would land on a
 403. (Both slots answer `GET` and `HEAD`.)
@@ -550,15 +557,15 @@ request:
 ```ts
 interface RequestContext {
   chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
+  identity: SessionIdentity | null;  // { id, email, roles } from the verified session JWT, or null
   log: Log;                          // request-scoped logger, in this request's trace
   params: Record<string, string>;   // path params from the route match, e.g. /things/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
   res: ServerResponse;
-  roles: string[];                   // user?.roles ?? [] — coarse gate without a null-check
+  roles: string[];                   // identity?.roles ?? [] — coarse gate without a null-check
   system?: SystemCapabilities;       // privileged Ory clients + instant-revoke, for a system plugin (see below); undefined unless the host wired them
   url: URL;
-  user: User | null;                 // { id, email, roles } from the verified session JWT, or null
   verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
 }
 ```
@@ -647,7 +654,7 @@ accident of a forgotten gate**. `public` and `role` are **mutually exclusive** �
 both is contradictory and discovery refuses the plugin at boot.
 
 A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
-`ctx.user` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
+`ctx.identity` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
 in place of the profile/sign-out block, the gated **Dashboard** link is hidden, and `ctx.roles` is
 empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
 **Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
@@ -1028,7 +1035,7 @@ the session for a signed JWT once** via the Kratos **session tokenizer** (`whoam
 ```
 
 **Keto is the single source of truth for roles.** Coarse roles are Keto relations (e.g.
-`role:admin#members@user:alice`); the admin screens write them *only* to Keto. But the
+`Role:admin#members@identity:alice`); the admin screens write them *only* to Keto. But the
 tokenizer's claims mapper can read only the **identity**, not call Keto — so at login the
 app reads the roles from Keto and refreshes a **derived projection**: a read-only copy
 written onto the identity's `metadata_public` for the tokenizer to see, which the template
@@ -1651,7 +1658,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
 
   auth/               Identity, the session-JWT hot path, guards, and the Ory REST clients
     jwt.ts            JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
-    jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/roles; flags a lapsed token for re-mint
+    jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.identity/roles; flags a lapsed token for re-mint
     jwks.ts           JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
     gen-jwks.ts       generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
     login.ts          completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie

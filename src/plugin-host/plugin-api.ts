@@ -6,7 +6,7 @@
 
 export { definePlugin } from "./plugin.ts";
 export type { HttpMethod, Plugin, PluginHooks, PluginManifest, RoleDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
-export type { RequestContext, User } from "../http/context.ts";
+export type { RequestContext, SessionIdentity } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";
 export { can, check, GuardError, requireSession } from "../auth/guards.ts";
