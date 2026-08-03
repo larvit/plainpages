@@ -4,12 +4,12 @@
 // this placeholder renders until then. Pure: `nav` is the one global menu (ctx.chrome.nav), built
 // once per request by the host, so the dashboard shows the exact same menu as every other page.
 
-import type { SessionIdentity } from "../http/context.ts";
+import type { User } from "../http/context.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { NavNode } from "./nav.ts";
 import { buildShellContext } from "./shell-context.ts";
 
-export function buildDashboardModel(opts: { csrfToken?: string; menu?: MenuConfig; nav?: NavNode[]; identity?: SessionIdentity | null } = {}) {
+export function buildDashboardModel(opts: { csrfToken?: string; menu?: MenuConfig; nav?: NavNode[]; user?: User | null } = {}) {
   return {
     nav: opts.nav ?? [],
     shell: buildShellContext({
@@ -17,7 +17,7 @@ export function buildDashboardModel(opts: { csrfToken?: string; menu?: MenuConfi
       csrfToken: opts.csrfToken ?? "",
       menu: opts.menu ?? DEFAULT_MENU,
       title: "Dashboard",
-      identity: opts.identity ?? null,
+      user: opts.user ?? null,
     }),
   };
 }

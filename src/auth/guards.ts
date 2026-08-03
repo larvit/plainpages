@@ -3,7 +3,7 @@
 // the User on ctx; these read it. `requireSession` asserts (throws GuardError, which app.ts maps
 // to a response); `can`/`check` are predicates a handler branches on. `check` is the one live
 // Keto call — the fine-grained "may I?" tier (README), reserved for relationship rules.
-import type { RequestContext, SessionIdentity } from "../http/context.ts";
+import type { RequestContext, User } from "../http/context.ts";
 import type { KetoClient } from "./keto-client.ts";
 import { localPath } from "../http/safe-url.ts";
 
@@ -32,9 +32,9 @@ export class GuardError extends Error {
 }
 
 // Assert a signed-in session and return the user. Anonymous ⇒ GuardError → /login (return_to kept).
-export function requireSession(ctx: RequestContext): SessionIdentity {
-  if (!ctx.identity) throw new GuardError(401, "authentication required", loginRedirect(ctx));
-  return ctx.identity;
+export function requireSession(ctx: RequestContext): User {
+  if (!ctx.user) throw new GuardError(401, "authentication required", loginRedirect(ctx));
+  return ctx.user;
 }
 
 // Coarse permission check straight from the JWT claims — in-process, zero I/O. Anonymous ⇒ false.
@@ -49,6 +49,6 @@ export async function check(
   ctx: RequestContext,
   tuple: { namespace: string; object: string; relation: string },
 ): Promise<boolean> {
-  if (!ctx.identity) return false;
-  return keto.check({ ...tuple, subject_id: `identity:${ctx.identity.id}` });
+  if (!ctx.user) return false;
+  return keto.check({ ...tuple, subject_id: `user:${ctx.user.id}` });
 }

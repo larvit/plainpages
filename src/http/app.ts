@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import ejs from "ejs";
 import { type BuiltinRoute, matchBuiltinRoute, type RequestCsrf } from "./builtin-routes.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
-import { buildContext, type RequestContext, type SessionIdentity } from "./context.ts";
+import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
 import type { Denylist } from "../auth/denylist.ts";
 import { buildDashboardModel } from "../ui/dashboard.ts";
@@ -40,7 +40,7 @@ export interface AppOptions {
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
-  jwks?: JwksProvider; // verify the session JWT → ctx.identity/permissions; absent ⇒ always anonymous
+  jwks?: JwksProvider; // verify the session JWT → ctx.user/permissions; absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes
   kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion
@@ -124,7 +124,7 @@ export function createApp(options: AppOptions = {}): Server {
       await sendResult(ctx.res, result, (view, data) => renderView(homePlugin.id, view, data));
       return null;
     }
-    return { data: { chrome: ctx.chrome, user: ctx.identity }, view: "home" };
+    return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
   };
 
   // The post-login app home "/dashboard", gated to a signed-in user: anonymous bounces to sign
@@ -132,7 +132,7 @@ export function createApp(options: AppOptions = {}): Server {
   // handler renders against its own views, same path as a plugin route. Else the built-in
   // mock-data People list with the one global menu (ctx.chrome.nav) + branding from config/menu.ts.
   const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult | null> => {
-    if (!ctx.identity) return { redirect: loginRedirect(ctx), status: 303 };
+    if (!ctx.user) return { redirect: loginRedirect(ctx), status: 303 };
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
     csrf.setCookie();
     if (dashboardPlugin) {
@@ -141,7 +141,7 @@ export function createApp(options: AppOptions = {}): Server {
       await sendResult(ctx.res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
       return null;
     }
-    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, identity: ctx.identity, nav: ctx.chrome.nav }) }, view: "index" };
+    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, user: ctx.user, nav: ctx.chrome.nav }) }, view: "index" };
   };
 
   // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/
@@ -186,19 +186,19 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Verify the session JWT once (cached JWKS) → ctx.identity/permissions; none/invalid ⇒ anonymous.
+      // Verify the session JWT once (cached JWKS) → ctx.user/permissions; none/invalid ⇒ anonymous.
       // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
       // clients), silently re-mint it — "stay signed in": re-read permissions from Keto, re-tokenize,
       // and set the fresh cookie via setHeader so it rides whatever response this request produces
       // (a dead session clears the stale cookie). This is the only place the hot path touches Ory.
-      let user: SessionIdentity | null = null;
+      let user: User | null = null;
       if (jwks) {
         const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
-        user = auth.identity;
+        user = auth.user;
         if (!user && auth.expired && keto && kratos && kratosAdmin) {
           try {
             const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: secureCookies });
-            user = reminted.identity;
+            user = reminted.user;
             res.appendHeader("set-cookie", reminted.setCookie);
           } catch (err) {
             // Ory unreachable (Kratos/Keto 5xx, refused, timeout) — degrade to anonymous instead of
@@ -223,10 +223,10 @@ export function createApp(options: AppOptions = {}): Server {
       // ctx.chrome getter only triggers it when a handler actually reads it (a json/redirect handler,
       // or the public "/" with a standalone home, never composes the menu).
       let chromeMemo: PageChrome | undefined;
-      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, identity: user }));
+      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }));
 
       // base context (no route params yet); reused for onRequest hooks and the landing routes.
-      const ctx = buildContext(req, res, { chrome, identity: user, log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const ctx = buildContext(req, res, { chrome, user, log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -245,12 +245,12 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome, identity: user, log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
+        const routeCtx = buildContext(req, res, { chrome, user, log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
         if (!isAuthorized(match.route, routeCtx.permissions)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the permission gets the 403 page.
-          if (!routeCtx.identity) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
-          reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.identity.id });
+          if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
+          reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }

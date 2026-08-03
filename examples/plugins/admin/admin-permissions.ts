@@ -8,7 +8,7 @@
 // Kratos is read only to label members. Below the builders are thin per-route handlers (keyed on
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
-import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SessionIdentity } from "#plugin-api";
+import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
 import { ADMIN_PERMISSION, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
@@ -54,7 +54,7 @@ export function expandToEffectiveUsers(tree: ExpandTree | null | undefined): str
   const walk = (node?: ExpandTree | null): void => {
     if (!node) return;
     const subjectId = node.tuple?.subject_id;
-    if (subjectId?.startsWith("identity:")) ids.add(subjectId.slice("identity:".length));
+    if (subjectId?.startsWith("user:")) ids.add(subjectId.slice("user:".length));
     node.children?.forEach(walk);
   };
   walk(tree);
@@ -231,11 +231,11 @@ export function buildPermissionDetailModel(opts: {
 
 // ---- request handler (imperative shell) ----
 
-// instant-revoke: a permission change for a `identity:<id>` member must take effect now, so revoke that
+// instant-revoke: a permission change for a `user:<id>` member must take effect now, so revoke that
 // user's live tokens (a re-mint then re-reads permissions from Keto). A `group:<name>` change is
 // transitive across many users — left to lag (documented), so only direct user members revoke.
 function revokeUserMember(revoke: ((sub: string) => void) | undefined, member: string): void {
-  if (revoke && member.startsWith("identity:")) revoke(member.slice("identity:".length));
+  if (revoke && member.startsWith("user:")) revoke(member.slice("user:".length));
 }
 
 // A permission exists exactly while it has ≥1 member (Keto has no create-object).
@@ -250,13 +250,13 @@ async function effectiveUsers(keto: KetoClient, name: string, hasMembers: boolea
   if (!hasMembers) return [];
   const tree = await keto.expand({ namespace: PERMISSION_NS, object: name, relation: GRANTED }, { maxDepth: EXPAND_MAX_DEPTH });
   return expandToEffectiveUsers(tree)
-    .map((id) => ({ label: emailById.get(id) ?? `identity:${id}` }))
+    .map((id) => ({ label: emailById.get(id) ?? `user:${id}` }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 // Shared per-request deps for the Roles screen, resolved by `withRoles`: the gate + the Keto and
 // Kratos capabilities (else a themed 503). Each route below is a thin handler over these.
-interface RolesDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: SessionIdentity; }
+interface RolesDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
 
 function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
@@ -283,7 +283,7 @@ const roleFormResult = async (deps: RolesDeps, extra: { error?: string; values?:
 };
 
 // The permission detail (members + effective access). With `error` set it's a 400 (a rejected action).
-const roleDetailResult = async (deps: RolesDeps, name: string, error?: string): Promise<RouteResult> => {
+const permissionDetailResult = async (deps: RolesDeps, name: string, error?: string): Promise<RouteResult> => {
   const { emailById, options } = await memberCandidates(deps.keto, deps.kratosAdmin);
   const tuples = await pagedTuples(deps.keto, { namespace: PERMISSION_NS, object: name, relation: GRANTED });
   const members = tuples.map((t) => memberView(t, emailById));
@@ -319,7 +319,7 @@ export const rolesCreate = withRoles(async (deps) => {
 export const rolesNewForm = withRoles((deps) => roleFormResult(deps, {}));
 
 // GET /admin/permissions/:name — the detail (members + effective access via Keto expand).
-export const rolesDetail = withRoleName((deps, name) => roleDetailResult(deps, name));
+export const rolesDetail = withRoleName((deps, name) => permissionDetailResult(deps, name));
 
 // POST /admin/permissions/:name/members — assign a user/group; a *user* grant revokes their live tokens.
 export const rolesAddMember = withRoleName(async (deps, name) => {
@@ -333,7 +333,7 @@ export const rolesAddMember = withRoleName(async (deps, name) => {
 
 // GET /admin/permissions/:name/delete — confirm, except the admin permission can't be deleted.
 export const rolesDeleteConfirm = withRoleName((deps, name) => {
-  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
   const base = detailHref(name);
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
     breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { href: base, label: name }, { label: "Delete" }],
@@ -347,7 +347,7 @@ export const rolesDeleteConfirm = withRoleName((deps, name) => {
 export const rolesDelete = withRoleName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
   await keto.deleteTuple({ namespace: PERMISSION_NS, object: name, relation: GRANTED });
   ctx.log.info("admin: permission deleted", { actor: user.id, permission: name });
   return { redirect: ADMIN_PERMISSIONS_BASE };
@@ -360,7 +360,7 @@ export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_PERMISSION && member === `identity:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
+  if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return permissionDetailResult(deps, name, "You can't revoke your own admin access.");
   const tuple = permissionGrantTuple(name, member);
   if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission unassigned", { actor: user.id, member, permission: name }); }
   return { redirect: detailHref(name) };

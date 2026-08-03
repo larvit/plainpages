@@ -5,7 +5,7 @@
 // the profile shows the email's local part as the name with the full email beneath, initials from
 // the local part; anonymous ⇒ "Guest".
 
-import type { SessionIdentity } from "../http/context.ts";
+import type { User } from "../http/context.ts";
 import { type MenuConfig } from "./menu-config.ts";
 
 export interface ShellUser {
@@ -24,10 +24,10 @@ export interface ShellModel {
   user: ShellUser;
 }
 
-export function shellUser(identity: SessionIdentity | null | undefined): ShellUser {
-  if (!identity) return { email: "", initials: "G", name: "Guest" };
-  const local = identity.email.split("@")[0] || identity.email;
-  return { email: identity.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };
+export function shellUser(user: User | null | undefined): ShellUser {
+  if (!user) return { email: "", initials: "G", name: "Guest" };
+  const local = user.email.split("@")[0] || user.email;
+  return { email: user.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };
 }
 
 export function buildShellContext(opts: {
@@ -36,7 +36,7 @@ export function buildShellContext(opts: {
   menu: MenuConfig;
   signInHref?: string;
   title: string;
-  identity?: SessionIdentity | null;
+  user?: User | null;
 }): ShellModel {
   const b = opts.menu.branding;
   return {
@@ -46,6 +46,6 @@ export function buildShellContext(opts: {
     ...(opts.signInHref != null ? { signInHref: opts.signInHref } : {}),
     ...(b.theme != null ? { theme: b.theme } : {}),
     title: opts.title,
-    user: shellUser(opts.identity),
+    user: shellUser(opts.user),
   };
 }

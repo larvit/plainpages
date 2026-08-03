@@ -6,19 +6,19 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
-import { GuardError, type Log, type PageChrome, type RequestContext, type SessionIdentity } from "#plugin-api";
+import { GuardError, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
 import { ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
 
-const admin: SessionIdentity = { email: "ada@x.io", id: "u1", permissions: ["admin"] };
-const member: SessionIdentity = { email: "bo@x.io", id: "u2", permissions: ["scheduling:read"] };
+const admin: User = { email: "ada@x.io", id: "u1", permissions: ["admin"] };
+const member: User = { email: "bo@x.io", id: "u2", permissions: ["scheduling:read"] };
 const CHROME = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } } as PageChrome;
 
-function fakeCtx(opts: { body?: string; method?: string; user?: SessionIdentity | null; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
+function fakeCtx(opts: { body?: string; method?: string; user?: User | null; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
   const url = new URL("http://localhost/admin/users");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   req.method = opts.method ?? "GET";
   return {
-    chrome: CHROME, identity: opts.user ?? null, log: {} as Log, params: {}, query: url.searchParams, req, res: {} as ServerResponse,
+    chrome: CHROME, user: opts.user ?? null, log: {} as Log, params: {}, query: url.searchParams, req, res: {} as ServerResponse,
     permissions: opts.user?.permissions ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }

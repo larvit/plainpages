@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { test } from "node:test";
-import { buildContext, type SessionIdentity } from "./context.ts";
+import { buildContext, type User } from "./context.ts";
 import { createLogger } from "../logger.ts";
 
 // A req/res pair without a live server — enough to build and inspect a context.
@@ -22,7 +22,7 @@ test("buildContext parses the URL, exposes query, and defaults to an anonymous u
   assert.equal(ctx.query, ctx.url.searchParams); // same instance, not a copy
   assert.equal(ctx.query.get("q"), "ann");
   assert.equal(ctx.query.get("page"), "2");
-  assert.equal(ctx.identity, null);
+  assert.equal(ctx.user, null);
   assert.deepEqual(ctx.permissions, []);
   assert.deepEqual(ctx.params, {});
 });
@@ -35,9 +35,9 @@ test("buildContext threads path params supplied by the router", () => {
 
 test("buildContext threads the user and derives permissions from it", () => {
   const { req, res } = reqRes("/");
-  const user: SessionIdentity = { email: "a@b.c", id: "u1", permissions: ["admin", "editor"] };
-  const ctx = buildContext(req, res, { identity: user });
-  assert.equal(ctx.identity, user);
+  const user: User = { email: "a@b.c", id: "u1", permissions: ["admin", "editor"] };
+  const ctx = buildContext(req, res, { user });
+  assert.equal(ctx.user, user);
   assert.equal(ctx.permissions, user.permissions); // same reference, never a divergent copy — buildContext is the only writer
 });
 

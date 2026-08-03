@@ -2,17 +2,17 @@ import assert from "node:assert/strict";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { test } from "node:test";
-import { buildContext, type RequestContext, type SessionIdentity } from "../http/context.ts";
+import { buildContext, type RequestContext, type User } from "../http/context.ts";
 import { can, check, GuardError, requireSession } from "./guards.ts";
 import type { KetoClient, RelationTuple } from "./keto-client.ts";
 
-function ctxFor(user: SessionIdentity | null, url = "/"): RequestContext {
+function ctxFor(user: User | null, url = "/"): RequestContext {
   const req = new IncomingMessage(new Socket());
   req.url = url;
-  return buildContext(req, new ServerResponse(req), { identity: user });
+  return buildContext(req, new ServerResponse(req), { user });
 }
 
-const alice: SessionIdentity = { email: "a@b.c", id: "u1", permissions: ["admin", "scheduling:read"] };
+const alice: User = { email: "a@b.c", id: "u1", permissions: ["admin", "scheduling:read"] };
 
 test("requireSession returns the user, or throws GuardError(401)→/login (preserving return_to) when anonymous", () => {
   assert.equal(requireSession(ctxFor(alice)), alice);
@@ -44,7 +44,7 @@ test("check asks Keto with the current user as subject; anonymous is denied with
   const tuple = { namespace: "Resource", object: "doc1", relation: "view" };
 
   assert.equal(await check(keto, ctxFor(alice), tuple), true);
-  assert.deepEqual(asked, { ...tuple, subject_id: "identity:u1" }); // subject is the signed-in user
+  assert.deepEqual(asked, { ...tuple, subject_id: "user:u1" }); // subject is the signed-in user
 
   asked = undefined;
   assert.equal(await check(keto, ctxFor(null), tuple), false); // fail-closed, no Keto call

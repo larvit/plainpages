@@ -6,7 +6,7 @@
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
-import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type SessionIdentity } from "#plugin-api";
+import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type User } from "#plugin-api";
 import { ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -25,9 +25,9 @@ export interface GroupView {
 }
 
 // A member's view model: a user (label = email) or a nested group (label = group name). `subject`
-// is the form value that round-trips it — `identity:<id>` or `group:<name>` (see parseSubject).
+// is the form value that round-trips it — `user:<id>` or `group:<name>` (see parseSubject).
 export interface MemberView {
-  kind: "group" | "identity";
+  kind: "group" | "user";
   label: string;
   subject: string;
 }
@@ -35,7 +35,7 @@ export interface MemberView {
 // One option in a member <select>.
 export interface MemberOption {
   label: string;
-  value: string; // `identity:<id>` | `group:<name>`
+  value: string; // `user:<id>` | `group:<name>`
 }
 
 export function isValidGroupName(name: string): boolean {
@@ -51,7 +51,7 @@ export function parseSubject(value: string): { subject_id: string } | { subject_
   if (!rest) return null;
   // Validate both subject forms so a crafted POST can't write a dangling tuple (the pickers only
   // ever offer real users/groups): a user id is a Kratos UUID, a nested group a valid group name.
-  if (value.slice(0, sep) === "identity") return UUID.test(rest) ? { subject_id: `identity:${rest}` } : null;
+  if (value.slice(0, sep) === "user") return UUID.test(rest) ? { subject_id: `user:${rest}` } : null;
   if (value.slice(0, sep) === "group") return isValidGroupName(rest) ? { subject_set: { namespace: GROUP_NS, object: rest, relation: MEMBERS } } : null;
   return null;
 }
@@ -72,8 +72,8 @@ export function groupsFromTuples(tuples: RelationTuple[]): GroupView[] {
 export function memberView(tuple: RelationTuple, emailById: Map<string, string>): MemberView {
   if (tuple.subject_set) return { kind: "group", label: tuple.subject_set.object, subject: `group:${tuple.subject_set.object}` };
   const subjectId = tuple.subject_id ?? "";
-  const id = subjectId.startsWith("identity:") ? subjectId.slice("identity:".length) : subjectId;
-  return { kind: "identity", label: emailById.get(id) ?? subjectId, subject: subjectId };
+  const id = subjectId.startsWith("user:") ? subjectId.slice("user:".length) : subjectId;
+  return { kind: "user", label: emailById.get(id) ?? subjectId, subject: subjectId };
 }
 
 // ---- list view model ----
@@ -267,7 +267,7 @@ export async function memberCandidates(keto: KetoClient, kratosAdmin: KratosAdmi
     const trait = it.traits?.["email"];
     const email = typeof trait === "string" ? trait : it.id;
     emailById.set(it.id, email);
-    userOptions.push({ label: email, value: `identity:${it.id}` });
+    userOptions.push({ label: email, value: `user:${it.id}` });
   }
   const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
   return { emailById, options: [...userOptions, ...groups.map((g) => ({ label: `${g.name} (group)`, value: `group:${g.name}` }))] };
@@ -281,7 +281,7 @@ async function groupExists(keto: KetoClient, name: string): Promise<boolean> {
 
 // Shared per-request deps for the Groups screen, resolved by `withGroups`: the gate + the Keto and
 // Kratos capabilities (else a themed 503). Each route below is a thin handler over these.
-interface GroupsDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; user: SessionIdentity; }
+interface GroupsDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; user: User; }
 
 function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {

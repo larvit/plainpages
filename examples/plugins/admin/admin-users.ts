@@ -4,7 +4,7 @@
 // models; below them are thin per-route handlers (keyed on ctx.params) over a shared `withUser` gate
 // — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
 
-import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type SessionIdentity } from "#plugin-api";
+import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
 import { ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
@@ -266,7 +266,7 @@ function readUserInput(form: URLSearchParams): UserInput {
 
 // Shared per-request deps for the Users screen, resolved by `withUser`: the gate (admin only) and
 // the Kratos capability (else a themed 503). Each route below is a thin handler over these.
-interface UsersDeps { ctx: RequestContext; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: SessionIdentity; }
+interface UsersDeps { ctx: RequestContext; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
 
 // Resolve the shared deps, then run `inner`. The route's `permission: "admin"` already gated at the
 // host; `requireAdmin` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.

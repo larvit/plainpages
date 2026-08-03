@@ -44,7 +44,7 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
     const pathname = ctx.url.pathname;
     // Already signed in? Re-authenticating / re-registering is pointless — send them to the app
     // dashboard. (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
-    if (ctx.identity && (flowType === "login" || flowType === "registration")) return { redirect: "/dashboard" };
+    if (ctx.user && (flowType === "login" || flowType === "registration")) return { redirect: "/dashboard" };
     const cookie = ctx.req.headers.cookie;
     const flowId = ctx.url.searchParams.get("flow");
     // Only the Kratos calls are in the try, so a render/buildFlowView bug below falls through to
@@ -75,7 +75,7 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
       // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
       if (err instanceof KratosError && [403, 404, 410].includes(err.status)) return { redirect: pathname };
       // Already authenticated at Kratos but no app JWT yet (e.g. straight after registration, whose
-      // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.identity
+      // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.user
       // is null and the "already signed in" short-circuit above can't fire). Initialising a login/
       // registration flow then returns Kratos 400 `session_already_available`. Recover by completing
       // login (mint the JWT from the live session), honouring return_to — never a 500.
@@ -218,7 +218,7 @@ function logout(kratos: KratosPublic, secureCookies: boolean): BuiltinRoute["han
     }
     const flow = await kratos.createLogoutFlow(ctx.req.headers.cookie ? { cookie: ctx.req.headers.cookie } : {});
     ctx.res.appendHeader("set-cookie", clearSessionCookie({ secure: secureCookies }));
-    ctx.log.info("logout", { sub: ctx.identity?.id ?? "" });
+    ctx.log.info("logout", { sub: ctx.user?.id ?? "" });
     return { redirect: flow?.logoutUrl ?? "/login" };
   };
 }

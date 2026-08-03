@@ -8,7 +8,7 @@ import { createKetoClient, KetoError } from "./keto-client.ts";
 
 const READ = "http://keto:4466";
 const WRITE = "http://keto:4467";
-const USER = "identity:01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
+const USER = "user:01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
 
 function res(status: number, body?: unknown): Response {
   const h = new Headers();
@@ -35,7 +35,7 @@ test("check GETs the read API and returns the allowed boolean (true and false)",
   assert.match(allow.calls[0]!.url, new RegExp(`subject_id=${encodeURIComponent(USER).replace(/[.]/g, "\\.")}`));
   // A denied check is 403 {allowed:false} (not a 200) — both statuses carry the verdict.
   const deny = recorder(() => res(403, { allowed: false }));
-  assert.equal(await keto(deny.fetchImpl).check({ namespace: "Permission", object: "admin", relation: "granted", subject_id: "identity:nobody" }), false);
+  assert.equal(await keto(deny.fetchImpl).check({ namespace: "Permission", object: "admin", relation: "granted", subject_id: "user:nobody" }), false);
 });
 
 test("check on a subject_set builds subject_set.* params and forwards max-depth", async () => {

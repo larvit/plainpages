@@ -9,7 +9,7 @@ import type { KratosPublic, Session } from "./kratos-public.ts";
 import { completeLogin, readPermissions, remintSession, SESSION_COOKIE, sessionCookie } from "./login.ts";
 
 const ID = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
-const permissionTuple = (object: string): RelationTuple => ({ namespace: "Permission", object, relation: "granted", subject_id: `identity:${ID}` });
+const permissionTuple = (object: string): RelationTuple => ({ namespace: "Permission", object, relation: "granted", subject_id: `user:${ID}` });
 
 const ketoStub = (over: Partial<KetoClient> = {}): KetoClient => ({
   check: async () => false,
@@ -49,11 +49,11 @@ test("readPermissions returns permissions held directly OR transitively (enumera
     // subjects vary (a direct user, a group) and a name repeats across pages → de-duped.
     listRelations: async (q) => {
       listQ.push(q);
-      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [permission("editor", { subject_id: "identity:other" })] };
+      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [permission("editor", { subject_id: "user:other" })] };
       return { nextPageToken: "p2", tuples: [
         permission("editor", { subject_set: { namespace: "Group", object: "eng", relation: "members" } }),
-        permission("admin", { subject_id: `identity:${ID}` }),
-        permission("viewer", { subject_id: "identity:stranger" }),
+        permission("admin", { subject_id: `user:${ID}` }),
+        permission("viewer", { subject_id: "user:stranger" }),
       ] };
     },
     // Keto resolves transitively: the user holds editor (via a group) + admin (direct), not viewer.
@@ -79,7 +79,7 @@ test("completeLogin: read permissions → project onto metadata_public → token
   const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [permissionTuple("admin")] }) });
 
   const out = await completeLogin({ keto, kratosAdmin, kratosPublic }, "plainpages_session=s");
-  assert.deepEqual(out, { email: "admin@plainpages.local", identityId: ID, jwt: "h.p.s", permissions: ["admin"] });
+  assert.deepEqual(out, { email: "admin@plainpages.local", userId: ID, jwt: "h.p.s", permissions: ["admin"] });
   assert.deepEqual(projected, { permissions: ["admin"] }); // Keto permissions, projected for the tokenizer
   assert.deepEqual(events, ["whoami", "project", "tokenize"]); // projection MUST precede tokenize
 });
@@ -105,12 +105,12 @@ test("remintSession: a live Kratos session → fresh cookie + refreshed user; a 
 
   // TTL lapsed but the Kratos session lives → re-read permissions from Keto, re-tokenize, fresh cookie.
   const live = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic }, "plainpages_session=s");
-  assert.deepEqual(live.identity, { email: "admin@plainpages.local", id: ID, permissions: ["admin"] });
+  assert.deepEqual(live.user, { email: "admin@plainpages.local", id: ID, permissions: ["admin"] });
   assert.match(live.setCookie, /^plainpages_jwt=h\.p\.s;.*Max-Age=2592000.*HttpOnly/);
 
   // Kratos session also gone → clear the stale JWT so the next request falls through to anonymous.
   const dead = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic: publicStub() }, undefined);
-  assert.equal(dead.identity, null);
+  assert.equal(dead.user, null);
   assert.match(dead.setCookie, /^plainpages_jwt=;.*Max-Age=0/);
 });
 

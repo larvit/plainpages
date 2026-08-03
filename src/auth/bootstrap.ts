@@ -22,10 +22,10 @@ export function identityPayload(email: string, password: string) {
   };
 }
 
-// Coarse-permission grant: `Permission:<permission>#members@identity:<id>`. Subject ids are `identity:<kratos-id>`
+// Coarse-permission grant: `Permission:<permission>#members@user:<id>`. Subject ids are `user:<kratos-id>`
 // (namespaces.keto.ts) — the source of truth the login flow projects into the JWT permissions.
-export function permissionTuple(identityId: string, permission: string) {
-  return { namespace: "Permission", object: permission, relation: "granted", subject_id: `identity:${identityId}` };
+export function permissionTuple(userId: string, permission: string) {
+  return { namespace: "Permission", object: permission, relation: "granted", subject_id: `user:${userId}` };
 }
 
 // The permissions to grant the demo admin = the configured base (ADMIN_PERMISSIONS, default just `admin`)

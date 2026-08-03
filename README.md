@@ -69,7 +69,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 
 - [Overview](#overview)
   - [how it compares](#how-it-compares)
-- [Identities, groups & permissions](#identities-groups--permissions)
+- [Users, groups & permissions](#users-groups--permissions)
   - [a worked example](#a-worked-example)
   - [granting a permission](#granting-a-permission)
   - [fine-grained, per-row access](#fine-grained-per-row-access)
@@ -198,35 +198,40 @@ server-rendered** design system, **[optional auth](#auth-sessions--access)** (an
 public or gated), **no app database**, and a **framework-light TypeScript** core with no build
 step. Each neighbour shares one trait and trades away the rest — Plainpages is the intersection.
 
-## Identities, groups & permissions
+## Users, groups & permissions
 
-Authorization here is two hops: an **identity** — directly, or through a **group** — is granted a
+Authorization here is two hops: a **user** — directly, or through a **group** — is granted a
 **permission**, and that permission's *name* is exactly the string a plugin gates on.
 
 - **Group** answers *who* — a reusable set of people. Optional: a permission can be granted
-  straight to an identity.
+  straight to a user.
 - **Permission** answers *what* — its **name is the string** you write in a manifest's
   `permission:` gate.
-- **A relation tuple** is the grant: `Permission:<name>#granted@identity:<id>`, or
+- **A relation tuple** is the grant: `Permission:<name>#granted@user:<id>`, or
   `@Group:<name>#members`.
 - **Resource** answers *which row* — a live check, run only where a plugin explicitly asks for it.
 
 | Entity | Lives in | Answers | Example |
 | --- | --- | --- | --- |
-| **Identity** | Kratos | who you are | `identity:0198f2c1-…` |
+| **User** | Kratos | who you are | `user:0198f2c1-…` |
 | **Group** | Keto | who — a reusable set | `Group:support` |
 | **Permission** | Keto | what you may do | `Permission:scheduling:read` |
 | **Resource** | Keto | which specific row | `Resource:shift-4471` |
 
-Identities live in Kratos; every authorization edge is a Keto relation tuple. The app itself
+Users live in Kratos; every authorization edge is a Keto relation tuple. The app itself
 stores none of it — it is [stateless](#stateless).
 
 **Keto ships no entities of its own.** Its entire model is one primitive —
 `namespace:object#relation@subject` — so the four namespaces above are *ours*, declared in
 `ory/keto/namespaces.keto.ts`; Keto only supplies the machinery that resolves them (including
-transitively, through nested groups). `Identity` is named to match Kratos, which owns that
-record. `Group`, `Permission` and `Resource` have no upstream counterpart to match, so they use
-the ordinary words.
+transitively, through nested groups).
+
+> **Ory calls a user an "identity".** Kratos owns that record and names it so: its API is
+> `/admin/identities`, and a session carries `session.identity`. Plainpages says **user**
+> everywhere, because that is the word readers already know — and Ory's own documentation states
+> it uses "identity" interchangeably with "users" and "accounts". You will meet Ory's spelling in
+> exactly two places: the Kratos API itself, and the `Identity` type in `src/auth/kratos-admin.ts`
+> that mirrors it.
 
 > **There is no `Role`.** In RBAC a permission is a single operation ("read shifts") and a role is
 > a *bundle* of them ("IT Support staff"). A route gates on one operation, so it gates on a
@@ -250,7 +255,7 @@ Alice works support and leads scheduling; Bob works support; Carol administers t
   carol ───────────────────────────────────────────────>  Permission:admin
 ```
 
-At login the host asks Keto which permissions the identity holds, walking those arrows
+At login the host asks Keto which permissions the user holds, walking those arrows
 transitively, and bakes the answer into the session JWT (see [Login and the session
 JWT](#login-and-the-session-jwt)):
 
@@ -538,12 +543,12 @@ export default definePlugin({
 Each is a `RouteHandler` like any route's — it receives the [`RequestContext`](#requestcontext) and
 returns a `RouteResult`, typically a `view` from the plugin's own `views/`. A `dashboard` handler
 renders against the native app shell via `ctx.chrome` exactly as a route handler does; a `home`
-handler is a **public** page, so `ctx.identity` may be `null` (use it to show a "go to dashboard" link to
+handler is a **public** page, so `ctx.user` may be `null` (use it to show a "go to dashboard" link to
 a signed-in visitor, or sign-in / register to an anonymous one). After login the user lands on
 `/dashboard` (or the `return_to` they were headed to), and the global menu's **Dashboard** link
 points there.
 
-For the gated `dashboard`, the host enforces the session gate first, so `ctx.identity` is non-null;
+For the gated `dashboard`, the host enforces the session gate first, so `ctx.user` is non-null;
 branch on `ctx.permissions` *inside* to tailor the page per permission. Don't gate `dashboard` itself behind a
 single permission — there's no second dashboard to fall back to, so a user lacking it would land on a
 403. (Both slots answer `GET` and `HEAD`.)
@@ -561,13 +566,13 @@ request:
 ```ts
 interface RequestContext {
   chrome: PageChrome;                // brand/global-nav/user/theme/csrf for the native app shell
-  identity: SessionIdentity | null;  // { id, email, permissions } from the verified session JWT, or null
+  user: User | null;                 // { id, email, permissions } from the verified session JWT, or null
   log: Log;                          // request-scoped logger, in this request's trace
   params: Record<string, string>;   // path params from the route match, e.g. /things/:id → { id }
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
   res: ServerResponse;
-  permissions: string[];                   // identity?.permissions ?? [] — coarse gate without a null-check
+  permissions: string[];                   // user?.permissions ?? [] — coarse gate without a null-check
   system?: SystemCapabilities;       // privileged Ory clients + instant-revoke, for a system plugin (see below); undefined unless the host wired them
   url: URL;
   verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
@@ -659,7 +664,7 @@ accident of a forgotten gate**. `public` and `permission` are **mutually exclusi
 both is contradictory and discovery refuses the plugin at boot.
 
 A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
-`ctx.identity` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
+`ctx.user` is `null`, the shell shows a **Sign in** link (`chrome.signInHref`, returning to this page)
 in place of the profile/sign-out block, the gated **Dashboard** link is hidden, and `ctx.permissions` is
 empty (read a permission with `can(ctx, …)` to branch). The reference plugin's `/scheduling`
 **Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
@@ -667,7 +672,7 @@ while the actual shifts list stays behind `scheduling:read`.
 
 The gate passes iff the user's JWT `permissions` include that name. How permissions are granted, why their
 names are a shared global namespace, and the fine-grained per-row tier are all covered in
-[Identities, groups & permissions](#identities-groups--permissions).
+[Users, groups & permissions](#users-groups--permissions).
 
 Declaring the ones you gate on in `permissions` is **optional but recommended**: it documents them,
 feeds conflict detection, and lets the one-command bootstrap seed them — the demo admin is
@@ -1040,7 +1045,7 @@ the session for a signed JWT once** via the Kratos **session tokenizer** (`whoam
 ```
 
 **Keto is the single source of truth for permissions.** Coarse permissions are Keto relations (e.g.
-`Permission:admin#members@identity:alice`); the admin screens write them *only* to Keto. But the
+`Permission:admin#granted@user:alice`); the admin screens write them *only* to Keto. But the
 tokenizer's claims mapper can read only the **identity**, not call Keto — so at login the
 app reads the permissions from Keto and refreshes a **derived projection**: a read-only copy
 written onto the identity's `metadata_public` for the tokenizer to see, which the template
@@ -1097,7 +1102,7 @@ deactivate the user, or use a direct user-permission change, for an instant effe
 
 ### Three tiers of "may I?"
 
-[Identities, groups & permissions](#identities-groups--permissions) covers *what* the entities are; this is where each
+[Users, groups & permissions](#users-groups--permissions) covers *what* the entities are; this is where each
 **kind** of rule belongs.
 
 ```

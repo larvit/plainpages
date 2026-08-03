@@ -86,17 +86,19 @@ them. Revisit only if the stated reason stops holding.
   `tsconfig.include` and resolve the host surface via `#`-imports, so each example typechecks
   in place *and* copies across unchanged. Never commit real plugins/config into the root
   mount dirs (`plugins/`, `config/`) — they ship empty (`.gitkeep`, git-ignored otherwise).
-- **Authorization vocabulary: `Identity` → `Group` → `Permission`, and there is no `Role`.** Keto
-  ships no namespaces — all four in `ory/keto/namespaces.keto.ts` are ours. `Identity` matches
-  Kratos, which owns that record. `Permission` follows RBAC, where a permission is one operation
-  ("read shifts") and a role is a *bundle* of them; a route gates on one operation, so it gates on
-  a permission, and a bundle is just a group with several grants (groups nest). Ory's own
-  "permission" (the `Resource` `permits`: view/edit/delete) is the separate per-row tier.
-- **UI labels stay in ordinary words — the menu says "Users", not "Identities".** The model uses
-  domain vocabulary; labels use the reader's, per Nielsen's heuristic #2 (match between system and
-  the real world). This is not a rename of an Ory concept: Ory's own docs state it uses "identity"
-  *interchangeably* with "users"/"accounts". Same split as `chrome.user`/`ShellUser` (the avatar
-  view-model) versus `SessionIdentity`/`ctx.identity` (the entity).
+- **Authorization vocabulary: `User` → `Group` → `Permission`, and there is no `Role`.** Keto ships
+  no namespaces — all four in `ory/keto/namespaces.keto.ts` are ours. `Permission` follows RBAC,
+  where a permission is one operation ("read shifts") and a role is a *bundle* of them; a route
+  gates on one operation, so it gates on a permission, and a bundle is just a group with several
+  grants (groups nest). Ory's own "permission" (the `Resource` `permits`: view/edit/delete) is the
+  separate per-row tier.
+- **Plainpages says "user" everywhere; Ory's word for it is "identity".** Kratos calls the record
+  an identity, but Ory's own docs state it uses that term *interchangeably* with "users" and
+  "accounts" — so this is house style, not a renamed concept, and "user" is the word readers
+  already know (Nielsen's heuristic #2: match between the system and the real world). One note in
+  README → Auth records the mapping so nobody has to rediscover it. The single exception is the
+  `Identity` DTO in `src/auth/kratos-admin.ts`, which mirrors Kratos' wire shape and keeps Ory's
+  name — don't rename that one.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
   concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),
@@ -131,12 +133,12 @@ docker compose -f compose.yml up --build -d              # production
    running **building plugins** comes first, then **configuring and securing** the system
    (Configuration, Auth); the **inner workings** (Architecture) and ops/runbooks are
    deliberately deferred — they're not top of mind when starting out. Concretely: Overview →
-   Identities, groups & permissions → Building plugins → menu/blocks/interactivity →
+   Users, groups & permissions → Building plugins → menu/blocks/interactivity →
    Configuration → Auth → Email → Architecture → Testing → Production → Observability → the
    JWT-rotation runbook → the Project-layout file map → Extending. When adding a section, place
    it by this value (how early an adopter needs it), not by where it sits in the stack.
 
-   **Identities, groups & permissions precedes Building plugins** because a manifest's
+   **Users, groups & permissions precedes Building plugins** because a manifest's
    `permission:` gate is unreadable without the model, and operators need it as much as plugin
    authors. It is the one home for that model — the plugin and auth sections link to it rather
    than restating it.

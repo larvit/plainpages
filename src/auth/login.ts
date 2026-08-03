@@ -6,7 +6,7 @@
 //   4. whoami(tokenize_as)       → the signed JWT { sub, email, permissions }, stored as our cookie
 // Order matters: the projection is written before tokenizing, because the claims mapper
 // reads only the identity, never Keto.
-import type { SessionIdentity } from "../http/context.ts";
+import type { User } from "../http/context.ts";
 import { serializeCookie, type CookieOptions } from "../http/cookie.ts";
 import { currentLog } from "../logger.ts";
 import type { KetoClient } from "./keto-client.ts";
@@ -32,18 +32,18 @@ export interface LoginDeps {
 
 export interface CompletedLogin {
   email: string | null;
-  identityId: string;
+  userId: string;
   jwt: string;
   permissions: string[];
 }
 
-// The coarse permissions a user holds — directly (`Permission:<name>#members@identity:<id>`) or transitively via a
+// The coarse permissions a user holds — directly (`Permission:<name>#members@user:<id>`) or transitively via a
 // group that is a member of the permission. Enumerates the defined permissions (the distinct objects in the Permission
 // namespace) and asks Keto to resolve each membership, so a permission granted to a group reaches the JWT —
 // matching the OPL model and the admin "Effective access" view. At login/refresh only, never per
 // request; permission count is small, so the per-permission checks are cheap and run in parallel.
-export async function readPermissions(keto: KetoClient, identityId: string): Promise<string[]> {
-  const subject_id = `identity:${identityId}`;
+export async function readPermissions(keto: KetoClient, userId: string): Promise<string[]> {
+  const subject_id = `user:${userId}`;
   const names = new Set<string>();
   let pageToken: string | undefined;
   do {
@@ -59,24 +59,24 @@ export async function readPermissions(keto: KetoClient, identityId: string): Pro
 export async function completeLogin(deps: LoginDeps, cookie: string | undefined): Promise<CompletedLogin | null> {
   const session = await deps.kratosPublic.whoami(cookie ? { cookie } : {});
   if (!session?.identity) return null;
-  const identityId = session.identity.id;
+  const userId = session.identity.id;
   const emailTrait = session.identity.traits?.["email"];
   const email = typeof emailTrait === "string" ? emailTrait : null;
 
-  const permissions = await readPermissions(deps.keto, identityId);
-  await deps.kratosAdmin.updateMetadataPublic(identityId, { permissions });
+  const permissions = await readPermissions(deps.keto, userId);
+  await deps.kratosAdmin.updateMetadataPublic(userId, { permissions });
 
   const tokenized = await deps.kratosPublic.whoami({ ...(cookie ? { cookie } : {}), tokenizeAs: TOKENIZE_AS });
   const jwt = tokenized?.tokenized;
   if (!jwt) throw new Error("login completion: Kratos tokenizer returned no JWT");
 
-  currentLog()?.info("session minted", { permissions: permissions.join(","), sub: identityId }); // login or TTL re-mint
-  return { email, identityId, jwt, permissions };
+  currentLog()?.info("session minted", { permissions: permissions.join(","), sub: userId }); // login or TTL re-mint
+  return { email, userId, jwt, permissions };
 }
 
 export interface Reminted {
   setCookie: string; // a fresh JWT cookie on success, else a cookie that clears the stale one
-  identity: SessionIdentity | null;
+  user: User | null;
 }
 
 // Re-mint the session JWT on TTL expiry — "stay signed in" (README): the ~10m token lapsed but
@@ -86,8 +86,8 @@ export interface Reminted {
 // anonymous instead of re-hitting Ory on every one.
 export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
   const completed = await completeLogin(deps, cookie);
-  if (!completed) return { setCookie: clearSessionCookie(options), identity: null };
-  return { setCookie: sessionCookie(completed.jwt, options), identity: { email: completed.email ?? "", id: completed.identityId, permissions: completed.permissions } };
+  if (!completed) return { setCookie: clearSessionCookie(options), user: null };
+  return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email ?? "", id: completed.userId, permissions: completed.permissions } };
 }
 
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is

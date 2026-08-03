@@ -33,7 +33,7 @@ export interface RecoveryCode {
 
 export interface KratosAdmin {
   createIdentity(payload: unknown): Promise<Identity>;
-  createRecoveryCode(identityId: string, opts?: { expiresIn?: string }): Promise<RecoveryCode>;
+  createRecoveryCode(userId: string, opts?: { expiresIn?: string }): Promise<RecoveryCode>;
   deleteIdentity(id: string): Promise<void>;
   getIdentity(id: string): Promise<Identity | null>;
   listIdentities(opts?: ListOptions): Promise<IdentityList>;
@@ -67,8 +67,8 @@ export function createKratosAdmin(config: { baseUrl: string; fetchImpl?: typeof 
 
     // Mint a recovery code for an identity (admin "trigger recovery") — the link is mailed to the
     // user by Kratos; the code/link are also returned so an operator can hand them over directly.
-    async createRecoveryCode(identityId, opts = {}) {
-      const body: Record<string, unknown> = { identity_id: identityId };
+    async createRecoveryCode(userId, opts = {}) {
+      const body: Record<string, unknown> = { identity_id: userId };
       if (opts.expiresIn) body.expires_in = opts.expiresIn;
       const res = await http(`${base}/admin/recovery/code`, { body: JSON.stringify(body), headers: json, method: "POST" });
       if (res.status !== 200 && res.status !== 201) return fail("create recovery code", res);

@@ -18,7 +18,7 @@ import type { RelationTuple } from "#plugin-api";
 
 const uid = (n: number) => `01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b${String(n).padStart(2, "0")}`;
 const userTuple = (group: string, n: number): RelationTuple =>
-  ({ namespace: "Group", object: group, relation: "members", subject_id: `identity:${uid(n)}` });
+  ({ namespace: "Group", object: group, relation: "members", subject_id: `user:${uid(n)}` });
 const groupTuple = (group: string, child: string): RelationTuple =>
   ({ namespace: "Group", object: group, relation: "members", subject_set: { namespace: "Group", object: child, relation: "members" } });
 
@@ -28,12 +28,12 @@ test("isValidGroupName accepts URL-safe names, rejects empties/spaces/uppercase/
 });
 
 test("parseSubject + memberTuple map the form value to the user/nested-group subject (else null)", () => {
-  assert.deepEqual(parseSubject(`identity:${uid(1)}`), { subject_id: `identity:${uid(1)}` });
+  assert.deepEqual(parseSubject(`user:${uid(1)}`), { subject_id: `user:${uid(1)}` });
   assert.deepEqual(parseSubject("group:eng"), { subject_set: { namespace: "Group", object: "eng", relation: "members" } });
   // Both forms are validated: a non-UUID user / invalid group name is rejected, not written blindly.
-  for (const bad of ["", "identity:", "identity:not-a-uuid", "group:", "group:Bad Name", "nope:x", "plain"]) assert.equal(parseSubject(bad), null, bad);
+  for (const bad of ["", "user:", "user:not-a-uuid", "group:", "group:Bad Name", "nope:x", "plain"]) assert.equal(parseSubject(bad), null, bad);
 
-  assert.deepEqual(memberTuple("design", `identity:${uid(2)}`), { namespace: "Group", object: "design", relation: "members", subject_id: `identity:${uid(2)}` });
+  assert.deepEqual(memberTuple("design", `user:${uid(2)}`), { namespace: "Group", object: "design", relation: "members", subject_id: `user:${uid(2)}` });
   assert.deepEqual(memberTuple("design", "group:eng"), { namespace: "Group", object: "design", relation: "members", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
   assert.equal(memberTuple("design", "bad"), null);
 });
@@ -48,8 +48,8 @@ test("groupsFromTuples collapses membership tuples → distinct groups + member 
 
 test("memberView resolves a user subject to its email (else the raw id) and a subject_set to the group", () => {
   const emails = new Map([[uid(1), "ada@example.com"]]);
-  assert.deepEqual(memberView(userTuple("eng", 1), emails), { kind: "identity", label: "ada@example.com", subject: `identity:${uid(1)}` });
-  assert.deepEqual(memberView(userTuple("eng", 9), emails), { kind: "identity", label: `identity:${uid(9)}`, subject: `identity:${uid(9)}` });
+  assert.deepEqual(memberView(userTuple("eng", 1), emails), { kind: "user", label: "ada@example.com", subject: `user:${uid(1)}` });
+  assert.deepEqual(memberView(userTuple("eng", 9), emails), { kind: "user", label: `user:${uid(9)}`, subject: `user:${uid(9)}` });
   assert.deepEqual(memberView(groupTuple("eng", "design"), emails), { kind: "group", label: "design", subject: "group:design" });
 });
 
@@ -76,7 +76,7 @@ test("buildGroupsListModel filters by search, sorts, paginates; the name links t
 });
 
 test("buildGroupFormModel: a create form with a required name field + member options, no group of its own", () => {
-  const options = [{ label: "ada@example.com", value: `identity:${uid(1)}` }, { label: "eng (group)", value: "group:eng" }];
+  const options = [{ label: "ada@example.com", value: `user:${uid(1)}` }, { label: "eng (group)", value: "group:eng" }];
   const m = buildGroupFormModel({ csrfToken: "tok.sig", memberOptions: options });
   assert.equal(m.title, "New group");
   assert.equal(m.form.action, "/admin/groups");
@@ -96,8 +96,8 @@ test("buildGroupFormModel: a create form with a required name field + member opt
 test("buildGroupDetailModel: members → rows, add-options exclude current members + the group itself, delete/remove wired", () => {
   const members = [memberView(userTuple("eng", 1), new Map([[uid(1), "ada@example.com"]])), memberView(groupTuple("eng", "design"), new Map())];
   const candidates = [
-    { label: "ada@example.com", value: `identity:${uid(1)}` }, // already a member → excluded
-    { label: "grace@example.com", value: `identity:${uid(2)}` },
+    { label: "ada@example.com", value: `user:${uid(1)}` }, // already a member → excluded
+    { label: "grace@example.com", value: `user:${uid(2)}` },
     { label: "design (group)", value: "group:design" }, // already a member → excluded
     { label: "eng (group)", value: "group:eng" }, // the group itself → excluded
     { label: "ops (group)", value: "group:ops" },
@@ -107,6 +107,6 @@ test("buildGroupDetailModel: members → rows, add-options exclude current membe
   assert.equal(m.members.rows.length, 2);
   assert.equal(m.members.action, "/admin/groups/eng/members/delete");
   assert.equal(m.add.action, "/admin/groups/eng/members");
-  assert.deepEqual(m.add.options.map((o) => o.value), [`identity:${uid(2)}`, "group:ops"]);
+  assert.deepEqual(m.add.options.map((o) => o.value), [`user:${uid(2)}`, "group:ops"]);
   assert.equal(m.delete.action, "/admin/groups/eng/delete");
 });

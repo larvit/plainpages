@@ -48,7 +48,7 @@ test("anonymous shell Sign-in link carries the current page as return_to", () =>
 test("a permission holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
   const chrome = buildPluginChrome({
     currentPath: "/scheduling/shifts", menu: DEFAULT_MENU, plugins: [scheduling],
-    identity: { email: "ada@x.io", id: "u1", permissions: ["scheduling:read"] },
+    user: { email: "ada@x.io", id: "u1", permissions: ["scheduling:read"] },
   });
   assert.deepEqual(labels(chrome.nav), ["Dashboard", "Scheduling"]); // Dashboard shown to a signed-in user
   const section = chrome.nav.find((n) => n.label === "Scheduling")!;
@@ -58,7 +58,7 @@ test("a permission holder sees the Dashboard link + plugin nav; current path ope
 });
 
 test("a gated section (like the admin plugin) shows to a holder; a sub-path marks its base leaf current", () => {
-  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], identity: { email: "a@b.c", id: "u1", permissions: ["admin"] } });
+  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], user: { email: "a@b.c", id: "u1", permissions: ["admin"] } });
   const admin = chrome.nav.find((n) => n.label === "Admin")!;
   assert.ok(admin); // gated section visible to an admin
   assert.equal(admin.open, true); // ancestor of the current leaf opened
