@@ -10,6 +10,12 @@ export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";
 export { can, check, GuardError, requireSession } from "../auth/guards.ts";
+// Translation: `ctx.t` and the view-level `t(...)` do the work at runtime — these are for
+// authoring a plugin's own catalogs (plugins/<id>/i18n/<locale>.ts) and for building a translator
+// in a unit test. `PluralMessage` types a message that varies with a count.
+export { createTranslator } from "../i18n/translate.ts";
+export type { Translate, TranslateVars } from "../i18n/translate.ts";
+export type { Catalog, PluralMessage } from "../i18n/catalog.ts";
 export { parseListQuery } from "../ui/list-query.ts";
 export { paginate } from "../ui/paginate.ts";
 export type { PageModel } from "../ui/paginate.ts";

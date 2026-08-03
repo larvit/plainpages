@@ -8,7 +8,7 @@
     kebab?  boolean         bare kebab trigger (adds .kebab)
     width?  number|string   popover min-width (number ⇒ px)
     items:  Item[]          popover content, top→bottom
-  Item ∈ { head } · { sep } · { label, icon?, href? ⇒ <a>, danger? }   (default: menu-item button)
+  Item ∈ { head } · { sep } · { label, icon?, href? ⇒ <a>, hreflang?, current?, danger? }   (default: menu-item button)
        · { group: { legend?, name, control?(="checkbox"|"radio"), options:{value,label,checked?}[] } }
 %><%
   const t = locals.trigger || {};
@@ -28,7 +28,7 @@
 <% } else if (it.group) { const g = it.group; -%>
     <fieldset class="menu-field"><% if (g.legend) { %><legend class="menu-head"><%= g.legend %></legend><% } %><% g.options.forEach((o) => { %><label class="menu-check"><input type="<%= g.control || "checkbox" %>" name="<%= g.name %>" value="<%= o.value %>"<%= o.checked ? " checked" : "" %>><%= o.label %></label><% }) %></fieldset>
 <% } else if (it.href) { -%>
-    <a class="menu-item<%= it.danger ? " danger" : "" %>" href="<%= it.href %>"><% if (it.icon) { %><svg class="ico"><use href="#<%= it.icon %>"/></svg><% } %><%= it.label %></a>
+    <a class="menu-item<%= it.danger ? " danger" : "" %>" href="<%= it.href %>"<% if (it.hreflang) { %> hreflang="<%= it.hreflang %>" lang="<%= it.hreflang %>"<% } %><% if (it.current) { %> aria-current="true"<% } %>><% if (it.icon) { %><svg class="ico"><use href="#<%= it.icon %>"/></svg><% } %><%= it.label %></a>
 <% } else { -%>
     <button class="menu-item<%= it.danger ? " danger" : "" %>" type="button"><% if (it.icon) { %><svg class="ico"><use href="#<%= it.icon %>"/></svg><% } %><%= it.label %></button>
 <% } -%>

@@ -14,7 +14,7 @@
   const withActions = !!locals.actions;
   const columns = locals.columns || [];
   const rows = locals.rows || [];
-  const emptyText = locals.emptyText || "Nothing here yet."; // shown when a table that has columns has no rows
+  const emptyText = locals.emptyText || t("table.empty"); // shown when a table that has columns has no rows
 -%>
 <div class="table-wrap">
   <table class="table">
@@ -24,7 +24,7 @@
     <thead>
       <tr>
 <% if (selectable) { -%>
-        <th class="col-check" scope="col"><input type="checkbox" aria-label="Select all rows"></th>
+        <th class="col-check" scope="col"><input type="checkbox" aria-label="<%= t("table.selectAll") %>"></th>
 <% } -%>
 <% columns.forEach((col) => { -%>
 <% if (col.sortable) { -%>
@@ -34,7 +34,7 @@
 <% } -%>
 <% }) -%>
 <% if (withActions) { -%>
-        <th class="col-actions" scope="col"><span class="sr-only">Actions</span></th>
+        <th class="col-actions" scope="col"><span class="sr-only"><%= t("table.actions") %></span></th>
 <% } -%>
       </tr>
     </thead>
@@ -45,7 +45,7 @@
 <% rows.forEach((row) => { -%>
       <tr>
 <% if (selectable) { -%>
-        <td class="col-check"><input type="checkbox" class="row-select" aria-label="Select <%= row.name || "row" %>"></td>
+        <td class="col-check"><input type="checkbox" class="row-select" aria-label="<%= t("table.select", { name: row.name || t("table.row") }) %>"></td>
 <% } -%>
 <% (row.cells || []).forEach((cell) => { -%>
 <% if (typeof cell === "string") { -%>
@@ -64,7 +64,7 @@
 <% }) -%>
 <% if (withActions) { -%>
 <% if ((row.actions || []).length) { -%>
-        <td class="col-actions"><details class="menu kebab"><summary aria-label="Row actions for <%= row.name || "row" %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
+        <td class="col-actions"><details class="menu kebab"><summary aria-label="<%= t("table.rowActions", { name: row.name || t("table.row") }) %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
 <% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= a.href %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
 </div></details></td>
 <% } else { -%>

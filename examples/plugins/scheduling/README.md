@@ -17,6 +17,10 @@ What it demonstrates:
   reusing the core `field` partial.
 - **Permission-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
   `scheduling:write`; the whole "Scheduling" section is invisible to anyone without the grant.
+- **Its own translations** — every string comes from `i18n/en-US.ts` (`sv-SE.ts` beside it), including
+  the nav labels, which are catalog keys in the manifest. `shifts.count` shows a plural message, and
+  the views carry the visitor's language onto their links with `localeHref()`.
+  (README → [Languages](../../../README.md#languages-i18n).)
 
 The plugin holds **no state** — data lives upstream (README → *Stateless*). Handlers are thin and
 `fetch` is injectable, so they unit-test as pure functions (`shifts.test.ts`).

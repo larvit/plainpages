@@ -8,21 +8,17 @@
   const body = `
     <div class="form-page">
       <section class="form-card">
-        <h2 class="card-title">Starter dashboard</h2>
-        <p>This is the built-in <code>/dashboard</code> — the gated home shown to a signed-in user.
-        It's a placeholder so a fresh clone has something here; it holds no real data.</p>
-        <p>Replace it from a plugin: export a <code>dashboard</code> handler from your plugin's
-        manifest and it owns this page, rendered against your own views with the native app shell
-        (the same menu you see now) via <code>ctx.chrome</code>.</p>
+        <h2 class="card-title">${t("dashboard.starter.title")}</h2>
+        <p>${t("dashboard.starter.intro")}</p>
+        <p>${t("dashboard.starter.replace")}</p>
 <pre class="code-block"><code>export default definePlugin({
   apiVersion: "1.0.0",
   // view names plugins/&lt;id&gt;/views/&lt;view&gt;.ejs, rendered in this same shell
   dashboard: (ctx) =&gt; ({ view: "dashboard", data: { /* … */ } }),
 });</code></pre>
-        <p>See the plugin contract in <code>docs/plugin-contract.md</code> (the landing-pages section)
-        and the bundled <code>plugins/scheduling/</code> reference.</p>
+        <p>${t("dashboard.starter.reference")}</p>
         <div class="form-actions">
-          <a class="btn btn-primary" href="/scheduling"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-grid"/></svg>Browse the example plugin</a>
+          <a class="btn btn-primary" href="${localeHref("/scheduling")}"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-grid"/></svg>${t("dashboard.starter.browse")}</a>
         </div>
       </section>
     </div>`;

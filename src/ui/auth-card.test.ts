@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const authCard = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "auth-card.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(authCard, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(authCard, { ...ENGLISH_LOCALS, ...data });
 const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
 
 test("auth-card renders head, SSO providers (text logo + icon link), body slot and alt footer", async () => {

@@ -3,11 +3,11 @@
   Rendered into the app-shell content. Locals: brand (name), signedIn (bool).
 %><div class="shell-auth">
   <div class="landing">
-    <h1 class="landing-title">Operational web apps, without the boilerplate.</h1>
-    <p class="landing-lead"><%= brand %> is a self-hostable foundation for admin and operational UIs — sign-in, a config-driven menu, and a server-rendered, zero-JS design system. You add the domain-specific screens by dropping in plugin folders.</p>
+    <h1 class="landing-title"><%= t("landing.title") %></h1>
+    <p class="landing-lead"><%= t("landing.lead", { brand }) %></p>
     <div class="landing-actions">
-      <% if (signedIn) { %><a class="btn btn-primary" href="/dashboard">Go to your dashboard</a>
-      <% } else { %><a class="btn btn-primary" href="/login">Log in</a><a class="btn" href="/registration">Create account</a><% } %>
+      <% if (signedIn) { %><a class="btn btn-primary" href="<%= localeHref("/dashboard") %>"><%= t("landing.dashboard") %></a>
+      <% } else { %><a class="btn btn-primary" href="<%= localeHref("/login") %>"><%= t("landing.signIn") %></a><a class="btn" href="<%= localeHref("/registration") %>"><%= t("landing.register") %></a><% } %>
     </div>
   </div>
 </div>

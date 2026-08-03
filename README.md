@@ -89,6 +89,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [The menu system](#the-menu-system)
 - [Building blocks](#building-blocks)
 - [Interactivity: zero-JS spine](#interactivity-zero-js-spine)
+- [Languages (i18n)](#languages-i18n)
 - [Configuration](#configuration)
   - [canonical host](#canonical-host-one-public-url)
   - [what you must supply](#what-you-must-supply-the-only-manual-prep)
@@ -356,14 +357,16 @@ plugins/things/          # the plugin folder — its name is the id AND the moun
     things.ejs           #   your view files; a handler picks one with { view: "things" }
   public/                # fixed name, optional — static assets, served at /public/things/
     things.css           #   your asset files
+  i18n/                  # fixed name, optional — this plugin's own catalogs (see Languages)
+    en-US.ts             #   the baseline; sv-SE.ts et al are written against its type
   handlers.ts            # your code, any names/layout — host never looks here; plugin.ts imports it
   service.ts             #   e.g. route handlers, upstream calls, domain helpers — design as you wish
 ```
 
 **Only `plugin.ts` is required.** The host looks for exactly that filename and its
-default-exported manifest. `views/` and `public/` are the two fixed folder *names* it resolves
-against — used only if the plugin renders views or serves assets — but the files inside are
-yours to name. Everything else (handlers, upstream clients, their filenames and folder layout)
+default-exported manifest. `views/`, `public/` and `i18n/` are the fixed folder *names* it resolves
+against — used only if the plugin renders views, serves assets or ships translations — but the files
+inside are yours to name (a catalog is named for its locale). Everything else (handlers, upstream clients, their filenames and folder layout)
 the host never sees; `plugin.ts` simply imports it. The `handlers.ts`/`service.ts` split above is
 just an example — name and arrange your modules however you like, or keep a routes-only plugin to a
 single `plugin.ts`.
@@ -434,7 +437,7 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 | `apiVersion` | yes | Semver string of the host contract the plugin was built against. See [Versioning](#contract-versioning). |
 | `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
-| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
@@ -569,6 +572,10 @@ interface RequestContext {
   user: User | null;                 // { id, email, permissions } from the verified session JWT, or null
   log: Log;                          // request-scoped logger, in this request's trace
   params: Record<string, string>;   // path params from the route match, e.g. /things/:id → { id }
+  t: Translate;                      // t(key, vars) in this request's language (see Languages); an unknown key renders as itself
+  locale: string;                    // the locale being served, e.g. "sv-SE"
+  locales: string[];                 // every installed locale, sorted
+  localeHref(href): string;          // carry an explicitly chosen locale onto a link this page renders
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
   res: ServerResponse;
@@ -599,6 +606,9 @@ The same shell renders **every** page (the dashboard, your plugin pages — the 
 login/registration/front pages), so the menu looks identical signed in or out — it just permission-filters.
 A page that wants a focused, chrome-free layout passes **`menu: false`** to `partials/shell` (drops the
 sidebar, single column); everything else still renders.
+
+**`ctx.t`** translates in the request's language, and the same block (`t`, `locale`, `locales`,
+`localeHref`, `dir`) is merged into every view's data — see [Languages](#languages-i18n).
 
 **`ctx.log`** is a structured, request-scoped logger ([`@larvit/log`](https://www.npmjs.com/package/@larvit/log))
 already in this request's trace: `ctx.log.info("…", { key: "value" })` (also `warn`/`error`/`debug`,
@@ -893,6 +903,87 @@ bookmarkable, shareable, and reproducible — the URL is the only state the UI k
 Plugins that genuinely need it — live dashboards, bulk actions, client-side validation —
 may **opt into progressive enhancement** (htmx, Alpine, or vanilla JS) on top of working
 server-rendered HTML. The baseline never depends on it.
+
+## Languages (i18n)
+
+Every string the host renders comes from a **catalog**: one TypeScript module per locale, named
+for the locale it holds. The core ships `en-US` and `sv-SE`; a deployment adds a language by
+dropping another file next to them.
+
+```
+src/i18n/locales/en-US.ts     the baseline — every other locale is checked against it
+src/i18n/locales/sv-SE.ts
+plugins/<id>/i18n/en-US.ts    a plugin's own words, looked up before the host's
+plugins/<id>/i18n/sv-SE.ts
+```
+
+**Which language a request gets:** `?locale=sv-SE` wins, else `Accept-Language`, else `en-US`.
+Matching is exact on a full tag — `?locale=sv-FI` with only `sv-SE` installed lands on `en-US`
+rather than a neighbouring region — but a lone language (`sv`, as browsers send) resolves to the
+first regional catalog for it. There is **no locale cookie**: the URL is the only place a choice
+is stored, so a link is shareable and a page is what its address says it is. When the URL asked
+for a language, the host carries `?locale=` onto every link *it* renders (menu, sign-in, its own
+redirects) and `ctx.localeHref(href)` does the same for a plugin's links. The picker in the
+sidebar footer (and on the auth pages) lists every installed locale, each a plain link to the
+same page in that language — it renders only when more than one is installed.
+
+**Writing a catalog.** `en-US.ts` exports the object and its type; every other locale is written
+against that type, so a missing or misspelled key is a type error before the app ever boots:
+
+```ts
+// plugins/shop/i18n/en-US.ts
+import type { PluralMessage } from "#plugin-api";
+
+const messages = {
+  "shop.title": "Shop",
+  "shop.greeting": "Hello, {{name}}!",
+  "shop.orders": { one: "{{count}} order", other: "{{count}} orders" } as PluralMessage,
+};
+export type ShopMessages = typeof messages;
+export default messages;
+
+// plugins/shop/i18n/sv-SE.ts
+import type { ShopMessages } from "./en-US.ts";
+const messages: ShopMessages = { "shop.title": "Butik", /* … */ };
+export default messages;
+```
+
+At boot every catalog is checked against its set's `en-US`; a missing key, an unknown key, or a
+plural message that doesn't cover the categories its locale actually selects (`Intl.PluralRules`)
+**stops startup** with the full list — a half-translated deploy never reaches a visitor. A plugin
+may translate *fewer* locales than the host (its strings then render in `en-US` on that page), but
+never one the host doesn't have.
+
+**Using it.** `ctx.t(key, vars)` in a handler; in a view `t(...)` is already there, along with
+`locale`, `locales`, `localeHref()` and `dir` — the host merges them into every render, at any
+include depth:
+
+```ts
+// handler
+return { data: { title: ctx.t("shop.title"), lead: ctx.t("shop.greeting", { name }) }, view: "shop" };
+```
+```html
+<!-- view -->
+<h1><%= t("shop.title") %></h1>
+<p><%= t("shop.orders", { count: orders.length }) %></p>
+<a href="<%= localeHref("/shop/new") %>"><%= t("shop.new") %></a>
+```
+
+Three rules worth knowing:
+
+- **An unknown key renders as itself.** That is what lets a nav label be either a catalog key or
+  plain text — `nav: [{ label: "shop.title" }]` is translated, `label: "Shop"` is not, and neither
+  breaks. The same holds for `config/menu.ts` branding and its `rename` overrides.
+- **`t()` returns raw text; the view escapes it.** Use `<%= %>` as for any other value. A message
+  that deliberately carries markup is rendered with `<%- %>` — and must never interpolate
+  untrusted data, since nothing escapes it there.
+- **Dates and numbers are `Intl`'s job**, not the catalog's: `new Intl.DateTimeFormat(ctx.locale)`.
+
+**Kratos writes the auth flow's own text** (field labels, validation errors) and tags each string
+with a stable numeric id; a `kratos.<id>` key replaces it, and anything unmapped renders Kratos'
+English as-is. Field labels are keyed on the input name instead (`auth.field.password`), because
+Kratos' trait-label id is generic — the same id says "Email" on the login form and "First name" on
+a registration form. Operator- and developer-facing text (boot errors, logs) stays English.
 
 ## Configuration
 
@@ -1267,11 +1358,13 @@ docker compose run --rm --no-deps web npm test            # node --test (units)
 E2E runs in the official Playwright image (browsers preinstalled) against the live `web`
 service — no Node/browsers on the host. There are five suites:
 
-**Visual + design system** (`visual.spec.ts`) — Ory-free, so it stays fast. It screenshots
-the live pages and asserts the rendered design system — the app shell, theme switch, mobile
-off-canvas layout, icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and
+**Visual + design system** (`visual.spec.ts`, `language.spec.ts`) — Ory-free, so it stays fast. It
+screenshots the live pages and asserts the rendered design system — the app shell, theme switch,
+mobile off-canvas layout, icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and
 plugin permission-gating — the last exercised by bind-mounting the reference example
-(`examples/plugins/scheduling/`) onto `/app/plugins/scheduling`.
+(`examples/plugins/scheduling/`) onto `/app/plugins/scheduling`. `language.spec.ts` drives
+[language switching](#languages-i18n) in the browser: the picker, the choice surviving a click into
+the plugin's own pages, an `Accept-Language`-only visitor, and the fallback for an uninstalled locale.
 
 ```bash
 docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e   # run the suite
@@ -1651,6 +1744,16 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     keto-client.ts    createKetoClient(): Keto fetch client — check / list / expand relations (read API) + write / delete tuples (write API)
     hydra-admin.ts    createHydraAdmin(): Hydra admin-API fetch client — OAuth2 login + consent challenge get/accept/reject + OAuth2 client CRUD
     fetch-timeout.ts  withTimeout(): bound every outbound Ory call — wrap the injected fetch so each request aborts after a deadline unless the caller passed its own signal; server.ts wires it into the Kratos/Keto/Hydra clients
+
+  i18n/               Translation: which language a request gets, and the words for it
+    catalog.ts        Catalog/Message types + checkCatalog(): the boot-time parity rules a locale is held to (keys, kinds, plural categories)
+    locale.ts         resolveLocale()/matchLocale()/parseAcceptLanguage() (?locale → Accept-Language → en-US) + localeHref(), textDirection(), localeLabel()
+    translate.ts      createTranslator(): key + vars → text — the catalog chain, {{var}} interpolation, Intl.PluralRules selection; an unknown key renders as itself
+    load.ts           loadI18n(): import src/i18n/locales/*.ts + plugins/<id>/i18n/*.ts and check every catalog against its en-US baseline — one boot-stopping error listing every problem
+    runtime.ts        createI18n(): the loaded catalogs per request — resolve the locale, hand out a memoised translator per locale+plugin
+    english.ts        The shipped en-US catalog as a ready translator + I18n, for paths the loaded catalogs aren't wired into (tests, ad-hoc contexts)
+    view-locals.ts    i18nLocals(): the t/locale/dir/localeSwitch block merged into every render (EJS passes it down into includes)
+    locales/          The core catalogs — en-US.ts (the baseline + its type) and sv-SE.ts
 
   plugin-host/        Plugin discovery, routing, hooks, view resolution + the stable author barrel
     plugin.ts         Plugin contract: manifest types, definePlugin(), version + conflict rules + fullPath()

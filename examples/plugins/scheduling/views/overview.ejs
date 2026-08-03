@@ -3,16 +3,16 @@
   nav node are marked `public`, so an anonymous visitor is let through and the menu option shows for
   everyone. The actual shifts data stays behind `scheduling:read`: a reader gets a link straight to
   it, anyone else a prompt to sign in. Rendered in the native shell via ctx.chrome.
-  Data: chrome, title, breadcrumbs, canRead, shiftsHref
+  Data: chrome, title, breadcrumbs, canRead, shiftsHref, signInHref
 %><%
   const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
   const cta = canRead
-    ? '<a class="btn btn-primary" href="' + shiftsHref + '">View shifts</a>'
-    : '<a class="btn btn-primary" href="/login?return_to=' + encodeURIComponent(shiftsHref) + '">Sign in to view shifts</a>';
+    ? '<a class="btn btn-primary" href="' + shiftsHref + '">' + t("scheduling.overview.view") + '</a>'
+    : '<a class="btn btn-primary" href="' + signInHref + '">' + t("scheduling.overview.signIn") + '</a>';
 -%>
 <%- include("partials/shell", {
   actions: "",
-  body: '<div class="scheduling-page"><p>Scheduling coordinates shifts across your team. Anyone can read this overview; the shift list itself is available to people with the <code>scheduling:read</code> permission.</p>' + cta + '</div>',
+  body: '<div class="scheduling-page"><p>' + t("scheduling.overview.lead") + '</p>' + cta + '</div>',
   brand: chrome.brand,
   breadcrumbs,
   csrfToken: chrome.csrfToken,

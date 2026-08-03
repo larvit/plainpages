@@ -22,6 +22,8 @@ import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 import adminManifest from "../../examples/plugins/admin/plugin.ts";
+import { createI18n } from "../i18n/runtime.ts";
+import { loadI18n } from "../i18n/load.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
 // The admin screens ship as a drop-in example plugin; the HTTP-level admin tests mount it via
@@ -822,7 +824,7 @@ test("renders a fetched flow as the themed auth page: fields post straight to Kr
   assert.match(html, /<button type="submit" class="sso-btn" name="provider" value="google" formnovalidate>.*Sign in with Google<\/span><\/button>/s);
   // The flow-level error renders as an alert.
   assert.match(html, /class="alert alert-neg"/);
-  assert.match(html, /The provided credentials are invalid\./);
+  assert.match(html, /The credentials are invalid\./); // 4000006 → our wording (README → Translating)
 });
 
 // Login completion: /auth/complete is where Kratos lands the browser after login.
@@ -859,7 +861,9 @@ const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockK
 // CSRF cookie. get(path, permissions)/post(path, body) carry them; `token` is the matching CSRF field.
 const ADMIN_CSRF = "admin-secret";
 async function adminHarness(t: TestContext, opts: AppOptions = {}) {
-  const app = createApp({ csrfSecret: ADMIN_CSRF, jwks: staticJwks([ecJwk]), pluginsDir: examplesPluginsDir, plugins: [adminPlugin], ...opts });
+  // Mount the plugin's catalogs the way server.ts does, so its screens render words, not keys.
+  const i18n = createI18n(await loadI18n({ pluginIds: [adminPlugin.id], pluginsDir: examplesPluginsDir }));
+  const app = createApp({ csrfSecret: ADMIN_CSRF, i18n, jwks: staticJwks([ecJwk]), pluginsDir: examplesPluginsDir, plugins: [adminPlugin], ...opts });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
@@ -1343,7 +1347,7 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
   // client and shows the one-time secret + id.
   const formHtml = await (await get("/admin/clients/new")).text();
   assert.match(formHtml, /Register client/);
-  assert.match(formHtml, /can't keep a secret/i); // guidance on the public-vs-confidential choice
+  assert.match(formHtml, /keep a secret/i); // guidance on the public-vs-confidential choice (apostrophes arrive escaped: t() text goes through <%= %>)
   const created = await post("/admin/clients", `_csrf=${token}&name=Grafana&redirectUris=${encodeURIComponent("https://graf/cb")}&scope=openid+offline_access`);
   assert.equal(created.status, 200); // not a redirect — the secret is shown once
   const createdHtml = await created.text();
@@ -1394,4 +1398,64 @@ test("routePublic sends a plugin-id segment to its public/ dir, everything else 
   assert.deepEqual(routePublic("scheduling/img/logo.svg", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "img/logo.svg" });
   assert.deepEqual(routePublic("scheduling", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "" }); // bare /public/<id>, no file
   assert.deepEqual(routePublic("css/styles.css", "/core", "/plugins", ids), { dir: "/core", subPath: "css/styles.css" }); // not a plugin → core
+});
+
+// ---- language (i18n) ----
+
+// The installed catalogs, as server.ts wires them: the shipped core locales (en-US + sv-SE).
+async function localeApp(t: TestContext): Promise<string> {
+  const app = createApp({ i18n: createI18n(await loadI18n()), jwks: staticJwks([ecJwk]) });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  return `http://localhost:${(app.address() as AddressInfo).port}`;
+}
+
+test("?locale serves that language and carries the choice onto the links the page renders", async (t) => {
+  const url = await localeApp(t);
+  const html = await (await fetch(`${url}/?locale=sv-SE`)).text();
+
+  assert.match(html, /<html lang="sv-SE" dir="ltr">/); // the document says what language it is in
+  assert.match(html, /Logga in/); // the landing page's own words
+  assert.doesNotMatch(html, /Operational web apps/);
+  // The chosen locale rides along, so clicking through the app stays in Swedish without a cookie.
+  assert.match(html, /href="\/login\?locale=sv-SE"/);
+  // …and the picker offers the other installed locale, pointing at this same page.
+  assert.match(html, /hreflang="en-US"/);
+  assert.match(html, /href="\/\?locale=en-US"/);
+});
+
+test("Accept-Language decides when the URL doesn't, and a lone language matches its region", async (t) => {
+  const url = await localeApp(t);
+  const swedish = await (await fetch(`${url}/`, { headers: { "accept-language": "sv;q=0.9, en;q=0.4" } })).text();
+  assert.match(swedish, /<html lang="sv-SE"/);
+  // The visitor never asked for a locale in the URL, so the links stay clean.
+  assert.match(swedish, /href="\/login"/);
+
+  const english = await (await fetch(`${url}/`, { headers: { "accept-language": "de-DE" } })).text();
+  assert.match(english, /<html lang="en-US"/); // nothing matches ⇒ the baseline
+});
+
+test("an uninstalled or malformed ?locale falls back instead of failing", async (t) => {
+  const url = await localeApp(t);
+  for (const bad of ["sv-FI", "klingon", "../../etc"]) {
+    const res = await fetch(`${url}/?locale=${encodeURIComponent(bad)}`);
+    assert.equal(res.status, 200);
+    assert.match(await res.text(), /<html lang="en-US"/, `expected en-US for ${bad}`);
+  }
+});
+
+test("a redirect the host emits keeps the visitor's language", async (t) => {
+  const url = await localeApp(t);
+  const res = await fetch(`${url}/dashboard?locale=sv-SE`, { redirect: "manual" }); // anonymous ⇒ sign in first
+  assert.equal(res.status, 303);
+  const location = res.headers.get("location") ?? "";
+  assert.match(location, /^\/login\?/);
+  assert.match(location, /locale=sv-SE/);
+});
+
+test("the error pages speak the visitor's language too", async (t) => {
+  const url = await localeApp(t);
+  const html = await (await fetch(`${url}/no-such-page?locale=sv-SE`)).text();
+  assert.match(html, /<html lang="sv-SE"/);
+  assert.match(html, /Sidan hittades inte/);
 });

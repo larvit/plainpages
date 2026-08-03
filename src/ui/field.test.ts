@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const field = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "field.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(field, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(field, { ...ENGLISH_LOCALS, ...data });
 const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
 
 test("field renders label, icon input, hint, inline link/optional, and a server-driven error", async () => {

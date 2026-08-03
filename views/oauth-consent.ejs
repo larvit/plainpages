@@ -6,11 +6,11 @@
   const brand = locals.brand || "Plainpages";
   const body = include("partials/consent-body", { account: consent.account, challenge: consent.challenge, csrfField, csrfToken, scopes: consent.scopes });
 %><!doctype html>
-<html lang="en">
+<html lang="<%= locale %>" dir="<%= dir %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Authorize <%= consent.client %></title>
+    <title><%= t("consent.title", { client: consent.client }) %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
     <link rel="stylesheet" href="/public/css/auth.css" />
     <link rel="icon" href="/public/favicon.svg" />
@@ -20,6 +20,7 @@
     <main class="auth-stage">
       <div class="auth">
         <div class="auth-brand">
+          <%- include("partials/locale-switch", { up: false }) %>
           <span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span>
           <span class="brand-name"><%= brand %></span>
         </div>
@@ -27,13 +28,13 @@
           action: "/oauth2/consent",
           body,
           method: "post",
-          sub: `${consent.client} wants access to your account.`,
-          title: `Authorize ${consent.client}`,
+          sub: t("consent.sub", { client: consent.client }),
+          title: t("consent.title", { client: consent.client }),
         }) %>
         <% if (consent.account) { %>
         <form class="auth-alt" method="post" action="/logout">
           <input type="hidden" name="<%= csrfField %>" value="<%= csrfToken %>">
-          Not you? <button type="submit">Sign out</button>
+          <%= t("consent.notYou") %> <button type="submit"><%= t("shell.signOut") %></button>
         </form>
         <% } %>
       </div>

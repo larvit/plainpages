@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const themeSwitch = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "theme-switch.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(themeSwitch, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(themeSwitch, { ...ENGLISH_LOCALS, ...data });
 const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
 
 test("theme switch renders the Light/Auto/Dark radiogroup with CSS-coupled ids", async () => {

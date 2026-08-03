@@ -6,6 +6,8 @@
 // the override (+ branding); this helper only transforms data, so its result is per-deployment
 // up to the final permission filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
 
+import type { Translate } from "../i18n/translate.ts";
+
 export interface NavNode {
   id?: string; // stable key for override targeting; stripped from the rendered tree
   children?: NavNode[];
@@ -40,13 +42,14 @@ export function composeNav(
   fragments: NavNode[][] = [],
   override: NavOverride = {},
   permissions: string[] = [],
+  t: Translate = (key) => key,
 ): NavNode[] {
   let nodes: NavNode[] = fragments.flat();
   if (override.rename) nodes = renameTree(nodes, override.rename);
   if (override.groups?.length) nodes = applyGroups(nodes, override.groups);
   if (override.order?.length) nodes = applyOrder(nodes, override.order);
   if (override.hide?.length) nodes = hideTree(nodes, new Set(override.hide));
-  return filterByRoles(nodes, new Set(permissions)).map(toRenderNode);
+  return filterByRoles(nodes, new Set(permissions)).map((node) => toRenderNode(node, t));
 }
 
 function renameTree(nodes: NavNode[], rename: Record<string, string>): NavNode[] {
@@ -116,14 +119,15 @@ function filterByRoles(nodes: NavNode[], permissions: Set<string>): NavNode[] {
 }
 
 // Strip the helper-only fields (id/permission) and drop absent ones, so the tree is exactly
-// what nav-tree.ejs reads.
-function toRenderNode(n: NavNode): NavNode {
-  const out: NavNode = { label: n.label };
+// what nav-tree.ejs reads. Labels (a manifest's, or the central override's rename) pass through
+// `t` on the way out: a label that names a catalog key is translated, any other renders as written.
+function toRenderNode(n: NavNode, t: Translate): NavNode {
+  const out: NavNode = { label: t(n.label) };
   if (n.icon != null) out.icon = n.icon;
   if (n.href != null) out.href = n.href;
   if (n.count != null) out.count = n.count;
   if (n.current != null) out.current = n.current;
   if (n.open != null) out.open = n.open;
-  if (n.children && n.children.length) out.children = n.children.map(toRenderNode);
+  if (n.children && n.children.length) out.children = n.children.map((child) => toRenderNode(child, t));
   return out;
 }

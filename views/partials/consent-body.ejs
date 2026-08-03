@@ -4,9 +4,9 @@
   `decision` field). Locals: account?, challenge, csrfField, csrfToken, scopes (string[]). Captured
   by views/oauth-consent.ejs.
 -%>
-<% const labels = { email: "Your email address", offline_access: "Stay signed in (offline access)", openid: "Verify your identity", profile: "Your basic profile (name)" }; -%>
+<% const labels = { email: t("consent.scope.email"), offline_access: t("consent.scope.offline_access"), openid: t("consent.scope.openid"), profile: t("consent.scope.profile") }; -%>
 <% if (locals.account) { -%>
-<p class="auth-sub">Signed in as <strong><%= account %></strong></p>
+<p class="auth-sub"><%= t("consent.signedInAs") %> <strong><%= account %></strong></p>
 <% } -%>
 <input type="hidden" name="<%= csrfField %>" value="<%= csrfToken %>">
 <input type="hidden" name="consent_challenge" value="<%= challenge %>">
@@ -17,5 +17,5 @@
 <% }) -%>
 </ul>
 <% } -%>
-<button type="submit" class="btn btn-block btn-primary" name="decision" value="allow">Allow</button>
-<button type="submit" class="btn btn-block" name="decision" value="deny">Deny</button>
+<button type="submit" class="btn btn-block btn-primary" name="decision" value="allow"><%= t("consent.allow") %></button>
+<button type="submit" class="btn btn-block" name="decision" value="deny"><%= t("consent.deny") %></button>

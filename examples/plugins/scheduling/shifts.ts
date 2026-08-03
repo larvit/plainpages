@@ -6,7 +6,12 @@
 // pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
 // One import from the host's #plugin-api barrel — the stable author surface (see README.md → Building plugins).
-import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, tracedFetch } from "#plugin-api";
+import { can, createTranslator, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "#plugin-api";
+import enUS from "./i18n/en-US.ts";
+
+// The plugin's own English, for a view model built outside a request (its unit tests). At runtime a
+// handler passes ctx.t, which reads this plugin's catalog for the visitor's locale first.
+const EN: Translate = createTranslator({ catalogs: [enUS], locale: "en-US" });
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
@@ -87,58 +92,63 @@ function toShift(raw: unknown): Shift {
 
 // ---- view models (pure; the EJS views read these) -----------------------------------
 
-export function buildListModel(opts: { canWrite: boolean; chrome: PageChrome; error?: string; q: string; shifts: Shift[] }) {
+export function buildListModel(opts: { canWrite: boolean; chrome: PageChrome; error?: string; q: string; shifts: Shift[]; t?: Translate }) {
+  const t = opts.t ?? EN;
   return {
-    breadcrumbs: [{ label: "Shifts" }], // SHIFTS_PATH is the list itself; the form links back to it as "Shifts"
+    breadcrumbs: [{ label: t("scheduling.shifts.title") }], // SHIFTS_PATH is the list itself; the form links back to it
     canWrite: opts.canWrite,
     chrome: opts.chrome,
+    // A plural message: one catalog key, the right form per locale and count (Intl.PluralRules).
+    count: t("scheduling.shifts.count", { count: opts.shifts.length }),
     ...(opts.error ? { error: opts.error } : {}),
     filterBar: {
-      applyLabel: "Search",
+      applyLabel: t("scheduling.filter.search"),
       clearHref: SHIFTS_PATH,
-      label: "Filter shifts",
-      pills: opts.q ? [{ label: "Search", remove: SHIFTS_PATH, value: opts.q }] : [],
+      label: t("scheduling.filter.label"),
+      pills: opts.q ? [{ label: t("scheduling.filter.search"), remove: SHIFTS_PATH, value: opts.q }] : [],
       rows: [[
-        { label: "Search shifts", name: "q", placeholder: "Search title or assignee…", type: "search", value: opts.q },
+        { label: t("scheduling.filter.searchLabel"), name: "q", placeholder: t("scheduling.filter.searchPlaceholder"), type: "search", value: opts.q },
         { type: "spacer" },
       ]],
     },
     newHref: `${SHIFTS_PATH}/new`,
     table: {
-      caption: "Shifts",
-      columns: [{ label: "Shift" }, { label: "Assignee" }, { label: "Start" }, { label: "End" }],
+      caption: t("scheduling.shifts.title"),
+      columns: [{ label: t("scheduling.table.shift") }, { label: t("scheduling.table.assignee") }, { label: t("scheduling.table.start") }, { label: t("scheduling.table.end") }],
       rows: opts.shifts.map((s) => ({
         cells: [{ rowHeader: { text: s.title } }, s.assignee, s.start, s.end],
         name: s.title,
       })),
     },
-    title: "Shifts",
+    title: t("scheduling.shifts.title"),
   };
 }
 
-export function buildFormModel(opts: { chrome: PageChrome; errors?: Record<string, string>; formError?: string; values?: Partial<ShiftInput> }) {
+export function buildFormModel(opts: { chrome: PageChrome; errors?: Record<string, string>; formError?: string; t?: Translate; values?: Partial<ShiftInput> }) {
+  const t = opts.t ?? EN;
   const v = opts.values ?? {};
   const e = opts.errors ?? {};
   const field = (cfg: { icon?: string; id: string; label: string; type?: string; value: string }) => ({
     ...cfg, name: cfg.id, ...(e[cfg.id] ? { error: e[cfg.id] } : {}), ...(cfg.id === "title" || cfg.id === "assignee" ? { required: true } : {}),
   });
   return {
-    breadcrumbs: [{ href: SHIFTS_PATH, label: "Shifts" }, { label: "New shift" }],
+    breadcrumbs: [{ href: SHIFTS_PATH, label: t("scheduling.shifts.title") }, { label: t("scheduling.new.title") }],
     chrome: opts.chrome,
     ...(opts.formError ? { formError: opts.formError } : {}),
     form: {
       action: SHIFTS_PATH,
       cancelHref: SHIFTS_PATH,
       csrfToken: opts.chrome.csrfToken,
+      cancelLabel: t("scheduling.cancel"),
       fields: [
-        field({ icon: "i-cal", id: "title", label: "Shift title", value: v.title ?? "" }),
-        field({ icon: "i-user", id: "assignee", label: "Assignee", value: v.assignee ?? "" }),
-        field({ id: "start", label: "Start", type: "datetime-local", value: v.start ?? "" }),
-        field({ id: "end", label: "End", type: "datetime-local", value: v.end ?? "" }),
+        field({ icon: "i-cal", id: "title", label: t("scheduling.field.title"), value: v.title ?? "" }),
+        field({ icon: "i-user", id: "assignee", label: t("scheduling.field.assignee"), value: v.assignee ?? "" }),
+        field({ id: "start", label: t("scheduling.field.start"), type: "datetime-local", value: v.start ?? "" }),
+        field({ id: "end", label: t("scheduling.field.end"), type: "datetime-local", value: v.end ?? "" }),
       ],
-      submitLabel: "Create shift",
+      submitLabel: t("scheduling.form.submit"),
     },
-    title: "New shift",
+    title: t("scheduling.new.title"),
   };
 }
 
@@ -155,10 +165,10 @@ export function readInput(form: URLSearchParams): ShiftInput {
 
 // Required-field validation → { field: message } or null. Kept deliberately small; the upstream
 // owns the real domain rules (overlap, capacity, …) and rejects with a 4xx the handler surfaces.
-export function validate(input: ShiftInput): Record<string, string> | null {
+export function validate(input: ShiftInput, t: Translate = EN): Record<string, string> | null {
   const errors: Record<string, string> = {};
-  if (!input.title) errors["title"] = "A shift needs a title.";
-  if (!input.assignee) errors["assignee"] = "Assign the shift to someone.";
+  if (!input.title) errors["title"] = t("scheduling.validation.title");
+  if (!input.assignee) errors["assignee"] = t("scheduling.validation.assignee");
   return Object.keys(errors).length ? errors : null;
 }
 
@@ -173,16 +183,16 @@ export function listShifts(upstream: ShiftsUpstream): RouteHandler {
       shifts = await upstream.list();
     } catch (err) {
       ctx.log.warn("scheduling upstream unreachable", { error: String(err) }); // plugin logging via ctx.log
-      error = "Couldn't reach the scheduling service — try again shortly.";
+      error = ctx.t("scheduling.upstream.list");
     }
     const needle = q.toLowerCase();
     const rows = needle ? shifts.filter((s) => s.title.toLowerCase().includes(needle) || s.assignee.toLowerCase().includes(needle)) : shifts;
-    return { data: buildListModel({ canWrite: can(ctx, WRITE), chrome: ctx.chrome, ...(error ? { error } : {}), q, shifts: rows }), view: "shifts" };
+    return { data: buildListModel({ canWrite: can(ctx, WRITE), chrome: ctx.chrome, ...(error ? { error } : {}), q, shifts: rows, t: ctx.t }), view: "shifts" };
   };
 }
 
 export function newShiftForm(): RouteHandler {
-  return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome }), view: "shift-new" });
+  return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome, t: ctx.t }), view: "shift-new" });
 }
 
 // Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
@@ -191,7 +201,14 @@ export function newShiftForm(): RouteHandler {
 // else a prompt to sign in. ctx.user may be null here, so read the permission via can() (zero I/O).
 export function overview(): RouteHandler {
   return (ctx) => ({
-    data: { breadcrumbs: [{ label: "Overview" }], canRead: can(ctx, READ), chrome: ctx.chrome, shiftsHref: SHIFTS_PATH, title: "Scheduling" },
+    data: {
+      breadcrumbs: [{ label: ctx.t("scheduling.nav.overview") }],
+      canRead: can(ctx, READ),
+      chrome: ctx.chrome,
+      shiftsHref: ctx.localeHref(SHIFTS_PATH), // a plugin carries the visitor's locale onto its own links
+      signInHref: ctx.localeHref(`/login?return_to=${encodeURIComponent(ctx.localeHref(SHIFTS_PATH))}`),
+      title: ctx.t("scheduling.overview.title"),
+    },
     view: "overview",
   });
 }
@@ -202,13 +219,13 @@ export function createShift(upstream: ShiftsUpstream): RouteHandler {
     // A write is a first-party form, so guard it with the host's double-submit token (ctx.verifyCsrf).
     if (!ctx.verifyCsrf(form.get(CSRF_FIELD))) throw new GuardError(403, "invalid CSRF token");
     const input = readInput(form);
-    const errors = validate(input);
-    if (errors) return { data: buildFormModel({ chrome: ctx.chrome, errors, values: input }), status: 400, view: "shift-new" };
+    const errors = validate(input, ctx.t);
+    if (errors) return { data: buildFormModel({ chrome: ctx.chrome, errors, t: ctx.t, values: input }), status: 400, view: "shift-new" };
     try {
       await upstream.create(input);
     } catch (err) {
       ctx.log.warn("scheduling shift create failed (upstream)", { error: String(err) });
-      return { data: buildFormModel({ chrome: ctx.chrome, formError: "Couldn't save the shift — the scheduling service is unavailable.", values: input }), status: 502, view: "shift-new" };
+      return { data: buildFormModel({ chrome: ctx.chrome, formError: ctx.t("scheduling.upstream.create"), t: ctx.t, values: input }), status: 502, view: "shift-new" };
     }
     ctx.log.info("scheduling shift created", { assignee: input.assignee, title: input.title });
     return { redirect: SHIFTS_PATH }; // POST-redirect-GET

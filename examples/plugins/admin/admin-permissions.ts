@@ -8,8 +8,8 @@
 // Kratos is read only to label members. Below the builders are thin per-route handlers (keyed on
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
-import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
-import { ADMIN_PERMISSION, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { ADMIN_EN, ADMIN_PERMISSION, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -75,8 +75,8 @@ const SORT: Record<string, (r: PermissionView) => number | string> = {
   name: (r) => r.name,
 };
 const COLUMNS = [
-  { key: "name", label: "Permission" },
-  { key: "members", label: "Members" },
+  { key: "name", label: "admin.permissions.column.name" },
+  { key: "members", label: "admin.permissions.column.members" },
 ];
 
 function detailHref(name: string): string {
@@ -97,8 +97,10 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 export function buildPermissionsListModel(opts: {
   csrfToken?: string;
   permissions: PermissionView[];
+  t?: Translate;
   url: URL | URLSearchParams | string;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const query = parseListQuery(opts.url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const sort = query.sort && SORT[query.sort.field] ? query.sort : null;
   const sortToken = sort ? (sort.dir === "desc" ? `-${sort.field}` : sort.field) : null;
@@ -121,21 +123,21 @@ export function buildPermissionsListModel(opts: {
   const state: ListState = { page: page.page, pageSize: page.pageSize, q: query.q, sort: sortToken };
 
   return {
-    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Admin" }, { label: "Permissions" }],
-    filterBar: listFilterBar(state),
-    pagination: listPagination(state, page),
-    table: listTable(rows, state, sort),
-    title: "Permissions",
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: t("admin.nav.section") }, { label: t("admin.permissions.title") }],
+    filterBar: listFilterBar(state, t),
+    pagination: listPagination(state, page, t),
+    table: listTable(rows, state, sort, t),
+    title: t("admin.permissions.title"),
   };
 }
 
-function listTable(rows: PermissionView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null) {
+function listTable(rows: PermissionView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null, t: Translate) {
   return {
-    caption: "Permissions",
+    caption: t("admin.permissions.title"),
     columns: COLUMNS.map((c) => {
       const dir = sort && sort.field === c.key ? sort.dir : undefined;
       const next = dir === "asc" ? `-${c.key}` : c.key;
-      return { href: listHref(state, { page: 1, sort: next }), label: c.label, sort: dir, sortable: true };
+      return { href: listHref(state, { page: 1, sort: next }), label: t(c.label), sort: dir, sortable: true };
     }),
     rows: rows.map((r) => ({
       cells: [{ rowHeader: { href: detailHref(r.name), text: r.name } }, String(r.memberCount)],
@@ -144,34 +146,34 @@ function listTable(rows: PermissionView[], state: ListState, sort: { dir: "asc" 
   };
 }
 
-function listFilterBar(state: ListState) {
+function listFilterBar(state: ListState, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: "Search", remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
   return {
-    applyLabel: "Apply",
+    applyLabel: t("admin.common.apply"),
     clearHref: ADMIN_PERMISSIONS_BASE,
-    label: "Filter permissions",
+    label: t("admin.permissions.filter"),
     pills,
     rows: [[
-      { label: "Search permissions", name: "q", placeholder: "Search permission name…", type: "search", value: state.q },
+      { label: t("admin.permissions.searchLabel"), name: "q", placeholder: t("admin.permissions.searchPlaceholder"), type: "search", value: state.q },
       { type: "spacer" },
     ]],
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
+function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
   const hidden: { name: string; value: string }[] = [];
   if (state.q) hidden.push({ name: "q", value: state.q });
   if (state.sort) hidden.push({ name: "sort", value: state.sort });
   return {
-    label: "Roles pagination",
+    label: t("admin.permissions.pagination"),
     next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
     pages: page.pages.map((p) =>
       p.ellipsis ? { ellipsis: true }
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: "Rows", name: "pageSize", options: PAGE_SIZES, submitLabel: "Go", value: state.pageSize },
+    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -182,14 +184,16 @@ export function buildPermissionFormModel(opts: {
   csrfToken?: string;
   error?: string;
   memberOptions: MemberOption[];
+  t?: Translate;
   values?: { member?: string; name?: string };
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const nameField: FieldConfig = {
-    autocomplete: "off", hint: "Lowercase letters, digits, dashes and underscores.", icon: "i-shield",
-    id: "name", label: "Permission name", name: "name", required: true, value: opts.values?.name ?? "",
+    autocomplete: "off", hint: t("admin.permissions.field.nameHint"), icon: "i-shield",
+    id: "name", label: t("admin.permissions.field.name"), name: "name", required: true, value: opts.values?.name ?? "",
   };
   return {
-    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { label: "New" }],
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: t("admin.permissions.title") }, { label: t("admin.common.new") }],
     error: opts.error,
     form: {
       action: ADMIN_PERMISSIONS_BASE,
@@ -198,9 +202,9 @@ export function buildPermissionFormModel(opts: {
       memberOptions: opts.memberOptions,
       nameField,
       selectedMember: opts.values?.member ?? "",
-      submitLabel: "Create permission",
+      submitLabel: t("admin.permissions.create"),
     },
-    title: "New permission",
+    title: t("admin.permissions.new"),
   };
 }
 
@@ -211,14 +215,16 @@ export function buildPermissionDetailModel(opts: {
   error?: string;
   members: MemberView[];
   permission: { name: string };
+  t?: Translate;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const name = opts.permission.name;
   const base = detailHref(name);
   const taken = new Set(opts.members.map((m) => m.subject));
   const options = opts.candidates.filter((c) => !taken.has(c.value)); // members are users/groups, never the permission itself
   return {
     add: { action: `${base}/members`, options },
-    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { label: name }],
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: t("admin.permissions.title") }, { label: name }],
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
     effective: opts.effective,
@@ -263,7 +269,7 @@ function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandl
     const user = requireAdmin(ctx);
     const keto = ctx.system?.keto;
     const kratosAdmin = ctx.system?.kratosAdmin;
-    if (!keto || !kratosAdmin) return unavailable(ctx, "Keto and Kratos identity admin");
+    if (!keto || !kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.keto"));
     return inner({ ctx, keto, kratosAdmin, revoke: ctx.system?.revoke, user });
   };
 }
@@ -279,7 +285,7 @@ function withRoleName(inner: (deps: RolesDeps, name: string) => Promise<RouteRes
 
 const roleFormResult = async (deps: RolesDeps, extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
   const { options } = await memberCandidates(deps.keto, deps.kratosAdmin);
-  return { data: { chrome: deps.ctx.chrome, model: buildPermissionFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, ...extra }) }, view: "permission-form" };
+  return { data: { chrome: deps.ctx.chrome, model: buildPermissionFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, t: deps.ctx.t, ...extra }) }, view: "permission-form" };
 };
 
 // The permission detail (members + effective access). With `error` set it's a 400 (a rejected action).
@@ -288,14 +294,14 @@ const permissionDetailResult = async (deps: RolesDeps, name: string, error?: str
   const tuples = await pagedTuples(deps.keto, { namespace: PERMISSION_NS, object: name, relation: GRANTED });
   const members = tuples.map((t) => memberView(t, emailById));
   const effective = await effectiveUsers(deps.keto, name, tuples.length > 0, emailById);
-  const result: RouteResult = { data: { chrome: deps.ctx.chrome, model: buildPermissionDetailModel({ candidates: options, csrfToken: deps.ctx.chrome.csrfToken, effective, members, permission: { name }, ...(error ? { error } : {}) }) }, view: "permission-detail" };
+  const result: RouteResult = { data: { chrome: deps.ctx.chrome, model: buildPermissionDetailModel({ candidates: options, csrfToken: deps.ctx.chrome.csrfToken, effective, members, permission: { name }, t: deps.ctx.t, ...(error ? { error } : {}) }) }, view: "permission-detail" };
   return error ? { ...result, status: 400 } : result;
 };
 
 // GET /admin/permissions — the list.
 export const rolesList = withRoles(async ({ ctx, keto }) => {
   const permissions = permissionsFromTuples(await pagedTuples(keto, { namespace: PERMISSION_NS, relation: GRANTED }));
-  return { data: { chrome: ctx.chrome, model: buildPermissionsListModel({ csrfToken: ctx.chrome.csrfToken, permissions, url: ctx.url }) }, view: "permissions" };
+  return { data: { chrome: ctx.chrome, model: buildPermissionsListModel({ csrfToken: ctx.chrome.csrfToken, permissions, t: ctx.t, url: ctx.url }) }, view: "permissions" };
 });
 
 // POST /admin/permissions — create + assign the first member (a *user* grant revokes their live tokens).
@@ -306,8 +312,8 @@ export const rolesCreate = withRoles(async (deps) => {
   const member = (form.get("member") ?? "").trim();
   const tuple = permissionGrantTuple(name, member);
   const reject = async (error: string): Promise<RouteResult> => ({ ...(await roleFormResult(deps, { error, values: { member, name } })), status: 400 });
-  if (!isValidRoleName(name)) return reject("Permission names use lowercase letters, digits, dashes and underscores.");
-  if (!tuple) return reject("Pick a user or group to assign the permission to.");
+  if (!isValidRoleName(name)) return reject(ctx.t("admin.permissions.validation.name"));
+  if (!tuple) return reject(ctx.t("admin.permissions.validation.member"));
   if (await roleExists(keto, name)) return reject("A permission with that name already exists.");
   await keto.writeTuple(tuple);
   revokeUserMember(revoke, member);
@@ -333,12 +339,13 @@ export const rolesAddMember = withRoleName(async (deps, name) => {
 
 // GET /admin/permissions/:name/delete — confirm, except the admin permission can't be deleted.
 export const rolesDeleteConfirm = withRoleName((deps, name) => {
-  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.adminUndeletable"));
   const base = detailHref(name);
+  const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { href: base, label: name }, { label: "Delete" }],
-    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete permission",
-    message: `Delete permission ${name}? This revokes it from everyone it's assigned to.`, title: "Delete permission",
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: tt("admin.permissions.title") }, { href: base, label: name }, { label: tt("admin.common.delete") }],
+    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.permissions.delete"),
+    message: tt("admin.permissions.deleteMessage", { name }), title: tt("admin.permissions.delete"),
   }) }, view: "confirm" });
 });
 
@@ -347,7 +354,7 @@ export const rolesDeleteConfirm = withRoleName((deps, name) => {
 export const rolesDelete = withRoleName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.adminUndeletable"));
   await keto.deleteTuple({ namespace: PERMISSION_NS, object: name, relation: GRANTED });
   ctx.log.info("admin: permission deleted", { actor: user.id, permission: name });
   return { redirect: ADMIN_PERMISSIONS_BASE };
@@ -360,7 +367,7 @@ export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return permissionDetailResult(deps, name, "You can't revoke your own admin access.");
+  if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.selfRevoke"));
   const tuple = permissionGrantTuple(name, member);
   if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission unassigned", { actor: user.id, member, permission: name }); }
   return { redirect: detailHref(name) };

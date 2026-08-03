@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const dataTable = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "data-table.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(dataTable, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(dataTable, { ...ENGLISH_LOCALS, ...data });
 const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
 
 const config = {

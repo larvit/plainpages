@@ -9,7 +9,8 @@
   (the <title> tag; defaults to title or the brand), `brand` ({ name, logo?, sub? }), `theme`
   (theme-switch default), `user`, `breadcrumbs`, `csrfToken` (the Sign-out form's hidden field),
   `signInHref` (anonymous "Sign in" target; default /login). `menu` (default true) — set false to
-  drop the sidebar and render a focused single-column page.
+  drop the sidebar and render a focused single-column page. `t`, `locale`, `dir` and `localeSwitch`
+  come from the host with every render.
 %><%
   const brand = locals.brand || { name: "Plainpages" };
   const title = locals.title || ""; // topbar heading; empty ⇒ no topbar <h1> (the body owns it)
@@ -23,7 +24,7 @@
   const body = locals.body || "";
   const styles = locals.styles || []; // extra per-page stylesheet hrefs (e.g. a plugin's own CSS)
 %><!doctype html>
-<html lang="en">
+<html lang="<%= locale %>" dir="<%= dir %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -33,7 +34,7 @@
     <% }) %><link rel="icon" href="/public/favicon.svg" />
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" href="#main-content"><%= t("shell.skipToContent") %></a>
     <%- include("icons") %>
     <% if (menu) { %>
     <!-- nav-toggle drives the mobile overlay (pure CSS) -->
@@ -42,14 +43,14 @@
 
     <div class="app<%= menu ? "" : " app-bare" %>">
       <% if (menu) { %>
-      <aside class="sidebar" aria-label="Primary">
+      <aside class="sidebar" aria-label="<%= t("shell.sidebar") %>">
         <div class="brand">
           <% if (brand.logo) { %><img class="brand-logo" src="<%= brand.logo %>" alt="" /><% } else { %><span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span><% } %>
           <span class="brand-name"><%= brand.name %></span>
           <% if (brand.sub) { %><span class="brand-sub"><%= brand.sub %></span><% } %>
         </div>
 
-        <nav class="nav" aria-label="Main navigation"><%- nav %></nav>
+        <nav class="nav" aria-label="<%= t("shell.mainNav") %>"><%- nav %></nav>
 
         <div class="side-footer">
           <%- include("theme-switch", { value: locals.theme }) %>
@@ -66,12 +67,12 @@
                 </span>
               </summary>
               <div class="menu-pop left up" style="min-width:220px">
-                <div class="menu-head">Signed in as <%= user.name %></div>
-                <button class="menu-item" type="button"><svg class="ico"><use href="#i-user" /></svg>Profile</button>
+                <div class="menu-head"><%= t("shell.signedInAs", { name: user.name }) %></div>
+                <button class="menu-item" type="button"><svg class="ico"><use href="#i-user" /></svg><%= t("shell.profile") %></button>
                 <%# Sign out is a state change → a POST form (not a GET link), CSRF-guarded by app.ts %>
                 <form class="menu-item-form" method="post" action="/logout">
                   <input type="hidden" name="_csrf" value="<%= locals.csrfToken || '' %>" />
-                  <button class="menu-item danger" type="submit"><svg class="ico"><use href="#i-logout" /></svg>Sign out</button>
+                  <button class="menu-item danger" type="submit"><svg class="ico"><use href="#i-logout" /></svg><%= t("shell.signOut") %></button>
                 </form>
               </div>
             </details>
@@ -79,28 +80,30 @@
             <%# anonymous (a public page in the shell): no session to end — offer a way in instead.
                 signInHref carries this page as return_to (chrome.signInHref); falls back to bare /login.
                 Suppressed on the auth pages themselves (hideSignIn) — a Sign-in there only loops back. %>
-            <a class="btn btn-primary" href="<%= locals.signInHref || '/login' %>" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg>Sign in</a>
+            <a class="btn btn-primary" href="<%= locals.signInHref || '/login' %>" style="flex:1 1 auto"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user" /></svg><%= t("shell.signIn") %></a>
             <% } %>
+
+            <%- include("locale-switch") %>
 
             <%- include("menu", {
               up: true,
-              trigger: { class: "btn icon-btn", label: "Settings", html: '<svg class="ico"><use href="#i-gear"/></svg>' },
-              items: [{ head: "Settings" }, { label: "Preferences", icon: "i-gear" }],
+              trigger: { class: "btn icon-btn", label: t("shell.settings"), html: '<svg class="ico"><use href="#i-gear"/></svg>' },
+              items: [{ head: t("shell.settings") }, { label: t("shell.preferences"), icon: "i-gear" }],
             }) %>
           </div>
         </div>
       </aside>
 
       <!-- scrim closes the mobile menu (label toggles the checkbox) -->
-      <label class="scrim" for="nav-toggle" aria-label="Close menu"></label>
+      <label class="scrim" for="nav-toggle" aria-label="<%= t("shell.closeMenu") %>"></label>
       <% } %>
 
       <main class="content" id="main-content">
         <header class="topbar">
-          <% if (menu) { %><label class="btn icon-btn hamburger" for="nav-toggle" aria-label="Open menu"><svg class="ico"><use href="#i-menu" /></svg></label><% } %>
+          <% if (menu) { %><label class="btn icon-btn hamburger" for="nav-toggle" aria-label="<%= t("shell.openMenu") %>"><svg class="ico"><use href="#i-menu" /></svg></label><% } %>
           <% if (title) { %><h1 class="page-title"><%= title %></h1><% } %>
           <% if (breadcrumbs.length) { %>
-          <nav class="crumbs" aria-label="Breadcrumb">
+          <nav class="crumbs" aria-label="<%= t("shell.breadcrumb") %>">
             <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= c.href %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>
           </nav>
           <% } %>

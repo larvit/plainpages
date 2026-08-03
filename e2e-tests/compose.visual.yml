@@ -1,5 +1,6 @@
 # Playwright E2E. Brings up the app + a Playwright runner and exercises the live pages (design
-# system, theme switch, mobile layout, CSRF, landing, 404, plugin gating) — Ory-free, so it's fast.
+# system, theme switch, mobile layout, CSRF, landing, 404, plugin gating, language switching) —
+# Ory-free, so it's fast.
 #   docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e
 #   docker compose -f compose.yml -f e2e-tests/compose.visual.yml down -v   # tear down after
 # --build rebuilds the runner (the image bakes in e2e-tests/) so spec edits are picked up.
@@ -29,8 +30,9 @@ services:
     build:
       context: .
       dockerfile: e2e-tests/Dockerfile
-    # Just the Ory-free visual suite; the full-stack auth spec runs via e2e-tests/compose.auth.yml.
-    command: ["npx", "playwright", "test", "visual.spec.ts"]
+    # The Ory-free suites (design system + language switching); the full-stack auth spec runs via
+    # e2e-tests/compose.auth.yml.
+    command: ["npx", "playwright", "test", "visual.spec.ts", "language.spec.ts"]
     depends_on:
       web:
         condition: service_healthy

@@ -52,7 +52,8 @@ Intentional, reasoned choices — an architecture review should honor them, not 
 them. Revisit only if the stated reason stops holding.
 
 - **`src/` is grouped by concern**, not flat — `http/` (request pipeline), `auth/`
-  (session-JWT hot path, guards, and the Ory REST clients), `plugin-host/`
+  (session-JWT hot path, guards, and the Ory REST clients), `i18n/` (locale resolution + the
+  catalogs, `locales/` holding the data), `plugin-host/`
   (discovery/router/hooks/view-resolver + the `plugin-api.ts` author barrel + `system.ts`, the
   `ctx.system` capability surface), and `ui/` (design-system view-models + menu/chrome);
   `server.ts`/`config.ts`/`logger.ts` and the topology-guard `*.test.ts` stay at the root. Tests
@@ -99,6 +100,21 @@ them. Revisit only if the stated reason stops holding.
   README → Auth records the mapping so nobody has to rediscover it. The single exception is the
   `Identity` DTO in `src/auth/kratos-admin.ts`, which mirrors Kratos' wire shape and keeps Ory's
   name — don't rename that one.
+- **The locale lives in the URL, never in a cookie.** `?locale=sv-SE` → `Accept-Language` → `en-US`,
+  and when the URL asked for one the host carries it onto the links it renders (`ctx.localeHref`).
+  A cookie would make a page's language invisible in its address and unshareable; the cost is that a
+  plugin must wrap its own hrefs. Matching is exact on a full tag (`sv-FI` ≠ `sv-SE`), except that a
+  lone language from `Accept-Language` takes the first regional catalog for it. Decided 2026-08-03.
+- **Catalogs are checked at boot, not at render.** Every locale is compared against its set's `en-US`
+  — keys, string-vs-plural kind, and the plural categories `Intl.PluralRules` says that locale needs —
+  and a mismatch stops startup, same fail-loud contract as a bad manifest. A plugin may ship fewer
+  locales than the host (its strings fall back to `en-US` per key), never one the host lacks.
+- **An unknown translation key renders as itself.** That single rule is what lets a nav label,
+  branding, or a menu `rename` be either a key or plain text without a second field or a migration.
+  Don't "fix" it into a loud failure: a manifest with plain labels must keep working.
+- **`t()` returns raw text; the view escapes it.** Messages go through `<%= %>` like any other value,
+  so nothing is double-escaped; a message carrying markup uses `<%- %>` and must not interpolate
+  untrusted data. Don't move escaping into `t()`.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
   concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),
@@ -190,6 +206,11 @@ Same test before adding a row to a table or the file map — a clause, not a par
   resolution, target fetch) into a small `withX` wrapper — see `examples/plugins/admin/`.
 - Reviews are maintainer-triggered (e.g. via the larv-review skill) — never auto-run reviewer
   agents. Decided 2026-08-02, replacing the earlier run-after-every-implementation rule.
+- **A user-visible string belongs in a catalog, not in the code or a view.** Core strings go in
+  `src/i18n/locales/en-US.ts` (then every other locale, or the boot fails); a plugin's go in its own
+  `i18n/`. Operator/developer-facing text — boot errors, log messages, guard messages — stays English.
+  A pure view-model builder takes an optional `t` defaulting to its own English, so a unit test reads
+  in words; handlers pass `ctx.t`.
 - Use well formed, standard compliant, rich URIs. Prefer state in the URL over POST:ing in for
   for example list pages with filters and pagination. Do: "ids=x&ids=y" and not "ids[]=x&ids[]=y"
   and not "ids=x,y".

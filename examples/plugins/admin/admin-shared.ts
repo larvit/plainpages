@@ -3,7 +3,12 @@
 // (themed not-found / capability-unavailable). Ported from the former built-in admin screens;
 // everything imports the host only through the #plugin-api barrel.
 
-import { can, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type User } from "#plugin-api";
+import { can, createTranslator, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "#plugin-api";
+import enUS from "./i18n/en-US.ts";
+
+// This plugin's English, for a view model built outside a request (its unit tests). At runtime the
+// handlers pass ctx.t, which reads this catalog in the visitor's locale first, then the host's.
+export const ADMIN_EN: Translate = createTranslator({ catalogs: [enUS], locale: "en-US" });
 
 export const ADMIN_PERMISSION = "admin"; // the permission gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";
@@ -18,14 +23,14 @@ export type AdminScreen = "clients" | "groups" | "permissions" | "users";
 // non-admin), and current-marks the active item — so there is no `current`/`open` state here.
 export const ADMIN_NAV: NavNode = {
   children: [
-    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "Users" },
-    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "Groups" },
-    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "Permissions" },
-    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "OAuth2 clients" },
+    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users" },
+    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups" },
+    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "admin.nav.permissions" },
+    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients" },
   ],
   icon: "i-shield",
   id: "admin",
-  label: "Admin",
+  label: "admin.nav.section", // a key in this plugin's catalog; the host translates nav labels
   permission: ADMIN_PERMISSION,
 };
 
@@ -49,13 +54,13 @@ export async function guardedForm(ctx: RequestContext): Promise<URLSearchParams 
 
 // A themed "not found" (bad id/name in the path) rendered in the admin shell — 404, never a 500.
 export function notFound(ctx: RequestContext): RouteResult {
-  return { data: { chrome: ctx.chrome, message: "That item doesn't exist.", title: "Not found" }, status: 404, view: "notice" };
+  return { data: { chrome: ctx.chrome, message: ctx.t("admin.notFound.message"), title: ctx.t("admin.notFound.title") }, status: 404, view: "notice" };
 }
 
 // A capability the plugin needs isn't on ctx.system (Ory not wired). Login already requires these in
 // a real deployment, so this is the honest 503 fallback for a misconfigured host, not a crash.
 export function unavailable(ctx: RequestContext, what: string): RouteResult {
-  return { data: { chrome: ctx.chrome, message: `${what} is not configured on this deployment.`, title: "Admin unavailable" }, status: 503, view: "notice" };
+  return { data: { chrome: ctx.chrome, message: ctx.t("admin.unavailable.message", { what }), title: ctx.t("admin.unavailable.title") }, status: 503, view: "notice" };
 }
 
 // Model for the shared destructive-confirm page (views/confirm.ejs). The view reads the shell fields

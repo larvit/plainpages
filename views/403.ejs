@@ -1,16 +1,19 @@
-<!doctype html>
-<html lang="en">
+<%#
+  403 error page: standalone (no app shell, no menu) so it renders even when the shell's data
+  is what failed. Locals: t/locale/dir come from the host with every render.
+%><!doctype html>
+<html lang="<%= locale %>" dir="<%= dir %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %></title>
+    <title><%= t("error.403.docTitle") %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
   </head>
   <body>
     <main>
-      <h1>Access denied</h1>
-      <p>You don't have permission to view that (403).</p>
-      <p><a href="/">Back home</a></p>
+      <h1><%= t("error.403.title") %></h1>
+      <p><%= t("error.403.body") %></p>
+      <p><a href="<%= localeHref("/") %>"><%= t("error.backHome") %></a></p>
     </main>
   </body>
 </html>

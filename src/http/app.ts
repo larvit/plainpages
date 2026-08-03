@@ -11,6 +11,10 @@ import type { Denylist } from "../auth/denylist.ts";
 import { buildDashboardModel } from "../ui/dashboard.ts";
 import { PLUGINS_DIR } from "../plugin-host/discovery.ts";
 import { GuardError, loginRedirect } from "../auth/guards.ts";
+import { ENGLISH_I18N } from "../i18n/english.ts";
+import type { I18n } from "../i18n/runtime.ts";
+import { localeHref } from "../i18n/locale.ts";
+import { ENGLISH_LOCALS, i18nLocals } from "../i18n/view-locals.ts";
 import { runRequestHooks, runResponseHooks } from "../plugin-host/hooks.ts";
 import type { HydraAdmin } from "../auth/hydra-admin.ts";
 import type { JwksProvider } from "../auth/jwks.ts";
@@ -40,6 +44,9 @@ export interface AppOptions {
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
+  // Loaded translation catalogs (server.ts passes the discovered ones). Omitted ⇒ the built-in
+  // en-US catalog only, so an unwired app still renders real English.
+  i18n?: I18n;
   jwks?: JwksProvider; // verify the session JWT → ctx.user/permissions; absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes
@@ -69,6 +76,7 @@ export function createApp(options: AppOptions = {}): Server {
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
   const hydra = options.hydra;
+  const i18n = options.i18n ?? ENGLISH_I18N;
   const jwks = options.jwks;
   const keto = options.keto;
   const kratos = options.kratos;
@@ -107,6 +115,12 @@ export function createApp(options: AppOptions = {}): Server {
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
+  // Every view renders with its context's i18n locals (t/locale/dir/localeSwitch) merged in, so a
+  // view — core or plugin, at any include depth — calls `t(...)` without its handler passing it.
+  // A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
+  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...i18nLocals(ctx), ...data });
+  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...i18nLocals(ctx), ...data });
+
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
     res.end(html);
@@ -121,7 +135,7 @@ export function createApp(options: AppOptions = {}): Server {
     if (homePlugin) {
       const result = (await homePlugin.home(ctx)) ?? null;
       if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
-      await sendResult(ctx.res, result, (view, data) => renderView(homePlugin.id, view, data));
+      await sendResult(ctx.res, result, pluginViewsFor(ctx, homePlugin.id), ctx.localeHref);
       return null;
     }
     return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
@@ -138,10 +152,10 @@ export function createApp(options: AppOptions = {}): Server {
     if (dashboardPlugin) {
       const result = (await dashboardPlugin.dashboard(ctx)) ?? null;
       if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
-      await sendResult(ctx.res, result, (view, data) => renderView(dashboardPlugin.id, view, data));
+      await sendResult(ctx.res, result, pluginViewsFor(ctx, dashboardPlugin.id), ctx.localeHref);
       return null;
     }
-    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, user: ctx.user, nav: ctx.chrome.nav }) }, view: "index" };
+    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, user: ctx.user, nav: ctx.chrome.nav, t: ctx.t }) }, view: "index" };
   };
 
   // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/
@@ -156,9 +170,13 @@ export function createApp(options: AppOptions = {}): Server {
   // outbound fetch (the Ory clients via tracedFetch) and any deep module joins this request's trace
   // and correlation with no logger threaded through their signatures.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
+    // Error pages can render before this request has a context at all (a throw on the way to one),
+    // so they start on the built-in English and switch to the visitor's locale once it is resolved.
+    let renderPage: ViewRenderer = (view, data) => render(view, { ...ENGLISH_LOCALS, ...data });
     try {
       const method = req.method ?? "GET";
-      const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+      const url = new URL(req.url ?? "/", "http://localhost");
+      const pathname = url.pathname;
 
       // Set before any branch so every response — static/redirect/error included — inherits them
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
@@ -185,6 +203,13 @@ export function createApp(options: AppOptions = {}): Server {
           return;
         }
       }
+
+      // Which language this request is served in: ?locale wins, else Accept-Language, else en-US.
+      // `explicit` (the URL asked) is what makes the choice travel: the chrome, this request's
+      // redirects and ctx.localeHref then carry ?locale onto the links they emit.
+      const { explicit, locale } = i18n.resolve({ acceptLanguage: req.headers["accept-language"], param: url.searchParams.get("locale") });
+      const carryLocale = (href: string): string => localeHref(href, explicit ? locale : null);
+      const t = i18n.translator(locale);
 
       // Verify the session JWT once (cached JWKS) → ctx.user/permissions; none/invalid ⇒ anonymous.
       // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
@@ -223,10 +248,20 @@ export function createApp(options: AppOptions = {}): Server {
       // ctx.chrome getter only triggers it when a handler actually reads it (a json/redirect handler,
       // or the public "/" with a standalone home, never composes the menu).
       let chromeMemo: PageChrome | undefined;
-      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, menu, plugins, user }));
+      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, localeHref: carryLocale, menu, plugins, t, translatorFor: (id) => i18n.translator(locale, id), user }));
+
+      // The i18n half of every context: the locale, its translator, and the link carrier. A plugin
+      // route swaps in the plugin's own translator (its catalog first, then core).
+      const i18nFor = (pluginId?: string) => ({
+        locale,
+        localeHref: carryLocale,
+        locales: i18n.available,
+        t: pluginId === undefined ? t : i18n.translator(locale, pluginId),
+      });
 
       // base context (no route params yet); reused for onRequest hooks and the landing routes.
-      const ctx = buildContext(req, res, { chrome, user, log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const ctx = buildContext(req, res, { chrome, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      renderPage = viewsFor(ctx);
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
@@ -235,7 +270,7 @@ export function createApp(options: AppOptions = {}): Server {
           // Set the fresh CSRF cookie like every other page-emitting path, so a form the hook
           // renders (its token is in ctx.chrome.csrfToken) has the matching double-submit cookie.
           csrfMint.setCookie();
-          await sendResult(res, short.result, (view, data) => renderView(short.plugin.id, view, data));
+          await sendResult(res, short.result, pluginViewsFor(ctx, short.plugin.id), carryLocale);
           return;
         }
       }
@@ -245,19 +280,19 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome, user, log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
+        const routeCtx = buildContext(req, res, { chrome, user, ...i18nFor(match.plugin.id), log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
         if (!isAuthorized(match.route, routeCtx.permissions)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the permission gets the 403 page.
           if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
           reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
-          sendHtml(res, 403, await render("403", { title: "Forbidden" }));
+          sendHtml(res, 403, await renderPage("403", {}));
           return;
         }
         csrfMint.setCookie();
         const result = (await match.route.handler(routeCtx)) ?? null;
         if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
-        await sendResult(res, result, (view, data) => renderView(match.plugin.id, view, data));
+        await sendResult(res, result, pluginViewsFor(routeCtx, match.plugin.id), carryLocale);
         return;
       }
 
@@ -266,7 +301,7 @@ export function createApp(options: AppOptions = {}): Server {
       // null means the handler wrote to ctx.res itself.
       const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
       if (builtin) {
-        await sendResult(res, await builtin.handler(ctx, csrfMint), render);
+        await sendResult(res, await builtin.handler(ctx, csrfMint), viewsFor(ctx), carryLocale);
         return;
       }
 
@@ -276,21 +311,21 @@ export function createApp(options: AppOptions = {}): Server {
         res.writeHead(405, { allow: allow.join(", "), "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
         return;
       }
-      sendHtml(res, 404, await render("404", { title: "Not found" }));
+      sendHtml(res, 404, await renderPage("404", {}));
     } catch (err) {
       // A guard thrown anywhere in handling maps to a response (not a 500): a `location` ⇒ a
       // redirect (requireSession → /login), otherwise the status renders the error page.
       if (err instanceof GuardError) {
         if (res.headersSent) return void res.end();
         if (err.location) return void res.writeHead(303, { location: err.location }).end();
-        return void sendHtml(res, err.status, await render("403", { title: "Forbidden" }));
+        return void sendHtml(res, err.status, await renderPage("403", {}));
       }
       reqLog.error("unhandled request error", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
       if (res.headersSent) return void res.end(); // a partial body is already on the wire
       try {
         // Render before writing: if the 500 page itself throws, headers stay unsent
         // and we fall back to plain text below instead of a half-written response.
-        sendHtml(res, 500, await render("500", { title: "Server error" }));
+        sendHtml(res, 500, await renderPage("500", {}));
       } catch (renderErr) {
         reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
         res.writeHead(500, { "content-type": "text/plain; charset=utf-8" }).end("Internal Server Error");
@@ -337,10 +372,12 @@ type ViewRenderer = (view: string, data: Record<string, unknown>) => Promise<str
 
 // Turn a handler's RouteResult into the HTTP response. `null` = the handler took over `ctx.res`
 // itself (the void escape hatch). Author `headers` override the content-type default.
-async function sendResult(res: ServerResponse, result: RouteResult | null, renderView: ViewRenderer): Promise<void> {
+async function sendResult(res: ServerResponse, result: RouteResult | null, renderView: ViewRenderer, carryLocale: (href: string) => string = (href) => href): Promise<void> {
   if (result == null || res.writableEnded) return;
   if ("redirect" in result) {
-    res.writeHead(result.status ?? 303, { location: result.redirect }).end();
+    // A redirect to one of our own pages keeps the visitor's chosen locale (a POST→redirect→GET
+    // would otherwise drop it); an off-site target is left exactly as the handler wrote it.
+    res.writeHead(result.status ?? 303, { location: carryLocale(result.redirect) }).end();
     return;
   }
   if ("json" in result) {

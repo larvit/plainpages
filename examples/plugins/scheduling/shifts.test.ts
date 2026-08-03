@@ -4,20 +4,23 @@ import { Readable } from "node:stream";
 import test from "node:test";
 // Import only from the #plugin-api barrel — the same contract boundary shifts.ts uses (the host may
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
-import { GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "#plugin-api";
+import { createTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "#plugin-api";
+import enUS from "./i18n/en-US.ts";
 import {
   assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
+const t = createTranslator({ catalogs: [enUS], locale: "en-US" }); // this plugin's own catalog, as the host would pass it
 const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } };
 
 function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
-    chrome: CHROME, user: null, log: new Log("none"), params: {}, query: url.searchParams, req, res: {} as ServerResponse,
-    permissions: opts.permissions ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
+    chrome: CHROME, user: null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
+    query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.permissions ?? [], t, url,
+    verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }
 

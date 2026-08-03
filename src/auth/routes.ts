@@ -29,7 +29,7 @@ export interface AuthRouteDeps {
 }
 
 const TEXT_PLAIN = { "content-type": "text/plain; charset=utf-8" };
-const FORBIDDEN: RouteResult = { data: { title: "Forbidden" }, status: 403, view: "403" };
+const FORBIDDEN: RouteResult = { status: 403, view: "403" };
 
 // Scheme + host for a self-referencing absolute URL (Kratos/Hydra return targets). Host reflects
 // what the browser used (so it matches the allow-lists); scheme follows SECURE_COOKIES. A spoofed
@@ -87,14 +87,14 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
       // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
       if (!(err instanceof KratosError) || err.status >= 500) {
         ctx.log.warn("auth flow failed (Ory unreachable?)", { error: String(err), path: pathname });
-        return { data: { title: "Sign-in unavailable" }, status: 503, view: "503" };
+        return { status: 503, view: "503" };
       }
       throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
     }
     // Rendered inside the unified app shell, so set a fresh CSRF cookie when minted — the
     // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.
     csrf.setCookie();
-    return { data: { chrome: ctx.chrome, flow: buildFlowView(flow, flowType) }, view: "auth" };
+    return { data: { chrome: ctx.chrome, flow: buildFlowView(flow, flowType, ctx.t) }, view: "auth" };
   };
 }
 
@@ -114,7 +114,7 @@ function oauthLogin(deps: { hydra: HydraAdmin; kratos: KratosPublic }, secureCoo
       // A stale/invalid/consumed challenge (Hydra 4xx — back button, slow login, re-used URL) is
       // user-reachable: tell them to restart rather than 500. A 5xx (Hydra down) rethrows → 500.
       if (err instanceof HydraError && err.status < 500) {
-        return { headers: TEXT_PLAIN, html: "This sign-in request has expired. Please start again from the application you were signing in to.", status: 400 };
+        return { headers: TEXT_PLAIN, html: ctx.t("oauth.loginExpired"), status: 400 };
       }
       throw err;
     }
@@ -122,9 +122,9 @@ function oauthLogin(deps: { hydra: HydraAdmin; kratos: KratosPublic }, secureCoo
 }
 
 // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500 (as /oauth2/login).
-function consentError(err: unknown): RouteResult {
+function consentError(err: unknown, ctx: RequestContext): RouteResult {
   if (err instanceof HydraError && err.status < 500) {
-    return { headers: TEXT_PLAIN, html: "This authorization request has expired. Please start again from the application you were signing in to.", status: 400 };
+    return { headers: TEXT_PLAIN, html: ctx.t("oauth.consentExpired"), status: 400 };
   }
   throw err;
 }
@@ -143,7 +143,7 @@ function consentScreen(deps: { hydra: HydraAdmin; kratos: KratosPublic }, brand:
       csrf.setCookie();
       return { data: { brand, consent: view, csrfField: CSRF_FIELD, csrfToken: csrf.token }, view: "oauth-consent" };
     } catch (err) {
-      return consentError(err);
+      return consentError(err, ctx);
     }
   };
 }
@@ -164,7 +164,7 @@ function consentDecision(deps: { hydra: HydraAdmin; kratos: KratosPublic }): Bui
         : await rejectConsent(deps, challenge);
       return { redirect };
     } catch (err) {
-      return consentError(err);
+      return consentError(err, ctx);
     }
   };
 }
@@ -184,7 +184,7 @@ function oauthLogout(hydra: HydraAdmin): BuiltinRoute["handler"] {
     } catch (err) {
       // Stale/consumed challenge (Hydra 4xx) → recoverable 400; a genuine outage (5xx) → 500.
       if (err instanceof HydraError && err.status < 500) {
-        return { headers: TEXT_PLAIN, html: "This logout request has expired. Please start again from the application you were signing out of.", status: 400 };
+        return { headers: TEXT_PLAIN, html: ctx.t("oauth.logoutExpired"), status: 400 };
       }
       throw err;
     }
@@ -229,7 +229,7 @@ function logout(kratos: KratosPublic, secureCookies: boolean): BuiltinRoute["han
 // canonical-host redirect prevents the common cause (a lost cross-host CSRF cookie); this is the
 // honest fallback for any genuine flow error. The id is shown only for support reference.
 const errorSink = (ctx: RequestContext): RouteResult =>
-  ({ data: { id: ctx.url.searchParams.get("id"), title: "Sign-in problem" }, view: "error" });
+  ({ data: { id: ctx.url.searchParams.get("id") }, view: "error" });
 
 export function buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secureCookies }: AuthRouteDeps): BuiltinRoute[] {
   const routes: BuiltinRoute[] = [];

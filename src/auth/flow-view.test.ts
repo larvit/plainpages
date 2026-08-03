@@ -34,9 +34,11 @@ test("maps a password login flow: csrf hidden, themed email/password fields, a s
   assert.equal(view.method, "post");
   assert.deepEqual(view.hidden, [{ name: "csrf_token", value: "tok123" }]);
 
-  // Visible fields carry label, type, required, autocomplete + a themed input icon.
+  // Visible fields carry label, type, required, autocomplete + a themed input icon. The label is
+  // ours (auth.field.identifier) rather than Kratos' wording — Kratos' generic trait-label id is
+  // ambiguous, so field labels are keyed on the input name.
   assert.equal(view.fields.length, 2);
-  assert.deepEqual(view.fields[0], { autocomplete: "username", icon: "i-mail", id: "field-identifier", label: "E-Mail", name: "identifier", required: true, type: "email" });
+  assert.deepEqual(view.fields[0], { autocomplete: "username", icon: "i-mail", id: "field-identifier", label: "Email", name: "identifier", required: true, type: "email" });
   assert.equal(view.fields[1]?.icon, "i-lock");
   assert.equal(view.fields[1]?.type, "password");
 
@@ -53,7 +55,7 @@ test("maps a password login flow: csrf hidden, themed email/password fields, a s
   assert.equal(view.messages.length, 0);
 });
 
-test("maps field errors and flow-level messages by tone", () => {
+test("maps field errors and flow-level messages by tone, translating the ids we cover", () => {
   const view = buildFlowView(
     flow(
       [
@@ -65,13 +67,15 @@ test("maps field errors and flow-level messages by tone", () => {
     "login",
   );
 
-  // Submitted value is preserved; the node's error rides on the field.
+  // Submitted value is preserved; the node's error rides on the field — with our wording for the
+  // id (4000002), since Kratos writes "Property password is missing." for every required field.
   assert.equal(view.fields[0]?.value, "taken@example.com");
-  assert.deepEqual(view.fields[0]?.error, { text: "This email is already in use." });
+  assert.deepEqual(view.fields[0]?.error, { text: "This field is required." });
 
-  // Flow messages map error→neg, info→info (success→pos covered by the tone map).
+  // Flow messages map error→neg, info→info (success→pos covered by the tone map). A mapped id
+  // (4000006) is replaced; an id we hold no key for keeps Kratos' own text.
   assert.deepEqual(view.messages, [
-    { text: "The provided credentials are invalid.", tone: "neg" },
+    { text: "The credentials are invalid. Check for typos in your email address or password.", tone: "neg" },
     { text: "Check your email.", tone: "info" },
   ]);
 });

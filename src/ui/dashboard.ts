@@ -5,18 +5,22 @@
 // once per request by the host, so the dashboard shows the exact same menu as every other page.
 
 import type { User } from "../http/context.ts";
+import { ENGLISH } from "../i18n/english.ts";
+import type { Translate } from "../i18n/translate.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { NavNode } from "./nav.ts";
 import { buildShellContext } from "./shell-context.ts";
 
-export function buildDashboardModel(opts: { csrfToken?: string; menu?: MenuConfig; nav?: NavNode[]; user?: User | null } = {}) {
+export function buildDashboardModel(opts: { csrfToken?: string; menu?: MenuConfig; nav?: NavNode[]; t?: Translate; user?: User | null } = {}) {
+  const t = opts.t ?? ENGLISH;
   return {
     nav: opts.nav ?? [],
     shell: buildShellContext({
-      breadcrumbs: [{ label: "Dashboard" }],
+      breadcrumbs: [{ label: t("dashboard.title") }],
       csrfToken: opts.csrfToken ?? "",
       menu: opts.menu ?? DEFAULT_MENU,
-      title: "Dashboard",
+      t,
+      title: t("dashboard.title"),
       user: opts.user ?? null,
     }),
   };

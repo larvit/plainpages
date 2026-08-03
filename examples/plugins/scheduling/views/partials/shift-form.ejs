@@ -1,7 +1,7 @@
 <%#
   A plugin's own partial (resolved before the core ones). The new-shift form body, reusing the core
   `partials/field` + `partials/alert`. Config: form { action, csrfToken, submitLabel, cancelHref,
-  fields: field.ejs config[] }, formError?
+  cancelLabel, fields: field.ejs config[] }, formError?
 %><%
   const form = locals.form;
 -%>
@@ -15,7 +15,7 @@
     <%- include("partials/field", field) %>
 <% }) -%>
     <div class="form-actions">
-      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= form.cancelLabel %></a>
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>

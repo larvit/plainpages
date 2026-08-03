@@ -6,14 +6,17 @@
 // current-marked for the request path.
 
 import type { User } from "../http/context.ts";
+import { ENGLISH } from "../i18n/english.ts";
+import type { Translate } from "../i18n/translate.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { shellUser, type ShellUser } from "./shell-context.ts";
 
 // The "Dashboard" link to the gated app home (/dashboard). It targets a gated route, so it's shown
-// only to a signed-in user (an anonymous click would only dead-end at /login).
-const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "Dashboard" };
+// only to a signed-in user (an anonymous click would only dead-end at /login). Its label is a
+// catalog key — composeNav translates every label, and an unknown one renders as written.
+const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard" };
 
 export interface PageChrome {
   brand: { logo?: string; name: string; sub?: string };
@@ -27,37 +30,65 @@ export interface PageChrome {
 export interface ChromeOptions {
   csrfToken?: string;
   currentPath?: string; // request pathname; the matching nav leaf is marked current
+  localeHref?: (href: string) => string; // carries an explicitly chosen locale onto every chrome link
   menu: MenuConfig;
   plugins?: Plugin[];
+  t?: Translate; // the core translator: the built-in nodes, the central override's labels, branding
+  translatorFor?: (pluginId: string) => Translate; // a plugin's own translator, for its nav fragment
   user?: User | null;
 }
 
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
+  const t = opts.t ?? ENGLISH;
+  const carryLocale = opts.localeHref ?? ((href: string) => href);
   // The Dashboard link targets the gated /dashboard, so show it only to a signed-in user — to an
   // anonymous visitor (a public page in the shell) it would only dead-end at /login. The admin
   // section, when present, is just another plugin's nav fragment (examples/plugins/admin).
   const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
-  for (const p of opts.plugins ?? []) if (p.nav?.length) fragments.push(p.nav);
+  // A plugin's nav labels are keys in *its* catalog, so translate each fragment with that plugin's
+  // translator before they are merged. composeNav then runs the core one over the result for the
+  // built-in nodes and the central override's labels; already-translated text passes through it.
+  for (const p of opts.plugins ?? []) {
+    if (p.nav?.length) fragments.push(translateNav(p.nav, opts.translatorFor?.(p.id) ?? t));
+  }
 
   const permissions = opts.user?.permissions ?? [];
-  const nav = composeNav(fragments, opts.menu.override, permissions);
+  const nav = composeNav(fragments, opts.menu.override, permissions, t);
   if (opts.currentPath) {
     // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
     // /admin/users/new marks the Users base leaf (/admin/users) and the dashboard marks Dashboard.
+    // Marked before the locale rides along, so an href still matches the plain request path.
     const target = bestHref(nav, opts.currentPath);
     if (target) markCurrent(nav, target);
   }
 
   const b = opts.menu.branding;
+  // The sign-in link keeps the visitor's locale, and brings it back afterwards via return_to.
+  const returnTo = opts.currentPath ? `/login?return_to=${encodeURIComponent(carryLocale(opts.currentPath))}` : "/login";
   return {
-    brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: b.name, ...(b.sub != null ? { sub: b.sub } : {}) },
+    brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: t(b.name), ...(b.sub != null ? { sub: t(b.sub) } : {}) },
     csrfToken: opts.csrfToken ?? "",
-    nav,
-    // Anonymous "Sign in" returns to the current page (it's host-relative, our own pathname).
-    signInHref: opts.currentPath ? `/login?return_to=${encodeURIComponent(opts.currentPath)}` : "/login",
+    nav: carryLocaleInto(nav, carryLocale),
+    signInHref: carryLocale(returnTo),
     ...(b.theme != null ? { theme: b.theme } : {}),
-    user: shellUser(opts.user),
+    user: shellUser(opts.user, t),
   };
+}
+
+function translateNav(nodes: NavNode[], t: Translate): NavNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    label: t(node.label),
+    ...(node.children ? { children: translateNav(node.children, t) } : {}),
+  }));
+}
+
+function carryLocaleInto(nodes: NavNode[], carryLocale: (href: string) => string): NavNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    ...(node.href != null ? { href: carryLocale(node.href) } : {}),
+    ...(node.children ? { children: carryLocaleInto(node.children, carryLocale) } : {}),
+  }));
 }
 
 // The href of the leaf that owns `path`: an exact match, else the longest href that is a parent of

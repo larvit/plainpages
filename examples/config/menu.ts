@@ -12,14 +12,14 @@ import { defineMenu } from "#menu-config";
 export default defineMenu({
   branding: {
     name: "Plainpages", // app name shown in the sidebar
-    sub: "Console", // optional subtitle under the name
+    sub: "Console", // optional subtitle under the name — a catalog key here would be translated
     // logo: "/public/logo.svg", // optional logo asset (rendered in the sidebar brand)
     // theme: "auto",            // default color theme: auto | light | dark
   },
 
   // Operator override (rename → group → order → hide), keyed by node id.
   override: {
-    // rename: { people: "Staff" },                                       // node id → new label
+    // rename: { people: "Staff" },                                       // node id → new label (or a catalog key)
     // groups: [{ id: "admin", label: "Admin", children: ["users", "permissions"] }],
     // order: ["people", "reports"],                                      // top-level order by id
     // hide: ["teams"],                                                    // remove nodes (any depth)

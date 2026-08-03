@@ -5,6 +5,8 @@ import { discoverPlugins } from "./plugin-host/discovery.ts";
 import { withTimeout } from "./auth/fetch-timeout.ts";
 import { runBootHooks } from "./plugin-host/hooks.ts";
 import { createHydraAdmin } from "./auth/hydra-admin.ts";
+import { createI18n } from "./i18n/runtime.ts";
+import { loadI18n } from "./i18n/load.ts";
 import { createJwksProvider } from "./auth/jwks.ts";
 import { createKetoClient } from "./auth/keto-client.ts";
 import { createKratosAdmin } from "./auth/kratos-admin.ts";
@@ -38,6 +40,11 @@ const plugins = await discoverPlugins(); // scans plugins/, validates — fails 
 log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => p.id).join(", ") });
 await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
+// Translation catalogs: the core locales plus each discovered plugin's — fails loud if a locale
+// drifts from its en-US baseline, so a half-translated deploy never reaches a visitor.
+const i18n = createI18n(await loadI18n({ pluginIds: plugins.map((p) => p.id) }));
+log.info("locales loaded", { locales: i18n.available.join(", ") });
+
 const server = createApp({
   // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless
   // APP_URL is set, so the redirect is fully off — and costs nothing — when unconfigured.
@@ -47,6 +54,7 @@ const server = createApp({
   csrfSecret: config.csrfSecret,
   ...(denylist ? { denylist } : {}),
   hydra,
+  i18n,
   jwks,
   keto,
   kratos,

@@ -14,7 +14,7 @@
 <%- include("partials/alert", { text: locals.error, tone: "neg" }) %>
 <% } -%>
 <% if (recovery) { -%>
-  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong>Recovery code generated</strong><span>Give it to the user — they enter it on the <a href="/recovery">password-reset screen</a> to set a new password (generate a fresh one if it has expired).</span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
+  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong><%= t("admin.users.recovery.title") %></strong><span><%- t("admin.users.recovery.body") %></span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
 <% } -%>
   <form class="form-card" method="post" action="<%= form.action %>">
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
@@ -22,15 +22,15 @@
     <%- include("partials/field", field) %>
 <% }) -%>
     <div class="form-actions">
-      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= t("admin.common.cancel") %></a>
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>
 <% if (edit) { -%>
-  <section class="form-card admin-actions" aria-label="Account actions">
-    <form method="post" action="<%= edit.recoveryAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-mail"/></svg>Generate recovery code</button></form>
+  <section class="form-card admin-actions" aria-label="<%= t("admin.users.actions") %>">
+    <form method="post" action="<%= edit.recoveryAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-mail"/></svg><%= t("admin.users.recovery.generate") %></button></form>
     <form method="post" action="<%= edit.stateAction %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><%= edit.nextLabel %></button></form>
-    <a class="btn btn-danger" href="<%= edit.deleteAction %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete user</a>
+    <a class="btn btn-danger" href="<%= edit.deleteAction %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg><%= t("admin.users.delete") %></a>
   </section>
 <% } -%>
 </div>

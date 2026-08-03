@@ -14,16 +14,16 @@
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
     <%- include("partials/field", form.nameField) %>
     <div class="field">
-      <label for="redirectUris">Redirect URIs</label>
+      <label for="redirectUris"><%= t("admin.clients.field.redirectUris") %></label>
       <textarea class="input" id="redirectUris" name="redirectUris" rows="3" placeholder="https://app.example.com/callback"><%= form.redirectUris %></textarea>
-      <span class="field-hint">One per line — where the app is sent back after sign-in.</span>
+      <span class="field-hint"><%= t("admin.clients.field.redirectUrisHint") %></span>
     </div>
     <%- include("partials/field", form.scopeField) %>
     <label class="check"><input type="checkbox" name="public"<% if (form.public) { %> checked<% } %>> Public client (SPA / native app, PKCE — no secret)</label>
-    <span class="field-hint">Browser and mobile apps can't keep a secret — choose Public. Server-side apps that can store one — leave it Confidential.</span>
+    <span class="field-hint"><%= t("admin.clients.field.typeHint") %></span>
     <label class="check"><input type="checkbox" name="firstParty"<% if (form.firstParty) { %> checked<% } %>> First-party (auto-grant consent — skip the consent screen)</label>
     <div class="form-actions">
-      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= t("admin.common.cancel") %></a>
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>

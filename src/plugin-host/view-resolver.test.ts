@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 import { renderPluginView, resolveViewPath } from "./view-resolver.ts";
 
 const coreViewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
@@ -30,7 +31,7 @@ test("renderPluginView: a (nested) view includes a core building-block partial a
   );
 
   const render = renderPluginView({ cache: false, coreViewsDir, pluginsDir });
-  const html = await render("demo", "sub/page", { who: "Plug" });
+  const html = await render("demo", "sub/page", { ...ENGLISH_LOCALS, who: "Plug" }); // the host merges these into every view's data
   assert.match(html, /role="radiogroup"/); // core partial, resolved from coreViewsDir
   assert.match(html, /<span class=local>Plug<\/span>/); // the plugin's own partial, with data
 });

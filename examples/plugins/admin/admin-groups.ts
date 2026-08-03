@@ -6,8 +6,8 @@
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
-import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type User } from "#plugin-api";
-import { ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
+import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -90,8 +90,8 @@ const SORT: Record<string, (g: GroupView) => number | string> = {
   name: (g) => g.name,
 };
 const COLUMNS = [
-  { key: "name", label: "Group" },
-  { key: "members", label: "Members" },
+  { key: "name", label: "admin.groups.column.name" },
+  { key: "members", label: "admin.groups.column.members" },
 ];
 
 function detailHref(name: string): string {
@@ -112,8 +112,10 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 export function buildGroupsListModel(opts: {
   csrfToken?: string;
   groups: GroupView[];
+  t?: Translate;
   url: URL | URLSearchParams | string;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const query = parseListQuery(opts.url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const sort = query.sort && SORT[query.sort.field] ? query.sort : null;
   const sortToken = sort ? (sort.dir === "desc" ? `-${sort.field}` : sort.field) : null;
@@ -136,21 +138,21 @@ export function buildGroupsListModel(opts: {
   const state: ListState = { page: page.page, pageSize: page.pageSize, q: query.q, sort: sortToken };
 
   return {
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Admin" }, { label: "Groups" }],
-    filterBar: listFilterBar(state),
-    pagination: listPagination(state, page),
-    table: listTable(rows, state, sort),
-    title: "Groups",
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.nav.section") }, { label: t("admin.groups.title") }],
+    filterBar: listFilterBar(state, t),
+    pagination: listPagination(state, page, t),
+    table: listTable(rows, state, sort, t),
+    title: t("admin.groups.title"),
   };
 }
 
-function listTable(rows: GroupView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null) {
+function listTable(rows: GroupView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null, t: Translate) {
   return {
-    caption: "Groups",
+    caption: t("admin.groups.title"),
     columns: COLUMNS.map((c) => {
       const dir = sort && sort.field === c.key ? sort.dir : undefined;
       const next = dir === "asc" ? `-${c.key}` : c.key;
-      return { href: listHref(state, { page: 1, sort: next }), label: c.label, sort: dir, sortable: true };
+      return { href: listHref(state, { page: 1, sort: next }), label: t(c.label), sort: dir, sortable: true };
     }),
     rows: rows.map((g) => ({
       cells: [{ rowHeader: { href: detailHref(g.name), text: g.name } }, String(g.memberCount)],
@@ -159,34 +161,34 @@ function listTable(rows: GroupView[], state: ListState, sort: { dir: "asc" | "de
   };
 }
 
-function listFilterBar(state: ListState) {
+function listFilterBar(state: ListState, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: "Search", remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
   return {
-    applyLabel: "Apply",
+    applyLabel: t("admin.common.apply"),
     clearHref: ADMIN_GROUPS_BASE,
-    label: "Filter groups",
+    label: t("admin.groups.filter"),
     pills,
     rows: [[
-      { label: "Search groups", name: "q", placeholder: "Search group name…", type: "search", value: state.q },
+      { label: t("admin.groups.searchLabel"), name: "q", placeholder: t("admin.groups.searchPlaceholder"), type: "search", value: state.q },
       { type: "spacer" },
     ]],
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
+function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
   const hidden: { name: string; value: string }[] = [];
   if (state.q) hidden.push({ name: "q", value: state.q });
   if (state.sort) hidden.push({ name: "sort", value: state.sort });
   return {
-    label: "Groups pagination",
+    label: t("admin.groups.pagination"),
     next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
     pages: page.pages.map((p) =>
       p.ellipsis ? { ellipsis: true }
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: "Rows", name: "pageSize", options: PAGE_SIZES, submitLabel: "Go", value: state.pageSize },
+    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -197,14 +199,16 @@ export function buildGroupFormModel(opts: {
   csrfToken?: string;
   error?: string;
   memberOptions: MemberOption[];
+  t?: Translate;
   values?: { member?: string; name?: string };
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const nameField: FieldConfig = {
-    autocomplete: "off", hint: "Lowercase letters, digits, dashes and underscores.", icon: "i-layers",
-    id: "name", label: "Group name", name: "name", required: true, value: opts.values?.name ?? "",
+    autocomplete: "off", hint: t("admin.groups.field.nameHint"), icon: "i-layers",
+    id: "name", label: t("admin.groups.field.name"), name: "name", required: true, value: opts.values?.name ?? "",
   };
   return {
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { label: "New" }],
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.groups.title") }, { label: t("admin.common.new") }],
     error: opts.error,
     form: {
       action: ADMIN_GROUPS_BASE,
@@ -213,9 +217,9 @@ export function buildGroupFormModel(opts: {
       memberOptions: opts.memberOptions,
       nameField,
       selectedMember: opts.values?.member ?? "",
-      submitLabel: "Create group",
+      submitLabel: t("admin.groups.create"),
     },
-    title: "New group",
+    title: t("admin.groups.new"),
   };
 }
 
@@ -225,7 +229,9 @@ export function buildGroupDetailModel(opts: {
   error?: string;
   group: { name: string };
   members: MemberView[];
+  t?: Translate;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const name = opts.group.name;
   const base = detailHref(name);
   const taken = new Set(opts.members.map((m) => m.subject));
@@ -233,7 +239,7 @@ export function buildGroupDetailModel(opts: {
   const options = opts.candidates.filter((c) => c.value !== self && !taken.has(c.value));
   return {
     add: { action: `${base}/members`, options },
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { label: name }],
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.groups.title") }, { label: name }],
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
     error: opts.error,
@@ -288,7 +294,7 @@ function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>): RouteHan
     const user = requireAdmin(ctx);
     const keto = ctx.system?.keto;
     const kratosAdmin = ctx.system?.kratosAdmin;
-    if (!keto || !kratosAdmin) return unavailable(ctx, "Keto and Kratos identity admin");
+    if (!keto || !kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.keto"));
     return inner({ ctx, keto, kratosAdmin, user });
   };
 }
@@ -304,13 +310,13 @@ function withGroupName(inner: (deps: GroupsDeps, name: string) => Promise<RouteR
 
 const groupFormResult = async (deps: GroupsDeps, extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
   const { options } = await memberCandidates(deps.keto, deps.kratosAdmin);
-  return { data: { chrome: deps.ctx.chrome, model: buildGroupFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, ...extra }) }, view: "group-form" };
+  return { data: { chrome: deps.ctx.chrome, model: buildGroupFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, t: deps.ctx.t, ...extra }) }, view: "group-form" };
 };
 
 // GET /admin/groups — the list.
 export const groupsList = withGroups(async ({ ctx, keto }) => {
   const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
-  return { data: { chrome: ctx.chrome, model: buildGroupsListModel({ csrfToken: ctx.chrome.csrfToken, groups, url: ctx.url }) }, view: "groups" };
+  return { data: { chrome: ctx.chrome, model: buildGroupsListModel({ csrfToken: ctx.chrome.csrfToken, groups, t: ctx.t, url: ctx.url }) }, view: "groups" };
 });
 
 // POST /admin/groups — create (a group exists once it has ≥1 member, so this writes the first tuple).
@@ -321,8 +327,8 @@ export const groupsCreate = withGroups(async (deps) => {
   const member = (form.get("member") ?? "").trim();
   const tuple = memberTuple(name, member);
   const reject = async (error: string): Promise<RouteResult> => ({ ...(await groupFormResult(deps, { error, values: { member, name } })), status: 400 });
-  if (!isValidGroupName(name)) return reject("Group names use lowercase letters, digits, dashes and underscores.");
-  if (!tuple) return reject("Pick a member to add as the group's first member.");
+  if (!isValidGroupName(name)) return reject(ctx.t("admin.groups.validation.name"));
+  if (!tuple) return reject(ctx.t("admin.groups.validation.member"));
   if (await groupExists(keto, name)) return reject("A group with that name already exists.");
   await keto.writeTuple(tuple);
   ctx.log.info("admin: group created", { actor: user.id, group: name });
@@ -336,7 +342,7 @@ export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}));
 export const groupsDetail = withGroupName(async ({ ctx, keto, kratosAdmin }, name) => {
   const { emailById, options } = await memberCandidates(keto, kratosAdmin);
   const members = (await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS })).map((t) => memberView(t, emailById));
-  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members }) }, view: "group-detail" };
+  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, t: ctx.t }) }, view: "group-detail" };
 });
 
 // POST /admin/groups/:name/members — add a member (skip an invalid member or a self-nest).
@@ -350,10 +356,11 @@ export const groupsAddMember = withGroupName(async ({ ctx, keto }, name) => {
 // GET /admin/groups/:name/delete — the deliberate confirm step.
 export const groupsDeleteConfirm = withGroupName((deps, name) => {
   const base = detailHref(name);
+  const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: "Groups" }, { href: base, label: name }, { label: "Delete" }],
-    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete group",
-    message: `Delete group ${name}? This removes the group and all its memberships.`, title: "Delete group",
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: tt("admin.groups.title") }, { href: base, label: name }, { label: tt("admin.common.delete") }],
+    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.groups.delete"),
+    message: tt("admin.groups.deleteMessage", { name }), title: tt("admin.groups.delete"),
   }) }, view: "confirm" });
 });
 

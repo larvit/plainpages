@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PageChrome } from "../ui/chrome.ts"; // type-only: no runtime import, so no cycle
 import type { SystemCapabilities } from "../plugin-host/system.ts"; // type-only
+import { DEFAULT_LOCALE } from "../i18n/catalog.ts";
+import { ENGLISH } from "../i18n/english.ts";
+import type { Translate } from "../i18n/translate.ts";
 import { createLogger, type Log } from "../logger.ts";
 
 // The request context threaded to every route handler (plugin + built-in), built once
@@ -23,6 +26,13 @@ export interface RequestContext {
   // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
   // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
   // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
+  locale: string; // the locale this request is served in, e.g. "sv-SE" — also <html lang>
+  // Carry the visitor's chosen locale onto a link this page renders. A no-op unless the request
+  // asked for one with ?locale (there is no locale cookie — the URL is where the choice lives), and
+  // on off-site URLs. The host already does this for the chrome and its own redirects; a plugin
+  // wraps the hrefs it builds itself.
+  localeHref(href: string): string;
+  locales: string[]; // every installed locale, sorted — for a plugin building its own language picker
   log: Log;
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   permissions: string[]; // user?.permissions ?? [] — coarse gate without a null-check
@@ -32,6 +42,10 @@ export interface RequestContext {
   // Privileged host services (Ory admin clients + instant-revoke) for a system plugin. Undefined
   // unless the host wired them; every field optional. Ordinary domain plugins ignore it.
   system?: SystemCapabilities;
+  // Translate a key in this request's locale: `ctx.t("shifts.title")`, `ctx.t("greeting", { name })`.
+  // Returns raw text — escape it like any other value when rendering. An unknown key renders as
+  // itself, so a plain string is always safe to pass.
+  t: Translate;
   url: URL;
   user: User | null; // the signed-in user, or null when anonymous
   // Gate a first-party form submission: true iff `submitted` matches this request's signed CSRF
@@ -45,9 +59,13 @@ export interface BuildContextOptions {
   // The host's factory is memoised, so the menu composes at most once per request across contexts.
   chrome?: () => PageChrome;
   user?: User | null;
+  locale?: string;
+  localeHref?: (href: string) => string;
+  locales?: string[];
   log?: Log;
   params?: Record<string, string>;
   system?: SystemCapabilities;
+  t?: Translate;
   verifyCsrf?: (submitted: string | null | undefined) => boolean;
 }
 
@@ -69,6 +87,9 @@ export function buildContext(
   return {
     get chrome(): PageChrome { return (chromeMemo ??= buildChrome ? buildChrome() : ANON_CHROME); },
     user,
+    locale: options.locale ?? DEFAULT_LOCALE,
+    localeHref: options.localeHref ?? ((href) => href),
+    locales: options.locales ?? [DEFAULT_LOCALE],
     log: options.log ?? SILENT_LOG,
     params: options.params ?? {},
     query: url.searchParams,
@@ -76,6 +97,7 @@ export function buildContext(
     res,
     permissions: user?.permissions ?? [],
     ...(options.system ? { system: options.system } : {}),
+    t: options.t ?? ENGLISH,
     url,
     verifyCsrf: options.verifyCsrf ?? (() => false), // fail-closed unless the host binds the secret
   };

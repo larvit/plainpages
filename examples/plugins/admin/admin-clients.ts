@@ -5,8 +5,8 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). Below the builders are thin
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
-import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
-import { ADMIN_CLIENTS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { ADMIN_CLIENTS_BASE, ADMIN_EN, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -64,14 +64,14 @@ export function clientPayload(input: ClientInput): Record<string, unknown> {
   };
 }
 
-export function validateClientInput(input: ClientInput): string | null {
-  if (!input.name) return "Enter a name for the client.";
-  if (!input.redirectUris.length) return "Add at least one redirect URI.";
+export function validateClientInput(input: ClientInput, t: Translate = ADMIN_EN): string | null {
+  if (!input.name) return t("admin.clients.validation.name");
+  if (!input.redirectUris.length) return t("admin.clients.validation.redirectUris");
   for (const uri of input.redirectUris) {
     try {
       new URL(uri); // must be an absolute URL — any scheme (public/native clients use custom ones)
     } catch {
-      return `"${uri}" is not a valid redirect URI — use an absolute URL like https://app.example.com/callback.`;
+      return t("admin.clients.validation.redirectUri", { uri });
     }
   }
   return null;
@@ -102,8 +102,10 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 export function buildClientsListModel(opts: {
   clients: OAuth2Client[];
   csrfToken?: string;
+  t?: Translate;
   url: URL | URLSearchParams | string;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const query = parseListQuery(opts.url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const needle = query.q.toLowerCase();
 
@@ -116,56 +118,56 @@ export function buildClientsListModel(opts: {
   const state: ListState = { page: page.page, pageSize: page.pageSize, q: query.q };
 
   return {
-    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "Admin" }, { label: "OAuth2 clients" }],
-    filterBar: listFilterBar(state),
-    pagination: listPagination(state, page),
-    table: listTable(rows),
-    title: "OAuth2 clients",
+    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.nav.section") }, { label: t("admin.clients.title") }],
+    filterBar: listFilterBar(state, t),
+    pagination: listPagination(state, page, t),
+    table: listTable(rows, t),
+    title: t("admin.clients.title"),
   };
 }
 
-function listTable(rows: ClientView[]) {
+function listTable(rows: ClientView[], t: Translate) {
   return {
-    caption: "OAuth2 clients",
-    columns: [{ label: "Name" }, { label: "Client ID" }, { label: "Type" }],
+    caption: t("admin.clients.title"),
+    columns: [{ label: t("admin.clients.column.name") }, { label: t("admin.clients.column.id") }, { label: t("admin.clients.column.type") }],
     rows: rows.map((c) => ({
       cells: [
         { rowHeader: { href: detailHref(c.id), text: c.name } },
         { className: "cell-muted", text: c.id },
-        { badge: { label: c.public ? "Public" : "Confidential", tone: c.public ? "warn" : "info" } },
+        { badge: { label: c.public ? t("admin.clients.public") : t("admin.clients.confidential"), tone: c.public ? "warn" : "info" } },
       ],
       name: c.name,
     })),
   };
 }
 
-function listFilterBar(state: ListState) {
+function listFilterBar(state: ListState, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: "Search", remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
   return {
-    applyLabel: "Apply",
+    applyLabel: t("admin.common.apply"),
     clearHref: ADMIN_CLIENTS_BASE,
-    label: "Filter clients",
+    label: t("admin.clients.filter"),
     pills,
     rows: [[
-      { label: "Search clients", name: "q", placeholder: "Search name or client ID…", type: "search", value: state.q },
+      { label: t("admin.clients.searchLabel"), name: "q", placeholder: t("admin.clients.searchPlaceholder"), type: "search", value: state.q },
       { type: "spacer" },
     ]],
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
+function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
   const hidden: { name: string; value: string }[] = [];
   if (state.q) hidden.push({ name: "q", value: state.q });
   return {
-    label: "Clients pagination",
+    label: t("admin.clients.pagination"),
     next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
     pages: page.pages.map((p) =>
       p.ellipsis ? { ellipsis: true }
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: "Rows", name: "pageSize", options: PAGE_SIZES, submitLabel: "Go", value: state.pageSize },
+    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -175,18 +177,20 @@ function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
 export function buildClientFormModel(opts: {
   csrfToken?: string;
   error?: string;
+  t?: Translate;
   values?: Partial<ClientInput>;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const v = opts.values;
   const nameField: FieldConfig = {
-    autocomplete: "off", icon: "i-box", id: "name", label: "Name", name: "name", required: true, value: v?.name ?? "",
+    autocomplete: "off", icon: "i-box", id: "name", label: t("admin.clients.field.name"), name: "name", required: true, value: v?.name ?? "",
   };
   const scopeField: FieldConfig = {
-    hint: "Space-separated scopes the client may request.", id: "scope", label: "Scopes", name: "scope",
+    hint: t("admin.clients.field.scopesHint"), id: "scope", label: t("admin.clients.field.scopes"), name: "scope",
     value: v?.scope ?? DEFAULT_SCOPE,
   };
   return {
-    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { label: "Register" }],
+    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.clients.title") }, { label: t("admin.clients.register") }],
     error: opts.error,
     form: {
       action: ADMIN_CLIENTS_BASE,
@@ -197,9 +201,9 @@ export function buildClientFormModel(opts: {
       public: v?.public ?? false,
       redirectUris: (v?.redirectUris ?? []).join("\n"),
       scopeField,
-      submitLabel: "Register client",
+      submitLabel: t("admin.clients.registerClient"),
     },
-    title: "Register client",
+    title: t("admin.clients.registerTitle"),
   };
 }
 
@@ -208,16 +212,18 @@ export function buildClientDetailModel(opts: {
   created?: boolean; // just registered → success banner + the one-time secret (if any)
   csrfToken?: string;
   secret?: string; // one-time client_secret (confidential clients), shown once right after create
+  t?: Translate;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const base = detailHref(opts.client.id);
   return {
-    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { label: opts.client.name }],
+    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.clients.title") }, { label: opts.client.name }],
     client: opts.client,
     created: opts.created ?? false,
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
     secret: opts.secret,
-    title: opts.created ? "Client registered" : opts.client.name,
+    title: opts.created ? t("admin.clients.created") : opts.client.name,
   };
 }
 
@@ -241,7 +247,7 @@ function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>): RouteH
   return async (ctx) => {
     const user = requireAdmin(ctx);
     const hydra = ctx.system?.hydra;
-    if (!hydra) return unavailable(ctx, "Hydra OAuth2 admin");
+    if (!hydra) return unavailable(ctx, ctx.t("admin.capability.hydra"));
     return inner({ ctx, hydra, user });
   };
 }
@@ -257,27 +263,27 @@ function withClient(inner: (deps: ClientsDeps, client: OAuth2Client, id: string)
 }
 
 const clientFormResult = (ctx: RequestContext, extra: { error?: string; values?: Partial<ClientInput> }): RouteResult =>
-  ({ data: { chrome: ctx.chrome, model: buildClientFormModel({ csrfToken: ctx.chrome.csrfToken, ...extra }) }, view: "client-form" });
+  ({ data: { chrome: ctx.chrome, model: buildClientFormModel({ csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-form" });
 const clientDetailResult = (ctx: RequestContext, client: OAuth2Client, extra: { created?: boolean; secret?: string } = {}): RouteResult =>
-  ({ data: { chrome: ctx.chrome, model: buildClientDetailModel({ client: toClientView(client), csrfToken: ctx.chrome.csrfToken, ...extra }) }, view: "client-detail" });
+  ({ data: { chrome: ctx.chrome, model: buildClientDetailModel({ client: toClientView(client), csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-detail" });
 
 // GET /admin/clients — the list.
 export const clientsList = withClients(async ({ ctx, hydra }) => {
   const { clients } = await hydra.listClients({ pageSize: LIST_FETCH_SIZE });
-  return { data: { chrome: ctx.chrome, model: buildClientsListModel({ clients, csrfToken: ctx.chrome.csrfToken, url: ctx.url }) }, view: "clients" };
+  return { data: { chrome: ctx.chrome, model: buildClientsListModel({ clients, csrfToken: ctx.chrome.csrfToken, t: ctx.t, url: ctx.url }) }, view: "clients" };
 });
 
 // POST /admin/clients — register; on success show the one-time secret directly (no PRG, Hydra never
 // returns it again). A Hydra 4xx (bad redirect/scope) re-renders the form (400); a 5xx rethrows → 500.
 export const clientsCreate = withClients(async ({ ctx, hydra, user }) => {
   const input = readClientInput((await guardedForm(ctx))!);
-  const error = validateClientInput(input);
+  const error = validateClientInput(input, ctx.t);
   if (error) return { ...clientFormResult(ctx, { error, values: input }), status: 400 };
   let created: OAuth2Client;
   try {
     created = await hydra.createClient(clientPayload(input));
   } catch (err) {
-    if (err instanceof HydraError && err.status < 500) return { ...clientFormResult(ctx, { error: "Hydra rejected the client — check the redirect URIs and scopes.", values: input }), status: 400 };
+    if (err instanceof HydraError && err.status < 500) return { ...clientFormResult(ctx, { error: ctx.t("admin.clients.error.rejected"), values: input }), status: 400 };
     throw err;
   }
   ctx.log.info("admin: oauth2 client registered", { actor: user.id, client: created.client_id ?? "" });
@@ -294,10 +300,11 @@ export const clientsDetail = withClient((deps, client) => Promise.resolve(client
 export const clientsDeleteConfirm = withClient((deps, client, id) => {
   const base = detailHref(id);
   const name = toClientView(client).name;
+  const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: "OAuth2 clients" }, { href: base, label: name }, { label: "Delete" }],
-    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete client",
-    message: `Delete client ${name}? Apps using it can no longer sign in through Plainpages.`, title: "Delete client",
+    breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: tt("admin.clients.title") }, { href: base, label: name }, { label: tt("admin.common.delete") }],
+    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.clients.delete"),
+    message: tt("admin.clients.deleteMessage", { name }), title: tt("admin.clients.delete"),
   }) }, view: "confirm" });
 });
 

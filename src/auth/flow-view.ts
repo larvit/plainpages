@@ -4,6 +4,8 @@
 // configured `oidc` provider. The form posts straight back to `flow.ui.action`, so Kratos
 // owns its CSRF; we only render and map errors. No providers configured ⇒ no SSO buttons.
 
+import { ENGLISH } from "../i18n/english.ts";
+import type { Translate } from "../i18n/translate.ts";
 import type { Flow, FlowType, UiNode } from "./kratos-public.ts";
 
 export interface FlowField {
@@ -66,13 +68,38 @@ export const AUTH_FLOWS: Record<string, FlowType> = {
   "/verification": "verification",
 };
 
-const CHROME: Record<FlowType, FlowChrome> = {
-  login: { alt: { href: "/registration", label: "Create one", text: "Don't have an account?" }, sub: "Welcome back. Enter your details to continue.", title: "Sign in" },
-  recovery: { alt: { href: "/login", label: "Sign in", text: "Remembered it?" }, back: { href: "/login", label: "Back to sign in" }, sub: "Enter your email and we'll send you a recovery code.", title: "Reset password" },
-  registration: { alt: { href: "/login", label: "Sign in", text: "Already have an account?" }, sub: "Get started — it only takes a minute.", title: "Create account" },
-  settings: { sub: "Update your account details.", title: "Account settings" },
-  verification: { back: { href: "/login", label: "Back to sign in" }, sub: "Enter the code we sent you.", title: "Verify your email" },
+// Where each flow's card links; its words come from the catalog under `auth.<flow>.*`.
+const LINKS: Record<FlowType, { alt?: string; back?: boolean }> = {
+  login: { alt: "/registration" },
+  recovery: { alt: "/login", back: true },
+  registration: { alt: "/login" },
+  settings: {},
+  verification: { back: true },
 };
+
+function chromeFor(type: FlowType, t: Translate): FlowChrome {
+  const links = LINKS[type];
+  return {
+    ...(links.alt ? { alt: { href: links.alt, label: t(`auth.${type}.altLabel`), text: t(`auth.${type}.altText`) } } : {}),
+    ...(links.back ? { back: { href: "/login", label: t(`auth.${type}.back`) } } : {}),
+    sub: t(`auth.${type}.sub`),
+    title: t(`auth.${type}.title`),
+  };
+}
+
+// A string Kratos authored (a field label, a button, a validation message). Kratos writes English
+// and tags it with a stable numeric id, so the first key we hold a translation for wins and
+// anything unmapped keeps Kratos' own words — never a bare key on screen.
+function kratosText(t: Translate, fallback: string, ...keys: (string | undefined)[]): string {
+  for (const key of keys) {
+    if (key === undefined) continue;
+    const text = t(key);
+    if (text !== key) return text;
+  }
+  return fallback;
+}
+
+const idKey = (id: number | undefined): string | undefined => (id === undefined ? undefined : `kratos.${id}`);
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
@@ -93,7 +120,7 @@ function tone(type: string): FlowMessage["tone"] {
 
 const ssoLogo = (value: string): string => (value.charAt(0) || "?").toUpperCase();
 
-function toField(node: UiNode, name: string, type: string): FlowField {
+function toField(node: UiNode, name: string, type: string, t: Translate): FlowField {
   const value = str(node.attributes["value"]);
   // The recovery/verification one-time code: numeric, and Kratos doesn't trim it, so a stray pasted
   // space makes it reject the code as "invalid". A digits-only pattern + numeric keypad block that in
@@ -104,11 +131,13 @@ function toField(node: UiNode, name: string, type: string): FlowField {
   const errorMsg = node.messages.find((m) => m.type === "error");
   return {
     id: "field-" + name.replace(/[^a-z0-9]+/gi, "-"),
-    label: node.meta.label?.text ?? name,
+    // Kratos' generic trait label (id 1070002) is "Email" here and "First name" on a schema with
+    // that trait, so a field falls back to its input name — the one thing that is unambiguous.
+    label: kratosText(t, node.meta.label?.text ?? name, idKey(node.meta.label?.id), `auth.field.${name}`),
     name,
     type,
     ...(autocomplete ? { autocomplete } : {}),
-    ...(errorMsg ? { error: { text: errorMsg.text } } : {}),
+    ...(errorMsg ? { error: { text: kratosText(t, errorMsg.text, idKey(errorMsg.id)) } } : {}),
     ...(icon ? { icon } : {}),
     ...(isCode ? { inputmode: "numeric", pattern: "[0-9]*" } : {}),
     ...(node.attributes["required"] === true ? { required: true } : {}),
@@ -116,7 +145,7 @@ function toField(node: UiNode, name: string, type: string): FlowField {
   };
 }
 
-export function buildFlowView(flow: Flow, type: FlowType): FlowView {
+export function buildFlowView(flow: Flow, type: FlowType, t: Translate = ENGLISH): FlowView {
   const hidden: { name: string; value: string }[] = [];
   const fields: FlowField[] = [];
   const buttons: FlowButton[] = [];
@@ -136,9 +165,10 @@ export function buildFlowView(flow: Flow, type: FlowType): FlowView {
       hidden.push({ name, value: str(node.attributes["value"]) ?? "" });
     } else if (inputType === "submit" || inputType === "button") {
       const value = str(node.attributes["value"]);
-      buttons.push({ label: node.meta.label?.text ?? "Continue", ...(name ? { name } : {}), ...(value != null ? { value } : {}) });
+      const label = kratosText(t, node.meta.label?.text ?? t("auth.continue"), idKey(node.meta.label?.id));
+      buttons.push({ label, ...(name ? { name } : {}), ...(value != null ? { value } : {}) });
     } else {
-      fields.push(toField(node, name, inputType));
+      fields.push(toField(node, name, inputType, t));
     }
   }
 
@@ -147,10 +177,10 @@ export function buildFlowView(flow: Flow, type: FlowType): FlowView {
     buttons,
     fields,
     hidden,
-    messages: (flow.ui.messages ?? []).map((m) => ({ text: m.text, tone: tone(m.type) })),
+    messages: (flow.ui.messages ?? []).map((m) => ({ text: kratosText(t, m.text, idKey(m.id)), tone: tone(m.type) })),
     method: flow.ui.method || "post",
     sso,
     ...(type === "login" ? { recoverHref: "/recovery" } : {}),
-    ...CHROME[type],
+    ...chromeFor(type, t),
   };
 }

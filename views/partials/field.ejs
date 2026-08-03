@@ -21,7 +21,7 @@
 -%>
 <div class="field<% if (error) { %> has-error<% } %>">
 <% if (link || optional) { -%>
-  <div class="field-top"><label for="<%= id %>"><%= locals.label %></label><% if (link) { %><a class="field-link" href="<%= link.href %>"><%= link.label %></a><% } else { %><span class="optional">Optional</span><% } %></div>
+  <div class="field-top"><label for="<%= id %>"><%= locals.label %></label><% if (link) { %><a class="field-link" href="<%= link.href %>"><%= link.label %></a><% } else { %><span class="optional"><%= t("field.optional") %></span><% } %></div>
 <% } else { -%>
   <label for="<%= id %>"><%= locals.label %></label>
 <% } -%>

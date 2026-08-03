@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const navTree = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "nav-tree.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(navTree, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(navTree, { ...ENGLISH_LOCALS, ...data });
 const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
 
 const nodes = [

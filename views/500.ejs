@@ -1,16 +1,19 @@
-<!doctype html>
-<html lang="en">
+<%#
+  500 error page: standalone (no app shell, no menu) so it renders even when the shell's data
+  is what failed. Locals: t/locale/dir come from the host with every render.
+%><!doctype html>
+<html lang="<%= locale %>" dir="<%= dir %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %></title>
+    <title><%= t("error.500.docTitle") %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
   </head>
   <body>
     <main>
-      <h1>Something went wrong</h1>
-      <p>An unexpected error occurred on our end (500).</p>
-      <p><a href="/">Back home</a></p>
+      <h1><%= t("error.500.title") %></h1>
+      <p><%= t("error.500.body") %></p>
+      <p><a href="<%= localeHref("/") %>"><%= t("error.backHome") %></a></p>
     </main>
   </body>
 </html>

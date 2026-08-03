@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { GuardError, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
-import { ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
+import { ADMIN_EN, ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
 
 const admin: User = { email: "ada@x.io", id: "u1", permissions: ["admin"] };
 const member: User = { email: "bo@x.io", id: "u2", permissions: ["scheduling:read"] };
@@ -18,8 +18,9 @@ function fakeCtx(opts: { body?: string; method?: string; user?: User | null; ver
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   req.method = opts.method ?? "GET";
   return {
-    chrome: CHROME, user: opts.user ?? null, log: {} as Log, params: {}, query: url.searchParams, req, res: {} as ServerResponse,
-    permissions: opts.user?.permissions ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
+    chrome: CHROME, user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: {} as Log, params: {},
+    query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.user?.permissions ?? [], t: ADMIN_EN, url,
+    verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }
 
@@ -30,7 +31,10 @@ test("ADMIN_NAV: a gated Admin header over the four screens; no per-request curr
   assert.equal(ADMIN_NAV.permission, ADMIN_PERMISSION); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/permissions", "/admin/clients"]);
-  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["Users", "Groups", "Permissions", "OAuth2 clients"]);
+  // Labels are catalog keys; the host translates them with this plugin's catalog when it composes
+  // the menu, so what a visitor sees is the en-US (or sv-SE …) wording behind these keys.
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["admin.nav.users", "admin.nav.groups", "admin.nav.permissions", "admin.nav.clients"]);
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => ADMIN_EN(c.label)), ["Users", "Groups", "Permissions", "OAuth2 clients"]);
   assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.permission === undefined)); // the header's gate covers the subtree
 });
 

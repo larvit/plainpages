@@ -17,17 +17,18 @@ export default definePlugin({
   // typo'd SCHEDULING_UPSTREAM fails the boot loudly instead of degrading every request later.
   hooks: { onBoot: () => assertHttpUrl(upstreamUrl, "SCHEDULING_UPSTREAM") },
 
-  // Merged into the global menu + filtered per user. "Overview" is `public`, so the "Scheduling"
+  // Merged into the global menu + filtered per user. Labels are keys in this plugin's own catalog
+  // (i18n/<locale>.ts) — a plain string works too, it just isn't translated. "Overview" is `public`, so the "Scheduling"
   // header shows for everyone (even signed out); "Shifts" needs `scheduling:read`, so the gated data
   // stays hidden until a reader signs in (a plugin may make a page + its menu option public).
   nav: [{
     children: [
-      { href: SCHEDULING_PATH, id: "scheduling:overview", label: "Overview", public: true },
-      { href: SHIFTS_PATH, id: "scheduling:shifts", label: "Shifts", permission: READ },
+      { href: SCHEDULING_PATH, id: "scheduling:overview", label: "scheduling.nav.overview", public: true },
+      { href: SHIFTS_PATH, id: "scheduling:shifts", label: "scheduling.nav.shifts", permission: READ },
     ],
     icon: "i-cal",
     id: "scheduling",
-    label: "Scheduling",
+    label: "scheduling.nav.section",
   }],
 
   // Roles this plugin introduces (docs + Keto seeding). Namespaced `<id>:<action>`.

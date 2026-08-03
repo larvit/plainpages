@@ -26,7 +26,7 @@ test("loadMenuConfig reads branding + override, merging branding over defaults",
   const menu = await loadMenuConfig({ file });
 
   assert.equal(menu.branding.name, "Acme Ops");
-  assert.equal(menu.branding.sub, "Console"); // default kept (only `name`/`theme` overridden)
+  assert.equal(menu.branding.sub, "brand.sub"); // default kept (only `name`/`theme` overridden); chrome translates it
   assert.equal(menu.branding.theme, "dark");
   assert.deepEqual(menu.override.hide, ["teams"]);
   assert.deepEqual(menu.override.rename, { people: "Staff" });

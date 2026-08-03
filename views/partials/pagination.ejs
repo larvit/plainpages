@@ -9,7 +9,7 @@
     prev?, next?  { href? }                                              page step; omit href ⇒ disabled
     pages?    { label, href?, current?, ellipsis? }[]
 %><%
-  const label = locals.label || "Pagination";
+  const label = locals.label || t("pagination.label");
   const summary = locals.summary;
   const rows = locals.rows;
   const prev = locals.prev;
@@ -19,25 +19,25 @@
 -%>
 <footer class="pager">
 <% if (summary) { -%>
-  <span><%= summary.from %>–<%= summary.to %> of <b><%= summary.total %></b></span>
+  <span><%= summary.from %>–<%= summary.to %> <%= t("pagination.of") %> <b><%= summary.total %></b></span>
 <% } -%>
 <% if (rows) { -%>
   <form class="pager-rows" method="get"<% if (rows.action) { %> action="<%= rows.action %>"<% } %>>
 <% (rows.hidden || []).forEach((h) => { -%>
     <input type="hidden" name="<%= h.name %>" value="<%= h.value %>">
 <% }) -%>
-    <label for="pager-rows"><%= rows.label || "Rows" %></label>
-    <span class="select"><select id="pager-rows" name="<%= rows.name %>"><% (rows.options || []).forEach((o) => { const v = o && o.value != null ? o.value : o; const t = o && o.label != null ? o.label : o; %><option value="<%= v %>"<% if (eq(rows.value, v)) { %> selected<% } %>><%= t %></option><% }) %></select></span>
-    <button class="page-btn" type="submit"><%= rows.submitLabel || "Go" %></button>
+    <label for="pager-rows"><%= rows.label || t("pagination.rows") %></label>
+    <span class="select"><select id="pager-rows" name="<%= rows.name %>"><% (rows.options || []).forEach((o) => { const v = o && o.value != null ? o.value : o; const text = o && o.label != null ? o.label : o; %><option value="<%= v %>"<% if (eq(rows.value, v)) { %> selected<% } %>><%= text %></option><% }) %></select></span>
+    <button class="page-btn" type="submit"><%= rows.submitLabel || t("pagination.go") %></button>
   </form>
 <% } -%>
   <div class="spacer"></div>
   <nav class="page-nums" aria-label="<%= label %>">
 <% if (prev) { -%>
 <% if (prev.href) { -%>
-    <a class="page-btn" href="<%= prev.href %>" aria-label="Previous page"><svg class="ico ico-sm" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></a>
+    <a class="page-btn" href="<%= prev.href %>" aria-label="<%= t("pagination.previous") %>"><svg class="ico ico-sm" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></a>
 <% } else { -%>
-    <button class="page-btn" type="button" disabled aria-label="Previous page"><svg class="ico ico-sm" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button>
+    <button class="page-btn" type="button" disabled aria-label="<%= t("pagination.previous") %>"><svg class="ico ico-sm" style="transform:rotate(180deg)"><use href="#i-chev"/></svg></button>
 <% } -%>
 <% } -%>
 <% pages.forEach((p) => { -%>
@@ -51,9 +51,9 @@
 <% }) -%>
 <% if (next) { -%>
 <% if (next.href) { -%>
-    <a class="page-btn" href="<%= next.href %>" aria-label="Next page"><svg class="ico ico-sm"><use href="#i-chev"/></svg></a>
+    <a class="page-btn" href="<%= next.href %>" aria-label="<%= t("pagination.next") %>"><svg class="ico ico-sm"><use href="#i-chev"/></svg></a>
 <% } else { -%>
-    <button class="page-btn" type="button" disabled aria-label="Next page"><svg class="ico ico-sm"><use href="#i-chev"/></svg></button>
+    <button class="page-btn" type="button" disabled aria-label="<%= t("pagination.next") %>"><svg class="ico ico-sm"><use href="#i-chev"/></svg></button>
 <% } -%>
 <% } -%>
   </nav>

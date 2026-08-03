@@ -5,10 +5,10 @@
   rendered checked) · label?.
 %><%
   const value = locals.value || "auto";
-  const label = locals.label || "Color theme";
+  const label = locals.label || t("theme.label");
 -%>
 <div class="theme-switch" role="radiogroup" aria-label="<%= label %>">
-  <label><input type="radio" name="theme" id="theme-light"<%= value === "light" ? " checked" : "" %>><span>Light</span></label>
-  <label><input type="radio" name="theme" id="theme-auto"<%= value === "auto" ? " checked" : "" %>><span>Auto</span></label>
-  <label><input type="radio" name="theme" id="theme-dark"<%= value === "dark" ? " checked" : "" %>><span>Dark</span></label>
+  <label><input type="radio" name="theme" id="theme-light"<%= value === "light" ? " checked" : "" %>><span><%= t("theme.light") %></span></label>
+  <label><input type="radio" name="theme" id="theme-auto"<%= value === "auto" ? " checked" : "" %>><span><%= t("theme.auto") %></span></label>
+  <label><input type="radio" name="theme" id="theme-dark"<%= value === "dark" ? " checked" : "" %>><span><%= t("theme.dark") %></span></label>
 </div>

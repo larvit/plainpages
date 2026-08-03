@@ -13,6 +13,11 @@ docker compose restart web
 The seeded `admin@plainpages.local` already holds the `admin` permission, so the section appears in the
 menu and the screens work immediately.
 
+Every string it renders comes from its own catalogs (`i18n/en-US.ts`, `i18n/sv-SE.ts`) — the nav
+labels included, which are catalog keys in `admin-shared.ts`. Each pure view-model builder takes an
+optional `t`; the handlers pass `ctx.t`, and the default is the plugin's own English so a unit test
+reads in words rather than keys. (README → [Languages](../../../README.md#languages-i18n).)
+
 ## What it demonstrates — a *system* plugin
 
 Most plugins fetch their data from an upstream service of their own (see the [scheduling

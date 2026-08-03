@@ -14,12 +14,12 @@
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
     <%- include("partials/field", form.nameField) %>
     <div class="field">
-      <label for="member">First member</label>
-      <span class="select"><select id="member" name="member" required><option value="" disabled<% if (!form.selectedMember) { %> selected<% } %>>Choose a member…</option><% form.memberOptions.forEach((o) => { %><option value="<%= o.value %>"<% if (form.selectedMember === o.value) { %> selected<% } %>><%= o.label %></option><% }) %></select></span>
-      <span class="field-hint">A group exists once it has a member; add more after creating it.</span>
+      <label for="member"><%= t("admin.groups.firstMember") %></label>
+      <span class="select"><select id="member" name="member" required><option value="" disabled<% if (!form.selectedMember) { %> selected<% } %>><%= t("admin.common.chooseMember") %></option><% form.memberOptions.forEach((o) => { %><option value="<%= o.value %>"<% if (form.selectedMember === o.value) { %> selected<% } %>><%= o.label %></option><% }) %></select></span>
+      <span class="field-hint"><%= t("admin.groups.firstMemberHint") %></span>
     </div>
     <div class="form-actions">
-      <a class="btn" href="<%= form.cancelHref %>">Cancel</a>
+      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= t("admin.common.cancel") %></a>
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>

@@ -6,7 +6,7 @@
   const filters = include("partials/filter-bar", model.filterBar);
   const table = include("partials/data-table", model.table);
   const pager = include("partials/pagination", model.pagination);
-  const actions = '<a class="btn btn-primary" href="/admin/groups/new"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Add group</a>';
+  const actions = '<a class="btn btn-primary" href="' + localeHref("/admin/groups/new") + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>' + t("admin.groups.new") + '</a>';
 -%>
 <%- include("partials/shell", {
   actions,

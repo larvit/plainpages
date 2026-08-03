@@ -4,8 +4,8 @@
 // models; below them are thin per-route handlers (keyed on ctx.params) over a shared `withUser` gate
 // — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
 
-import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
-import { ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -29,8 +29,6 @@ export interface UserInput {
   last: string;
   password: string;
 }
-
-const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 function nameParts(identity: Identity): { first: string; last: string } {
   const nm = ((identity.traits?.name ?? {}) as { first?: unknown; last?: unknown });
@@ -88,9 +86,9 @@ const SORT: Record<string, (u: UserView) => string> = {
   status: (u) => u.state,
 };
 const COLUMNS = [
-  { key: "name", label: "Name" },
-  { key: "email", label: "Email" },
-  { key: "status", label: "Status" },
+  { key: "name", label: "admin.users.column.name" },
+  { key: "email", label: "admin.users.column.email" },
+  { key: "status", label: "admin.users.column.status" },
 ];
 
 // Canonical list URL from the current state + per-link overrides; omits defaults so links stay tidy.
@@ -109,8 +107,10 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 export function buildUsersListModel(opts: {
   csrfToken?: string;
   identities: Identity[];
+  t?: Translate;
   url: URL | URLSearchParams | string;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const query = parseListQuery(opts.url, { defaultPageSize: DEFAULT_PAGE_SIZE });
   const status = query.filters.status?.[0] ?? "all";
   const sort = query.sort && SORT[query.sort.field] ? query.sort : null;
@@ -133,70 +133,70 @@ export function buildUsersListModel(opts: {
   const state: ListState = { page: page.page, pageSize: page.pageSize, q: query.q, sort: sortToken, status };
 
   return {
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Admin" }, { label: "Users" }],
-    filterBar: listFilterBar(state, all.length),
-    pagination: listPagination(state, page),
-    table: listTable(rows, state, sort),
-    title: "Users",
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.nav.section") }, { label: t("admin.users.title") }],
+    filterBar: listFilterBar(state, all.length, t),
+    pagination: listPagination(state, page, t),
+    table: listTable(rows, state, sort, t),
+    title: t("admin.users.title"),
   };
 }
 
-function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null) {
+function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null, t: Translate) {
   return {
     actions: true,
-    caption: "Users",
+    caption: t("admin.users.title"),
     columns: COLUMNS.map((c) => {
       const dir = sort && sort.field === c.key ? sort.dir : undefined;
       const next = dir === "asc" ? `-${c.key}` : c.key; // asc→desc, else→asc
-      return { href: listHref(state, { page: 1, sort: next }), label: c.label, sort: dir, sortable: true };
+      return { href: listHref(state, { page: 1, sort: next }), label: t(c.label), sort: dir, sortable: true };
     }),
     rows: rows.map((u) => ({
-      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: "i-edit", label: "Edit" }],
+      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: "i-edit", label: t("admin.common.edit") }],
       cells: [
         { user: { initials: u.initials, name: u.name } },
         u.email,
-        { badge: { label: cap(u.state), tone: STATE_TONE[u.state] ?? "info" } },
+        { badge: { label: t(`admin.users.status.${u.state}`), tone: STATE_TONE[u.state] ?? "info" } },
       ],
       name: u.name,
     })),
   };
 }
 
-function listFilterBar(state: ListState, total: number) {
+function listFilterBar(state: ListState, total: number, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: "Search", remove: listHref(state, { page: 1, q: "" }), value: state.q });
-  if (state.status !== "all") pills.push({ label: "Status", remove: listHref(state, { page: 1, status: "all" }), value: cap(state.status) });
+  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.status !== "all") pills.push({ label: t("admin.users.status.label"), remove: listHref(state, { page: 1, status: "all" }), value: t(`admin.users.status.${state.status}`) });
   return {
-    applyLabel: "Apply filters",
+    applyLabel: t("filter.apply"), // an untranslated core key still resolves: the host catalog is the fallback
     clearHref: ADMIN_USERS_BASE,
-    label: "Filter users",
+    label: t("admin.users.filter"),
     pills,
     rows: [[
-      { label: "Search users", name: "q", placeholder: "Search name or email…", type: "search", value: state.q },
-      { legend: "Status", name: "status", options: [
-        { count: total, label: "All", value: "all" },
-        { label: "Active", value: "active" },
-        { label: "Inactive", value: "inactive" },
+      { label: t("admin.users.searchLabel"), name: "q", placeholder: t("admin.users.searchPlaceholder"), type: "search", value: state.q },
+      { legend: t("admin.users.status.label"), name: "status", options: [
+        { count: total, label: t("admin.users.status.all"), value: "all" },
+        { label: t("admin.users.status.active"), value: "active" },
+        { label: t("admin.users.status.inactive"), value: "inactive" },
       ], type: "segmented", value: state.status },
       { type: "spacer" },
     ]],
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
+function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
   const hidden: { name: string; value: string }[] = [];
   if (state.q) hidden.push({ name: "q", value: state.q });
   if (state.status !== "all") hidden.push({ name: "status", value: state.status });
   if (state.sort) hidden.push({ name: "sort", value: state.sort });
   return {
-    label: "Users pagination",
+    label: t("admin.users.pagination"),
     next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
     pages: page.pages.map((p) =>
       p.ellipsis ? { ellipsis: true }
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: "Rows", name: "pageSize", options: PAGE_SIZES, submitLabel: "Go", value: state.pageSize },
+    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -220,8 +220,10 @@ export function buildUserFormModel(opts: {
   error?: string;
   identity?: Identity | null;
   recovery?: RecoveryCode;
+  t?: Translate;
   values?: Partial<UserInput>;
 }) {
+  const t = opts.t ?? ADMIN_EN;
   const editing = opts.identity != null;
   const view = editing ? toUserView(opts.identity!) : null;
   const np = editing ? nameParts(opts.identity!) : { first: opts.values?.first ?? "", last: opts.values?.last ?? "" };
@@ -229,27 +231,27 @@ export function buildUserFormModel(opts: {
   const idPath = editing ? `${ADMIN_USERS_BASE}/${encodeURIComponent(view!.id)}` : ADMIN_USERS_BASE;
 
   const fields: FieldConfig[] = [
-    { autocomplete: "email", icon: "i-mail", id: "email", label: "Email", name: "email", required: !editing, type: "email", value: email,
-      ...(editing ? { hint: "The login identifier — can't be changed here.", readonly: true } : {}) },
-    { id: "first", label: "First name", name: "first", optional: true, value: np.first },
-    { id: "last", label: "Last name", name: "last", optional: true, value: np.last },
+    { autocomplete: "email", icon: "i-mail", id: "email", label: t("admin.users.field.email"), name: "email", required: !editing, type: "email", value: email,
+      ...(editing ? { hint: t("admin.users.field.emailHint"), readonly: true } : {}) },
+    { id: "first", label: t("admin.users.field.first"), name: "first", optional: true, value: np.first },
+    { id: "last", label: t("admin.users.field.last"), name: "last", optional: true, value: np.last },
   ];
-  if (!editing) fields.push({ autocomplete: "new-password", hint: "Optional — leave blank to have the user set one via a recovery code.", icon: "i-lock", id: "password", label: "Password", name: "password", optional: true, type: "password" });
+  if (!editing) fields.push({ autocomplete: "new-password", hint: t("admin.users.field.passwordHint"), icon: "i-lock", id: "password", label: t("admin.users.field.password"), name: "password", optional: true, type: "password" });
 
   return {
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { label: editing ? "Edit" : "New" }],
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: editing ? t("admin.common.edit") : t("admin.common.new") }],
     edit: editing ? {
       deleteAction: `${idPath}/delete`,
       id: view!.id,
-      nextLabel: view!.state === "inactive" ? "Reactivate" : "Deactivate",
+      nextLabel: view!.state === "inactive" ? t("admin.users.reactivate") : t("admin.users.deactivate"),
       recoveryAction: `${idPath}/recovery`,
       state: view!.state,
       stateAction: `${idPath}/state`,
     } : undefined,
     error: opts.error,
-    form: { action: idPath, cancelHref: ADMIN_USERS_BASE, csrfToken: opts.csrfToken ?? "", fields, submitLabel: editing ? "Save changes" : "Create user" },
+    form: { action: idPath, cancelHref: ADMIN_USERS_BASE, csrfToken: opts.csrfToken ?? "", fields, submitLabel: editing ? t("admin.users.save") : t("admin.users.create") },
     recovery: opts.recovery,
-    title: editing ? "Edit user" : "New user",
+    title: editing ? t("admin.users.edit") : t("admin.users.new"),
   };
 }
 
@@ -274,7 +276,7 @@ function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandle
   return async (ctx) => {
     const user = requireAdmin(ctx);
     const kratosAdmin = ctx.system?.kratosAdmin;
-    if (!kratosAdmin) return unavailable(ctx, "Kratos identity admin");
+    if (!kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.kratos"));
     return inner({ ctx, kratosAdmin, revoke: ctx.system?.revoke, user });
   };
 }
@@ -291,12 +293,12 @@ function withTarget(inner: (deps: UsersDeps, identity: Identity, id: string) => 
 }
 
 const formResult = (ctx: RequestContext, extra: Parameters<typeof buildUserFormModel>[0]): RouteResult =>
-  ({ data: { chrome: ctx.chrome, model: buildUserFormModel({ csrfToken: ctx.chrome.csrfToken, ...extra }) }, view: "user-form" });
+  ({ data: { chrome: ctx.chrome, model: buildUserFormModel({ csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "user-form" });
 
 // GET /admin/users — the filtered/sorted/paged list.
 export const usersList = withUser(async ({ ctx, kratosAdmin }) => {
   const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
-  return { data: { chrome: ctx.chrome, model: buildUsersListModel({ csrfToken: ctx.chrome.csrfToken, identities, url: ctx.url }) }, view: "users" };
+  return { data: { chrome: ctx.chrome, model: buildUsersListModel({ csrfToken: ctx.chrome.csrfToken, identities, t: ctx.t, url: ctx.url }) }, view: "users" };
 });
 
 // POST /admin/users — create; a Kratos 4xx re-renders the form (400), keeping the input.
@@ -305,7 +307,7 @@ export const usersCreate = withUser(async ({ ctx, kratosAdmin, user }) => {
   try {
     await kratosAdmin.createIdentity(createIdentityPayload(input));
   } catch (err) {
-    if (err instanceof KratosError) return { ...formResult(ctx, { error: createError(err), values: input }), status: 400 };
+    if (err instanceof KratosError) return { ...formResult(ctx, { error: createError(err, ctx.t), values: input }), status: 400 };
     throw err;
   }
   ctx.log.info("admin: user created", { actor: user.id, email: input.email });
@@ -324,7 +326,7 @@ export const usersUpdate = withTarget(async ({ ctx, kratosAdmin }, identity, id)
   try {
     await kratosAdmin.updateIdentity(id, updateIdentityPayload(identity, input));
   } catch (err) {
-    if (err instanceof KratosError) return { ...formResult(ctx, { error: "Could not save changes — check the fields and try again.", identity }), status: 400 };
+    if (err instanceof KratosError) return { ...formResult(ctx, { error: ctx.t("admin.users.error.save"), identity }), status: 400 };
     throw err;
   }
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
@@ -334,7 +336,7 @@ export const usersUpdate = withTarget(async ({ ctx, kratosAdmin }, identity, id)
 // tokens now (not after the JWT TTL). Self-protection: an admin can't deactivate their own account.
 export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
   await guardedForm(ctx); // CSRF-verify the POST (no fields read)
-  if (id === user.id) return { ...formResult(ctx, { error: "You can't deactivate your own account.", identity }), status: 400 };
+  if (id === user.id) return { ...formResult(ctx, { error: ctx.t("admin.users.error.selfDeactivate"), identity }), status: 400 };
   const nextState = identity.state === "inactive" ? "active" : "inactive";
   await kratosAdmin.updateIdentity(id, setStatePayload(identity, nextState));
   if (nextState === "inactive") revoke?.(id);
@@ -344,20 +346,21 @@ export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, 
 
 // GET /admin/users/:id/delete — the deliberate confirm step (zero-JS). Refuses self-delete.
 export const usersDeleteConfirm = withTarget((deps, identity, id) => {
-  if (id === deps.user.id) return Promise.resolve({ ...formResult(deps.ctx, { error: "You can't delete your own account.", identity }), status: 400 });
+  if (id === deps.user.id) return Promise.resolve({ ...formResult(deps.ctx, { error: deps.ctx.t("admin.users.error.selfDelete"), identity }), status: 400 });
   const back = `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}`;
   const view = toUserView(identity);
+  const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: "Users" }, { href: back, label: view.name }, { label: "Delete" }],
-    cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: "Delete user",
-    message: `Delete ${view.email}? This permanently removes the account and can't be undone.`, title: "Delete user",
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: tt("admin.users.title") }, { href: back, label: view.name }, { label: tt("admin.common.delete") }],
+    cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: tt("admin.users.delete"),
+    message: tt("admin.users.deleteMessage", { email: view.email }), title: tt("admin.users.delete"),
   }) }, view: "confirm" });
 });
 
 // POST /admin/users/:id/delete — perform it; revoke the gone account's live tokens. Refuses self-delete.
 export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
   await guardedForm(ctx); // CSRF-verify the POST
-  if (id === user.id) return { ...formResult(ctx, { error: "You can't delete your own account.", identity }), status: 400 };
+  if (id === user.id) return { ...formResult(ctx, { error: ctx.t("admin.users.error.selfDelete"), identity }), status: 400 };
   await kratosAdmin.deleteIdentity(id);
   revoke?.(id);
   ctx.log.info("admin: user deleted", { actor: user.id, target: id });
@@ -371,8 +374,8 @@ export const usersRecovery = withTarget(async ({ ctx, kratosAdmin }, identity, i
   return formResult(ctx, { identity, recovery });
 });
 
-function createError(err: KratosError): string {
+function createError(err: KratosError, t: Translate): string {
   return err.status === 409
-    ? "A user with that email already exists."
-    : "Could not create the user — check the email and try again.";
+    ? t("admin.users.error.duplicate")
+    : t("admin.users.error.create");
 }

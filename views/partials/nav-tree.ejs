@@ -13,7 +13,7 @@
     <div class="nav-row">
 <% if (header) { -%>
       <details class="nav-disc"<%= node.open ? " open" : "" %>>
-        <summary class="nav-tog" aria-label="Toggle <%= node.label %>"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+        <summary class="nav-tog" aria-label="<%= t("shell.toggleSection", { label: node.label }) %>"><svg class="ico chev"><use href="#i-chev"/></svg></summary>
       </details>
 <% } else { -%>
       <span class="nav-spacer" aria-hidden="true"></span>

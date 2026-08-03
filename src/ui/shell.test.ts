@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const shell = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "shell.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(shell, data);
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(shell, { ...ENGLISH_LOCALS, ...data });
 
 test("app shell renders sidebar, topbar and the content slot", async () => {
   const html = await render({

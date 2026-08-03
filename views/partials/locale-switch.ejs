@@ -1,0 +1,14 @@
+<%#
+  Language picker: one link per installed locale, each pointing at this same page with ?locale set,
+  so switching is a plain navigation — zero-JS, and the address bar always says which language the
+  page is in. Renders nothing for a single-language deployment.
+  Locals: localeSwitch (host-supplied: { current, href, label, tag }[]) · up? (open upward, default true)
+-%>
+<% const choices = locals.localeSwitch || []; -%>
+<% if (choices.length > 1) { -%>
+<%- include("menu", {
+  up: locals.up !== false,
+  trigger: { class: "btn icon-btn", icon: "i-globe", label: t("locale.label") },
+  items: [{ head: t("locale.label") }, ...choices.map((c) => ({ current: c.current, href: c.href, hreflang: c.tag, label: c.label }))],
+}) %>
+<% } -%>

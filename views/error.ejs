@@ -1,17 +1,20 @@
-<!doctype html>
-<html lang="en">
+<%#
+  Kratos' self-service error sink (?id=<uuid>): a themed dead end with a way back into sign-in.
+  Standalone, like the other error pages. Locals: id? · t/locale/dir from the host.
+%><!doctype html>
+<html lang="<%= locale %>" dir="<%= dir %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %></title>
+    <title><%= t("error.flow.docTitle") %></title>
     <link rel="stylesheet" href="/public/css/styles.css" />
   </head>
   <body>
     <main>
-      <h1>Something went wrong</h1>
-      <p>We couldn't complete that sign-in step. It may have expired or been opened twice — please try again.</p>
-      <p><a href="/login">Back to sign in</a></p>
-      <% if (locals.id) { %><p><small>Reference: <%= id %></small></p><% } %>
+      <h1><%= t("error.flow.title") %></h1>
+      <p><%= t("error.flow.body") %></p>
+      <p><a href="<%= localeHref("/login") %>"><%= t("error.backToSignIn") %></a></p>
+      <% if (locals.id) { %><p><small><%= t("error.reference", { id }) %></small></p><% } %>
     </main>
   </body>
 </html>

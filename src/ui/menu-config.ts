@@ -29,7 +29,9 @@ export interface MenuConfigInput {
   override?: NavOverride;
 }
 
-export const DEFAULT_BRANDING: Branding = { name: "Plainpages", sub: "Console" };
+// The shipped default. `sub` is a catalog key so a clean clone reads in the visitor's language;
+// an operator's own text in config/menu.ts renders as written (chrome runs both through t()).
+export const DEFAULT_BRANDING: Branding = { name: "Plainpages", sub: "brand.sub" };
 export const DEFAULT_MENU: MenuConfig = { branding: DEFAULT_BRANDING, override: {} };
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
