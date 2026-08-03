@@ -111,7 +111,8 @@ them. Revisit only if the stated reason stops holding.
   locales than the host (its strings fall back to `en-US` per key), never one the host lacks.
 - **The core building blocks carry the locale; a plugin doesn't have to.** The shell (breadcrumbs),
   `pagination`, `filter-bar`, `data-table`, `auth-card`, `flow-body`, `field` and `menu` wrap every
-  href they render in `localeHref`; the nav is wrapped upstream in `chrome.ts`; and the two GET forms
+  href they render in `localeHref`; the nav and the sign-in link are wrapped upstream in `chrome.ts`;
+  and the two GET forms
   (filter bar, rows-per-page) carry it as a hidden `locale` input, since a GET submit replaces the
   whole query string and no href wrapper can reach it. Putting the obligation on each call site was
   tried first and missed five of eight sites inside one commit — including the admin screens.

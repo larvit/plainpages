@@ -52,3 +52,11 @@ test("field defaults to a bare text input, escapes a string error, and never thr
   assert.match(stringErr, /<span>&lt;b&gt;Required&lt;\/b&gt;\.<\/span>/); // string error is escaped
   assert.match(stringErr, /aria-describedby="x-err"/);
 });
+
+test("an inline field link carries the visitor's language", async () => {
+  const html = await ejs.renderFile(field, {
+    ...ENGLISH_LOCALS, localeHref: (href: string) => `${href}?locale=sv-SE`,
+    id: "password", label: "Password", link: { href: "/recovery", label: "Forgot password?" }, name: "password",
+  });
+  assert.match(html, /href="\/recovery\?locale=sv-SE"/);
+});

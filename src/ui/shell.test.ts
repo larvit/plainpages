@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import ejs from "ejs";
 import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
+// A localeHref that marks what it touches, so a raw href in the chrome is visible to a test.
+const CARRYING = { ...ENGLISH_LOCALS, localeHref: (href: string) => `${href}?locale=sv-SE` };
+
 const shell = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "shell.ejs");
 const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(shell, { ...ENGLISH_LOCALS, ...data });
 
@@ -106,4 +109,10 @@ test("app shell escapes text but passes slot HTML through, and renders with defa
   const bare = await render(); // no locals → defaults, must not throw
   assert.match(bare, /<aside class="sidebar"/);
   assert.match(bare, /<main class="content"/);
+});
+
+test("the chrome carries the visitor's language: breadcrumb links go through localeHref", async () => {
+  const html = await ejs.renderFile(shell, { ...CARRYING, breadcrumbs: [{ href: "/admin/users", label: "Users" }, { label: "Ada" }], title: "Ada" });
+  assert.match(html, /<a href="\/admin\/users\?locale=sv-SE">Users<\/a>/);
+  assert.match(html, /<span>Ada<\/span>/); // the current crumb has no href to carry
 });
