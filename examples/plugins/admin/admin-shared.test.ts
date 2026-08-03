@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { GuardError, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
-import { ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
+import { ADMIN_NAV, ADMIN_ROLE, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
 
 const admin: User = { email: "ada@x.io", id: "u1", roles: ["admin"] };
 const member: User = { email: "bo@x.io", id: "u2", roles: ["scheduling:read"] };
@@ -27,11 +27,11 @@ function fakeCtx(opts: { body?: string; method?: string; user?: User | null; ver
 
 test("ADMIN_NAV: a gated Admin header over the four screens; no per-request current/open state", () => {
   assert.equal(ADMIN_NAV.id, "admin");
-  assert.equal(ADMIN_NAV.permission, ADMIN_PERMISSION); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
+  assert.equal(ADMIN_NAV.role, ADMIN_ROLE); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles", "/admin/clients"]);
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["Users", "Groups", "Roles", "OAuth2 clients"]);
-  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.permission === undefined)); // the header's gate covers the subtree
+  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.role === undefined)); // the header's gate covers the subtree
 });
 
 // ---- auth gates ----

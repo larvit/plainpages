@@ -1,10 +1,10 @@
 // composeNav: merge each plugin's nav fragment into one tree, apply the central
-// override, then permission-filter per user. Pure and I/O-free — menu gating reads the JWT
+// override, then role-filter per user. Pure and I/O-free — menu gating reads the JWT
 // `roles` claim (README "The menu system"), never Keto. A node is visible iff it is `public`, or
-// declares no `permission`, or `roles` includes that permission token; a gated header hides its whole
+// declares no `role`, or `roles` includes that role name; a gated header hides its whole
 // subtree, and a pure header left with no children is dropped. The config/menu.ts supplies
 // the override (+ branding); this helper only transforms data, so its result is per-deployment
-// up to the final role filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
+// up to the final role filter and emits clean nodes ready for nav-tree.ejs (no id/role).
 
 export interface NavNode {
   id?: string; // stable key for override targeting; stripped from the rendered tree
@@ -15,12 +15,12 @@ export interface NavNode {
   icon?: string;
   label: string;
   open?: boolean;
-  permission?: string; // required role token; consumed by the filter, never rendered
-  public?: boolean; // show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
+  role?: string; // required role token; consumed by the filter, never rendered
+  public?: boolean; // show to everyone, signed in or not — the blessed alias for "no role", stated outright; consumed by the filter, never rendered. Mutually exclusive with role (discovery refuses both).
 }
 
 // Central override (config/menu.ts). Targets nodes by `id`; applied rename → group →
-// order → hide, then the per-user permission filter runs last.
+// order → hide, then the per-user role filter runs last.
 export interface NavOverride {
   groups?: NavGroupSpec[]; // wrap top-level nodes (by id) under a new header
   hide?: string[]; // remove nodes by id, at any depth (incl. a group's id)
@@ -106,7 +106,7 @@ function hideTree(nodes: NavNode[], hide: Set<string>): NavNode[] {
 function filterByRoles(nodes: NavNode[], roles: Set<string>): NavNode[] {
   const out: NavNode[] = [];
   for (const n of nodes) {
-    if (n.public !== true && n.permission != null && !roles.has(n.permission)) continue; // gated → drop node + subtree (public always shows)
+    if (n.public !== true && n.role != null && !roles.has(n.role)) continue; // gated → drop node + subtree (public always shows)
     if (!n.children) { out.push(n); continue; }
     const children = filterByRoles(n.children, roles);
     if (children.length === 0 && n.href == null) continue; // empty pure header → drop
@@ -115,7 +115,7 @@ function filterByRoles(nodes: NavNode[], roles: Set<string>): NavNode[] {
   return out;
 }
 
-// Strip the helper-only fields (id/permission) and drop absent ones, so the tree is exactly
+// Strip the helper-only fields (id/role) and drop absent ones, so the tree is exactly
 // what nav-tree.ejs reads.
 function toRenderNode(n: NavNode): NavNode {
   const out: NavNode = { label: n.label };

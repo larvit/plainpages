@@ -268,7 +268,7 @@ function readUserInput(form: URLSearchParams): UserInput {
 // the Kratos capability (else a themed 503). Each route below is a thin handler over these.
 interface UsersDeps { ctx: RequestContext; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
 
-// Resolve the shared deps, then run `inner`. The route's `permission: "admin"` already gated at the
+// Resolve the shared deps, then run `inner`. The route's `role: "admin"` already gated at the
 // host; `requireAdmin` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.
 function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {

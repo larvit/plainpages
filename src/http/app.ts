@@ -240,7 +240,7 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Plugin routes (any method): gate on the route's permission, then run the handler. The
+      // Plugin routes (any method): gate on the route's role, then run the handler. The
       // handler gets ctx.chrome (native app shell) + ctx.verifyCsrf (guard its own forms); a fresh
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
@@ -250,7 +250,7 @@ export function createApp(options: AppOptions = {}): Server {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the role gets the 403 page.
           if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
-          reqLog.warn("forbidden: missing role", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
+          reqLog.warn("forbidden: missing role", { path: pathname, required: match.route.role ?? "", sub: routeCtx.user.id });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }

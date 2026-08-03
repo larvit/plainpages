@@ -10,8 +10,8 @@ import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormB
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
-export const READ = "scheduling:read"; // permission token gating the list + nav
-export const WRITE = "scheduling:write"; // permission token gating create
+export const READ = "scheduling:read"; // role name gating the list + nav
+export const WRITE = "scheduling:write"; // role name gating create
 
 export interface Shift {
   id: string;

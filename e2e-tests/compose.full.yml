@@ -30,7 +30,7 @@ services:
       - ./examples/plugins/scheduling:/app/plugins/scheduling:ro
       - ./examples/plugins/admin:/app/plugins/admin:ro
 
-  # bootstrap grants the demo admin every discovered plugin's permission tokens, so it needs the
+  # bootstrap grants the demo admin every discovered plugin's role names, so it needs the
   # example plugins present too — else the admin lacks scheduling:read/write and the gated pages 403.
   bootstrap:
     volumes:

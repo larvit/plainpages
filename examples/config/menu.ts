@@ -3,7 +3,7 @@
 // config/ ships empty; mount your own or copy this in. Absent config = built-in defaults.
 //
 // Brand the app and reorder/rename/group/hide nav nodes (by their `id`) across all plugins —
-// the override always wins, applied before the per-user permission filter. Every field is
+// the override always wins, applied before the per-user role filter. Every field is
 // optional; delete one to fall back to the default.
 // See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), README.md (The menu system).
 

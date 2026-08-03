@@ -1,4 +1,4 @@
-// Roles & permissions admin screen: list / create / delete Keto roles and assign
+// Roles admin screen: list / create / delete Keto roles and assign
 // them to users and groups. A role is a Keto subject set `Role:<name>#members` (OPL: members are users
 // or groups, resolved transitively) — the source of truth for the JWT `roles` claim. It shares the
 // Groups screen's membership model, so the pure helpers (parseSubject, member pickers, tuple paging)
@@ -9,7 +9,7 @@
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
 import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type User } from "#plugin-api";
-import { ADMIN_PERMISSION, ADMIN_ROLES_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_ROLE, ADMIN_ROLES_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -333,7 +333,7 @@ export const rolesAddMember = withRoleName(async (deps, name) => {
 
 // GET /admin/roles/:name/delete — confirm, except the admin role can't be deleted.
 export const rolesDeleteConfirm = withRoleName((deps, name) => {
-  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_ROLE) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
   const base = detailHref(name);
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
     breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { href: base, label: name }, { label: "Delete" }],
@@ -347,7 +347,7 @@ export const rolesDeleteConfirm = withRoleName((deps, name) => {
 export const rolesDelete = withRoleName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_ROLE) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
   await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS });
   ctx.log.info("admin: role deleted", { actor: user.id, role: name });
   return { redirect: ADMIN_ROLES_BASE };
@@ -360,7 +360,7 @@ export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
+  if (name === ADMIN_ROLE && member === `user:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
   const tuple = roleMemberTuple(name, member);
   if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: role unassigned", { actor: user.id, member, role: name }); }
   return { redirect: detailHref(name) };

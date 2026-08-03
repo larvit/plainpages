@@ -15,7 +15,7 @@ What it demonstrates:
   `POST /scheduling/shifts` CSRF-verifies it (`ctx.verifyCsrf`) and forwards the create upstream,
   then POST-redirect-GET. The form body lives in the plugin's own `views/partials/shift-form.ejs`,
   reusing the core `field` partial.
-- **Permission-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
+- **Role-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
   `scheduling:write`; the whole "Scheduling" section is invisible to anyone without the grant.
 
 The plugin holds **no state** — data lives upstream (README → *Stateless*). Handlers are thin and

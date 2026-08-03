@@ -385,7 +385,7 @@ test("renders the 500 HTML page when a handler throws", async () => {
   }
 });
 
-// A test plugin exercising each RouteResult shape, a path param, and the permission gate.
+// A test plugin exercising each RouteResult shape, a path param, and the role gate.
 const demoPlugin: Plugin = {
   apiVersion: "1.0.0",
   id: "demo",
@@ -393,7 +393,7 @@ const demoPlugin: Plugin = {
     { handler: (ctx) => ({ html: `<p>Hi ${ctx.params.name}</p>` }), method: "GET", path: "/hello/:name" },
     { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data" },
     { handler: () => ({ redirect: "/demo/hello/world" }), method: "POST", path: "/go" },
-    { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", permission: "demo:read" },
+    { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", role: "demo:read" },
     { handler: () => ({ html: "open to all" }), method: "GET", path: "/public-page", public: true }, // blessed public
     { handler: () => ({ data: { who: "Plainpages" }, view: "page" }), method: "GET", path: "/page" },
   ],
@@ -406,7 +406,7 @@ async function startApp(t: TestContext, plugins: Plugin[], pluginsDir?: string):
   return `http://localhost:${(app.address() as AddressInfo).port}`;
 }
 
-test("mounts plugin routes: params, html/json/redirect/view results, and the permission gate", async (t) => {
+test("mounts plugin routes: params, html/json/redirect/view results, and the role gate", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "demo", "views"), { recursive: true });
   mkdirSync(join(dir, "demo", "public"), { recursive: true });
@@ -610,7 +610,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
       { handler: (ctx) => ({ html: `hi ${requireSession(ctx).email}` }), method: "GET", path: "/me" },
       { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
       { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
-      { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", permission: "secret:read" }, // declarative route gate
+      { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", role: "secret:read" }, // declarative route gate
     ],
   };
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [guarded] });
@@ -636,7 +636,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   assert.equal((await fetch(url + "/guarded/doc/open", auth([]))).status, 200);
   assert.equal((await fetch(url + "/guarded/doc/shut", auth([]))).status, 403);
 
-  // declarative route `permission` gate: anonymous → sign in, signed-in-without-role → the 403 page, with → 200.
+  // declarative route `role` gate: anonymous → sign in, signed-in-without-role → the 403 page, with → 200.
   const gAnon = await fetch(url + "/guarded/gated", { redirect: "manual" });
   assert.equal(gAnon.status, 303);
   assert.equal(gAnon.headers.get("location"), "/login?return_to=%2Fguarded%2Fgated");
@@ -1225,7 +1225,7 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   assert.equal((await get("/admin/groups/%ZZ")).status, 404);
 });
 
-// Built-in Roles & permissions admin screen: gate + list/create/assign/revoke/delete over HTTP
+// Built-in Roles admin screen: gate + list/create/assign/revoke/delete over HTTP
 // against a fake in-memory Keto whose `expand` mirrors Keto's transitive resolution, so the
 // effective-access view surfaces a user reachable only through a group.
 test("admin Roles screen: gate, list, create, assign user/group, effective access (expand), revoke, delete", async (t) => {

@@ -1,5 +1,5 @@
 // Auth guards: in-handler authorization, the imperative counterpart to the
-// declarative route `permission` gate. The middleware already verified the session JWT and put
+// declarative route `role` gate. The middleware already verified the session JWT and put
 // the User on ctx; these read it. `requireSession` asserts (throws GuardError, which app.ts maps
 // to a response); `can`/`check` are predicates a handler branches on. `check` is the one live
 // Keto call — the fine-grained "may I?" tier (README), reserved for relationship rules.

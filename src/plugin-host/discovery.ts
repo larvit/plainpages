@@ -2,7 +2,7 @@
 // validate it, assemble the loaded Plugin[]. The imperative shell over plugin.ts's pure rules
 // (isValidPluginId, checkApiVersion, findConflicts). Fails loud: every per-plugin problem and
 // error-level conflict is collected into one boot-stopping Error; warn-level diagnostics
-// (older-minor apiVersion, shared permission token) log and load continues. Folder name = id.
+// (older-minor apiVersion, shared role name) log and load continues. Folder name = id.
 
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -85,7 +85,7 @@ function asManifest(value: unknown): PluginManifest | null {
 
 // The collection fields feed findConflicts, which iterates them — a non-array crashes it opaquely.
 function shapeError(manifest: PluginManifest): string | null {
-  for (const field of ["nav", "permissions", "routes"] as const) {
+  for (const field of ["nav", "roles", "routes"] as const) {
     if (manifest[field] !== undefined && !Array.isArray(manifest[field])) return `"${field}" must be an array`;
   }
   // `home` / `dashboard` (the landing-page overrides) are route handlers; the host calls them, so
@@ -93,20 +93,20 @@ function shapeError(manifest: PluginManifest): string | null {
   for (const slot of ["home", "dashboard"] as const) {
     if (manifest[slot] !== undefined && typeof manifest[slot] !== "function") return `"${slot}" must be a function (a route handler)`;
   }
-  // `public` and `permission` are contradictory on the same route/nav node — "open to all" vs
+  // `public` and `role` are contradictory on the same route/nav node — "open to all" vs
   // "needs this role". Refuse rather than silently pick one, so the author's intent is unambiguous.
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
-    if (route?.public === true && route.permission != null) return `route "${route.method} ${route.path}" sets both public and permission — they are mutually exclusive`;
+    if (route?.public === true && route.role != null) return `route "${route.method} ${route.path}" sets both public and role — they are mutually exclusive`;
   }
   const navContradiction = findPublicNavContradiction(manifest.nav);
   if (navContradiction) return navContradiction;
   return null;
 }
 
-// Recurse the nav fragment: a node that is both `public` and `permission`-gated is contradictory.
+// Recurse the nav fragment: a node that is both `public` and `role`-gated is contradictory.
 function findPublicNavContradiction(nodes: PluginManifest["nav"]): string | null {
   for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (node?.public === true && node.permission != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and permission — they are mutually exclusive`;
+    if (node?.public === true && node.role != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and role — they are mutually exclusive`;
     const inChild = findPublicNavContradiction(node?.children);
     if (inChild) return inChild;
   }

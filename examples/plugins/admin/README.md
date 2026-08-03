@@ -28,12 +28,12 @@ stack**, so they use the privileged **`ctx.system`** surface the host exposes to
 `ctx.system` is populated only when the host wired those services (the dev stack wires Kratos + Keto,
 and Hydra when configured). Where a capability is absent the screen degrades to a themed 503 rather
 than crashing — see `admin-shared.ts`. Everything else is an ordinary plugin: folder-discovered,
-gated per route by `permission: "admin"`, rendering the core building blocks in `views/`.
+gated per route by `role: "admin"`, rendering the core building blocks in `views/`.
 
 ## Layout
 
-- `plugin.ts` — the manifest: the gated Admin nav fragment, the `admin` permission token, and the
-  route table — one thin handler per method+path, all gated by `permission: "admin"`.
+- `plugin.ts` — the manifest: the gated Admin nav fragment, the `admin` role, and the
+  route table — one thin handler per method+path, all gated by `role: "admin"`.
 - `admin-users.ts` · `admin-groups.ts` · `admin-roles.ts` · `admin-clients.ts` — each a set of pure
   view-model builders (unit-tested in the matching `*.test.ts`) plus thin per-route handlers keyed on
   `ctx.params` (the host extracts `:id`/`:name`), sharing a small `withX` wrapper that resolves the

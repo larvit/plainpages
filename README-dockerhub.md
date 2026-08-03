@@ -190,4 +190,4 @@ export default definePlugin({
 ```
 
 Restart (`docker compose restart web`) and visit <http://localhost:3000/hello>. Views,
-forms, permissions, and the runnable reference plugin: repo README → Building plugins.
+forms, roles, and the runnable reference plugin: repo README → Building plugins.

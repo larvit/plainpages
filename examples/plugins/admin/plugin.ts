@@ -11,19 +11,19 @@ import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clie
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsRemoveMember } from "./admin-groups.ts";
 import { rolesAddMember, rolesCreate, rolesDelete, rolesDeleteConfirm, rolesDetail, rolesList, rolesNewForm, rolesRemoveMember } from "./admin-roles.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
-import { ADMIN_NAV, ADMIN_PERMISSION } from "./admin-shared.ts";
+import { ADMIN_NAV, ADMIN_ROLE } from "./admin-shared.ts";
 
-// Every admin route is gated by the one `admin` permission — the host redirects an anonymous visitor
+// Every admin route is gated by the one `admin` role — the host redirects an anonymous visitor
 // to /login, gives a signed-in non-admin the 403 page, and filters the nav the same way. Handlers are
 // thin and keyed on ctx.params (the host extracts :id / :name), the idiomatic per-route style.
-const r = (method: HttpMethod, path: string, handler: RouteHandler): Route => ({ handler, method, path, permission: ADMIN_PERMISSION });
+const r = (method: HttpMethod, path: string, handler: RouteHandler): Route => ({ handler, method, path, role: ADMIN_ROLE });
 
 export default definePlugin({
   apiVersion: "1.0.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 
-  permissions: [{ description: "Administer users, groups, roles, and OAuth2 clients", token: ADMIN_PERMISSION }],
+  roles: [{ description: "Administer users, groups, roles, and OAuth2 clients", name: ADMIN_ROLE }],
 
   routes: [
     // Users

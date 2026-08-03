@@ -2,7 +2,7 @@
 // the hot path that never calls Ory. Select the verify key by `kid` from the cached JWKS,
 // check the signature (src/auth/jwt.ts), validate the time/issuer/audience claims, project the
 // User onto the request context. `authenticate` fails closed: any bad/expired token ⇒ null
-// (anonymous), so the route renders signed-out and the permission gate denies.
+// (anonymous), so the route renders signed-out and the role gate denies.
 import type { User } from "../http/context.ts";
 import { parseCookies } from "../http/cookie.ts";
 import type { Denylist } from "./denylist.ts";

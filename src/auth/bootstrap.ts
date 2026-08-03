@@ -2,8 +2,8 @@
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   3. grant it its roles in Keto so menu/permission checks resolve out of the box — `admin` plus
-//      every discovered plugin's declared permission tokens, so a dropped-in plugin is usable by
+//   3. grant it its roles in Keto so menu/role checks resolve out of the box — `admin` plus
+//      every discovered plugin's declared role names, so a dropped-in plugin is usable by
 //      the demo admin with no host config edit (the host stays plugin-agnostic).
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
@@ -29,7 +29,7 @@ export function roleTuple(identityId: string, role: string) {
 }
 
 // The roles to grant the demo admin = the configured base (ADMIN_ROLES, default just `admin`)
-// unioned with every discovered plugin's declared permission tokens (a route/nav `permission` is a
+// unioned with every discovered plugin's declared role names (a route/nav `role` is a
 // coarse role — granted as a Keto `Role:<token>#members` tuple). So the host names no plugin, yet a
 // dropped-in plugin's tokens are seeded out of the box. Deduped, order-stable, blanks dropped.
 export function seedRoles(adminRolesEnv: string | undefined, declaredTokens: string[]): string[] {
@@ -143,9 +143,9 @@ async function main() {
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
 
-    // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared permission tokens, so the
+    // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared role names, so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-    const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.token));
+    const declared = (await discoverPlugins()).flatMap((p) => (p.roles ?? []).map((d) => d.name));
     const roles = seedRoles(env["ADMIN_ROLES"], declared);
     const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
     const password = env["ADMIN_PASSWORD"] ?? "admin";

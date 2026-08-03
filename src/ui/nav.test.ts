@@ -2,23 +2,23 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { composeNav, type NavNode } from "./nav.ts";
 
-// Two plugin fragments; ids let the override target nodes, `permission` gates per role.
+// Two plugin fragments; ids let the override target nodes, `role` gates per role.
 const fragments: NavNode[][] = [
   [{
     icon: "i-cal", id: "sched", label: "Scheduling",
     children: [
-      { href: "/scheduling/shifts", id: "shifts", label: "Shifts", permission: "scheduling:read" },
-      { href: "/scheduling/manage", id: "manage", label: "Manage", permission: "scheduling:admin" },
+      { href: "/scheduling/shifts", id: "shifts", label: "Shifts", role: "scheduling:read" },
+      { href: "/scheduling/manage", id: "manage", label: "Manage", role: "scheduling:admin" },
     ],
   }],
-  [{ href: "/reports", id: "reports", label: "Reports", permission: "reports:read" }],
+  [{ href: "/reports", id: "reports", label: "Reports", role: "reports:read" }],
 ];
 
 test("composeNav merges fragments, filters by role, and emits clean render nodes", () => {
   const tree = composeNav(fragments, {}, ["scheduling:read"]);
 
   // Reports gone (no reports:read), Manage gone (no scheduling:admin), header kept with Shifts.
-  // Output carries no `id`/`permission` and omits absent fields — ready for nav-tree.ejs.
+  // Output carries no `id`/`role` and omits absent fields — ready for nav-tree.ejs.
   assert.deepEqual(tree, [
     { icon: "i-cal", label: "Scheduling", children: [{ href: "/scheduling/shifts", label: "Shifts" }] },
   ]);
@@ -27,7 +27,7 @@ test("composeNav merges fragments, filters by role, and emits clean render nodes
 test("composeNav drops gated subtrees, empty headers, and (with no roles) all gated nodes", () => {
   // A header the user can't reach takes its whole subtree, even visible children.
   const gatedHeader: NavNode[][] = [[
-    { id: "admin", label: "Admin", permission: "admin", children: [{ href: "/u", id: "u", label: "Users" }] },
+    { id: "admin", label: "Admin", role: "admin", children: [{ href: "/u", id: "u", label: "Users" }] },
     { id: "free", label: "Free", children: [{ href: "/d", id: "d", label: "Docs" }] },
   ]];
   assert.deepEqual(composeNav(gatedHeader, {}, []), [
@@ -36,8 +36,8 @@ test("composeNav drops gated subtrees, empty headers, and (with no roles) all ga
 
   // A pure header whose children are all filtered is dropped; a header with an href survives as a leaf.
   const emptyHeader: NavNode[][] = [[
-    { id: "sec", label: "Section", children: [{ href: "/x", id: "x", label: "X", permission: "x" }] },
-    { href: "/hub", id: "hub", label: "Hub", children: [{ href: "/y", id: "y", label: "Y", permission: "y" }] },
+    { id: "sec", label: "Section", children: [{ href: "/x", id: "x", label: "X", role: "x" }] },
+    { href: "/hub", id: "hub", label: "Hub", children: [{ href: "/y", id: "y", label: "Y", role: "y" }] },
   ]];
   assert.deepEqual(composeNav(emptyHeader, {}, []), [{ href: "/hub", label: "Hub" }]);
 
@@ -52,10 +52,10 @@ test("composeNav keeps a node marked public for everyone — the blessed public 
     icon: "i-cal", id: "sched", label: "Scheduling",
     children: [
       { href: "/scheduling", id: "overview", label: "Overview", public: true },
-      { href: "/scheduling/shifts", id: "shifts", label: "Shifts", permission: "scheduling:read" },
+      { href: "/scheduling/shifts", id: "shifts", label: "Shifts", role: "scheduling:read" },
     ],
   }]];
-  // `public` is filter-only (like id/permission) — never rendered into the output node.
+  // `public` is filter-only (like id/role) — never rendered into the output node.
   assert.deepEqual(composeNav(frag, {}, []), [
     { icon: "i-cal", label: "Scheduling", children: [{ href: "/scheduling", label: "Overview" }] },
   ]);
@@ -66,7 +66,7 @@ test("composeNav applies the override: rename, group, order, hide (then filters)
     { href: "/a", id: "a", label: "Alpha" },
     { href: "/b", id: "b", label: "Beta" },
     { href: "/c", id: "c", label: "Gamma" },
-    { href: "/secret", id: "secret", label: "Secret", permission: "root" },
+    { href: "/secret", id: "secret", label: "Secret", role: "root" },
   ]];
 
   const tree = composeNav(base, {

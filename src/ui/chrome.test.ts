@@ -9,13 +9,13 @@ const scheduling: Plugin = {
   apiVersion: "1.0.0",
   id: "scheduling",
   nav: [{
-    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
+    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", role: "scheduling:read" }],
     icon: "i-cal", id: "scheduling", label: "Scheduling",
   }],
 };
 // A plugin with a public nav node (reachable by anyone, signed in or not).
 const portal: Plugin = { apiVersion: "1.0.0", id: "portal", nav: [{ href: "/portal", id: "portal", label: "Portal", public: true }] };
-// A gated section fragment like the admin plugin's nav: the header carries the permission, so
+// A gated section fragment like the admin plugin's nav: the header carries the role, so
 // composeNav drops the whole subtree for a non-holder (the admin screens ship as a drop-in plugin).
 const adminLike: Plugin = {
   apiVersion: "1.0.0", id: "admin",
@@ -24,7 +24,7 @@ const adminLike: Plugin = {
       { href: "/admin/users", id: "users", label: "Users" },
       { href: "/admin/groups", id: "groups", label: "Groups" },
     ],
-    icon: "i-shield", id: "admin", label: "Admin", permission: "admin",
+    icon: "i-shield", id: "admin", label: "Admin", role: "admin",
   }],
 };
 
@@ -45,7 +45,7 @@ test("anonymous shell Sign-in link carries the current page as return_to", () =>
   assert.equal(buildPluginChrome({ currentPath: "/portal", menu: DEFAULT_MENU }).signInHref, "/login?return_to=%2Fportal");
 });
 
-test("a permission holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
+test("a role holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
   const chrome = buildPluginChrome({
     currentPath: "/scheduling/shifts", menu: DEFAULT_MENU, plugins: [scheduling],
     user: { email: "ada@x.io", id: "u1", roles: ["scheduling:read"] },

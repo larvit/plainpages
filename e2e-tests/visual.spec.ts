@@ -114,7 +114,7 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 });
 
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its public Overview is
-// reachable by anyone and its menu header shows for everyone; the shifts list stays permission-gated,
+// reachable by anyone and its menu header shows for everyone; the shifts list stays role-gated,
 // so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the full
 // E2E (full-flow.spec). Side-effect-free.
 test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login", async ({ page, request }) => {
