@@ -1634,7 +1634,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
 
   auth/               Identity, the session-JWT hot path, guards, and the Ory REST clients
     jwt.ts            JWS signature verify via node:crypto, no jose (decode + verify a compact JWS against one JWK)
-    jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.identity/permissions; flags a lapsed token for re-mint
+    jwt-middleware.ts resolveSession()/authenticate(): per-request session-JWT verify — key by kid → signature → exp/nbf/iss/aud (clock skew) → ctx.user/permissions; flags a lapsed token for re-mint
     jwks.ts           JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
     gen-jwks.ts       generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
     login.ts          completeLogin()/remintSession(): login completion + TTL re-mint — permissions from Keto → metadata_public projection → tokenize → session JWT cookie
