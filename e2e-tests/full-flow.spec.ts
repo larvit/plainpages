@@ -67,6 +67,11 @@ test.describe.serial("authenticated admin journey", () => {
     await page.getByRole("button", { name: "Visa" }).click(); // the rows-per-page GET form
     await expect(page).toHaveURL(/locale=sv-SE/);
     await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+
+    // The breadcrumb is the chrome's way back up — it is rendered by the shell, not by the screen.
+    await page.getByRole("navigation", { name: "Sidsökväg" }).getByRole("link").first().click();
+    await expect(page).toHaveURL(/locale=sv-SE/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
   });
 
   test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {

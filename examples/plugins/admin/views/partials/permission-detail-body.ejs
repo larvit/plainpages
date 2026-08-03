@@ -31,8 +31,8 @@
 <% } -%>
   </section>
   <section class="form-card" aria-labelledby="effective-h">
-    <h2 class="card-title" id="effective-h">Effective access</h2>
-    <p class="field-hint">Everyone who holds this permission — directly or through a group (resolved by Keto).</p>
+    <h2 class="card-title" id="effective-h"><%= t("admin.permissions.effective") %></h2>
+    <p class="field-hint"><%= t("admin.permissions.effectiveHint") %></p>
 <% if (effective.length) { -%>
     <ul class="plain-list">
 <% effective.forEach((u) => { -%>
@@ -40,18 +40,18 @@
 <% }) -%>
     </ul>
 <% } else { -%>
-    <p class="cell-muted">No users hold this permission yet.</p>
+    <p class="cell-muted"><%= t("admin.permissions.noEffective") %></p>
 <% } -%>
   </section>
   <section class="form-card" aria-labelledby="add-h">
-    <h2 class="card-title" id="add-h">Assign the permission</h2>
+    <h2 class="card-title" id="add-h"><%= t("admin.permissions.assign") %></h2>
 <% if (add.options.length) { -%>
-    <form class="inline-form" method="post" action="<%= add.action %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><label class="sr-only" for="add-member">Member</label><span class="select"><select id="add-member" name="member" required><option value="" disabled selected>Choose a user or group…</option><% add.options.forEach((o) => { %><option value="<%= o.value %>"><%= o.label %></option><% }) %></select></span><button class="btn btn-primary" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>Assign</button></form>
+    <form class="inline-form" method="post" action="<%= add.action %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><label class="sr-only" for="add-member"><%= t("admin.common.member") %></label><span class="select"><select id="add-member" name="member" required><option value="" disabled selected><%= t("admin.common.chooseMember") %></option><% add.options.forEach((o) => { %><option value="<%= o.value %>"><%= o.label %></option><% }) %></select></span><button class="btn btn-primary" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><%= t("admin.permissions.assignAction") %></button></form>
 <% } else { -%>
-    <p class="cell-muted">All users and groups already have this permission.</p>
+    <p class="cell-muted"><%= t("admin.permissions.allAssigned") %></p>
 <% } -%>
   </section>
-  <section class="form-card admin-actions" aria-label="Permission actions">
-    <a class="btn btn-danger" href="<%= del.action %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete permission</a>
+  <section class="form-card admin-actions" aria-label="<%= t("admin.permissions.actions") %>">
+    <a class="btn btn-danger" href="<%= localeHref(del.action) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg><%= t("admin.permissions.delete") %></a>
   </section>
 </div>

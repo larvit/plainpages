@@ -51,3 +51,8 @@ test("parseListQuery honours custom reserved names and page-size bounds", () => 
   assert.equal(parseListQuery("?n=999", { maxPageSize: 50, pageSizeParam: "n" }).pageSize, 50);
   assert.deepEqual(parseListQuery("?q=hi", { qParam: "search" }).filters, { q: ["hi"] });
 });
+
+test("`locale` is the host's, not a filter — every localized list link carries it", () => {
+  const query = parseListQuery("/admin/users?locale=sv-SE&status=active");
+  assert.deepEqual(Object.keys(query.filters), ["status"]);
+});

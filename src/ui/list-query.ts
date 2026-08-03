@@ -31,7 +31,9 @@ export function parseListQuery(url: URL | URLSearchParams | string, options: Lis
   const sortParam = options.sortParam ?? "sort";
   const pageParam = options.pageParam ?? "page";
   const pageSizeParam = options.pageSizeParam ?? "pageSize";
-  const reserved = new Set([pageParam, pageSizeParam, qParam, sortParam]);
+  // `locale` is host-owned (README → Languages): every list link and both GET forms carry it, so
+  // without this it would arrive as a phantom filter on every localized list page.
+  const reserved = new Set([pageParam, pageSizeParam, qParam, sortParam, "locale"]);
 
   const filters: Record<string, string[]> = {};
   for (const key of new Set(params.keys())) {

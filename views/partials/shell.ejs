@@ -104,7 +104,7 @@
           <% if (title) { %><h1 class="page-title"><%= title %></h1><% } %>
           <% if (breadcrumbs.length) { %>
           <nav class="crumbs" aria-label="<%= t("shell.breadcrumb") %>">
-            <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= c.href %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>
+            <% breadcrumbs.forEach((c, i) => { %><% if (i) { %><span class="sep">/</span><% } %><% if (c.href) { %><a href="<%= localeHref(c.href) %>"><%= c.label %></a><% } else { %><span><%= c.label %></span><% } %><% }) %>
           </nav>
           <% } %>
           <div class="topbar-spacer"></div>

@@ -998,10 +998,12 @@ Three rules worth knowing:
   that deliberately carries markup is rendered with `<%- %>` — and must never interpolate
   untrusted data, since nothing escapes it there.
 - **Dates and numbers are `Intl`'s job**, not the catalog's: `new Intl.DateTimeFormat(ctx.locale)`.
-- **The core building blocks carry the locale for you.** `pagination`, `filter-bar`, `data-table`,
-  `auth-card` and the nav wrap every href they render, and the two GET forms carry it as a hidden
-  `locale` input (a GET submit replaces the whole query string). `ctx.localeHref` is only for hrefs
-  your own markup emits — and `localeParam` (a view local: the tag, or null) for your own GET forms.
+- **The core building blocks carry the locale for you.** The shell's breadcrumbs, `pagination`,
+  `filter-bar`, `data-table`, `auth-card`, `field` and the nav wrap every href they render, and the
+  two GET forms (filter bar, rows-per-page) carry it as a hidden `locale` input — a GET submit
+  replaces the whole query string, so no href wrapper can reach it. `ctx.localeHref` is only for
+  hrefs your own markup emits, and `localeParam` (a view local: the tag, or null) for your own GET
+  forms. `locale` is reserved: `parseListQuery` never returns it as a filter.
 - **Reuse the core words.** Generic UI verbs live in the core catalog — `common.add/cancel/delete/
   edit/new/remove/save`, `filter.*`, `pagination.*`, `table.*` — and a plugin's lookup falls through
   to them. Keep your catalog for your domain words, so N plugins don't re-translate "Cancel" N times.

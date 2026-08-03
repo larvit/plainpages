@@ -109,15 +109,17 @@ them. Revisit only if the stated reason stops holding.
   — keys, string-vs-plural kind, and the plural categories `Intl.PluralRules` says that locale needs —
   and a mismatch stops startup, same fail-loud contract as a bad manifest. A plugin may ship fewer
   locales than the host (its strings fall back to `en-US` per key), never one the host lacks.
-- **The core building blocks carry the locale; a plugin doesn't have to.** `pagination`,
-  `filter-bar`, `data-table`, `auth-card`, `flow-body`, `menu` and the nav wrap every href they
-  render in `localeHref`, and the two GET forms carry it as a hidden `locale` input (a GET submit
-  replaces the whole query string, so no href wrapper can reach it). Putting the obligation on each
-  call site was tried first and missed five of eight sites inside one commit — including the admin
-  screens. `ctx.localeHref` remains for hrefs a plugin's own markup emits. Decided 2026-08-03 after
-  an architecture review.
-- **`locale` is a host-owned query param.** It is in `parseListQuery`'s reserved set, so it never
-  shows up as a plugin filter; the i18n view locals (`t`, `locale`, `locales`, `localeHref`,
+- **The core building blocks carry the locale; a plugin doesn't have to.** The shell (breadcrumbs),
+  `pagination`, `filter-bar`, `data-table`, `auth-card`, `flow-body`, `field` and `menu` wrap every
+  href they render in `localeHref`; the nav is wrapped upstream in `chrome.ts`; and the two GET forms
+  (filter bar, rows-per-page) carry it as a hidden `locale` input, since a GET submit replaces the
+  whole query string and no href wrapper can reach it. Putting the obligation on each call site was
+  tried first and missed five of eight sites inside one commit — including the admin screens.
+  `ctx.localeHref` remains for hrefs a plugin's own markup emits (the admin example's delete links).
+  Decided 2026-08-03 after an architecture review; a second pass then found breadcrumbs still raw,
+  so: when a link renders from the core chrome, it is the chrome's job to carry the locale.
+- **`locale` is a host-owned query param.** It is in `parseListQuery`'s reserved set (`list-query.ts`),
+  so a localized list page doesn't hand a plugin a phantom `locale` filter; the i18n view locals (`t`, `locale`, `locales`, `localeHref`,
   `localeParam`, `localeSwitch`, `dir`) are likewise reserved names, merged after a handler's `data`
   so a collision loses the key instead of breaking the shell.
 - **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`.** A catalog there
@@ -223,6 +225,11 @@ Same test before adding a row to a table or the file map — a clause, not a par
   that re-parses `ctx.url.pathname`: it duplicates the URL shape, ignores the router's params, and
   has to re-handle HEAD. Factor shared per-request setup (auth gate, `ctx.system` capability
   resolution, target fetch) into a small `withX` wrapper — see `examples/plugins/admin/`.
+- **`handleRequest` (`src/http/app.ts`) is a known complexity hotspot** — ~160 lines tracking
+  canonical host, static, locale, session + re-mint, CSRF, chrome, hooks, plugin routing, builtin
+  routing, 405/404 and error mapping. The pure parts are already extracted and separately tested; what
+  remains is orchestration. Planned split along those seams; don't grow it further without taking one
+  out. Raised by the architecture review 2026-08-03, deliberately not done inside the i18n change.
 - Reviews are maintainer-triggered (e.g. via the larv-review skill) — never auto-run reviewer
   agents. Decided 2026-08-02, replacing the earlier run-after-every-implementation rule.
 - **A user-visible string belongs in a catalog, not in the code or a view.** Core strings go in
