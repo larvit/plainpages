@@ -58,10 +58,17 @@ export function resolveLocale({ acceptLanguage, available, param }: ResolveInput
 // Carry `locale` on a host-relative link. Off-site and protocol-relative URLs are left alone — the
 // locale is ours to state, not theirs. `locale` null (the visitor never asked for one) ⇒ unchanged.
 export function localeHref(href: string, locale: string | null): string {
-  if (locale === null || href === "" || !href.startsWith("/") || href.startsWith("//")) return href;
-  const url = new URL(href, "http://localhost");
+  // An absent href is a shape the building blocks document as optional (a non-linked page item, a
+  // header with no sort target) — it must not throw here, or a page renders for every visitor
+  // except the ones who chose a language.
+  if (locale === null || !href || href.startsWith("//")) return href;
+  // A query-only href ("?" — the filter bar's documented "clear" target) keeps that shape; anything
+  // else must be host-relative, or it is someone else's URL to state a language for.
+  const queryOnly = href.startsWith("?");
+  if (!queryOnly && !href.startsWith("/")) return href;
+  const url = new URL(href, "http://localhost/");
   url.searchParams.set("locale", locale);
-  return `${url.pathname}${url.search}${url.hash}`;
+  return queryOnly ? `${url.search}${url.hash}` : `${url.pathname}${url.search}${url.hash}`;
 }
 
 // Both are asked for on every render (the <html> tag, the language picker) but depend only on the

@@ -1459,3 +1459,30 @@ test("the error pages speak the visitor's language too", async (t) => {
   assert.match(html, /<html lang="sv-SE"/);
   assert.match(html, /Sidan hittades inte/);
 });
+
+test("a plugin that owns a landing page, or short-circuits a hook, translates from its own catalog", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-i18n-plugin-"));
+  mkdirSync(join(dir, "demo", "i18n"), { recursive: true });
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  writeFileSync(join(dir, "demo", "i18n", "en-US.ts"), 'const m = { "demo.hello": "Hello from the plugin" };\nexport default m;\n');
+
+  // Every plugin-owned render path: the public landing, the gated dashboard, and a hook short-circuit.
+  const demo: Plugin = {
+    apiVersion: "1.0.0",
+    dashboard: (ctx) => ({ html: ctx.t("demo.hello") }),
+    home: (ctx) => ({ html: ctx.t("demo.hello") }),
+    hooks: { onRequest: (ctx) => (ctx.url.pathname === "/hooked" ? { html: ctx.t("demo.hello") } : undefined) },
+    id: "demo",
+  };
+  const i18n = createI18n(await loadI18n({ pluginIds: ["demo"], pluginsDir: dir }));
+  const app = createApp({ i18n, jwks: staticJwks([ecJwk]), plugins: [demo], pluginsDir: dir });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const cookie = `${SESSION_COOKIE}=${mintJwt({ email: "a@b", exp: nowSec + 600, permissions: [], sub: "u1" })}`;
+
+  assert.equal(await (await fetch(`${url}/`)).text(), "Hello from the plugin");
+  assert.equal(await (await fetch(`${url}/hooked`)).text(), "Hello from the plugin");
+  assert.equal(await (await fetch(`${url}/dashboard`, { headers: { cookie } })).text(), "Hello from the plugin");
+});

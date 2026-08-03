@@ -17,7 +17,7 @@
   const providers = (sso && sso.providers) || [];
   const alt = locals.alt;
 -%>
-<form class="auth-card" method="<%= method %>"<% if (locals.action) { %> action="<%= locals.action %>"<% } %>>
+<form class="auth-card" method="<%= method %>"<% if (locals.action) { %> action="<%= localeHref(locals.action) %>"<% } %>>
   <div class="auth-head"><% if (back) { %><a class="auth-back" href="<%= localeHref(back.href) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><%= back.label %></a><% } %><h1><%= locals.title %></h1><% if (locals.sub) { %><p class="auth-sub"><%= locals.sub %></p><% } %></div>
 <% if (providers.length) { -%>
   <div class="sso" aria-label="<%= sso.label || t("auth.sso.label") %>">

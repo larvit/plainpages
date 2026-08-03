@@ -11,14 +11,14 @@
   Item ∈ { head } · { sep } · { label, icon?, href? ⇒ <a>, hreflang?, current?, danger? }   (default: menu-item button)
        · { group: { legend?, name, control?(="checkbox"|"radio"), options:{value,label,checked?}[] } }
 %><%
-  const t = locals.trigger || {};
-  const sumCls = "class" in t ? t.class : "btn";
+  const trigger = locals.trigger || {}; // not `t` — that name is the translator in every view
+  const sumCls = "class" in trigger ? trigger.class : "btn";
   const items = locals.items || [];
   const popCls = "menu-pop" + (locals.align === "left" ? " left" : "") + (locals.up ? " up" : "");
   const width = locals.width;
 -%>
 <details class="menu<%= locals.kebab ? " kebab" : "" %>"<%= locals.open ? " open" : "" %>>
-  <summary<% if (sumCls) { %> class="<%= sumCls %>"<% } %><% if (t.label) { %> aria-label="<%= t.label %>"<% } %>><% if (t.html != null) { %><%- t.html %><% } else { if (t.icon) { %><svg class="ico ico-sm"><use href="#<%= t.icon %>"/></svg><% } if (t.text) { %><%= t.text %><% } } %></summary>
+  <summary<% if (sumCls) { %> class="<%= sumCls %>"<% } %><% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></summary>
   <div class="<%= popCls %>"<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
 <% items.forEach((it) => { -%>
 <% if (it.head != null) { -%>

@@ -21,9 +21,10 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const LOCALES_DIR = join(dirname(fileURLToPath(import.meta.url)), "locales");
 export const MOUNTED_LOCALES_DIR = join(rootDir, "locales");
 
-// A catalog file is named for the full locale it holds — sv-SE.ts, never sv.ts. Anything else in
-// the folder is a mistake worth stopping for.
-const LOCALE_FILE = /^([a-z]{2,3}-[A-Z]{2})\.ts$/;
+// A catalog file is named for the full locale it holds — sv-SE.ts, never sv.ts — with the script
+// subtag when the language needs one (sr-Latn-RS). Anything else in the folder is a mistake worth
+// stopping for.
+const LOCALE_FILE = /^([a-z]{2,3}(?:-[A-Z][a-z]{3})?-[A-Z]{2})\.ts$/;
 
 export interface LoadI18nOptions {
   localesDir?: string;
@@ -46,10 +47,15 @@ export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18
   const logger = options.logger ?? console;
   const errors: string[] = [];
 
-  const core = await readSet(localesDir, "core", errors);
+  const shipped = await readSet(localesDir, "core", errors);
+  // The SHIPPED en-US stays the baseline even when the mount replaces it — otherwise a mounted
+  // en-US would only ever be compared against itself, and a one-key rewording would boot green with
+  // the whole UI rendering bare keys.
+  const baseline = shipped.get(DEFAULT_LOCALE);
+  if (!baseline) errors.push(`core: no ${DEFAULT_LOCALE}.ts — it is the baseline every other locale is checked against`);
+  const core = new Map(shipped);
   for (const [locale, catalog] of await readSet(mountedDir, "locales", errors)) core.set(locale, catalog);
-  if (!core.has(DEFAULT_LOCALE)) errors.push(`core: no ${DEFAULT_LOCALE}.ts — it is the baseline every other locale is checked against`);
-  checkSet(core, "core", errors);
+  checkSet(core, "core", baseline, errors);
   const available = [...core.keys()].sort();
 
   const plugins = new Map<string, Map<string, Catalog>>();
@@ -62,7 +68,7 @@ export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18
     for (const locale of set.keys()) {
       if (!available.includes(locale)) errors.push(`plugins/${id}: ${locale} is not installed — add src/i18n/locales/${locale}.ts first`);
     }
-    checkSet(set, `plugins/${id}`, errors);
+    checkSet(set, `plugins/${id}`, set.get(DEFAULT_LOCALE), errors);
     // Legitimate — the plugin's strings fall back to en-US on that page — but an operator who
     // installed a locale should hear about the gap at deploy time, not see English islands later.
     const gaps = available.filter((locale) => !set.has(locale));
@@ -103,8 +109,7 @@ async function readSet(dir: string, label: string, errors: string[]): Promise<Ma
   return set;
 }
 
-function checkSet(set: Map<string, Catalog>, label: string, errors: string[]): void {
-  const baseline = set.get(DEFAULT_LOCALE);
+function checkSet(set: Map<string, Catalog>, label: string, baseline: Catalog | undefined, errors: string[]): void {
   if (baseline === undefined) return; // already reported; nothing to compare against
   for (const [locale, catalog] of set) {
     for (const problem of checkCatalog({ baseline, baselineLocale: DEFAULT_LOCALE, catalog, locale })) {

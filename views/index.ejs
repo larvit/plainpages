@@ -5,6 +5,8 @@
   handler; this renders until then. Data: model { nav, shell }.
 %><%
   const nav = include("partials/nav-tree", { nodes: model.nav });
+  // These four messages carry markup (<code> spans), so they render raw — the documented
+  // markup-carrying case. They interpolate nothing, so there is no untrusted data to escape.
   const body = `
     <div class="form-page">
       <section class="form-card">

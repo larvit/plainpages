@@ -41,7 +41,7 @@ export interface ShellModel {
 export function shellUser(user: User | null | undefined, t: Translate = ENGLISH): ShellUser {
   if (!user) {
     const guest = t("shell.guest");
-    return { email: "", initials: guest.slice(0, 1).toUpperCase(), name: guest };
+    return { email: "", initials: ([...guest][0] ?? "?").toUpperCase(), name: guest }; // by character: the word is translated
   }
   const local = user.email.split("@")[0] || user.email;
   return { email: user.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };

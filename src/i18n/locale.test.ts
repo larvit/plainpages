@@ -59,6 +59,10 @@ test("localeHref carries the locale on host-relative links only", () => {
   assert.equal(localeHref("https://example.com/x", "sv-SE"), "https://example.com/x"); // off-site
   assert.equal(localeHref("//example.com/x", "sv-SE"), "//example.com/x"); // protocol-relative is off-site too
   assert.equal(localeHref("", "sv-SE"), "");
+  // The building blocks document href as optional (an unlinked page item, a header with no sort
+  // target) — an absent one must not throw, or the page breaks only for visitors who chose a language.
+  assert.equal(localeHref(undefined as unknown as string, "sv-SE"), undefined);
+  assert.equal(localeHref(null as unknown as string, "sv-SE"), null);
 });
 
 test("textDirection reads the script direction, defaulting to ltr", () => {

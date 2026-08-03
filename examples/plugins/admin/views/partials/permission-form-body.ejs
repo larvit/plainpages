@@ -10,7 +10,7 @@
 <% if (locals.error) { -%>
 <%- include("partials/alert", { text: locals.error, tone: "neg" }) %>
 <% } -%>
-  <form class="form-card" method="post" action="<%= form.action %>">
+  <form class="form-card" method="post" action="<%= localeHref(form.action) %>">
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
     <%- include("partials/field", form.nameField) %>
     <div class="field">

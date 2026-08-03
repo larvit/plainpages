@@ -1001,8 +1001,10 @@ Three rules worth knowing:
 - **The core building blocks carry the locale for you** — every href they render (menu, breadcrumbs,
   pagination, sort headers, row actions, the auth card's links) goes through `localeHref`, and their
   GET forms carry it as a hidden field, since a GET submit replaces the whole query string.
-  `ctx.localeHref` is for hrefs your own markup emits, and `localeParam` (a view local: the tag, or
-  null) for your own GET forms. `locale` is reserved: `parseListQuery` never returns it as a filter.
+  `ctx.localeHref` is for hrefs and form actions your own markup emits (a POST replaces the URL just
+  as a GET submit does), and `localeParam` (a view local: the tag, or null) for your own GET forms.
+  `locale` is reserved: `parseListQuery` never returns it as a filter. Responses carry
+  `Vary: Accept-Language`, so a cache in front of the app keys on the language too.
 - **Reuse the core words.** Generic UI verbs live in the core catalog — `common.add/cancel/delete/
   edit/new/remove/save`, `filter.*`, `pagination.*`, `table.*` — and a plugin's lookup falls through
   to them. Keep your catalog for your domain words, so N plugins don't re-translate "Cancel" N times.

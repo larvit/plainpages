@@ -45,7 +45,6 @@ const messages = {
   "common.edit": "Edit",
   "common.new": "New",
   "common.remove": "Remove",
-  "common.save": "Save",
 
   "consent.allow": "Allow",
   "consent.deny": "Deny",

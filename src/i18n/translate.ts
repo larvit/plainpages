@@ -24,6 +24,9 @@ const pluralRules = new Map<string, Intl.PluralRules>();
 export function createTranslator({ catalogs, locale }: TranslatorOptions): Translate {
   return (key, vars) => {
     for (const catalog of catalogs) {
+      // Own keys only: `t("toString")` must fall through to the key itself like any other unknown
+      // one, not pick up Object.prototype.
+      if (!Object.hasOwn(catalog, key)) continue;
       const message = catalog[key];
       if (message === undefined) continue;
       return interpolate(isPluralMessage(message) ? selectPlural(message, locale, vars?.["count"]) : message, vars);
@@ -56,6 +59,7 @@ function rulesFor(locale: string): Intl.PluralRules {
 function interpolate(text: string, vars: TranslateVars | undefined): string {
   if (vars === undefined) return text;
   return text.replace(PLACEHOLDER, (whole, name: string) => {
+    if (!Object.hasOwn(vars, name)) return whole;
     const value = vars[name];
     return value === undefined ? whole : String(value);
   });

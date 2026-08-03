@@ -14,10 +14,15 @@ export interface RequestCsrf {
   token: string;
 }
 
+// A context scoped to a plugin: same request, but `t` reads that plugin's catalog first. The
+// landing slots run a plugin's handler, so they must hand it one of these rather than the host's
+// own context — otherwise the plugin's keys render as bare keys on the pages it owns.
+export type PluginContextFactory = (pluginId: string) => RequestContext;
+
 export interface BuiltinRoute {
   // Returns a RouteResult, or null when the handler wrote to ctx.res itself
   // (the landing slots dispatch a plugin's own result against that plugin's views).
-  handler: (ctx: RequestContext, csrf: RequestCsrf) => Promise<RouteResult | null> | RouteResult | null;
+  handler: (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory) => Promise<RouteResult | null> | RouteResult | null;
   method: "GET" | "POST"; // a GET route also answers HEAD, like plugin routes
   path: string; // exact pathname
 }

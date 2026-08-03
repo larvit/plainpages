@@ -25,14 +25,14 @@
           <span class="brand-name"><%= brand %></span>
         </div>
         <%- include("partials/auth-card", {
-          action: "/oauth2/consent",
+          action: localeHref("/oauth2/consent"),
           body,
           method: "post",
           sub: t("consent.sub", { client: consent.client }),
           title: t("consent.title", { client: consent.client }),
         }) %>
         <% if (consent.account) { %>
-        <form class="auth-alt" method="post" action="/logout">
+        <form class="auth-alt" method="post" action="<%= localeHref("/logout") %>">
           <input type="hidden" name="<%= csrfField %>" value="<%= csrfToken %>">
           <%= t("consent.notYou") %> <button type="submit"><%= t("shell.signOut") %></button>
         </form>

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
-import { type BuiltinRoute, matchBuiltinRoute, type RequestCsrf } from "./builtin-routes.ts";
+import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type RequestCsrf } from "./builtin-routes.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
@@ -132,12 +132,14 @@ export function createApp(options: AppOptions = {}): Server {
   // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
   // any form it ships). Else the built-in intro page with prominent sign-in / register links
   // (`user` picks "go to dashboard" vs sign-in; the shell's Sign-out form needs the CSRF cookie).
-  const serveHome = async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult | null> => {
+  const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
     csrf.setCookie();
     if (homePlugin) {
-      const result = (await homePlugin.home(ctx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
-      await sendResult(ctx.res, result, pluginViewsFor(ctx, homePlugin.id), ctx.localeHref);
+      // The plugin owns this page, so it runs on its own context — its catalog first, then core.
+      const pluginCtx = contextFor(homePlugin.id);
+      const result = (await homePlugin.home(pluginCtx)) ?? null;
+      if (anyResponseHooks) await runResponseHooks(plugins, pluginCtx, result);
+      await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, homePlugin.id), pluginCtx.localeHref);
       return null;
     }
     return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
@@ -147,14 +149,15 @@ export function createApp(options: AppOptions = {}): Server {
   // in, remembering /dashboard as return_to. A plugin may fully own it via `dashboard` — its
   // handler renders against its own views, same path as a plugin route. Else the built-in
   // mock-data People list with the one global menu (ctx.chrome.nav) + branding from config/menu.ts.
-  const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult | null> => {
+  const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
     if (!ctx.user) return { redirect: loginRedirect(ctx), status: 303 };
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
     csrf.setCookie();
     if (dashboardPlugin) {
-      const result = (await dashboardPlugin.dashboard(ctx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, ctx, result);
-      await sendResult(ctx.res, result, pluginViewsFor(ctx, dashboardPlugin.id), ctx.localeHref);
+      const pluginCtx = contextFor(dashboardPlugin.id); // as serveHome: the owner's own translator
+      const result = (await dashboardPlugin.dashboard(pluginCtx)) ?? null;
+      if (anyResponseHooks) await runResponseHooks(plugins, pluginCtx, result);
+      await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, dashboardPlugin.id), pluginCtx.localeHref);
       return null;
     }
     return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, user: ctx.user, nav: ctx.chrome.nav, t: ctx.t }) }, view: "index" };
@@ -183,6 +186,9 @@ export function createApp(options: AppOptions = {}): Server {
       // Set before any branch so every response — static/redirect/error included — inherits them
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
       for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
+      // The same URL renders in different languages depending on Accept-Language, so a cache in
+      // front of us must key on it — otherwise the first visitor's language is served to everyone.
+      res.setHeader("vary", "accept-language");
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.
@@ -261,18 +267,22 @@ export function createApp(options: AppOptions = {}): Server {
         t: pluginId === undefined ? t : i18n.translator(locale, pluginId),
       });
 
-      // base context (no route params yet); reused for onRequest hooks and the landing routes.
+      // base context (no route params yet); reused for the built-in routes. A plugin-owned render
+      // (a landing slot, a hook short-circuit, a plugin route) gets `contextFor(id)` instead, so its
+      // own catalog is what `ctx.t` reads.
       const ctx = buildContext(req, res, { chrome, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext =>
+        buildContext(req, res, { chrome, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
       renderPage = viewsFor(ctx);
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.
       if (anyRequestHooks) {
-        const short = await runRequestHooks(plugins, ctx);
+        const short = await runRequestHooks(plugins, contextFor);
         if (short) {
           // Set the fresh CSRF cookie like every other page-emitting path, so a form the hook
           // renders (its token is in ctx.chrome.csrfToken) has the matching double-submit cookie.
           csrfMint.setCookie();
-          await sendResult(res, short.result, pluginViewsFor(ctx, short.plugin.id), carryLocale);
+          await sendResult(res, short.result, pluginViewsFor(short.ctx, short.plugin.id), carryLocale);
           return;
         }
       }
@@ -282,7 +292,7 @@ export function createApp(options: AppOptions = {}): Server {
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        const routeCtx = buildContext(req, res, { chrome, user, ...i18nFor(match.plugin.id), log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
+        const routeCtx = contextFor(match.plugin.id, match.params);
         if (!isAuthorized(match.route, routeCtx.permissions)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
           // return_to; a signed-in user who simply lacks the permission gets the 403 page.
@@ -303,7 +313,7 @@ export function createApp(options: AppOptions = {}): Server {
       // null means the handler wrote to ctx.res itself.
       const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
       if (builtin) {
-        await sendResult(res, await builtin.handler(ctx, csrfMint), viewsFor(ctx), carryLocale);
+        await sendResult(res, await builtin.handler(ctx, csrfMint, contextFor), viewsFor(ctx), carryLocale);
         return;
       }
 

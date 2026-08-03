@@ -36,7 +36,6 @@ const messages: CoreMessages = {
   "common.edit": "Redigera",
   "common.new": "Ny",
   "common.remove": "Ta bort",
-  "common.save": "Spara",
 
   "consent.allow": "Tillåt",
   "consent.deny": "Neka",

@@ -117,13 +117,25 @@ them. Revisit only if the stated reason stops holding.
   whole query string and no href wrapper can reach it. Putting the obligation on each call site was
   tried first and missed five of eight sites inside one commit — including the admin screens.
   `ctx.localeHref` remains for hrefs a plugin's own markup emits (the admin example's delete links).
+  **A form's `action` counts as a link** — a POST replaces the URL as completely as a GET submit, so
+  the sign-out, consent and auth-card forms carry it too; without that, picking a language and then
+  saving anything drops back to `Accept-Language`. The one round-trip that cannot carry it is the
+  Kratos sign-in POST, whose action is an absolute off-site URL.
   Decided 2026-08-03 after an architecture review; a second pass then found breadcrumbs still raw,
   so: when a link renders from the core chrome, it is the chrome's job to carry the locale.
 - **`locale` is a host-owned query param.** It is in `parseListQuery`'s reserved set (`list-query.ts`),
   so a localized list page doesn't hand a plugin a phantom `locale` filter; the i18n view locals (`t`, `locale`, `locales`, `localeHref`,
   `localeParam`, `localeSwitch`, `dir`) are likewise reserved names, merged after a handler's `data`
   so a collision loses the key instead of breaking the shell.
-- **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`.** A catalog there
+- **A plugin-owned render always runs on that plugin's context.** The landing slots (`home`,
+  `dashboard`) and an `onRequest` short-circuit dispatch a plugin's handler, so they build the
+  context with `contextFor(pluginId)` exactly as a plugin route does — otherwise `ctx.t` is the core
+  translator and the plugin's own keys render as bare keys on the pages it owns. Found by review
+  2026-08-03 after all three paths shipped with the host's context.
+- **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`.** The SHIPPED
+  `en-US` stays the parity baseline even when the mount replaces it, so a mounted catalog is checked
+  rather than trusted (a mounted `en-US` compared only against itself would boot green with the
+  whole UI rendering keys). A catalog there
   for a new tag adds a language; one for a tag the image ships replaces that catalog wholesale, held
   to the same parity check. Adding a language must not require forking the image.
 - **An unknown translation key renders as itself.** That single rule is what lets a nav label,

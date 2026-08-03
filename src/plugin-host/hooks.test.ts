@@ -24,18 +24,22 @@ test("runBootHooks runs each onBoot in order, skips plugins without one, and a t
 
 test("runRequestHooks short-circuits on the first RouteResult (with its plugin); later hooks skipped", async () => {
   const calls: string[] = [];
+  const scoped: string[] = []; // each hook is handed a context built for its own plugin
+  const contextFor = (pluginId: string) => { scoped.push(pluginId); return ctx; };
   const short = await runRequestHooks([
     plugin("a", { onRequest: () => void calls.push("a") }), // returns void → continue
     plugin("b", { onRequest: () => { calls.push("b"); return { html: "stop" }; } }),
     plugin("c", { onRequest: () => void calls.push("c") }), // never reached
-  ], ctx);
+  ], contextFor);
 
   assert.deepEqual(short?.result, { html: "stop" });
   assert.equal(short?.plugin.id, "b"); // the owning plugin (so a `view` result resolves correctly)
+  assert.equal(short?.ctx, ctx); // …and the context it ran on, for rendering its view
   assert.deepEqual(calls, ["a", "b"]);
+  assert.deepEqual(scoped, ["a", "b"]); // a plugin without the hook never builds a context
 
   // No hook short-circuits → null (proceed with normal routing).
-  assert.equal(await runRequestHooks([plugin("a", { onRequest: () => {} })], ctx), null);
+  assert.equal(await runRequestHooks([plugin("a", { onRequest: () => {} })], contextFor), null);
 });
 
 test("runResponseHooks runs every onResponse as an observer with the result; a throw fails", async () => {

@@ -13,11 +13,17 @@ export async function runBootHooks(plugins: Plugin[]): Promise<void> {
 
 // Before route matching. The first hook to return a RouteResult short-circuits the request — its
 // result becomes the response and later hooks + the route handler are skipped. Returns that result
-// with its owning plugin (so a `view` result resolves against that plugin's views), or null to proceed.
-export async function runRequestHooks(plugins: Plugin[], ctx: RequestContext): Promise<{ plugin: Plugin; result: RouteResult } | null> {
+// with its owning plugin (so a `view` result resolves against that plugin's views), or null to
+// proceed. Each hook gets a context scoped to its own plugin, so `ctx.t` reads that plugin's catalog.
+export async function runRequestHooks(
+  plugins: Plugin[],
+  contextFor: (pluginId: string) => RequestContext,
+): Promise<{ ctx: RequestContext; plugin: Plugin; result: RouteResult } | null> {
   for (const plugin of plugins) {
-    const result = await plugin.hooks?.onRequest?.(ctx);
-    if (result != null) return { plugin, result };
+    if (!plugin.hooks?.onRequest) continue;
+    const ctx = contextFor(plugin.id);
+    const result = await plugin.hooks.onRequest(ctx);
+    if (result != null) return { ctx, plugin, result };
   }
   return null;
 }

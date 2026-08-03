@@ -63,7 +63,7 @@ export function checkCatalog({ baseline, baselineLocale, catalog, locale }: Pari
   }
 
   for (const key of Object.keys(catalog)) {
-    if (!(key in baseline)) problems.push(`unknown key "${key}" — add it to ${baselineLocale} first`);
+    if (!Object.hasOwn(baseline, key)) problems.push(`unknown key "${key}" — add it to ${baselineLocale} first`);
   }
 
   return problems;
