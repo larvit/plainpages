@@ -138,8 +138,8 @@ const messages: AdminMessages = {
   "admin.users.new": "Ny användare",
   "admin.users.pagination": "Sidnavigering för användare",
   "admin.users.reactivate": "Aktivera igen",
-  "admin.users.recovery.body":
-    "Ge den till användaren — koden anges på <a href=\"/recovery\">sidan för lösenordsåterställning</a> för att sätta ett nytt lösenord (skapa en ny om den hunnit gå ut).",
+  "admin.users.recovery.body": "Ge den till användaren — koden anges för att sätta ett nytt lösenord (skapa en ny om den hunnit gå ut):",
+  "admin.users.recovery.link": "sidan för lösenordsåterställning",
   "admin.users.recovery.generate": "Skapa återställningskod",
   "admin.users.recovery.title": "Återställningskod skapad",
   "admin.users.save": "Spara ändringar",

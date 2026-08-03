@@ -120,7 +120,17 @@ export function createApp(options: AppOptions = {}): Server {
   // it. A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
   // They are merged LAST: these names are reserved (README → Building plugins), and a handler that
   // happens to use one loses that key rather than breaking the shell that renders around it.
-  const localsOf = (ctx: RequestContext): I18nRequest => ({ ...ctx, method: ctx.req.method ?? "GET" });
+  // Named field by field on purpose: spreading the context would trigger its lazy `chrome` getter,
+  // composing the menu for every render — including the standalone error pages, which exist to
+  // render when the shell's own data is what failed.
+  const localsOf = (ctx: RequestContext): I18nRequest => ({
+    locale: ctx.locale,
+    localeHref: ctx.localeHref,
+    locales: ctx.locales,
+    method: ctx.req.method ?? "GET",
+    t: ctx.t,
+    url: ctx.url,
+  });
   const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)) });
   const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)) });
 
@@ -307,7 +317,9 @@ export function createApp(options: AppOptions = {}): Server {
         }
         csrfMint.setCookie();
         const result = (await match.route.handler(routeCtx)) ?? null;
-        if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result); // observers; a throw → 500
+        // The responding plugin observes its own route, params and all; the others get a plain
+        // context for their own id (never another plugin's params).
+        if (anyResponseHooks) await runResponseHooks(plugins, (id) => (id === match.plugin.id ? routeCtx : contextFor(id)), result);
         await sendResult(res, result, pluginViewsFor(routeCtx, match.plugin.id), carryLocale);
         return;
       }
@@ -334,7 +346,14 @@ export function createApp(options: AppOptions = {}): Server {
       if (err instanceof GuardError) {
         if (res.headersSent) return void res.end();
         if (err.location) return void res.writeHead(303, { location: err.location }).end();
-        return void sendHtml(res, err.status, await renderPage("403", {}));
+        try {
+          return void sendHtml(res, err.status, await renderPage("403", {}));
+        } catch (renderErr) {
+          // Same last resort as the 500 branch below: a throw here would leave the socket open
+          // (this catch is the one that would have handled it), so end the response ourselves.
+          reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
+          return void res.writeHead(err.status, { "content-type": "text/plain; charset=utf-8" }).end("Forbidden");
+        }
       }
       reqLog.error("unhandled request error", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
       if (res.headersSent) return void res.end(); // a partial body is already on the wire

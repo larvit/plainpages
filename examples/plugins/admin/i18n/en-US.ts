@@ -138,8 +138,8 @@ const messages = {
   "admin.users.new": "New user",
   "admin.users.pagination": "Users pagination",
   "admin.users.reactivate": "Reactivate",
-  "admin.users.recovery.body":
-    "Give it to the user — they enter it on the <a href=\"/recovery\">password-reset screen</a> to set a new password (generate a fresh one if it has expired).",
+  "admin.users.recovery.body": "Give it to the user — they enter it to set a new password (generate a fresh one if it has expired):",
+  "admin.users.recovery.link": "the password-reset screen",
   "admin.users.recovery.generate": "Generate recovery code",
   "admin.users.recovery.title": "Recovery code generated",
   "admin.users.save": "Save changes",

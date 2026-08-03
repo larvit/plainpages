@@ -23,6 +23,7 @@ import type { Plugin } from "../plugin-host/plugin.ts";
 import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 import adminManifest from "../../examples/plugins/admin/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
+import type { MenuConfig } from "../ui/menu-config.ts";
 import { loadI18n } from "../i18n/load.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
@@ -1485,4 +1486,20 @@ test("a plugin that owns a landing page, or short-circuits a hook, translates fr
   assert.equal(await (await fetch(`${url}/`)).text(), "Hello from the plugin");
   assert.equal(await (await fetch(`${url}/hooked`)).text(), "Hello from the plugin");
   assert.equal(await (await fetch(`${url}/dashboard`, { headers: { cookie } })).text(), "Hello from the plugin");
+});
+
+test("an error page renders without composing the menu — it exists for when the shell's data is what failed", async (t) => {
+  // The chrome getter is lazy on purpose; a render that reads no chrome must not trigger it, or a
+  // broken menu takes the error pages down with it.
+  let built = 0;
+  const menu: MenuConfig = { branding: { get name() { built++; return "Plainpages"; } }, override: {} };
+  const app = createApp({ jwks: staticJwks([ecJwk]), menu });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const res = await fetch(`${url}/no-such-page`);
+  assert.equal(res.status, 404);
+  assert.match(await res.text(), /Page not found/);
+  assert.equal(built, 0);
 });

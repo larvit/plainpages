@@ -127,7 +127,7 @@ const messages: CoreMessages = {
   "pagination.go": "Visa",
   "pagination.label": "Sidnavigering",
   "pagination.next": "Nästa sida",
-  "pagination.of": "av",
+  "pagination.summary": "{{from}}–{{to}} av <b>{{total}}</b>",
   "pagination.previous": "Föregående sida",
   "pagination.rows": "Rader",
 

@@ -127,6 +127,11 @@ them. Revisit only if the stated reason stops holding.
   so a localized list page doesn't hand a plugin a phantom `locale` filter; the i18n view locals (`t`, `locale`, `locales`, `localeHref`,
   `localeParam`, `localeSwitch`, `dir`) are likewise reserved names, merged after a handler's `data`
   so a collision loses the key instead of breaking the shell.
+- **The language picker never appears on a POST-rendered page.** That URL frequently answers no GET
+  (`POST /admin/users/:id/recovery` renders a page and has no GET sibling), so a link there dead-ends
+  on a 405; on a re-rendered form it would also discard the visitor's input. `i18nLocals` returns an
+  empty `localeSwitch` for any non-GET/HEAD method, and the picker renders nothing below two choices.
+  Decided 2026-08-03 after a review reproduced the 405.
 - **A plugin-owned render always runs on that plugin's context.** The landing slots (`home`,
   `dashboard`) and an `onRequest` short-circuit dispatch a plugin's handler, so they build the
   context with `contextFor(pluginId)` exactly as a plugin route does — otherwise `ctx.t` is the core

@@ -88,6 +88,7 @@ test.describe.serial("authenticated admin journey", () => {
     const row = page.locator("tr", { hasText: `lang-${suffix}@plainpages.local` });
     const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
     await page.goto(`${editHref}`);
+    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(1); // control: it IS there on the GET
     await page.getByRole("button", { name: "Skapa återställningskod" }).click(); // POST-only route
     await expect(page.getByText("Återställningskod skapad")).toBeVisible();
     await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(0); // no dead-end link offered

@@ -3,7 +3,7 @@
   Page items are <a>, inert ones (current/ellipsis/disabled) aren't.
   Config (all optional; never throws):
     label?    nav aria-label (default "Pagination")
-    summary?  { from, to, total }                                        → "from–to of <b>total</b>"
+    summary?  { from, to, total }                                        → the pagination.summary message
     rows?     { name, value?, options, label?, submitLabel?, action?, hidden? }   rows-per-page form
                 options: (number | { value, label })[]; hidden: { name, value }[] carries list state
     prev?, next?  { href? }                                              page step; omit href ⇒ disabled
@@ -21,7 +21,7 @@
 -%>
 <footer class="pager">
 <% if (summary) { -%>
-  <span><%= summary.from %>–<%= summary.to %> <%= t("pagination.of") %> <b><%= summary.total %></b></span>
+  <span><%- t("pagination.summary", { from: summary.from, to: summary.to, total: summary.total }) %></span>
 <% } -%>
 <% if (rows) { -%>
   <form class="pager-rows" method="get"<% if (rows.action) { %> action="<%= localeHref(rows.action) %>"<% } %>>

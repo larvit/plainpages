@@ -141,7 +141,7 @@ const messages = {
   "pagination.go": "Go",
   "pagination.label": "Pagination",
   "pagination.next": "Next page",
-  "pagination.of": "of",
+  "pagination.summary": "{{from}}–{{to}} of <b>{{total}}</b>",
   "pagination.previous": "Previous page",
   "pagination.rows": "Rows",
 

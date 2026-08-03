@@ -14,7 +14,7 @@
 <%- include("partials/alert", { text: locals.error, tone: "neg" }) %>
 <% } -%>
 <% if (recovery) { -%>
-  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong><%= t("admin.users.recovery.title") %></strong><span><%- t("admin.users.recovery.body") %></span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
+  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong><%= t("admin.users.recovery.title") %></strong><span><%= t("admin.users.recovery.body") %> <a href="<%= localeHref("/recovery") %>"><%= t("admin.users.recovery.link") %></a></span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
 <% } -%>
   <form class="form-card" method="post" action="<%= localeHref(form.action) %>">
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">
