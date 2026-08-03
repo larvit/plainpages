@@ -34,7 +34,7 @@ jobs:
     runs-on: docker-host
     needs: renovate
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.4.0
         with:
           fetch-depth: 0
       - name: Tag a release for what Renovate merged

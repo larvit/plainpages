@@ -7,7 +7,7 @@ jobs:
   retag-image:
     runs-on: docker-host
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.4.0
       - name: Promote the commit-hash image to semver + latest
         env:
           GIT_TAG: ${{ github.ref_name }}
