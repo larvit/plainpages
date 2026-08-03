@@ -58,7 +58,7 @@ them. Revisit only if the stated reason stops holding.
   `server.ts`/`config.ts`/`logger.ts` and the topology-guard `*.test.ts` stay at the root. Tests
   are co-located (`foo.test.ts` beside `foo.ts`). Add a new module to the folder that owns its
   concern rather than to the root; don't reintroduce a flat tree. The core ships **no domain
-  screens** — even the admin GUI (users/groups/roles) is a drop-in plugin (`examples/plugins/admin/`),
+  screens** — even the admin GUI (users/groups/permissions) is a drop-in plugin (`examples/plugins/admin/`),
   not `src/` code.
 - **`ctx.chrome` is lazily memoized — do not make it unconditional** or move it into the
   base request context. It protects the I/O-free hot path on the public, bot-hit landing
@@ -120,14 +120,15 @@ docker compose -f compose.yml up --build -d              # production
    running **building plugins** comes first, then **configuring and securing** the system
    (Configuration, Auth); the **inner workings** (Architecture) and ops/runbooks are
    deliberately deferred — they're not top of mind when starting out. Concretely: Overview →
-   Users, groups & roles → Building plugins → menu/blocks/interactivity → Configuration → Auth →
-   Email → Architecture → Testing → Production → Observability → the JWT-rotation runbook → the
-   Project-layout file map → Extending. When adding a section, place it by this value (how
-   early an adopter needs it), not by where it sits in the stack.
+   Identities, groups & permissions → Building plugins → menu/blocks/interactivity →
+   Configuration → Auth → Email → Architecture → Testing → Production → Observability → the
+   JWT-rotation runbook → the Project-layout file map → Extending. When adding a section, place
+   it by this value (how early an adopter needs it), not by where it sits in the stack.
 
-   **Users, groups & roles precedes Building plugins** because a manifest's `role:` gate is
-   unreadable without the model, and operators need it as much as plugin authors. It is the one
-   home for that model — the plugin and auth sections link to it rather than restating it.
+   **Identities, groups & permissions precedes Building plugins** because a manifest's
+   `permission:` gate is unreadable without the model, and operators need it as much as plugin
+   authors. It is the one home for that model — the plugin and auth sections link to it rather
+   than restating it.
 
 When editing: put content in the section it belongs to (don't prepend rationale above Quick
 start); keep the ToC in sync when you add/rename/remove an `H2`/`H3`; and state each fact in

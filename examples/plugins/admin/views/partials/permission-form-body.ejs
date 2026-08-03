@@ -1,5 +1,5 @@
 <%#
-  Admin role create form body, captured into the shell content slot. Config:
+  Admin permission create form body, captured into the shell content slot. Config:
     form  { action, csrfToken, submitLabel, cancelHref, nameField: field.ejs config,
             memberOptions: {label,value}[], selectedMember }
     error?  string  shown when a write was rejected
@@ -16,7 +16,7 @@
     <div class="field">
       <label for="member">Assign to</label>
       <span class="select"><select id="member" name="member" required><option value="" disabled<% if (!form.selectedMember) { %> selected<% } %>>Choose a user or group…</option><% form.memberOptions.forEach((o) => { %><option value="<%= o.value %>"<% if (form.selectedMember === o.value) { %> selected<% } %>><%= o.label %></option><% }) %></select></span>
-      <span class="field-hint">A role exists once assigned; add more users or groups after creating it.</span>
+      <span class="field-hint">A permission exists once assigned; add more users or groups after creating it.</span>
     </div>
     <div class="form-actions">
       <a class="btn" href="<%= form.cancelHref %>">Cancel</a>

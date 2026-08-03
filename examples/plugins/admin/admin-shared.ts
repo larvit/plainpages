@@ -5,36 +5,36 @@
 
 import { can, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type SessionIdentity } from "#plugin-api";
 
-export const ADMIN_ROLE = "admin"; // the role gating the whole admin section
+export const ADMIN_PERMISSION = "admin"; // the permission gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
-export const ADMIN_ROLES_BASE = "/admin/roles";
+export const ADMIN_PERMISSIONS_BASE = "/admin/permissions";
 export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
-export type AdminScreen = "clients" | "groups" | "roles" | "users";
+export type AdminScreen = "clients" | "groups" | "permissions" | "users";
 
 // The plugin's nav fragment: the gated "Admin" header + its four screens. The host composes it into
-// the one global menu, filters per user (the header's `role` drops the whole subtree for a
+// the one global menu, filters per user (the header's `permission` drops the whole subtree for a
 // non-admin), and current-marks the active item — so there is no `current`/`open` state here.
 export const ADMIN_NAV: NavNode = {
   children: [
     { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "Users" },
     { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "Groups" },
-    { href: ADMIN_ROLES_BASE, icon: "i-shield", id: "roles", label: "Roles" },
+    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "Permissions" },
     { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "OAuth2 clients" },
   ],
   icon: "i-shield",
   id: "admin",
   label: "Admin",
-  role: ADMIN_ROLE,
+  permission: ADMIN_PERMISSION,
 };
 
-// The admin gate: a signed-in admin only. Each route already declares `role: "admin"`, so the
+// The admin gate: a signed-in admin only. Each route already declares `permission: "admin"`, so the
 // host enforces this before the handler runs; this is defence-in-depth and what a direct unit test
 // relies on. Returns the (non-null) user for the handler to thread on. GuardError → /login or 403.
 export function requireAdmin(ctx: RequestContext): SessionIdentity {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
-  if (!can(ctx, ADMIN_ROLE)) throw new GuardError(403, "admin role required");
+  if (!can(ctx, ADMIN_PERMISSION)) throw new GuardError(403, "admin permission required");
   return user;
 }
 

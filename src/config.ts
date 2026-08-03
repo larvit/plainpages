@@ -31,7 +31,7 @@ export interface Config {
   otlpEndpoint: string | undefined; // OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
   otlpProtocol: "http/json" | "http/protobuf"; // OTLP wire format (protobuf for json-averse collectors)
   port: number;
-  revocationDenylist: boolean; // enable the optional instant role/session revoke denylist
+  revocationDenylist: boolean; // enable the optional instant permission/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
   serviceName: string; // OTLP service.name — an implementer brands their own logs/traces
@@ -157,7 +157,7 @@ export function loadConfig(env: Env = process.env): Config {
     otlpEndpoint: readOptionalUrl(env, "OTLP_ENDPOINT"),
     otlpProtocol: readEnum(env, "OTLP_PROTOCOL", ["http/json", "http/protobuf"] as const, "http/json"),
     port: readPort(env),
-    // Optional instant-revoke, off by default. When on, an admin deactivate/delete or role
+    // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m
     // tokenizer TTL + skew, so it outlasts any pre-revoke token).
     revocationDenylist: readBool(env, "REVOCATION_DENYLIST", false),

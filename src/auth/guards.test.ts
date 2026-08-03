@@ -12,7 +12,7 @@ function ctxFor(user: SessionIdentity | null, url = "/"): RequestContext {
   return buildContext(req, new ServerResponse(req), { identity: user });
 }
 
-const alice: SessionIdentity = { email: "a@b.c", id: "u1", roles: ["admin", "scheduling:read"] };
+const alice: SessionIdentity = { email: "a@b.c", id: "u1", permissions: ["admin", "scheduling:read"] };
 
 test("requireSession returns the user, or throws GuardError(401)→/login (preserving return_to) when anonymous", () => {
   assert.equal(requireSession(ctxFor(alice)), alice);
@@ -30,7 +30,7 @@ test("requireSession returns the user, or throws GuardError(401)→/login (prese
     err instanceof GuardError && err.location === "/login?return_to=%2Fscheduling%2Fshifts%3Fq%3D1");
 });
 
-test("can reads a coarse role from the JWT claims; anonymous has none", () => {
+test("can reads a coarse permission from the JWT claims; anonymous has none", () => {
   assert.equal(can(ctxFor(alice), "admin"), true);
   assert.equal(can(ctxFor(alice), "billing:write"), false);
   assert.equal(can(ctxFor(null), "admin"), false);

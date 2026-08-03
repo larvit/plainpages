@@ -8,11 +8,11 @@ import { createLogger, type Log } from "../logger.ts";
 // middleware supplies `identity` (null until then). The host's single handler argument.
 
 // The authenticated Kratos identity, projected from verified session JWT claims:
-// `id` = `sub`, plus `email` and the coarse `roles` carried in the token.
+// `id` = `sub`, plus `email` and the coarse `permissions` carried in the token.
 export interface SessionIdentity {
   email: string;
   id: string;
-  roles: string[];
+  permissions: string[];
 }
 
 export interface RequestContext {
@@ -29,7 +29,7 @@ export interface RequestContext {
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
   req: IncomingMessage;
   res: ServerResponse;
-  roles: string[]; // identity?.roles ?? [] — coarse gate without a null-check
+  permissions: string[]; // identity?.permissions ?? [] — coarse gate without a null-check
   // Privileged host services (Ory admin clients + instant-revoke) for a system plugin. Undefined
   // unless the host wired them; every field optional. Ordinary domain plugins ignore it.
   system?: SystemCapabilities;
@@ -74,7 +74,7 @@ export function buildContext(
     query: url.searchParams,
     req,
     res,
-    roles: identity?.roles ?? [],
+    permissions: identity?.permissions ?? [],
     ...(options.system ? { system: options.system } : {}),
     url,
     verifyCsrf: options.verifyCsrf ?? (() => false), // fail-closed unless the host binds the secret

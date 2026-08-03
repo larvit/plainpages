@@ -22,10 +22,10 @@ const rsaJwk = rsa.publicKey.export({ format: "jwk" }) as JsonWebKey;
 const ecJwk = ec.publicKey.export({ format: "jwk" }) as JsonWebKey;
 
 test("verifies an RS256 token, returning the decoded header + payload", () => {
-  const token = makeJws("RS256", rsa.privateKey, { roles: ["admin"], sub: "u" });
+  const token = makeJws("RS256", rsa.privateKey, { permissions: ["admin"], sub: "u" });
   const verified = verifyJws(token, rsaJwk);
   assert.equal(verified.header.alg, "RS256");
-  assert.deepEqual(verified.payload, { roles: ["admin"], sub: "u" });
+  assert.deepEqual(verified.payload, { permissions: ["admin"], sub: "u" });
 });
 
 test("verifies an ES256 token (raw r‖s signature)", () => {
@@ -35,10 +35,10 @@ test("verifies an ES256 token (raw r‖s signature)", () => {
 
 // All three reach and fail the signature check itself, not an earlier structural guard.
 test("rejects a signature that fails verification (tampered payload, wrong key, empty)", () => {
-  const token = makeJws("RS256", rsa.privateKey, { roles: ["user"], sub: "u" });
+  const token = makeJws("RS256", rsa.privateKey, { permissions: ["user"], sub: "u" });
   const [header, payload, signature] = token.split(".");
 
-  const forged = `${header}.${b64url(JSON.stringify({ roles: ["admin"], sub: "u" }))}.${signature}`;
+  const forged = `${header}.${b64url(JSON.stringify({ permissions: ["admin"], sub: "u" }))}.${signature}`;
   assert.throws(() => verifyJws(forged, rsaJwk), /invalid signature/);
 
   const otherJwk = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ format: "jwk" }) as JsonWebKey;

@@ -2,7 +2,7 @@
 // /oauth2/consent?consent_challenge=… (hydra.yml urls.consent). A first-party client (or one
 // Hydra already skipped) is auto-granted the requested scopes; a third-party client shows the
 // themed consent screen, then accept (allow) / reject (deny). id_token claims (email/name) come
-// from the Kratos identity. OAuth2-provider role only — no first-party page needs this (README).
+// from the Kratos identity. OAuth2-provider permission only — no first-party page needs this (README).
 import type { AcceptConsent, ConsentRequest, HydraAdmin, OAuth2Client } from "./hydra-admin.ts";
 import type { KratosPublic } from "./kratos-public.ts";
 

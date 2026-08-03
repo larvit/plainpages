@@ -2,8 +2,8 @@
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   3. grant it its roles in Keto so menu/role checks resolve out of the box — `admin` plus
-//      every discovered plugin's declared role names, so a dropped-in plugin is usable by
+//   3. grant it its permissions in Keto so menu/permission checks resolve out of the box — `admin` plus
+//      every discovered plugin's declared permission names, so a dropped-in plugin is usable by
 //      the demo admin with no host config edit (the host stays plugin-agnostic).
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
@@ -22,19 +22,19 @@ export function identityPayload(email: string, password: string) {
   };
 }
 
-// Coarse-role grant: `Role:<role>#members@identity:<id>`. Subject ids are `identity:<kratos-id>`
-// (namespaces.keto.ts) — the source of truth the login flow projects into the JWT roles.
-export function roleTuple(identityId: string, role: string) {
-  return { namespace: "Role", object: role, relation: "members", subject_id: `identity:${identityId}` };
+// Coarse-permission grant: `Permission:<permission>#members@identity:<id>`. Subject ids are `identity:<kratos-id>`
+// (namespaces.keto.ts) — the source of truth the login flow projects into the JWT permissions.
+export function permissionTuple(identityId: string, permission: string) {
+  return { namespace: "Permission", object: permission, relation: "granted", subject_id: `identity:${identityId}` };
 }
 
-// The roles to grant the demo admin = the configured base (ADMIN_ROLES, default just `admin`)
-// unioned with every discovered plugin's declared role names (a route/nav `role` is a
-// coarse role — granted as a Keto `Role:<token>#members` tuple). So the host names no plugin, yet a
+// The permissions to grant the demo admin = the configured base (ADMIN_PERMISSIONS, default just `admin`)
+// unioned with every discovered plugin's declared permission names (a route/nav `permission` is a
+// coarse permission — granted as a Keto `Permission:<token>#members` tuple). So the host names no plugin, yet a
 // dropped-in plugin's tokens are seeded out of the box. Deduped, order-stable, blanks dropped.
-export function seedRoles(adminRolesEnv: string | undefined, declaredRoles: string[]): string[] {
+export function seedPermissions(adminRolesEnv: string | undefined, declaredPermissions: string[]): string[] {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
-  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredRoles)])];
+  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredPermissions)])];
 }
 
 // --- JWKS safety net -----------------------------------------------------------------
@@ -63,13 +63,13 @@ export interface SeedOptions {
   ketoWriteUrl: string;
   kratosAdminUrl: string;
   password: string;
-  roles: string[];
+  permissions: string[];
 }
 
 export interface SeedResult {
   created: boolean;
   id: string;
-  roles: string[];
+  permissions: string[];
 }
 
 export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
@@ -93,17 +93,17 @@ export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
     throw new Error(`bootstrap: Kratos create identity failed (${res.status}): ${await res.text()}`);
   }
 
-  // Grant each role in Keto. PUT is idempotent — re-running just re-asserts the tuple.
-  for (const role of opts.roles) {
+  // Grant each permission in Keto. PUT is idempotent — re-running just re-asserts the tuple.
+  for (const permission of opts.permissions) {
     const grant = await http(`${opts.ketoWriteUrl}/admin/relation-tuples`, {
-      body: JSON.stringify(roleTuple(id, role)),
+      body: JSON.stringify(permissionTuple(id, permission)),
       headers: { "content-type": "application/json" },
       method: "PUT",
     });
-    if (!grant.ok) throw new Error(`bootstrap: Keto grant role "${role}" failed (${grant.status}): ${await grant.text()}`);
+    if (!grant.ok) throw new Error(`bootstrap: Keto grant permission "${permission}" failed (${grant.status}): ${await grant.text()}`);
   }
 
-  return { created, id, roles: opts.roles };
+  return { created, id, permissions: opts.permissions };
 }
 
 async function findIdentityId(http: typeof fetch, adminUrl: string, email: string): Promise<string> {
@@ -143,10 +143,10 @@ async function main() {
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
 
-    // Seed `admin` (or ADMIN_ROLES) + every discovered plugin's declared role names, so the
+    // Seed `admin` (or ADMIN_PERMISSIONS) + every discovered plugin's declared permission names, so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-    const declared = (await discoverPlugins()).flatMap((p) => (p.roles ?? []).map((d) => d.name));
-    const roles = seedRoles(env["ADMIN_ROLES"], declared);
+    const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.name));
+    const permissions = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
     const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
     const password = env["ADMIN_PASSWORD"] ?? "admin";
     const result = await seedAdmin({
@@ -155,9 +155,9 @@ async function main() {
       ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
       kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
       password,
-      roles,
+      permissions,
     });
-    log.info("admin seeded", { created: result.created, id: result.id, roles: result.roles.join(", ") });
+    log.info("admin seeded", { created: result.created, id: result.id, permissions: result.permissions.join(", ") });
     // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
     console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
   });

@@ -9,21 +9,21 @@
 import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "#plugin-api";
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsRemoveMember } from "./admin-groups.ts";
-import { rolesAddMember, rolesCreate, rolesDelete, rolesDeleteConfirm, rolesDetail, rolesList, rolesNewForm, rolesRemoveMember } from "./admin-roles.ts";
+import { rolesAddMember, rolesCreate, rolesDelete, rolesDeleteConfirm, rolesDetail, rolesList, rolesNewForm, rolesRemoveMember } from "./admin-permissions.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
-import { ADMIN_NAV, ADMIN_ROLE } from "./admin-shared.ts";
+import { ADMIN_NAV, ADMIN_PERMISSION } from "./admin-shared.ts";
 
-// Every admin route is gated by the one `admin` role — the host redirects an anonymous visitor
+// Every admin route is gated by the one `admin` permission — the host redirects an anonymous visitor
 // to /login, gives a signed-in non-admin the 403 page, and filters the nav the same way. Handlers are
 // thin and keyed on ctx.params (the host extracts :id / :name), the idiomatic per-route style.
-const r = (method: HttpMethod, path: string, handler: RouteHandler): Route => ({ handler, method, path, role: ADMIN_ROLE });
+const r = (method: HttpMethod, path: string, handler: RouteHandler): Route => ({ handler, method, path, permission: ADMIN_PERMISSION });
 
 export default definePlugin({
   apiVersion: "1.0.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 
-  roles: [{ description: "Administer users, groups, roles, and OAuth2 clients", name: ADMIN_ROLE }],
+  permissions: [{ description: "Administer users, groups, permissions, and OAuth2 clients", name: ADMIN_PERMISSION }],
 
   routes: [
     // Users
@@ -46,14 +46,14 @@ export default definePlugin({
     r("POST", "/groups/:name/delete", groupsDelete),
     r("POST", "/groups/:name/members/delete", groupsRemoveMember),
     // Roles
-    r("GET", "/roles", rolesList),
-    r("POST", "/roles", rolesCreate),
-    r("GET", "/roles/new", rolesNewForm),
-    r("GET", "/roles/:name", rolesDetail),
-    r("POST", "/roles/:name/members", rolesAddMember),
-    r("GET", "/roles/:name/delete", rolesDeleteConfirm),
-    r("POST", "/roles/:name/delete", rolesDelete),
-    r("POST", "/roles/:name/members/delete", rolesRemoveMember),
+    r("GET", "/permissions", rolesList),
+    r("POST", "/permissions", rolesCreate),
+    r("GET", "/permissions/new", rolesNewForm),
+    r("GET", "/permissions/:name", rolesDetail),
+    r("POST", "/permissions/:name/members", rolesAddMember),
+    r("GET", "/permissions/:name/delete", rolesDeleteConfirm),
+    r("POST", "/permissions/:name/delete", rolesDelete),
+    r("POST", "/permissions/:name/members/delete", rolesRemoveMember),
     // OAuth2 clients
     r("GET", "/clients", clientsList),
     r("POST", "/clients", clientsCreate),

@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 const WEB = process.env.BASE_URL ?? "http://web:3000";
 const KRATOS = process.env.KRATOS_PUBLIC_URL ?? "http://kratos:4433";
 const KRATOS_ADMIN = process.env.KRATOS_ADMIN_URL ?? "http://kratos:4434";
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap; admin role granted in Keto
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap; admin permission granted in Keto
 const ADMIN_PASSWORD = "admin";
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -29,8 +29,8 @@ function relayCookies(res: Response): string {
     .filter((kv) => kv.split("=")[1] !== "")
     .join("; ");
 }
-// Read a JWT's claims without verifying (web already verified it; we only inspect exp/roles).
-function jwtClaims(jwt: string): { email: string; exp: number; roles: string[]; sub: string } {
+// Read a JWT's claims without verifying (web already verified it; we only inspect exp/permissions).
+function jwtClaims(jwt: string): { email: string; exp: number; permissions: string[]; sub: string } {
   return JSON.parse(Buffer.from(jwt.split(".")[1]!, "base64url").toString());
 }
 
@@ -72,7 +72,7 @@ async function awaitJwtSetCookie(session: string, jwt: string): Promise<string> 
 test("an expired session JWT is silently re-minted while Kratos lives, then cleared once it dies", async () => {
   test.setTimeout(90_000); // two short-TTL windows (8s each) + Ory round-trips
 
-  // 1. Log in for real, then complete login on web → our session JWT (roles read from Keto).
+  // 1. Log in for real, then complete login on web → our session JWT (permissions read from Keto).
   const session = await kratosLogin();
   const complete = await fetch(`${WEB}/auth/complete`, { headers: { cookie: `plainpages_session=${session}` }, redirect: "manual" });
   expect(complete.status, "auth/complete redirects home").toBe(303);
@@ -83,7 +83,7 @@ test("an expired session JWT is silently re-minted while Kratos lives, then clea
   const claims1 = jwtClaims(jwt1);
   expect(claims1.email).toBe(ADMIN_EMAIL);
   expect(claims1.sub, "sub is the Kratos identity id").toBeTruthy();
-  expect(claims1.roles, "roles are projected from Keto").toContain("admin");
+  expect(claims1.permissions, "permissions are projected from Keto").toContain("admin");
 
   // 2. Token timeout → refresh: once the 8s TTL lapses, the next request re-mints a fresh JWT.
   const jwt2Line = await awaitJwtSetCookie(session, jwt1);
@@ -91,7 +91,7 @@ test("an expired session JWT is silently re-minted while Kratos lives, then clea
   expect(jwt2, "a different token was minted").not.toBe(jwt1);
   const claims2 = jwtClaims(jwt2);
   expect(claims2.exp, "the new token expires later").toBeGreaterThan(claims1.exp);
-  expect(claims2.roles, "re-mint re-reads roles from Keto").toContain("admin");
+  expect(claims2.permissions, "re-mint re-reads permissions from Keto").toContain("admin");
 
   // 3. Kill the Kratos session: now the lapsed token cannot refresh — the cookie is cleared.
   const revoke = await fetch(`${KRATOS_ADMIN}/admin/identities/${claims1.sub}/sessions`, { method: "DELETE" });

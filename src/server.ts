@@ -31,7 +31,7 @@ const hydra = createHydraAdmin({ baseUrl: config.hydraAdminUrl, fetchImpl: oryFe
 // or fetched http), then served from cache with TTL refresh + rotation-on-miss.
 const jwks = await createJwksProvider(config.jwksUrl, { fetchImpl: oryFetch }); // bound an http JWKS fetch too
 // Optional instant-revoke, off unless REVOCATION_DENYLIST=true: an in-memory denylist the
-// hot path consults and the admin screens populate on deactivate/delete/role-change.
+// hot path consults and the admin screens populate on deactivate/delete/permission-change.
 const denylist = config.revocationDenylist ? createDenylist({ ttlSec: config.revocationTtlSec }) : undefined;
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin

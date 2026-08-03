@@ -18,8 +18,8 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
       { label: "Docs", href: "/docs" },              // link
       { sep: true },
       { label: "Sign out", icon: "i-logout", danger: true },
-      { group: { legend: "Role", name: "role", control: "radio", options: [
-        { value: "", label: "Any role", checked: true },
+      { group: { legend: "Permission", name: "permission", control: "radio", options: [
+        { value: "", label: "Any permission", checked: true },
         { value: "admin", label: "Admin" },
       ] } },
       { group: { name: "col", options: [{ value: "name", label: "Name", checked: true }] } }, // checkbox default, no legend
@@ -38,7 +38,7 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
   assert.match(html, /<button class="menu-item danger" type="button"><svg class="ico"><use href="#i-logout"\s*\/?><\/svg>Sign out<\/button>/);
 
   // Check group: radios reflect `checked`; legend optional; control defaults to checkbox.
-  assert.match(html, /<fieldset class="menu-field"><legend class="menu-head">Role<\/legend><label class="menu-check"><input type="radio" name="role" value="" checked>Any role<\/label><label class="menu-check"><input type="radio" name="role" value="admin">Admin<\/label><\/fieldset>/);
+  assert.match(html, /<fieldset class="menu-field"><legend class="menu-head">Permission<\/legend><label class="menu-check"><input type="radio" name="permission" value="" checked>Any permission<\/label><label class="menu-check"><input type="radio" name="permission" value="admin">Admin<\/label><\/fieldset>/);
   assert.match(html, /<fieldset class="menu-field"><label class="menu-check"><input type="checkbox" name="col" value="name" checked>Name<\/label><\/fieldset>/);
 });
 

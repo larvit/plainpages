@@ -9,13 +9,13 @@ const scheduling: Plugin = {
   apiVersion: "1.0.0",
   id: "scheduling",
   nav: [{
-    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", role: "scheduling:read" }],
+    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
     icon: "i-cal", id: "scheduling", label: "Scheduling",
   }],
 };
 // A plugin with a public nav node (reachable by anyone, signed in or not).
 const portal: Plugin = { apiVersion: "1.0.0", id: "portal", nav: [{ href: "/portal", id: "portal", label: "Portal", public: true }] };
-// A gated section fragment like the admin plugin's nav: the header carries the role, so
+// A gated section fragment like the admin plugin's nav: the header carries the permission, so
 // composeNav drops the whole subtree for a non-holder (the admin screens ship as a drop-in plugin).
 const adminLike: Plugin = {
   apiVersion: "1.0.0", id: "admin",
@@ -24,7 +24,7 @@ const adminLike: Plugin = {
       { href: "/admin/users", id: "users", label: "Users" },
       { href: "/admin/groups", id: "groups", label: "Groups" },
     ],
-    icon: "i-shield", id: "admin", label: "Admin", role: "admin",
+    icon: "i-shield", id: "admin", label: "Admin", permission: "admin",
   }],
 };
 
@@ -45,10 +45,10 @@ test("anonymous shell Sign-in link carries the current page as return_to", () =>
   assert.equal(buildPluginChrome({ currentPath: "/portal", menu: DEFAULT_MENU }).signInHref, "/login?return_to=%2Fportal");
 });
 
-test("a role holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
+test("a permission holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
   const chrome = buildPluginChrome({
     currentPath: "/scheduling/shifts", menu: DEFAULT_MENU, plugins: [scheduling],
-    identity: { email: "ada@x.io", id: "u1", roles: ["scheduling:read"] },
+    identity: { email: "ada@x.io", id: "u1", permissions: ["scheduling:read"] },
   });
   assert.deepEqual(labels(chrome.nav), ["Dashboard", "Scheduling"]); // Dashboard shown to a signed-in user
   const section = chrome.nav.find((n) => n.label === "Scheduling")!;
@@ -58,7 +58,7 @@ test("a role holder sees the Dashboard link + plugin nav; current path opens the
 });
 
 test("a gated section (like the admin plugin) shows to a holder; a sub-path marks its base leaf current", () => {
-  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], identity: { email: "a@b.c", id: "u1", roles: ["admin"] } });
+  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], identity: { email: "a@b.c", id: "u1", permissions: ["admin"] } });
   const admin = chrome.nav.find((n) => n.label === "Admin")!;
   assert.ok(admin); // gated section visible to an admin
   assert.equal(admin.open, true); // ancestor of the current leaf opened

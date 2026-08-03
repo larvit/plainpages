@@ -13,7 +13,7 @@ export interface SubjectSet {
 }
 
 // A relationship tuple — the wire shape for writes and the filter shape for reads. Subject
-// is `subject_id` xor `subject_set` (never both). Mirrors bootstrap.ts's roleTuple.
+// is `subject_id` xor `subject_set` (never both). Mirrors bootstrap.ts's permissionTuple.
 export interface RelationTuple {
   namespace: string;
   object: string;

@@ -18,7 +18,7 @@ const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashbo
 export interface PageChrome {
   brand: { logo?: string; name: string; sub?: string };
   csrfToken: string; // double-submit token for the shell's Sign-out form + a plugin's own forms
-  nav: NavNode[]; // global menu, composed + role-filtered + current-marked, ready for nav-tree.ejs
+  nav: NavNode[]; // global menu, composed + permission-filtered + current-marked, ready for nav-tree.ejs
   signInHref: string; // where the shell's anonymous "Sign in" link points — carries this page as return_to
   theme?: string;
   user: ShellUser;
@@ -39,8 +39,8 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   const fragments: NavNode[][] = opts.identity ? [[DASHBOARD_NAV]] : [];
   for (const p of opts.plugins ?? []) if (p.nav?.length) fragments.push(p.nav);
 
-  const roles = opts.identity?.roles ?? [];
-  const nav = composeNav(fragments, opts.menu.override, roles);
+  const permissions = opts.identity?.permissions ?? [];
+  const nav = composeNav(fragments, opts.menu.override, permissions);
   if (opts.currentPath) {
     // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
     // /admin/users/new marks the Users base leaf (/admin/users) and the dashboard marks Dashboard.

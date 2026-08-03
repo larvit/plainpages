@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 // journey and the standalone SSO test run in parallel (fullyParallel) but stay independent: each
 // uses its own browser context, and only the SSO test writes the mock-OIDC identity — keep it so
 // (no cross-group shared backend writes) or serialise the file if that ever changes.
-const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap, holds the admin role in Keto
+const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap, holds the admin permission in Keto
 const ADMIN_PASSWORD = "admin";
 const SSO_EMAIL = "sso-user@plainpages.local"; // minted by the mock OIDC provider on first SSO login
 const suffix = randomUUID().slice(0, 8); // unique per run so re-runs don't collide on names
@@ -36,7 +36,7 @@ test.describe.serial("authenticated admin journey", () => {
   });
   test.afterAll(async () => { await page.context().close(); });
 
-  test("menu filters by role: an admin sees the gated Admin section + the plugin", async () => {
+  test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {
     // The signed-in admin holds admin + scheduling:read/write, so both gated sections are present
     // in the menu (collapsed by default → assert they're in the DOM, not necessarily visible).
     await page.goto("/dashboard");
@@ -65,7 +65,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 
-  test("groups + roles CRUD: create one of each (writes go to Keto) and see them listed", async () => {
+  test("groups + permissions CRUD: create one of each (writes go to Keto) and see them listed", async () => {
     // A Keto set exists only while it has ≥1 member, so create needs a first member (the form
     // enforces it); pick the first option (a user) from the required picker.
     const group = `e2e-grp-${suffix}`;
@@ -76,13 +76,13 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page).toHaveURL(/\/admin\/groups(\?|\/|$)/);
     await expect(page.locator("main")).toContainText(group);
 
-    const role = `e2e-role-${suffix}`;
-    await page.goto("/admin/roles/new");
-    await page.fill('input[name="name"]', role);
+    const permission = `e2e-permission-${suffix}`;
+    await page.goto("/admin/permissions/new");
+    await page.fill('input[name="name"]', permission);
     await page.locator('select[name="member"]').selectOption({ index: 1 });
     await page.locator('.form-card button[type="submit"]').click();
-    await expect(page).toHaveURL(/\/admin\/roles(\?|\/|$)/);
-    await expect(page.locator("main")).toContainText(role);
+    await expect(page).toHaveURL(/\/admin\/permissions(\?|\/|$)/);
+    await expect(page.locator("main")).toContainText(permission);
   });
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {
@@ -153,6 +153,6 @@ test("mocked SSO login: the provider button signs a user in via OIDC", async ({ 
   await page.locator(".sso-btn").click();
   // Mock OIDC auto-approves → Kratos creates the identity → /auth/complete → dashboard, signed in.
   await expect(page.locator(".profile-mail")).toHaveText(SSO_EMAIL);
-  // A fresh SSO identity holds no roles, so the gated Admin section stays hidden.
+  // A fresh SSO identity holds no permissions, so the gated Admin section stays hidden.
   await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(0);
 });

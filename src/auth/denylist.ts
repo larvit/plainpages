@@ -1,12 +1,12 @@
-// Optional revocation denylist: instant role/session revoke without putting Keto
+// Optional revocation denylist: instant permission/session revoke without putting Keto
 // back on the hot path. Off by default — enable with REVOCATION_DENYLIST=true.
 //
-// The hot path verifies a short-lived (~10m) session JWT in-process, so a revoked role or a
+// The hot path verifies a short-lived (~10m) session JWT in-process, so a revoked permission or a
 // killed session only takes effect when the token is next minted (re-login / TTL refresh) —
 // up to one token TTL of lag. For security-critical revoke (offboarding, a compromised
 // account) that lag is too long. An admin action records the subject as revoked-now and the
 // hot path then rejects that subject's pre-revoke tokens at once, forcing a re-mint (which
-// re-reads roles from Keto, or clears a now-dead session).
+// re-reads permissions from Keto, or clears a now-dead session).
 //
 // Cost & scope: an in-memory, auto-evicting Map — no database, like the JWKS cache, so it
 // stays inside the stateless model. A token carries `iat`, so a *fresh* re-login (iat after

@@ -1,6 +1,6 @@
 // Kratos admin-API client: typed `fetch` wrappers over Ory Kratos' admin endpoints
 // (internal-only admin port) — identity CRUD + the surgical `metadata_public` update login
-// completion projects Keto roles into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
+// completion projects Keto permissions into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable, reuses kratos-public.ts's `KratosError` (branch on `.status`).
 import { KratosError } from "./kratos-public.ts";
 
@@ -106,7 +106,7 @@ export function createKratosAdmin(config: { baseUrl: string; fetchImpl?: typeof 
     },
 
     // JSON Patch `add` sets metadata_public whether it's currently absent, null, or set, and
-    // touches nothing else — so the login role projection never clobbers traits/state.
+    // touches nothing else — so the login permission projection never clobbers traits/state.
     // (metadata_public, not _admin: the session the tokenizer sees carries only public metadata.)
     async updateMetadataPublic(id, metadata) {
       const patch = [{ op: "add", path: "/metadata_public", value: metadata }];

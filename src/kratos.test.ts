@@ -52,7 +52,7 @@ test("self-service flows return to our themed pages (on the localhost dev host)"
 
 test("after a successful login Kratos returns to our /auth/complete route to mint the JWT", () => {
   assert.match(kratosYml, /default_browser_return_url:\s*http:\/\/localhost:3000\/auth\/complete/,
-    "login completion (read roles → project → tokenize → set cookie) runs at /auth/complete");
+    "login completion (read permissions → project → tokenize → set cookie) runs at /auth/complete");
 });
 
 test("recovery + verification run on email code, delivered by a courier", () => {
@@ -79,12 +79,12 @@ test("session tokenizer template 'plainpages' mints a short-lived signed JWT", (
     "claims via the committed mapper");
 });
 
-test("the tokenizer claims mapper emits email + roles from the metadata_public projection", () => {
+test("the tokenizer claims mapper emits email + permissions from the metadata_public projection", () => {
   // metadata_public, not _admin: the session Kratos hands the tokenizer carries only public
-  // metadata (admin metadata is stripped), so the roles projection must live in metadata_public.
+  // metadata (admin metadata is stripped), so the permissions projection must live in metadata_public.
   const mapper = read("ory/kratos/tokenizer/plainpages.jsonnet");
   assert.match(mapper, /email:\s*session\.identity\.traits\.email/, "email ← identity trait");
-  assert.match(mapper, /metadata_public/, "roles ← metadata_public (the per-login Keto projection)");
+  assert.match(mapper, /metadata_public/, "permissions ← metadata_public (the per-login Keto projection)");
 });
 
 test("social sign-in is off by default — a clean clone stays password-only", () => {

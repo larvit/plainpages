@@ -2,7 +2,7 @@
 // the hot path that never calls Ory. Select the verify key by `kid` from the cached JWKS,
 // check the signature (src/auth/jwt.ts), validate the time/issuer/audience claims, project the
 // User onto the request context. `authenticate` fails closed: any bad/expired token ⇒ null
-// (anonymous), so the route renders signed-out and the role gate denies.
+// (anonymous), so the route renders signed-out and the permission gate denies.
 import type { SessionIdentity } from "../http/context.ts";
 import { parseCookies } from "../http/cookie.ts";
 import type { Denylist } from "./denylist.ts";
@@ -59,15 +59,15 @@ export function validateClaims(payload: Record<string, unknown>, options: Verify
 }
 
 // Map verified claims → the request User. sub/email are required and non-empty (the tokenizer
-// always sets them; an empty email would read as anonymous in the shell); roles defaults to [] and
+// always sets them; an empty email would read as anonymous in the shell); permissions defaults to [] and
 // keeps only string entries (defensive).
 export function claimsToIdentity(payload: Record<string, unknown>): SessionIdentity {
   const sub = payload["sub"];
   if (typeof sub !== "string" || sub === "") throw new TokenError("token missing sub");
   const email = payload["email"];
   if (typeof email !== "string" || email === "") throw new TokenError("token missing email");
-  const roles = payload["roles"];
-  return { email, id: sub, roles: Array.isArray(roles) ? roles.filter((r): r is string => typeof r === "string") : [] };
+  const permissions = payload["permissions"];
+  return { email, id: sub, permissions: Array.isArray(permissions) ? permissions.filter((r): r is string => typeof r === "string") : [] };
 }
 
 // Verify a session JWT end-to-end: select the key by `kid`, check the signature, validate
@@ -80,7 +80,7 @@ export async function verifyToken(token: string, jwks: JwksProvider, options: Ve
   validateClaims(verified.payload, options);
   const user = claimsToIdentity(verified.payload);
   // Instant revoke: a denylisted subject's pre-revoke token is rejected as *expired* so
-  // resolveSession routes it through the re-mint (fresh roles from Keto, or a cleared session).
+  // resolveSession routes it through the re-mint (fresh permissions from Keto, or a cleared session).
   if (options.denylist?.isRevoked(user.id, num(verified.payload, "iat"))) throw new TokenError("token revoked", true);
   return user;
 }

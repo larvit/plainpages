@@ -1,6 +1,6 @@
 // Guards the Ory Keto config: migrations run before the server (keto-migrate →
 // keto), the DSN targets the keto database, read/write APIs serve on the ports config.ts
-// points at, and the OPL declares the identity/role/group/resource namespaces. Version pinning is
+// points at, and the OPL declares the identity/permission/group/resource namespaces. Version pinning is
 // in compose.test.ts. Real boot is verified by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -35,12 +35,12 @@ test("keto loads the OPL namespaces from the mounted file", () => {
     "namespaces come from the committed OPL");
 });
 
-test("the OPL declares role, group and a resource namespace over identity subjects", () => {
-  for (const ns of ["Identity", "Group", "Role", "Resource"])
+test("the OPL declares permission, group and a resource namespace over identity subjects", () => {
+  for (const ns of ["Identity", "Group", "Permission", "Resource"])
     assert.match(opl, new RegExp(`class ${ns} implements Namespace`), `defines ${ns}`);
-  // role + group are subject sets read at login → JWT roles claim (README).
-  assert.match(opl, /class Role implements Namespace\s*{\s*related:\s*{\s*members:/,
-    "Role has a members relation");
+  // permission + group are subject sets read at login → JWT permissions claim (README).
+  assert.match(opl, /class Permission implements Namespace\s*{\s*related:\s*{\s*granted:/,
+    "Permission has a granted relation");
   assert.match(opl, /class Group implements Namespace\s*{\s*related:\s*{\s*members:/,
     "Group has a members relation");
 });

@@ -50,8 +50,8 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
   { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
-  { name: "a route marked public AND role is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, role: "x", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*role/s },
-  { name: "a nav node marked public AND role is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, role: "x" }] };` }, match: /contranav.*public.*role/s },
+  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
+  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x" }] };` }, match: /contranav.*public.*permission/s },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
@@ -85,12 +85,12 @@ test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) 
   assert.equal(typeof plugins[0]?.dashboard, "function");
 });
 
-test("a shared role name only warns — both plugins still load", async (t) => {
-  const shared = `export default { apiVersion: "1.0.0", roles: [{ name: "shared:read" }] };`;
+test("a shared permission name only warns — both plugins still load", async (t) => {
+  const shared = `export default { apiVersion: "1.0.0", permissions: [{ name: "shared:read" }] };`;
   const dir = scaffold(t, { "x/plugin.ts": shared, "y/plugin.ts": shared });
   const warnings: string[] = [];
   const plugins = await discoverPlugins({ dir, logger: { warn: (m) => warnings.push(String(m)) } });
 
   assert.equal(plugins.length, 2);
-  assert.ok(warnings.some((w) => /shared:read/.test(w)), "expected a role-conflict warning");
+  assert.ok(warnings.some((w) => /shared:read/.test(w)), "expected a permission-conflict warning");
 });

@@ -5,7 +5,7 @@
 // a plugin should import from here, never reach into deeper modules. See README.md → Building plugins.
 
 export { definePlugin } from "./plugin.ts";
-export type { HttpMethod, Plugin, PluginHooks, PluginManifest, RoleDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
+export type { HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
 export type { RequestContext, SessionIdentity } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";

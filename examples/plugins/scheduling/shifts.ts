@@ -10,8 +10,8 @@ import { can, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormB
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
-export const READ = "scheduling:read"; // the role gating the list + nav
-export const WRITE = "scheduling:write"; // the role gating create
+export const READ = "scheduling:read"; // the permission gating the list + nav
+export const WRITE = "scheduling:write"; // the permission gating create
 
 export interface Shift {
   id: string;
@@ -188,7 +188,7 @@ export function newShiftForm(): RouteHandler {
 // Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
 // gate lets an anonymous visitor through and the menu option shows for everyone. The real data
 // (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
-// else a prompt to sign in. ctx.identity may be null here, so read the role via can() (zero I/O).
+// else a prompt to sign in. ctx.identity may be null here, so read the permission via can() (zero I/O).
 export function overview(): RouteHandler {
   return (ctx) => ({
     data: { breadcrumbs: [{ label: "Overview" }], canRead: can(ctx, READ), chrome: ctx.chrome, shiftsHref: SHIFTS_PATH, title: "Scheduling" },

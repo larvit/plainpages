@@ -21,13 +21,13 @@ const scheduling: PluginManifest = definePlugin({
   apiVersion: "1.0.0",
   hooks: { onBoot: () => {} },
   nav: [{
-    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", role: "scheduling:read" }],
+    children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
     icon: "i-cal", id: "scheduling:root", label: "Scheduling",
   }],
-  roles: [{ description: "View shifts", name: "scheduling:read" }],
+  permissions: [{ description: "View shifts", name: "scheduling:read" }],
   routes: [
-    { handler: () => ({ data: { rows: [] }, view: "shifts" }), method: "GET", path: "/shifts", role: "scheduling:read" },
-    { handler: () => ({ redirect: "/scheduling/shifts" }), method: "POST", path: "/shifts", role: "scheduling:write" },
+    { handler: () => ({ data: { rows: [] }, view: "shifts" }), method: "GET", path: "/shifts", permission: "scheduling:read" },
+    { handler: () => ({ redirect: "/scheduling/shifts" }), method: "POST", path: "/shifts", permission: "scheduling:write" },
     { handler: (ctx) => void ctx.res.end("raw"), method: "GET", path: "/raw" }, // void = handler wrote res itself
   ],
 });
@@ -87,19 +87,19 @@ test("findConflicts: a duplicate id and a colliding route are loud errors", () =
   assert.ok(dupRoute.some((c) => c.kind === "route" && c.level === "error" && c.message.includes("/a/t")));
 });
 
-test("findConflicts: duplicate nav id is an error, a shared role name only warns", () => {
+test("findConflicts: duplicate nav id is an error, a shared permission name only warns", () => {
   const navDup = findConflicts([
     p({ id: "a", nav: [{ id: "dup", label: "A" }] }),
     p({ id: "b", nav: [{ id: "dup", label: "B" }] }),
   ]);
   assert.ok(navDup.some((c) => c.kind === "nav-id" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
 
-  // Sharing a role across plugins is legitimate → warn, not error.
-  const roleDup = findConflicts([
-    p({ id: "a", roles: [{ name: "shared:read" }] }),
-    p({ id: "b", roles: [{ name: "shared:read" }] }),
+  // Sharing a permission across plugins is legitimate → warn, not error.
+  const permissionDup = findConflicts([
+    p({ id: "a", permissions: [{ name: "shared:read" }] }),
+    p({ id: "b", permissions: [{ name: "shared:read" }] }),
   ]);
-  assert.ok(roleDup.some((c) => c.kind === "role" && c.level === "warn"));
+  assert.ok(permissionDup.some((c) => c.kind === "permission" && c.level === "warn"));
 });
 
 test("findConflicts: each single slot (`home`/`dashboard`) may have one owner — two is a loud error", () => {

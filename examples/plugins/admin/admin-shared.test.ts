@@ -7,10 +7,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { GuardError, type Log, type PageChrome, type RequestContext, type SessionIdentity } from "#plugin-api";
-import { ADMIN_NAV, ADMIN_ROLE, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
+import { ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
 
-const admin: SessionIdentity = { email: "ada@x.io", id: "u1", roles: ["admin"] };
-const member: SessionIdentity = { email: "bo@x.io", id: "u2", roles: ["scheduling:read"] };
+const admin: SessionIdentity = { email: "ada@x.io", id: "u1", permissions: ["admin"] };
+const member: SessionIdentity = { email: "bo@x.io", id: "u2", permissions: ["scheduling:read"] };
 const CHROME = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } } as PageChrome;
 
 function fakeCtx(opts: { body?: string; method?: string; user?: SessionIdentity | null; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
@@ -19,7 +19,7 @@ function fakeCtx(opts: { body?: string; method?: string; user?: SessionIdentity 
   req.method = opts.method ?? "GET";
   return {
     chrome: CHROME, identity: opts.user ?? null, log: {} as Log, params: {}, query: url.searchParams, req, res: {} as ServerResponse,
-    roles: opts.user?.roles ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
+    permissions: opts.user?.permissions ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }
 
@@ -27,11 +27,11 @@ function fakeCtx(opts: { body?: string; method?: string; user?: SessionIdentity 
 
 test("ADMIN_NAV: a gated Admin header over the four screens; no per-request current/open state", () => {
   assert.equal(ADMIN_NAV.id, "admin");
-  assert.equal(ADMIN_NAV.role, ADMIN_ROLE); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
+  assert.equal(ADMIN_NAV.permission, ADMIN_PERMISSION); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
-  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/roles", "/admin/clients"]);
-  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["Users", "Groups", "Roles", "OAuth2 clients"]);
-  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.role === undefined)); // the header's gate covers the subtree
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/permissions", "/admin/clients"]);
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["Users", "Groups", "Permissions", "OAuth2 clients"]);
+  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.permission === undefined)); // the header's gate covers the subtree
 });
 
 // ---- auth gates ----

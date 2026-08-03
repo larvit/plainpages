@@ -1,9 +1,9 @@
 // Login completion: turn a fresh Kratos session into our locally-verifiable
 // session JWT — the one moment Ory is on the path (README: Login → session JWT):
 //   1. whoami(cookie)            → the identity (id, email); no active session ⇒ null
-//   2. read roles from Keto      → the source of truth for the `roles` claim
+//   2. read permissions from Keto      → the source of truth for the `permissions` claim
 //   3. project onto metadata_public (admin API) so the tokenizer's mapper can read them
-//   4. whoami(tokenize_as)       → the signed JWT { sub, email, roles }, stored as our cookie
+//   4. whoami(tokenize_as)       → the signed JWT { sub, email, permissions }, stored as our cookie
 // Order matters: the projection is written before tokenizing, because the claims mapper
 // reads only the identity, never Keto.
 import type { SessionIdentity } from "../http/context.ts";
@@ -34,26 +34,26 @@ export interface CompletedLogin {
   email: string | null;
   identityId: string;
   jwt: string;
-  roles: string[];
+  permissions: string[];
 }
 
-// The coarse roles a user holds — directly (`Role:<name>#members@identity:<id>`) or transitively via a
-// group that is a member of the role. Enumerates the defined roles (the distinct objects in the Role
-// namespace) and asks Keto to resolve each membership, so a role granted to a group reaches the JWT —
+// The coarse permissions a user holds — directly (`Permission:<name>#members@identity:<id>`) or transitively via a
+// group that is a member of the permission. Enumerates the defined permissions (the distinct objects in the Permission
+// namespace) and asks Keto to resolve each membership, so a permission granted to a group reaches the JWT —
 // matching the OPL model and the admin "Effective access" view. At login/refresh only, never per
-// request; role count is small, so the per-role checks are cheap and run in parallel.
-export async function readRoles(keto: KetoClient, identityId: string): Promise<string[]> {
+// request; permission count is small, so the per-permission checks are cheap and run in parallel.
+export async function readPermissions(keto: KetoClient, identityId: string): Promise<string[]> {
   const subject_id = `identity:${identityId}`;
   const names = new Set<string>();
   let pageToken: string | undefined;
   do {
-    const page = await keto.listRelations({ namespace: "Role", relation: "members", ...(pageToken ? { pageToken } : {}) });
+    const page = await keto.listRelations({ namespace: "Permission", relation: "granted", ...(pageToken ? { pageToken } : {}) });
     for (const t of page.tuples) names.add(t.object);
     pageToken = page.nextPageToken ?? undefined;
   } while (pageToken);
-  const roles = [...names];
-  const held = await Promise.all(roles.map((object) => keto.check({ namespace: "Role", object, relation: "members", subject_id })));
-  return roles.filter((_, i) => held[i]).sort();
+  const permissions = [...names];
+  const held = await Promise.all(permissions.map((object) => keto.check({ namespace: "Permission", object, relation: "granted", subject_id })));
+  return permissions.filter((_, i) => held[i]).sort();
 }
 
 export async function completeLogin(deps: LoginDeps, cookie: string | undefined): Promise<CompletedLogin | null> {
@@ -63,15 +63,15 @@ export async function completeLogin(deps: LoginDeps, cookie: string | undefined)
   const emailTrait = session.identity.traits?.["email"];
   const email = typeof emailTrait === "string" ? emailTrait : null;
 
-  const roles = await readRoles(deps.keto, identityId);
-  await deps.kratosAdmin.updateMetadataPublic(identityId, { roles });
+  const permissions = await readPermissions(deps.keto, identityId);
+  await deps.kratosAdmin.updateMetadataPublic(identityId, { permissions });
 
   const tokenized = await deps.kratosPublic.whoami({ ...(cookie ? { cookie } : {}), tokenizeAs: TOKENIZE_AS });
   const jwt = tokenized?.tokenized;
   if (!jwt) throw new Error("login completion: Kratos tokenizer returned no JWT");
 
-  currentLog()?.info("session minted", { roles: roles.join(","), sub: identityId }); // login or TTL re-mint
-  return { email, identityId, jwt, roles };
+  currentLog()?.info("session minted", { permissions: permissions.join(","), sub: identityId }); // login or TTL re-mint
+  return { email, identityId, jwt, permissions };
 }
 
 export interface Reminted {
@@ -80,14 +80,14 @@ export interface Reminted {
 }
 
 // Re-mint the session JWT on TTL expiry — "stay signed in" (README): the ~10m token lapsed but
-// the long-lived Kratos session may still be live. A live session ⇒ re-read roles from Keto,
+// the long-lived Kratos session may still be live. A live session ⇒ re-read permissions from Keto,
 // re-tokenize, fresh cookie + the refreshed user (the one moment authz recomputes). A dead
 // session ⇒ a cookie that *clears* the stale JWT, so later requests fall straight through to
 // anonymous instead of re-hitting Ory on every one.
 export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
   const completed = await completeLogin(deps, cookie);
   if (!completed) return { setCookie: clearSessionCookie(options), identity: null };
-  return { setCookie: sessionCookie(completed.jwt, options), identity: { email: completed.email ?? "", id: completed.identityId, roles: completed.roles } };
+  return { setCookie: sessionCookie(completed.jwt, options), identity: { email: completed.email ?? "", id: completed.identityId, permissions: completed.permissions } };
 }
 
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is

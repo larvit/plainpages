@@ -8,7 +8,7 @@ import type { NavNode } from "./nav.ts";
 const NAV: NavNode[] = [{ href: "/dashboard", label: "Dashboard" }, { children: [{ href: "/admin/users", label: "Users" }], label: "Admin" }];
 
 test("dashboard model: titled shell, passes the unified nav + csrf + user through", () => {
-  const m = buildDashboardModel({ csrfToken: "tok.sig", identity: { email: "ada@x.io", id: "u1", roles: ["admin"] }, nav: NAV });
+  const m = buildDashboardModel({ csrfToken: "tok.sig", identity: { email: "ada@x.io", id: "u1", permissions: ["admin"] }, nav: NAV });
   assert.equal(m.shell.title, "Dashboard");
   assert.equal(m.shell.csrfToken, "tok.sig");
   assert.equal(m.shell.user.name, "ada"); // real signed-in identity, not a demo profile

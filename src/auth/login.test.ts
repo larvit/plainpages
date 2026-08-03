@@ -1,4 +1,4 @@
-// Login completion: turn a Kratos session into our session JWT — read roles from Keto,
+// Login completion: turn a Kratos session into our session JWT — read permissions from Keto,
 // project them onto the identity, tokenize, build the cookie. Fakes the three Ory clients;
 // the live, full-stack login is verified by the Playwright E2E.
 import { test } from "node:test";
@@ -6,10 +6,10 @@ import assert from "node:assert/strict";
 import type { KetoClient, RelationTuple } from "./keto-client.ts";
 import type { Identity, KratosAdmin } from "./kratos-admin.ts";
 import type { KratosPublic, Session } from "./kratos-public.ts";
-import { completeLogin, readRoles, remintSession, SESSION_COOKIE, sessionCookie } from "./login.ts";
+import { completeLogin, readPermissions, remintSession, SESSION_COOKIE, sessionCookie } from "./login.ts";
 
 const ID = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b55";
-const roleTuple = (object: string): RelationTuple => ({ namespace: "Role", object, relation: "members", subject_id: `identity:${ID}` });
+const permissionTuple = (object: string): RelationTuple => ({ namespace: "Permission", object, relation: "granted", subject_id: `identity:${ID}` });
 
 const ketoStub = (over: Partial<KetoClient> = {}): KetoClient => ({
   check: async () => false,
@@ -40,32 +40,32 @@ const publicStub = (over: Partial<KratosPublic> = {}): KratosPublic => ({
   ...over,
 });
 
-test("readRoles returns roles held directly OR transitively (enumerate defined roles → Keto-check each)", async () => {
+test("readPermissions returns permissions held directly OR transitively (enumerate defined permissions → Keto-check each)", async () => {
   const listQ: unknown[] = [];
   const checked: string[] = [];
-  const role = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Role", object, relation: "members", ...subject });
+  const permission = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Permission", object, relation: "granted", ...subject });
   const keto = ketoStub({
-    // Enumerate every Role tuple (paged, no subject filter) to find the distinct role names —
+    // Enumerate every Permission tuple (paged, no subject filter) to find the distinct permission names —
     // subjects vary (a direct user, a group) and a name repeats across pages → de-duped.
     listRelations: async (q) => {
       listQ.push(q);
-      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [role("editor", { subject_id: "identity:other" })] };
+      if (q?.pageToken === "p2") return { nextPageToken: null, tuples: [permission("editor", { subject_id: "identity:other" })] };
       return { nextPageToken: "p2", tuples: [
-        role("editor", { subject_set: { namespace: "Group", object: "eng", relation: "members" } }),
-        role("admin", { subject_id: `identity:${ID}` }),
-        role("viewer", { subject_id: "identity:stranger" }),
+        permission("editor", { subject_set: { namespace: "Group", object: "eng", relation: "members" } }),
+        permission("admin", { subject_id: `identity:${ID}` }),
+        permission("viewer", { subject_id: "identity:stranger" }),
       ] };
     },
     // Keto resolves transitively: the user holds editor (via a group) + admin (direct), not viewer.
     check: async (t) => { checked.push(t.object); return t.object === "admin" || t.object === "editor"; },
   });
-  assert.deepEqual(await readRoles(keto, ID), ["admin", "editor"]);
-  assert.deepEqual(listQ[0], { namespace: "Role", relation: "members" }); // enumerate, not subject-filtered
+  assert.deepEqual(await readPermissions(keto, ID), ["admin", "editor"]);
+  assert.deepEqual(listQ[0], { namespace: "Permission", relation: "granted" }); // enumerate, not subject-filtered
   assert.equal((listQ[1] as { pageToken?: string }).pageToken, "p2"); // second page follows the cursor
-  assert.deepEqual(checked.sort(), ["admin", "editor", "viewer"]); // every distinct role checked for the user
+  assert.deepEqual(checked.sort(), ["admin", "editor", "viewer"]); // every distinct permission checked for the user
 });
 
-test("completeLogin: read roles → project onto metadata_public → tokenize → JWT (in that order)", async () => {
+test("completeLogin: read permissions → project onto metadata_public → tokenize → JWT (in that order)", async () => {
   const events: string[] = [];
   let projected: unknown;
   const identity: Identity = { id: ID, traits: { email: "admin@plainpages.local" } };
@@ -76,11 +76,11 @@ test("completeLogin: read roles → project onto metadata_public → tokenize �
     },
   });
   const kratosAdmin = adminStub({ updateMetadataPublic: async (_id, meta) => { events.push("project"); projected = meta; return identity; } });
-  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
+  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [permissionTuple("admin")] }) });
 
   const out = await completeLogin({ keto, kratosAdmin, kratosPublic }, "plainpages_session=s");
-  assert.deepEqual(out, { email: "admin@plainpages.local", identityId: ID, jwt: "h.p.s", roles: ["admin"] });
-  assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles, projected for the tokenizer
+  assert.deepEqual(out, { email: "admin@plainpages.local", identityId: ID, jwt: "h.p.s", permissions: ["admin"] });
+  assert.deepEqual(projected, { permissions: ["admin"] }); // Keto permissions, projected for the tokenizer
   assert.deepEqual(events, ["whoami", "project", "tokenize"]); // projection MUST precede tokenize
 });
 
@@ -101,11 +101,11 @@ test("completeLogin maps a missing email trait to null and throws if the tokeniz
 test("remintSession: a live Kratos session → fresh cookie + refreshed user; a dead session → a clearing cookie + null", async () => {
   const identity: Identity = { id: ID, traits: { email: "admin@plainpages.local" } };
   const kratosPublic = publicStub({ whoami: async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session });
-  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [roleTuple("admin")] }) });
+  const keto = ketoStub({ check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [permissionTuple("admin")] }) });
 
-  // TTL lapsed but the Kratos session lives → re-read roles from Keto, re-tokenize, fresh cookie.
+  // TTL lapsed but the Kratos session lives → re-read permissions from Keto, re-tokenize, fresh cookie.
   const live = await remintSession({ keto, kratosAdmin: adminStub(), kratosPublic }, "plainpages_session=s");
-  assert.deepEqual(live.identity, { email: "admin@plainpages.local", id: ID, roles: ["admin"] });
+  assert.deepEqual(live.identity, { email: "admin@plainpages.local", id: ID, permissions: ["admin"] });
   assert.match(live.setCookie, /^plainpages_jwt=h\.p\.s;.*Max-Age=2592000.*HttpOnly/);
 
   // Kratos session also gone → clear the stale JWT so the next request falls through to anonymous.

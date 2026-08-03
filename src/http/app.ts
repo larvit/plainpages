@@ -40,7 +40,7 @@ export interface AppOptions {
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
-  jwks?: JwksProvider; // verify the session JWT → ctx.identity/roles; absent ⇒ always anonymous
+  jwks?: JwksProvider; // verify the session JWT → ctx.identity/permissions; absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes
   kratosAdmin?: KratosAdmin; // Kratos admin client; with kratos+keto enables login completion
@@ -186,9 +186,9 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Verify the session JWT once (cached JWKS) → ctx.identity/roles; none/invalid ⇒ anonymous.
+      // Verify the session JWT once (cached JWKS) → ctx.identity/permissions; none/invalid ⇒ anonymous.
       // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
-      // clients), silently re-mint it — "stay signed in": re-read roles from Keto, re-tokenize,
+      // clients), silently re-mint it — "stay signed in": re-read permissions from Keto, re-tokenize,
       // and set the fresh cookie via setHeader so it rides whatever response this request produces
       // (a dead session clears the stale cookie). This is the only place the hot path touches Ory.
       let user: SessionIdentity | null = null;
@@ -240,17 +240,17 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Plugin routes (any method): gate on the route's role, then run the handler. The
+      // Plugin routes (any method): gate on the route's permission, then run the handler. The
       // handler gets ctx.chrome (native app shell) + ctx.verifyCsrf (guard its own forms); a fresh
       // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
         const routeCtx = buildContext(req, res, { chrome, identity: user, log: reqLog, params: match.params, verifyCsrf, ...(system ? { system } : {}) });
-        if (!isAuthorized(match.route, routeCtx.roles)) {
+        if (!isAuthorized(match.route, routeCtx.permissions)) {
           // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
-          // return_to; a signed-in user who simply lacks the role gets the 403 page.
+          // return_to; a signed-in user who simply lacks the permission gets the 403 page.
           if (!routeCtx.identity) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
-          reqLog.warn("forbidden: missing role", { path: pathname, required: match.route.role ?? "", sub: routeCtx.identity.id });
+          reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.identity.id });
           sendHtml(res, 403, await render("403", { title: "Forbidden" }));
           return;
         }

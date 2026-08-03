@@ -1,5 +1,5 @@
 // Kratos admin-API client: typed fetch wrappers over Ory Kratos' admin endpoints —
-// identity CRUD + the surgical metadata_public update the login flow projects roles into.
+// identity CRUD + the surgical metadata_public update the login flow projects permissions into.
 // Guards the request contracts (URLs, method, JSON-Patch body, query/pagination) and the
 // result mapping (201/200/404/4xx). Live wiring is verified by login completion.
 import { test } from "node:test";
@@ -90,13 +90,13 @@ test("updateIdentity PUTs the full body to /admin/identities/<id> and returns th
 });
 
 test("updateMetadataPublic PATCHes a JSON-Patch `add /metadata_public` so it never clobbers traits", async () => {
-  const identity = { id: ID, metadata_public: { roles: ["admin"] } };
+  const identity = { id: ID, metadata_public: { permissions: ["admin"] } };
   const { calls, fetchImpl } = recorder(() => res(200, identity));
-  const out = await createKratosAdmin({ baseUrl: BASE, fetchImpl }).updateMetadataPublic(ID, { roles: ["admin"] });
+  const out = await createKratosAdmin({ baseUrl: BASE, fetchImpl }).updateMetadataPublic(ID, { permissions: ["admin"] });
   assert.deepEqual(out, identity);
   assert.equal(calls[0]!.method, "PATCH");
   assert.match(calls[0]!.url, new RegExp(`/admin/identities/${ID}$`));
-  assert.deepEqual(JSON.parse(calls[0]!.body!), [{ op: "add", path: "/metadata_public", value: { roles: ["admin"] } }]);
+  assert.deepEqual(JSON.parse(calls[0]!.body!), [{ op: "add", path: "/metadata_public", value: { permissions: ["admin"] } }]);
 });
 
 test("createRecoveryCode POSTs the identity id to /admin/recovery/code → { code, link }", async () => {

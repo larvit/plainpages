@@ -40,9 +40,9 @@ function mintJwt(payload: Record<string, unknown>): string {
   const input = `${b64url(JSON.stringify({ alg: "ES256", kid: "test-kid", typ: "JWT" }))}.${b64url(JSON.stringify(payload))}`;
   return `${input}.${b64url(sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key: ec.privateKey }))}`;
 }
-// A session cookie carrying `roles`, valid for 10 min — the auth most tests need to reach a gated page.
-const session = (roles: string[] = []): string =>
-  `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, roles, sub: "u1" })}`;
+// A session cookie carrying `permissions`, valid for 10 min — the auth most tests need to reach a gated page.
+const session = (permissions: string[] = []): string =>
+  `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, permissions, sub: "u1" })}`;
 
 const server = createApp({ jwks: staticJwks([ecJwk]) });
 let base = "";
@@ -83,7 +83,7 @@ test("/ is the public landing: anonymous → 200 with intro + sign-in/register l
   const html = await res.text();
   assert.match(html, /href="\/login"/); // a prominent path to sign in
   assert.match(html, /href="\/registration"/); // and to register
-  // the same app shell every page renders — the menu shows even when signed out (role-filtered).
+  // the same app shell every page renders — the menu shows even when signed out (permission-filtered).
   assert.match(html, /<aside class="sidebar"/);
   assert.match(html, /class="landing-title"/); // the landing hero owns the page's single <h1>
 });
@@ -385,7 +385,7 @@ test("renders the 500 HTML page when a handler throws", async () => {
   }
 });
 
-// A test plugin exercising each RouteResult shape, a path param, and the role gate.
+// A test plugin exercising each RouteResult shape, a path param, and the permission gate.
 const demoPlugin: Plugin = {
   apiVersion: "1.0.0",
   id: "demo",
@@ -393,7 +393,7 @@ const demoPlugin: Plugin = {
     { handler: (ctx) => ({ html: `<p>Hi ${ctx.params.name}</p>` }), method: "GET", path: "/hello/:name" },
     { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data" },
     { handler: () => ({ redirect: "/demo/hello/world" }), method: "POST", path: "/go" },
-    { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", role: "demo:read" },
+    { handler: () => ({ html: "secret" }), method: "GET", path: "/secret", permission: "demo:read" },
     { handler: () => ({ html: "open to all" }), method: "GET", path: "/public-page", public: true }, // blessed public
     { handler: () => ({ data: { who: "Plainpages" }, view: "page" }), method: "GET", path: "/page" },
   ],
@@ -406,7 +406,7 @@ async function startApp(t: TestContext, plugins: Plugin[], pluginsDir?: string):
   return `http://localhost:${(app.address() as AddressInfo).port}`;
 }
 
-test("mounts plugin routes: params, html/json/redirect/view results, and the role gate", async (t) => {
+test("mounts plugin routes: params, html/json/redirect/view results, and the permission gate", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
   mkdirSync(join(dir, "demo", "views"), { recursive: true });
   mkdirSync(join(dir, "demo", "public"), { recursive: true });
@@ -516,9 +516,9 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
   assert.equal(ok.status, 303);
 });
 
-// JWT middleware: a verified session cookie populates ctx.identity/roles, which the gate reads.
+// JWT middleware: a verified session cookie populates ctx.identity/permissions, which the gate reads.
 // The key + mintJwt + session() helper are hoisted above the shared `server` (top of file).
-test("a verified session JWT authorizes a role-gated route; no cookie / expired token → sign in", async (t) => {
+test("a verified session JWT authorizes a permission-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
@@ -526,8 +526,8 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   const nowSec = Math.floor(Date.now() / 1000);
   const secret = (cookie?: string) => fetch(url + "/demo/secret", { redirect: "manual", ...(cookie ? { headers: { cookie } } : {}) });
 
-  // Token carrying the gating role → the handler runs (200).
-  const ok = await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" })}`);
+  // Token carrying the gating permission → the handler runs (200).
+  const ok = await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, permissions: ["demo:read"], sub: "u1" })}`);
   assert.equal(ok.status, 200);
   assert.equal(await ok.text(), "secret");
 
@@ -536,12 +536,12 @@ test("a verified session JWT authorizes a role-gated route; no cookie / expired 
   const noCookie = await secret();
   assert.equal(noCookie.status, 303);
   assert.equal(noCookie.headers.get("location"), "/login?return_to=%2Fdemo%2Fsecret");
-  assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}`)).status, 303);
+  assert.equal((await secret(`${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, permissions: ["demo:read"], sub: "u1" })}`)).status, 303);
 
   // The gated dashboard renders for any signed-in user; anonymous is bounced to sign in before any
   // page renders (gate on /dashboard). The Admin section links come from the admin plugin — its nav
-  // composition + role-filtering is covered in the admin-screen tests below.
-  const dash = await fetch(url + "/dashboard", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["admin"], sub: "u1" })}` } });
+  // composition + permission-filtering is covered in the admin-screen tests below.
+  const dash = await fetch(url + "/dashboard", { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, permissions: ["admin"], sub: "u1" })}` } });
   assert.equal(dash.status, 200);
   const anonDash = await fetch(url + "/dashboard", { redirect: "manual" });
   assert.equal(anonDash.status, 303);
@@ -555,7 +555,7 @@ test("revocation denylist: a revoked subject's token stops authorizing on the ho
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
   const nowSec = Math.floor(Date.now() / 1000);
-  const secret = (iat: number) => fetch(url + "/demo/secret", { redirect: "manual", headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, iat, roles: ["demo:read"], sub: "u1" })}` } });
+  const secret = (iat: number) => fetch(url + "/demo/secret", { redirect: "manual", headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, iat, permissions: ["demo:read"], sub: "u1" })}` } });
 
   assert.equal((await secret(nowSec)).status, 200); // before any revoke, the token authorizes
 
@@ -567,10 +567,10 @@ test("revocation denylist: a revoked subject's token stops authorizing on the ho
 test("session re-mint: an expired JWT backed by a live Kratos session is silently re-minted; a dead session clears it", async (t) => {
   const identity: Identity = { id: "u1", traits: { email: "a@b.c" } };
   const nowSec = Math.floor(Date.now() / 1000);
-  const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, roles: ["demo:read"], sub: "u1" });
+  const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, permissions: ["demo:read"], sub: "u1" });
   const live = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session);
-  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "demo:read", relation: "members", subject_id: "identity:u1" }] }) });
-  const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, roles: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Permission", object: "demo:read", relation: "granted", subject_id: "identity:u1" }] }) });
+  const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, permissions: ["demo:read"], sub: "u1" })}; plainpages_session=s`;
 
   // Live Kratos session: the lapsed token is re-minted — the gated route runs AND a fresh cookie rides the response.
   const app = createApp({ jwks: staticJwks([ecJwk]), keto, kratos: live, kratosAdmin: stubAdmin({}), plugins: [demoPlugin] });
@@ -610,7 +610,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
       { handler: (ctx) => ({ html: `hi ${requireSession(ctx).email}` }), method: "GET", path: "/me" },
       { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
       { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
-      { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", role: "secret:read" }, // declarative route gate
+      { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", permission: "secret:read" }, // declarative route gate
     ],
   };
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [guarded] });
@@ -618,7 +618,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
   const nowSec = Math.floor(Date.now() / 1000);
-  const auth = (roles: string[]) => ({ headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, roles, sub: "u1" })}` } });
+  const auth = (permissions: string[]) => ({ headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec + 600, permissions, sub: "u1" })}` } });
 
   // requireSession: anonymous bounces to /login (remembering the page); a signed-in user reaches the handler.
   const anon = await fetch(url + "/guarded/me", { redirect: "manual" });
@@ -628,7 +628,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   assert.equal(me.status, 200);
   assert.match(await me.text(), /hi a@b\.c/);
 
-  // can: signed-in but lacking the role → 403 page; carrying it → 200.
+  // can: signed-in but lacking the permission → 403 page; carrying it → 200.
   assert.equal((await fetch(url + "/guarded/admin-only", auth([]))).status, 403);
   assert.equal((await fetch(url + "/guarded/admin-only", auth(["admin"]))).status, 200);
 
@@ -636,7 +636,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   assert.equal((await fetch(url + "/guarded/doc/open", auth([]))).status, 200);
   assert.equal((await fetch(url + "/guarded/doc/shut", auth([]))).status, 403);
 
-  // declarative route `role` gate: anonymous → sign in, signed-in-without-role → the 403 page, with → 200.
+  // declarative route `permission` gate: anonymous → sign in, signed-in-without-permission → the 403 page, with → 200.
   const gAnon = await fetch(url + "/guarded/gated", { redirect: "manual" });
   assert.equal(gAnon.status, 303);
   assert.equal(gAnon.headers.get("location"), "/login?return_to=%2Fguarded%2Fgated");
@@ -717,7 +717,7 @@ test("themed auth GET: anonymous inits a flow (CSRF relay, stale→restart); a s
   assert.equal(stale.headers.get("location"), "/login");
 
   // Already signed in → /login + /registration short-circuit to the app dashboard; /settings stays reachable.
-  const signedIn = { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, roles: [], sub: "u1" })}` }, redirect: "manual" as const };
+  const signedIn = { headers: { cookie: `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: Math.floor(Date.now() / 1000) + 600, permissions: [], sub: "u1" })}` }, redirect: "manual" as const };
   for (const path of ["/login", "/registration"]) {
     const res = await fetch(url + path, signedIn);
     assert.equal(res.status, 303, `${path} while signed in → 303`);
@@ -856,7 +856,7 @@ const fakeKeto = (tuples: RelationTuple[] = [], over: Partial<KetoClient> = {}):
 const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
 
 // Shared harness for the admin-screen HTTP tests: an app on a random port with an admin JWT +
-// CSRF cookie. get(path, roles)/post(path, body) carry them; `token` is the matching CSRF field.
+// CSRF cookie. get(path, permissions)/post(path, body) carry them; `token` is the matching CSRF field.
 const ADMIN_CSRF = "admin-secret";
 async function adminHarness(t: TestContext, opts: AppOptions = {}) {
   const app = createApp({ csrfSecret: ADMIN_CSRF, jwks: staticJwks([ecJwk]), pluginsDir: examplesPluginsDir, plugins: [adminPlugin], ...opts });
@@ -865,14 +865,14 @@ async function adminHarness(t: TestContext, opts: AppOptions = {}) {
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
   const token = issueCsrfToken(ADMIN_CSRF);
   const nowSec = Math.floor(Date.now() / 1000);
-  const cookie = (roles: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, roles, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
-  const get = (path: string, roles: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(roles) }, redirect: "manual" });
+  const cookie = (permissions: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, permissions, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const get = (path: string, permissions: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(permissions) }, redirect: "manual" });
   const post = (path: string, body: string) =>
     fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
   return { get, post, token, url };
 }
 // Every admin route is gated: anonymous → /login, a signed-in non-admin → 403.
-async function assertAdminGate(url: string, get: (path: string, roles?: string[]) => Promise<Response>, path: string) {
+async function assertAdminGate(url: string, get: (path: string, permissions?: string[]) => Promise<Response>, path: string) {
   const anon = await fetch(url + path, { redirect: "manual" });
   assert.equal(anon.status, 303);
   assert.equal(anon.headers.get("location"), `/login?return_to=${encodeURIComponent(path)}`); // remembers the page
@@ -884,7 +884,7 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
   let projected: unknown;
   const kratos = withWhoami(async (o) => (o?.tokenizeAs ? { active: true, identity, tokenized: "h.p.s" } : { active: true, identity }) as Session);
   const kratosAdmin = stubAdmin({ updateMetadataPublic: async (_id, meta) => { projected = meta; return identity; } });
-  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${identity.id}` }] }) });
+  const keto = fakeKeto([], { check: async () => true, listRelations: async () => ({ nextPageToken: null, tuples: [{ namespace: "Permission", object: "admin", relation: "granted", subject_id: `identity:${identity.id}` }] }) });
   const complete = async (app: ReturnType<typeof createApp>, cookie?: string, returnTo?: string) => {
     await new Promise<void>((r) => app.listen(0, r));
     t.after(() => app.close());
@@ -892,12 +892,12 @@ test("login completion (/auth/complete): a live session mints the JWT cookie; no
     return fetch(`http://localhost:${(app.address() as AddressInfo).port}/auth/complete${q}`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
   };
 
-  // Live Kratos session: roles from Keto → projection → tokenize → JWT cookie, land on the dashboard.
+  // Live Kratos session: permissions from Keto → projection → tokenize → JWT cookie, land on the dashboard.
   const ok = await complete(createApp({ keto, kratos, kratosAdmin }), "plainpages_session=s");
   assert.equal(ok.status, 303);
   assert.equal(ok.headers.get("location"), "/dashboard");
   assert.match(ok.headers.get("set-cookie") ?? "", /^plainpages_jwt=h\.p\.s;.*HttpOnly/);
-  assert.deepEqual(projected, { roles: ["admin"] }); // Keto roles projected onto the identity for the tokenizer
+  assert.deepEqual(projected, { permissions: ["admin"] }); // Keto permissions projected onto the identity for the tokenizer
 
   // return_to: a safe host-relative target lands the user back where they were headed; an
   // off-origin one is ignored (open-redirect guard) and falls back to the dashboard.
@@ -1164,7 +1164,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal((await post(`/admin/users/admin1/state`, `_csrf=${token}`)).status, 400);
   assert.equal(store.find((x) => x.id === "admin1")!.state, "active");
 
-  // Unknown id → 404; malformed %-encoding → 404 (not a 500), matching groups/roles/clients.
+  // Unknown id → 404; malformed %-encoding → 404 (not a 500), matching groups/permissions/clients.
   assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
   assert.equal((await get("/admin/users/%ZZ")).status, 404);
 });
@@ -1235,10 +1235,10 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
     { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
     { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
   ];
-  // grace is in the `eng` group; `editor` is an existing role whose only direct member is ada.
+  // grace is in the `eng` group; `editor` is an existing permission whose only direct member is ada.
   const tuples: RelationTuple[] = [
     { namespace: "Group", object: "eng", relation: "members", subject_id: `identity:${grace}` },
-    { namespace: "Role", object: "editor", relation: "members", subject_id: `identity:${ada}` },
+    { namespace: "Permission", object: "editor", relation: "granted", subject_id: `identity:${ada}` },
   ];
   // Mirror Keto's expand shape: the subject rides on `tuple`, set nodes carry members as children.
   const expandSet = (set: SubjectSet): ExpandTree => ({
@@ -1250,70 +1250,70 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
   });
   const keto = fakeKeto(tuples, { expand: async (set) => expandSet(set) });
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const denylist = createDenylist(); // granting/revoking a *user's* role revokes their live tokens (a group change is transitive → left to lag)
+  const denylist = createDenylist(); // granting/revoking a *user's* permission revokes their live tokens (a group change is transitive → left to lag)
   const { get, post, token, url } = await adminHarness(t, { denylist, keto, kratosAdmin });
 
-  await assertAdminGate(url, get, "/admin/roles");
+  await assertAdminGate(url, get, "/admin/permissions");
 
-  // List: the existing role shows + the "add" link.
-  const listHtml = await (await get("/admin/roles")).text();
-  assert.match(listHtml, /href="\/admin\/roles\/editor"/);
-  assert.match(listHtml, /href="\/admin\/roles\/new"/);
+  // List: the existing permission shows + the "add" link.
+  const listHtml = await (await get("/admin/permissions")).text();
+  assert.match(listHtml, /href="\/admin\/permissions\/editor"/);
+  assert.match(listHtml, /href="\/admin\/permissions\/new"/);
 
   // Create: a valid post writes the first-member tuple and redirects to the detail.
-  assert.match(await (await get("/admin/roles/new")).text(), /Create role/);
-  const created = await post("/admin/roles", `_csrf=${token}&name=viewer&member=identity:${ada}`);
+  assert.match(await (await get("/admin/permissions/new")).text(), /Create permission/);
+  const created = await post("/admin/permissions", `_csrf=${token}&name=viewer&member=identity:${ada}`);
   assert.equal(created.status, 303);
-  assert.equal(created.headers.get("location"), "/admin/roles/viewer");
-  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "viewer" && tp.subject_id === `identity:${ada}`));
-  assert.equal(denylist.isRevoked(ada, 0), true); // assigning a role to a user revokes their stale token so the grant lands now
+  assert.equal(created.headers.get("location"), "/admin/permissions/viewer");
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "viewer" && tp.subject_id === `identity:${ada}`));
+  assert.equal(denylist.isRevoked(ada, 0), true); // assigning a permission to a user revokes their stale token so the grant lands now
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
-  assert.equal((await post("/admin/roles", `_csrf=${token}&name=Bad Name&member=identity:${ada}`)).status, 400);
-  assert.equal((await post("/admin/roles", `_csrf=${token}&name=editor&member=identity:${ada}`)).status, 400); // already exists
-  assert.equal((await post("/admin/roles", `name=x&member=identity:${ada}`)).status, 403);
+  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=Bad Name&member=identity:${ada}`)).status, 400);
+  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=editor&member=identity:${ada}`)).status, 400); // already exists
+  assert.equal((await post("/admin/permissions", `name=x&member=identity:${ada}`)).status, 403);
   assert.equal(tuples.length, before);
 
   // Detail: ada (direct) is in the effective-access list; grace (only reachable via a group) is not
   // yet — though grace appears elsewhere as an assignable candidate, so target the effective <li>.
   const effectiveLi = (email: string) => new RegExp(`<li><span class="cell-strong">${email.replace(".", "\\.")}`);
-  const detail = await (await get("/admin/roles/editor")).text();
+  const detail = await (await get("/admin/permissions/editor")).text();
   assert.match(detail, effectiveLi("ada@example.com"));
   assert.doesNotMatch(detail, effectiveLi("grace@example.com"));
 
-  // Assign the `eng` group to the role → grace now holds it transitively (effective access via expand).
-  await post("/admin/roles/editor/members", `_csrf=${token}&member=group:eng`);
-  assert.ok(tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
-  const withGroup = await (await get("/admin/roles/editor")).text();
+  // Assign the `eng` group to the permission → grace now holds it transitively (effective access via expand).
+  await post("/admin/permissions/editor/members", `_csrf=${token}&member=group:eng`);
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+  const withGroup = await (await get("/admin/permissions/editor")).text();
   assert.match(withGroup, effectiveLi("grace@example.com"));
 
   // Revoke the group membership.
-  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=group:eng`);
-  assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+  await post("/admin/permissions/editor/members/delete", `_csrf=${token}&member=group:eng`);
+  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor" && tp.subject_set?.object === "eng"));
 
   // Unassigning a *user* membership likewise revokes that user's live token, so the loss of access is immediate.
-  await post("/admin/roles/editor/members", `_csrf=${token}&member=identity:${grace}`);
-  await post("/admin/roles/editor/members/delete", `_csrf=${token}&member=identity:${grace}`);
+  await post("/admin/permissions/editor/members", `_csrf=${token}&member=identity:${grace}`);
+  await post("/admin/permissions/editor/members/delete", `_csrf=${token}&member=identity:${grace}`);
   assert.equal(denylist.isRevoked(grace, 0), true);
 
-  // Delete the role: a confirm step (GET) then the POST removes every member tuple, back to the list.
-  assert.match(await (await get("/admin/roles/editor/delete")).text(), /Cancel/);
-  const del = await post("/admin/roles/editor/delete", `_csrf=${token}`);
+  // Delete the permission: a confirm step (GET) then the POST removes every member tuple, back to the list.
+  assert.match(await (await get("/admin/permissions/editor/delete")).text(), /Cancel/);
+  const del = await post("/admin/permissions/editor/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
-  assert.equal(del.headers.get("location"), "/admin/roles");
-  assert.ok(!tuples.some((tp) => tp.namespace === "Role" && tp.object === "editor"));
+  assert.equal(del.headers.get("location"), "/admin/permissions");
+  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor"));
 
-  // Self-protection: the admin role can't be deleted, nor can you revoke your own admin (sub admin1).
-  tuples.push({ namespace: "Role", object: "admin", relation: "members", subject_id: "identity:admin1" });
-  assert.equal((await post("/admin/roles/admin/delete", `_csrf=${token}`)).status, 400);
+  // Self-protection: the admin permission can't be deleted, nor can you revoke your own admin (sub admin1).
+  tuples.push({ namespace: "Permission", object: "admin", relation: "granted", subject_id: "identity:admin1" });
+  assert.equal((await post("/admin/permissions/admin/delete", `_csrf=${token}`)).status, 400);
   assert.ok(tuples.some((tp) => tp.object === "admin"));
-  assert.equal((await post("/admin/roles/admin/members/delete", `_csrf=${token}&member=identity:admin1`)).status, 400);
+  assert.equal((await post("/admin/permissions/admin/members/delete", `_csrf=${token}&member=identity:admin1`)).status, 400);
   assert.ok(tuples.some((tp) => tp.object === "admin" && tp.subject_id === "identity:admin1"));
 
-  // An invalid role name in the path → 404; malformed %-encoding doesn't 500.
-  assert.equal((await get("/admin/roles/Bad%20Name")).status, 404);
-  assert.equal((await get("/admin/roles/%ZZ")).status, 404);
+  // An invalid permission name in the path → 404; malformed %-encoding doesn't 500.
+  assert.equal((await get("/admin/permissions/Bad%20Name")).status, 404);
+  assert.equal((await get("/admin/permissions/%ZZ")).status, 404);
 });
 
 // Built-in OAuth2 clients admin screen: gate + list/register/detail/delete over HTTP against an

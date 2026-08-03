@@ -192,7 +192,7 @@ function oauthLogout(hydra: HydraAdmin): BuiltinRoute["handler"] {
 }
 
 // Login completion: where Kratos lands the browser after authenticating (kratos.yml). Mint our
-// session JWT — read roles from Keto, project onto the identity, tokenize — and store it as the
+// session JWT — read permissions from Keto, project onto the identity, tokenize — and store it as the
 // cookie; no active session bounces back to sign in.
 function completeAuth(deps: { keto: KetoClient; kratosAdmin: KratosAdmin; kratosPublic: KratosPublic }, secureCookies: boolean): BuiltinRoute["handler"] {
   return async (ctx: RequestContext): Promise<RouteResult> => {

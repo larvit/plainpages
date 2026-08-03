@@ -1,7 +1,7 @@
 <%#
   App shell: sidebar (brand + nav slot + footer) · topbar · content slot. The one chrome every page
   renders — dashboard, admin, plugin, login/registration/front — so the menu is identical
-  everywhere, role-filtered to the visitor (anonymous ⇒ public items + Sign in).
+  everywhere, permission-filtered to the visitor (anonymous ⇒ public items + Sign in).
   Slots are pre-rendered HTML locals — `nav` (sidebar tree, see nav-tree partial),
   `actions` (topbar buttons), `body` (page content); `styles` is an optional array of
   extra stylesheet hrefs (e.g. a plugin's own /public/<id>/x.css). Text locals: `title`

@@ -7,26 +7,27 @@ import { Context, Namespace, SubjectSet } from "@ory/keto-namespace-types"
 // A Kratos identity. Subjects are written as `identity:<kratos-identity-id>`.
 class Identity implements Namespace {}
 
-// A subject set: a named collection of users (and nested groups), resolved transitively.
-// The admin "Groups" screen manages membership; checks expand it automatically.
+// A named set of identities (and nested groups), resolved transitively. The admin "Groups"
+// screen manages membership; checks expand it automatically.
 class Group implements Namespace {
   related: {
     members: (Identity | SubjectSet<Group, "members">)[]
   }
 }
 
-// A coarse role — the source of truth for the JWT `roles` claim. At login the app reads
-// `Role:<name>#members@identity:<id>` from Keto and projects the result into the token
-// (README: Login → session JWT). A group can hold a role, so members can be users or groups.
-class Role implements Namespace {
+// A coarse permission — an operation a route or menu item gates on, and the source of truth
+// for the JWT `permissions` claim. At login the app reads `Permission:<name>#granted@identity:<id>`
+// from Keto and projects the result into the token (README: Login → session JWT). A group can
+// hold a permission, so grants go to an identity or to a whole group.
+class Permission implements Namespace {
   related: {
-    members: (Identity | SubjectSet<Group, "members">)[]
+    granted: (Identity | SubjectSet<Group, "members">)[]
   }
 }
 
 // A fine-grained, relationship-checked resource — README's third "may I?" tier, the rare
-// live Keto check (e.g. sharing/delegation). Permissions nest: owner ⊇ editor ⊇ viewer.
-// Grants accept a user directly or any member of a group.
+// live Keto check (e.g. sharing/delegation). Permits nest: owner ⊇ editor ⊇ viewer.
+// Grants accept an identity directly or any member of a group.
 class Resource implements Namespace {
   related: {
     owners: (Identity | SubjectSet<Group, "members">)[]

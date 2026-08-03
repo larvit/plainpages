@@ -1,5 +1,5 @@
 // Reference plugin: a worked example of the contract — a list page that fetches upstream
-// data, a CSRF-guarded form that forwards a write upstream, and role-gated nav. Copy this
+// data, a CSRF-guarded form that forwards a write upstream, and permission-gated nav. Copy this
 // folder, rename it, point it at your own backend. Full contract: README.md → Building plugins.
 
 import { definePlugin } from "#plugin-api";
@@ -23,7 +23,7 @@ export default definePlugin({
   nav: [{
     children: [
       { href: SCHEDULING_PATH, id: "scheduling:overview", label: "Overview", public: true },
-      { href: SHIFTS_PATH, id: "scheduling:shifts", label: "Shifts", role: READ },
+      { href: SHIFTS_PATH, id: "scheduling:shifts", label: "Shifts", permission: READ },
     ],
     icon: "i-cal",
     id: "scheduling",
@@ -31,17 +31,17 @@ export default definePlugin({
   }],
 
   // Roles this plugin introduces (docs + Keto seeding). Namespaced `<id>:<action>`.
-  roles: [
+  permissions: [
     { description: "View shifts", name: READ },
     { description: "Create and edit shifts", name: WRITE },
   ],
 
-  // Mounted under /scheduling; `role` gates before the handler runs. The overview is `public`
-  // (anyone may reach /scheduling, signed in or not); the rest need a role.
+  // Mounted under /scheduling; `permission` gates before the handler runs. The overview is `public`
+  // (anyone may reach /scheduling, signed in or not); the rest need a permission.
   routes: [
     { handler: overview(), method: "GET", path: "/", public: true },
-    { handler: listShifts(upstream), method: "GET", path: "/shifts", role: READ },
-    { handler: newShiftForm(), method: "GET", path: "/shifts/new", role: WRITE },
-    { handler: createShift(upstream), method: "POST", path: "/shifts", role: WRITE },
+    { handler: listShifts(upstream), method: "GET", path: "/shifts", permission: READ },
+    { handler: newShiftForm(), method: "GET", path: "/shifts/new", permission: WRITE },
+    { handler: createShift(upstream), method: "POST", path: "/shifts", permission: WRITE },
   ],
 });

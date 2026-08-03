@@ -25,7 +25,7 @@ const nodes = [
           { label: "Webhooks (soon)" }, // leaf · static
         ],
       },
-      { label: "Roles & Access", children: [{ label: "Roles", href: "/roles" }] }, // header · static · closed
+      { label: "Permissions & Access", children: [{ label: "Permissions", href: "/permissions" }] }, // header · static · closed
     ],
   },
 ];
@@ -59,8 +59,8 @@ test("nav-tree renders the header/leaf × clickable/static matrix with counts, i
   assert.match(html, /<span class="nav-self"><span class="nav-label">Webhooks \(soon\)<\/span><\/span>/);
 
   // Header · static · closed (no [open]) + label escaping in both label and aria-label.
-  assert.match(html, /<details class="nav-disc"><summary class="nav-tog" aria-label="Toggle Roles &amp; Access">/);
-  assert.match(html, /<span class="nav-label">Roles &amp; Access<\/span>/);
+  assert.match(html, /<details class="nav-disc"><summary class="nav-tog" aria-label="Toggle Permissions &amp; Access">/);
+  assert.match(html, /<span class="nav-label">Permissions &amp; Access<\/span>/);
 });
 
 test("nav-tree renders an empty root list with no nodes and never throws", async () => {

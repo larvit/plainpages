@@ -23,7 +23,7 @@ test("buildContext parses the URL, exposes query, and defaults to an anonymous u
   assert.equal(ctx.query.get("q"), "ann");
   assert.equal(ctx.query.get("page"), "2");
   assert.equal(ctx.identity, null);
-  assert.deepEqual(ctx.roles, []);
+  assert.deepEqual(ctx.permissions, []);
   assert.deepEqual(ctx.params, {});
 });
 
@@ -33,12 +33,12 @@ test("buildContext threads path params supplied by the router", () => {
   assert.equal(ctx.params.id, "42");
 });
 
-test("buildContext threads the user and derives roles from it", () => {
+test("buildContext threads the user and derives permissions from it", () => {
   const { req, res } = reqRes("/");
-  const user: SessionIdentity = { email: "a@b.c", id: "u1", roles: ["admin", "editor"] };
+  const user: SessionIdentity = { email: "a@b.c", id: "u1", permissions: ["admin", "editor"] };
   const ctx = buildContext(req, res, { identity: user });
   assert.equal(ctx.identity, user);
-  assert.equal(ctx.roles, user.roles); // same reference, never a divergent copy — buildContext is the only writer
+  assert.equal(ctx.permissions, user.permissions); // same reference, never a divergent copy — buildContext is the only writer
 });
 
 test("buildContext defaults a missing request URL to /", () => {

@@ -1,11 +1,11 @@
 // One-command bootstrap: idempotent first-boot seeding. Guards the pure payload
-// builders (Kratos create-identity body + Keto role tuple), the idempotent seedAdmin
+// builders (Kratos create-identity body + Keto permission tuple), the idempotent seedAdmin
 // orchestration (fresh 201 vs existing 409 → reuse id), and the JWKS generate-if-absent
 // safety net. Live boot is verified by running the stack; these catch contract drift.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { ensureJwks, firstRunBanner, identityPayload, roleTuple, seedAdmin, seedRoles } from "./bootstrap.ts";
+import { ensureJwks, firstRunBanner, identityPayload, permissionTuple, seedAdmin, seedPermissions } from "./bootstrap.ts";
 
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), {
@@ -20,27 +20,27 @@ test("identityPayload is a valid Kratos create-identity body with a password cre
   assert.equal(body.credentials.password.config.password, "admin");
 });
 
-test("roleTuple grants a role to identity:<id> in the Role namespace", () => {
+test("permissionTuple grants a permission to identity:<id> in the Permission namespace", () => {
   const id = randomUUID();
-  assert.deepEqual(roleTuple(id, "admin"), {
-    namespace: "Role",
+  assert.deepEqual(permissionTuple(id, "admin"), {
+    namespace: "Permission",
     object: "admin",
-    relation: "members",
+    relation: "granted",
     subject_id: `identity:${id}`,
   });
 });
 
-test("seedRoles unions ADMIN_ROLES (default 'admin') with the discovered plugins' declared roles", () => {
-  // Clean clone: no ADMIN_ROLES, the scheduling plugin declares its two tokens → the demo admin
+test("seedPermissions unions ADMIN_PERMISSIONS (default 'admin') with the discovered plugins' declared permissions", () => {
+  // Clean clone: no ADMIN_PERMISSIONS, the scheduling plugin declares its two tokens → the demo admin
   // gets exactly today's behaviour, but derived from discovery, not hardcoded in the host.
-  assert.deepEqual(seedRoles(undefined, ["scheduling:read", "scheduling:write"]), ["admin", "scheduling:read", "scheduling:write"]);
-  assert.deepEqual(seedRoles(undefined, []), ["admin"]); // no plugins → just the base admin role
-  assert.deepEqual(seedRoles("admin, ops ", ["inventory:read"]), ["admin", "ops", "inventory:read"]); // env trimmed + extended
-  assert.deepEqual(seedRoles("admin,scheduling:read", ["scheduling:read"]), ["admin", "scheduling:read"]); // dedup, no double grant
-  assert.deepEqual(seedRoles("admin,, ", [" scheduling:read ", ""]), ["admin", "scheduling:read"]); // blanks dropped, tokens trimmed (both sides)
+  assert.deepEqual(seedPermissions(undefined, ["scheduling:read", "scheduling:write"]), ["admin", "scheduling:read", "scheduling:write"]);
+  assert.deepEqual(seedPermissions(undefined, []), ["admin"]); // no plugins → just the base admin permission
+  assert.deepEqual(seedPermissions("admin, ops ", ["inventory:read"]), ["admin", "ops", "inventory:read"]); // env trimmed + extended
+  assert.deepEqual(seedPermissions("admin,scheduling:read", ["scheduling:read"]), ["admin", "scheduling:read"]); // dedup, no double grant
+  assert.deepEqual(seedPermissions("admin,, ", [" scheduling:read ", ""]), ["admin", "scheduling:read"]); // blanks dropped, tokens trimmed (both sides)
 });
 
-test("seedAdmin on a fresh stack creates the identity and grants every role (one tuple each)", async () => {
+test("seedAdmin on a fresh stack creates the identity and grants every permission (one tuple each)", async () => {
   const id = randomUUID();
   const calls: { method: string; url: string; body?: unknown }[] = [];
   const fetchImpl = (async (url, init) => {
@@ -57,20 +57,20 @@ test("seedAdmin on a fresh stack creates the identity and grants every role (one
     ketoWriteUrl: "http://keto:4467",
     kratosAdminUrl: "http://kratos:4434",
     password: "admin",
-    roles: ["admin", "scheduling:read"],
+    permissions: ["admin", "scheduling:read"],
   });
 
-  assert.deepEqual(result, { created: true, id, roles: ["admin", "scheduling:read"] });
+  assert.deepEqual(result, { created: true, id, permissions: ["admin", "scheduling:read"] });
   const puts = calls.filter((c) => c.url.includes("relation-tuples"));
-  assert.equal(puts.length, 2); // one grant per role
+  assert.equal(puts.length, 2); // one grant per permission
   assert.ok(puts.every((p) => p.method === "PUT"));
   assert.deepEqual(puts.map((p) => p.body), [
-    { namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${id}` },
-    { namespace: "Role", object: "scheduling:read", relation: "members", subject_id: `identity:${id}` },
+    { namespace: "Permission", object: "admin", relation: "granted", subject_id: `identity:${id}` },
+    { namespace: "Permission", object: "scheduling:read", relation: "granted", subject_id: `identity:${id}` },
   ]);
 });
 
-test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants the role", async () => {
+test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants the permission", async () => {
   const id = randomUUID();
   let granted: unknown;
   const fetchImpl = (async (url, init) => {
@@ -90,11 +90,11 @@ test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants 
     ketoWriteUrl: "http://keto:4467",
     kratosAdminUrl: "http://kratos:4434",
     password: "admin",
-    roles: ["admin"],
+    permissions: ["admin"],
   });
 
-  assert.deepEqual(result, { created: false, id, roles: ["admin"] });
-  assert.deepEqual(granted, { namespace: "Role", object: "admin", relation: "members", subject_id: `identity:${id}` });
+  assert.deepEqual(result, { created: false, id, permissions: ["admin"] });
+  assert.deepEqual(granted, { namespace: "Permission", object: "admin", relation: "granted", subject_id: `identity:${id}` });
 });
 
 test("seedAdmin fails loud on an unexpected Kratos error", async () => {
@@ -106,7 +106,7 @@ test("seedAdmin fails loud on an unexpected Kratos error", async () => {
       ketoWriteUrl: "http://keto:4467",
       kratosAdminUrl: "http://kratos:4434",
       password: "admin",
-      roles: ["admin"],
+      permissions: ["admin"],
     }),
     /Kratos/,
   );

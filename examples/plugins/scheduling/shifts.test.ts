@@ -12,12 +12,12 @@ import {
 
 const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } };
 
-function fakeCtx(opts: { body?: string; roles?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
+function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
     chrome: CHROME, identity: null, log: new Log("none"), params: {}, query: url.searchParams, req, res: {} as ServerResponse,
-    roles: opts.roles ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
+    permissions: opts.permissions ?? [], url, verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
 }
 
@@ -93,8 +93,8 @@ test("readInput trims; validate requires title + assignee", () => {
 
 // ---- list handler ----
 
-test("listShifts renders the upstream rows; q filters; canWrite reflects the role", async () => {
-  const r = asView(await listShifts(fakeUpstream())(fakeCtx({ roles: ["scheduling:write"] })));
+test("listShifts renders the upstream rows; q filters; canWrite reflects the permission", async () => {
+  const r = asView(await listShifts(fakeUpstream())(fakeCtx({ permissions: ["scheduling:write"] })));
   assert.equal(r.view, "shifts");
   const table = r.data["table"] as { rows: { name: string }[] };
   assert.deepEqual(table.rows.map((x) => x.name), ["Morning desk", "Afternoon support"]);
@@ -112,15 +112,15 @@ test("listShifts degrades to a recoverable error page when the upstream is down 
   assert.deepEqual((r.data["table"] as { rows: unknown[] }).rows, []);
 });
 
-// ---- public overview handler (a page anyone can reach, gated data stays behind the role) ----
+// ---- public overview handler (a page anyone can reach, gated data stays behind the permission) ----
 
 test("overview renders a public page for anyone; it links straight to Shifts only for a reader", async () => {
-  const anon = asView(await overview()(fakeCtx())); // user null, no roles
+  const anon = asView(await overview()(fakeCtx())); // user null, no permissions
   assert.equal(anon.view, "overview");
   assert.equal(anon.data["chrome"], CHROME);
   assert.equal(anon.data["canRead"], false); // anonymous → prompt to sign in, no shifts link
 
-  const reader = asView(await overview()(fakeCtx({ roles: ["scheduling:read"] })));
+  const reader = asView(await overview()(fakeCtx({ permissions: ["scheduling:read"] })));
   assert.equal(reader.data["canRead"], true); // a reader gets a link straight to the shifts list
 });
 

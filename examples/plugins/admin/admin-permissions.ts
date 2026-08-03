@@ -1,15 +1,15 @@
-// Roles admin screen: list / create / delete Keto roles and assign
-// them to users and groups. A role is a Keto subject set `Role:<name>#members` (OPL: members are users
-// or groups, resolved transitively) — the source of truth for the JWT `roles` claim. It shares the
+// Permissions admin screen: list / create / delete Keto permissions and assign
+// them to users and groups. A permission is a Keto subject set `Permission:<name>#members` (OPL: members are users
+// or groups, resolved transitively) — the source of truth for the JWT `permissions` claim. It shares the
 // Groups screen's membership model, so the pure helpers (parseSubject, member pickers, tuple paging)
-// are reused from admin-groups. The role-specific piece is the **effective access** view:
-// `keto.expand(Role:<name>#members)` flattened to the distinct users who hold the role directly or via
-// a group — matching what login projects into the JWT (login.ts readRoles). Writes go only to Keto;
+// are reused from admin-groups. The permission-specific piece is the **effective access** view:
+// `keto.expand(Permission:<name>#members)` flattened to the distinct users who hold the permission directly or via
+// a group — matching what login projects into the JWT (login.ts readPermissions). Writes go only to Keto;
 // Kratos is read only to label members. Below the builders are thin per-route handlers (keyed on
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
 import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SessionIdentity } from "#plugin-api";
-import { ADMIN_ROLE, ADMIN_ROLES_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_PERMISSION, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -23,29 +23,29 @@ import {
 } from "./admin-groups.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
-const ROLE_NS = "Role";
-const MEMBERS = "members";
+const PERMISSION_NS = "Permission";
+const GRANTED = "granted";
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];
 // Expand far past any sane group-nesting depth so the effective-access view never silently
 // under-reports the deepest members (Keto's own default is shallow).
 const EXPAND_MAX_DEPTH = 50;
 
-// A role and a group share the URL-safe name rule and the user|group membership model.
-export type RoleView = GroupView;
+// A permission and a group share the URL-safe name rule and the user|group membership model.
+export type PermissionView = GroupView;
 export const isValidRoleName = isValidGroupName;
-export const rolesFromTuples = groupsFromTuples;
+export const permissionsFromTuples = groupsFromTuples;
 export interface EffectiveUser {
   label: string; // email (or the raw id when unresolved)
 }
 
-// The full membership tuple for assigning/revoking `value` to/from `role` (null if value is invalid).
-export function roleMemberTuple(role: string, value: string): RelationTuple | null {
+// The full membership tuple for assigning/revoking `value` to/from `permission` (null if value is invalid).
+export function permissionGrantTuple(permission: string, value: string): RelationTuple | null {
   const subject = parseSubject(value);
-  return subject ? { namespace: ROLE_NS, object: role, relation: MEMBERS, ...subject } : null;
+  return subject ? { namespace: PERMISSION_NS, object: permission, relation: GRANTED, ...subject } : null;
 }
 
-// Flatten a Keto `expand` tree → the sorted, distinct user ids that effectively hold the role
+// Flatten a Keto `expand` tree → the sorted, distinct user ids that effectively hold the permission
 // (direct leaves + users reached through member groups, any depth). The subject rides on each
 // node's `tuple`; subject-set nodes (the groups) contribute nothing directly — their members
 // surface as leaves under them.
@@ -70,17 +70,17 @@ interface ListState {
   sort: string | null;
 }
 
-const SORT: Record<string, (r: RoleView) => number | string> = {
+const SORT: Record<string, (r: PermissionView) => number | string> = {
   members: (r) => r.memberCount,
   name: (r) => r.name,
 };
 const COLUMNS = [
-  { key: "name", label: "Role" },
+  { key: "name", label: "Permission" },
   { key: "members", label: "Members" },
 ];
 
 function detailHref(name: string): string {
-  return `${ADMIN_ROLES_BASE}/${encodeURIComponent(name)}`;
+  return `${ADMIN_PERMISSIONS_BASE}/${encodeURIComponent(name)}`;
 }
 
 function listHref(state: ListState, overrides: Partial<ListState> = {}): string {
@@ -91,12 +91,12 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
   if (s.page > 1) p.set("page", String(s.page));
   if (s.pageSize !== DEFAULT_PAGE_SIZE) p.set("pageSize", String(s.pageSize));
   const qs = p.toString();
-  return qs ? `${ADMIN_ROLES_BASE}?${qs}` : ADMIN_ROLES_BASE;
+  return qs ? `${ADMIN_PERMISSIONS_BASE}?${qs}` : ADMIN_PERMISSIONS_BASE;
 }
 
-export function buildRolesListModel(opts: {
+export function buildPermissionsListModel(opts: {
   csrfToken?: string;
-  roles: RoleView[];
+  permissions: PermissionView[];
   url: URL | URLSearchParams | string;
 }) {
   const query = parseListQuery(opts.url, { defaultPageSize: DEFAULT_PAGE_SIZE });
@@ -104,7 +104,7 @@ export function buildRolesListModel(opts: {
   const sortToken = sort ? (sort.dir === "desc" ? `-${sort.field}` : sort.field) : null;
   const needle = query.q.toLowerCase();
 
-  let list = opts.roles.filter((r) => !needle || r.name.toLowerCase().includes(needle));
+  let list = opts.permissions.filter((r) => !needle || r.name.toLowerCase().includes(needle));
   if (sort) {
     const get = SORT[sort.field]!;
     const dir = sort.dir === "desc" ? -1 : 1;
@@ -121,17 +121,17 @@ export function buildRolesListModel(opts: {
   const state: ListState = { page: page.page, pageSize: page.pageSize, q: query.q, sort: sortToken };
 
   return {
-    breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Admin" }, { label: "Roles" }],
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Admin" }, { label: "Permissions" }],
     filterBar: listFilterBar(state),
     pagination: listPagination(state, page),
     table: listTable(rows, state, sort),
-    title: "Roles",
+    title: "Permissions",
   };
 }
 
-function listTable(rows: RoleView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null) {
+function listTable(rows: PermissionView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null) {
   return {
-    caption: "Roles",
+    caption: "Permissions",
     columns: COLUMNS.map((c) => {
       const dir = sort && sort.field === c.key ? sort.dir : undefined;
       const next = dir === "asc" ? `-${c.key}` : c.key;
@@ -149,11 +149,11 @@ function listFilterBar(state: ListState) {
   if (state.q) pills.push({ label: "Search", remove: listHref(state, { page: 1, q: "" }), value: state.q });
   return {
     applyLabel: "Apply",
-    clearHref: ADMIN_ROLES_BASE,
-    label: "Filter roles",
+    clearHref: ADMIN_PERMISSIONS_BASE,
+    label: "Filter permissions",
     pills,
     rows: [[
-      { label: "Search roles", name: "q", placeholder: "Search role name…", type: "search", value: state.q },
+      { label: "Search permissions", name: "q", placeholder: "Search permission name…", type: "search", value: state.q },
       { type: "spacer" },
     ]],
   };
@@ -178,7 +178,7 @@ function listPagination(state: ListState, page: ReturnType<typeof paginate>) {
 
 // ---- create form + detail view models ----
 
-export function buildRoleFormModel(opts: {
+export function buildPermissionFormModel(opts: {
   csrfToken?: string;
   error?: string;
   memberOptions: MemberOption[];
@@ -186,69 +186,69 @@ export function buildRoleFormModel(opts: {
 }) {
   const nameField: FieldConfig = {
     autocomplete: "off", hint: "Lowercase letters, digits, dashes and underscores.", icon: "i-shield",
-    id: "name", label: "Role name", name: "name", required: true, value: opts.values?.name ?? "",
+    id: "name", label: "Permission name", name: "name", required: true, value: opts.values?.name ?? "",
   };
   return {
-    breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { label: "New" }],
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { label: "New" }],
     error: opts.error,
     form: {
-      action: ADMIN_ROLES_BASE,
-      cancelHref: ADMIN_ROLES_BASE,
+      action: ADMIN_PERMISSIONS_BASE,
+      cancelHref: ADMIN_PERMISSIONS_BASE,
       csrfToken: opts.csrfToken ?? "",
       memberOptions: opts.memberOptions,
       nameField,
       selectedMember: opts.values?.member ?? "",
-      submitLabel: "Create role",
+      submitLabel: "Create permission",
     },
-    title: "New role",
+    title: "New permission",
   };
 }
 
-export function buildRoleDetailModel(opts: {
+export function buildPermissionDetailModel(opts: {
   candidates: MemberOption[];
   csrfToken?: string;
   effective: EffectiveUser[];
   error?: string;
   members: MemberView[];
-  role: { name: string };
+  permission: { name: string };
 }) {
-  const name = opts.role.name;
+  const name = opts.permission.name;
   const base = detailHref(name);
   const taken = new Set(opts.members.map((m) => m.subject));
-  const options = opts.candidates.filter((c) => !taken.has(c.value)); // members are users/groups, never the role itself
+  const options = opts.candidates.filter((c) => !taken.has(c.value)); // members are users/groups, never the permission itself
   return {
     add: { action: `${base}/members`, options },
-    breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { label: name }],
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { label: name }],
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
     effective: opts.effective,
     error: opts.error,
     members: { action: `${base}/members/delete`, rows: opts.members },
-    role: { name },
+    permission: { name },
     title: name,
   };
 }
 
 // ---- request handler (imperative shell) ----
 
-// instant-revoke: a role change for a `identity:<id>` member must take effect now, so revoke that
-// user's live tokens (a re-mint then re-reads roles from Keto). A `group:<name>` change is
+// instant-revoke: a permission change for a `identity:<id>` member must take effect now, so revoke that
+// user's live tokens (a re-mint then re-reads permissions from Keto). A `group:<name>` change is
 // transitive across many users — left to lag (documented), so only direct user members revoke.
 function revokeUserMember(revoke: ((sub: string) => void) | undefined, member: string): void {
   if (revoke && member.startsWith("identity:")) revoke(member.slice("identity:".length));
 }
 
-// A role exists exactly while it has ≥1 member (Keto has no create-object).
+// A permission exists exactly while it has ≥1 member (Keto has no create-object).
 async function roleExists(keto: KetoClient, name: string): Promise<boolean> {
-  const page = await keto.listRelations({ namespace: ROLE_NS, object: name, relation: MEMBERS, pageSize: 1 });
+  const page = await keto.listRelations({ namespace: PERMISSION_NS, object: name, relation: GRANTED, pageSize: 1 });
   return page.tuples.length > 0;
 }
 
-// The distinct users who effectively hold the role (expand → flatten → label by email). Skipped for
-// an empty role (no member tuples) so we don't expand a non-existent Keto object.
+// The distinct users who effectively hold the permission (expand → flatten → label by email). Skipped for
+// an empty permission (no member tuples) so we don't expand a non-existent Keto object.
 async function effectiveUsers(keto: KetoClient, name: string, hasMembers: boolean, emailById: Map<string, string>): Promise<EffectiveUser[]> {
   if (!hasMembers) return [];
-  const tree = await keto.expand({ namespace: ROLE_NS, object: name, relation: MEMBERS }, { maxDepth: EXPAND_MAX_DEPTH });
+  const tree = await keto.expand({ namespace: PERMISSION_NS, object: name, relation: GRANTED }, { maxDepth: EXPAND_MAX_DEPTH });
   return expandToEffectiveUsers(tree)
     .map((id) => ({ label: emailById.get(id) ?? `identity:${id}` }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -268,7 +268,7 @@ function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandl
   };
 }
 
-// Same, plus the validated :name from ctx.params (an invalid role name → themed 404).
+// Same, plus the validated :name from ctx.params (an invalid permission name → themed 404).
 function withRoleName(inner: (deps: RolesDeps, name: string) => Promise<RouteResult>): RouteHandler {
   return withRoles((deps) => {
     const name = deps.ctx.params["name"] ?? "";
@@ -279,89 +279,89 @@ function withRoleName(inner: (deps: RolesDeps, name: string) => Promise<RouteRes
 
 const roleFormResult = async (deps: RolesDeps, extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
   const { options } = await memberCandidates(deps.keto, deps.kratosAdmin);
-  return { data: { chrome: deps.ctx.chrome, model: buildRoleFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, ...extra }) }, view: "role-form" };
+  return { data: { chrome: deps.ctx.chrome, model: buildPermissionFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, ...extra }) }, view: "permission-form" };
 };
 
-// The role detail (members + effective access). With `error` set it's a 400 (a rejected action).
+// The permission detail (members + effective access). With `error` set it's a 400 (a rejected action).
 const roleDetailResult = async (deps: RolesDeps, name: string, error?: string): Promise<RouteResult> => {
   const { emailById, options } = await memberCandidates(deps.keto, deps.kratosAdmin);
-  const tuples = await pagedTuples(deps.keto, { namespace: ROLE_NS, object: name, relation: MEMBERS });
+  const tuples = await pagedTuples(deps.keto, { namespace: PERMISSION_NS, object: name, relation: GRANTED });
   const members = tuples.map((t) => memberView(t, emailById));
   const effective = await effectiveUsers(deps.keto, name, tuples.length > 0, emailById);
-  const result: RouteResult = { data: { chrome: deps.ctx.chrome, model: buildRoleDetailModel({ candidates: options, csrfToken: deps.ctx.chrome.csrfToken, effective, members, role: { name }, ...(error ? { error } : {}) }) }, view: "role-detail" };
+  const result: RouteResult = { data: { chrome: deps.ctx.chrome, model: buildPermissionDetailModel({ candidates: options, csrfToken: deps.ctx.chrome.csrfToken, effective, members, permission: { name }, ...(error ? { error } : {}) }) }, view: "permission-detail" };
   return error ? { ...result, status: 400 } : result;
 };
 
-// GET /admin/roles — the list.
+// GET /admin/permissions — the list.
 export const rolesList = withRoles(async ({ ctx, keto }) => {
-  const roles = rolesFromTuples(await pagedTuples(keto, { namespace: ROLE_NS, relation: MEMBERS }));
-  return { data: { chrome: ctx.chrome, model: buildRolesListModel({ csrfToken: ctx.chrome.csrfToken, roles, url: ctx.url }) }, view: "roles" };
+  const permissions = permissionsFromTuples(await pagedTuples(keto, { namespace: PERMISSION_NS, relation: GRANTED }));
+  return { data: { chrome: ctx.chrome, model: buildPermissionsListModel({ csrfToken: ctx.chrome.csrfToken, permissions, url: ctx.url }) }, view: "permissions" };
 });
 
-// POST /admin/roles — create + assign the first member (a *user* grant revokes their live tokens).
+// POST /admin/permissions — create + assign the first member (a *user* grant revokes their live tokens).
 export const rolesCreate = withRoles(async (deps) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const name = (form.get("name") ?? "").trim();
   const member = (form.get("member") ?? "").trim();
-  const tuple = roleMemberTuple(name, member);
+  const tuple = permissionGrantTuple(name, member);
   const reject = async (error: string): Promise<RouteResult> => ({ ...(await roleFormResult(deps, { error, values: { member, name } })), status: 400 });
-  if (!isValidRoleName(name)) return reject("Role names use lowercase letters, digits, dashes and underscores.");
-  if (!tuple) return reject("Pick a user or group to assign the role to.");
-  if (await roleExists(keto, name)) return reject("A role with that name already exists.");
+  if (!isValidRoleName(name)) return reject("Permission names use lowercase letters, digits, dashes and underscores.");
+  if (!tuple) return reject("Pick a user or group to assign the permission to.");
+  if (await roleExists(keto, name)) return reject("A permission with that name already exists.");
   await keto.writeTuple(tuple);
   revokeUserMember(revoke, member);
-  ctx.log.info("admin: role created + first member assigned", { actor: user.id, member, role: name });
+  ctx.log.info("admin: permission created + first member assigned", { actor: user.id, member, permission: name });
   return { redirect: detailHref(name) };
 });
 
-// GET /admin/roles/new — the create form.
+// GET /admin/permissions/new — the create form.
 export const rolesNewForm = withRoles((deps) => roleFormResult(deps, {}));
 
-// GET /admin/roles/:name — the detail (members + effective access via Keto expand).
+// GET /admin/permissions/:name — the detail (members + effective access via Keto expand).
 export const rolesDetail = withRoleName((deps, name) => roleDetailResult(deps, name));
 
-// POST /admin/roles/:name/members — assign a user/group; a *user* grant revokes their live tokens.
+// POST /admin/permissions/:name/members — assign a user/group; a *user* grant revokes their live tokens.
 export const rolesAddMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  const tuple = roleMemberTuple(name, member); // the picker only offers real users/groups
-  if (tuple) { await keto.writeTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: role assigned", { actor: user.id, member, role: name }); }
+  const tuple = permissionGrantTuple(name, member); // the picker only offers real users/groups
+  if (tuple) { await keto.writeTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission assigned", { actor: user.id, member, permission: name }); }
   return { redirect: detailHref(name) };
 });
 
-// GET /admin/roles/:name/delete — confirm, except the admin role can't be deleted.
+// GET /admin/permissions/:name/delete — confirm, except the admin permission can't be deleted.
 export const rolesDeleteConfirm = withRoleName((deps, name) => {
-  if (name === ADMIN_ROLE) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
+  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
   const base = detailHref(name);
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_ROLES_BASE, label: "Roles" }, { href: base, label: name }, { label: "Delete" }],
-    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete role",
-    message: `Delete role ${name}? This revokes it from everyone it's assigned to.`, title: "Delete role",
+    breadcrumbs: [{ href: ADMIN_PERMISSIONS_BASE, label: "Permissions" }, { href: base, label: name }, { label: "Delete" }],
+    cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: "Delete permission",
+    message: `Delete permission ${name}? This revokes it from everyone it's assigned to.`, title: "Delete permission",
   }) }, view: "confirm" });
 });
 
-// POST /admin/roles/:name/delete — remove every member tuple (a whole-role delete lags per the
-// documented instant-revoke tradeoff; the admin role is protected).
+// POST /admin/permissions/:name/delete — remove every member tuple (a whole-permission delete lags per the
+// documented instant-revoke tradeoff; the admin permission is protected).
 export const rolesDelete = withRoleName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (name === ADMIN_ROLE) return roleDetailResult(deps, name, "The admin role can't be deleted — it would remove all admin access.");
-  await keto.deleteTuple({ namespace: ROLE_NS, object: name, relation: MEMBERS });
-  ctx.log.info("admin: role deleted", { actor: user.id, role: name });
-  return { redirect: ADMIN_ROLES_BASE };
+  if (name === ADMIN_PERMISSION) return roleDetailResult(deps, name, "The admin permission can't be deleted — it would remove all admin access.");
+  await keto.deleteTuple({ namespace: PERMISSION_NS, object: name, relation: GRANTED });
+  ctx.log.info("admin: permission deleted", { actor: user.id, permission: name });
+  return { redirect: ADMIN_PERMISSIONS_BASE };
 });
 
-// POST /admin/roles/:name/members/delete — unassign; a *user* unassign revokes their live tokens.
+// POST /admin/permissions/:name/members/delete — unassign; a *user* unassign revokes their live tokens.
 // Self-protection: an admin can't revoke their own *direct* admin grant (a group-held admin isn't
 // covered — the robust "last effective admin" check is deferred).
 export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_ROLE && member === `identity:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
-  const tuple = roleMemberTuple(name, member);
-  if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: role unassigned", { actor: user.id, member, role: name }); }
+  if (name === ADMIN_PERMISSION && member === `identity:${user.id}`) return roleDetailResult(deps, name, "You can't revoke your own admin access.");
+  const tuple = permissionGrantTuple(name, member);
+  if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission unassigned", { actor: user.id, member, permission: name }); }
   return { redirect: detailHref(name) };
 });

@@ -22,11 +22,11 @@ const jwk2: JsonWebKey = { ...(k2.publicKey.export({ format: "jwk" }) as JsonWeb
 const jwks = staticJwks([jwk1, jwk2]); // rotated set: two live keys
 
 const NOW = 1_700_000_000; // fixed clock for deterministic exp/nbf checks
-const valid = { email: "a@b.c", exp: NOW + 600, roles: ["admin"], sub: "u1" };
+const valid = { email: "a@b.c", exp: NOW + 600, permissions: ["admin"], sub: "u1" };
 
 test("verifyToken: a valid token → User, selecting the verify key by kid across a rotated set", async () => {
   const user = await verifyToken(mint(k2.privateKey, "k2", valid), jwks, { now: NOW });
-  assert.deepEqual(user, { email: "a@b.c", id: "u1", roles: ["admin"] });
+  assert.deepEqual(user, { email: "a@b.c", id: "u1", permissions: ["admin"] });
 });
 
 test("verifyToken requires exp, rejects expiry and future nbf, with clock-skew leeway", async () => {
@@ -59,18 +59,18 @@ test("verifyToken rejects a bad signature and an unknown kid", async () => {
   await assert.rejects(verifyToken(mint(k1.privateKey, "nope", valid), jwks, { now: NOW }), /no JWKS key/);
 });
 
-test("claimsToIdentity requires sub + email, defaults roles to [], keeps only string roles", () => {
+test("claimsToIdentity requires sub + email, defaults permissions to [], keeps only string permissions", () => {
   assert.throws(() => claimsToIdentity({ email: "a@b.c", exp: NOW }), /sub/);
   assert.throws(() => claimsToIdentity({ email: "a@b.c", exp: NOW, sub: "" }), /sub/); // empty sub rejected too
   assert.throws(() => claimsToIdentity({ exp: NOW, sub: "u" }), /email/);
   assert.throws(() => claimsToIdentity({ email: "", exp: NOW, sub: "u" }), /email/); // empty email rejected (the shell keys signed-in vs anonymous off it)
-  assert.deepEqual(claimsToIdentity({ email: "a@b.c", sub: "u" }).roles, []); // roles absent
-  assert.deepEqual(claimsToIdentity({ email: "a@b.c", roles: ["a", 1, "b"], sub: "u" }).roles, ["a", "b"]);
+  assert.deepEqual(claimsToIdentity({ email: "a@b.c", sub: "u" }).permissions, []); // permissions absent
+  assert.deepEqual(claimsToIdentity({ email: "a@b.c", permissions: ["a", 1, "b"], sub: "u" }).permissions, ["a", "b"]);
 });
 
 test("resolveSession classifies the cookie; authenticate is its fail-closed identity projection", async () => {
   const cookie = (extra: Record<string, unknown> = {}, kid = "k1") => `${SESSION_COOKIE}=${mint(k1.privateKey, kid, { ...valid, ...extra })}`;
-  const identity = { email: "a@b.c", id: "u1", roles: ["admin"] };
+  const identity = { email: "a@b.c", id: "u1", permissions: ["admin"] };
 
   // A valid token → the user, not expired.
   assert.deepEqual(await resolveSession(cookie(), jwks, { now: NOW }), { expired: false, identity });
@@ -96,6 +96,6 @@ test("verifyToken honours an optional denylist: a revoked subject's token reject
   await assert.rejects(verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 }), jwks, { denylist, now: NOW }), /revoked/);
   assert.deepEqual(await resolveSession(`${SESSION_COOKIE}=${mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5 })}`, jwks, { denylist, now: NOW }), { expired: true, identity: null });
   // A token minted after the revoke (fresh login) is accepted; a different subject is untouched.
-  assert.deepEqual(await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW + 5 }), jwks, { denylist, now: NOW }), { email: "a@b.c", id: "u1", roles: ["admin"] });
+  assert.deepEqual(await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW + 5 }), jwks, { denylist, now: NOW }), { email: "a@b.c", id: "u1", permissions: ["admin"] });
   await verifyToken(mint(k1.privateKey, "k1", { ...valid, iat: NOW - 5, sub: "u2" }), jwks, { denylist, now: NOW });
 });

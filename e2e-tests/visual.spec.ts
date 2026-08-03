@@ -13,19 +13,19 @@ const shot = (page: Page, name: string): Promise<Buffer> =>
 // Sign a session JWT with the committed dev tokenizer key (bind-mounted at /repo/jwks.json), so the
 // gated dashboard renders for a "signed-in" user without standing up Ory — web verifies it
 // with the same key by `kid`, exactly as it verifies a real Kratos-tokenizer JWT.
-function devSession(roles: string[] = []): string {
+function devSession(permissions: string[] = []): string {
   const jwk = JSON.parse(readFileSync("/repo/jwks.json", "utf8")).keys[0];
   const key = createPrivateKey({ format: "jwk", key: jwk });
   const b64 = (o: unknown): string => Buffer.from(JSON.stringify(o)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
-  const input = `${b64({ alg: "ES256", kid: jwk.kid, typ: "JWT" })}.${b64({ email: "demo@plainpages.local", exp: now + 3600, iat: now, roles, sub: "visual-demo" })}`;
+  const input = `${b64({ alg: "ES256", kid: jwk.kid, typ: "JWT" })}.${b64({ email: "demo@plainpages.local", exp: now + 3600, iat: now, permissions, sub: "visual-demo" })}`;
   return `${input}.${sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key }).toString("base64url")}`;
 }
 
 test.beforeAll(async () => { await mkdir(SHOTS, { recursive: true }); });
 
 // The dashboard is gated: a page navigation needs a session. Plant one per test — a plain
-// member (no roles) so the gated scheduling nav stays filtered out.
+// member (no permissions) so the gated scheduling nav stays filtered out.
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });
@@ -99,7 +99,7 @@ test("the public landing at / is ungated and links to sign in + register", async
   await context.clearCookies(); // visit "/" as a logged-out visitor (drop the beforeEach session)
   await page.goto("/");
   await expect(page.locator(".landing")).toBeVisible();
-  // the same app shell every page renders — the menu shows even signed out (role-filtered).
+  // the same app shell every page renders — the menu shows even signed out (permission-filtered).
   await expect(page.locator(".sidebar")).toBeVisible();
   await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("link", { name: "Create account" })).toHaveAttribute("href", "/registration");
@@ -114,7 +114,7 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
 });
 
 // The reference plugin (plugins/scheduling) ships discovered in the image. Its public Overview is
-// reachable by anyone and its menu header shows for everyone; the shifts list stays role-gated,
+// reachable by anyone and its menu header shows for everyone; the shifts list stays permission-gated,
 // so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the full
 // E2E (full-flow.spec). Side-effect-free.
 test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login", async ({ page, request }) => {
@@ -136,7 +136,7 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   expect(res.status()).toBe(303);
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
 
-  // The signed-in member (no scheduling role) sees the public Scheduling → Overview leaf in the nav,
+  // The signed-in member (no scheduling permission) sees the public Scheduling → Overview leaf in the nav,
   // but the gated Shifts leaf is filtered out.
   await page.goto("/dashboard");
   await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders

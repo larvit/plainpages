@@ -15,7 +15,7 @@ What it demonstrates:
   `POST /scheduling/shifts` CSRF-verifies it (`ctx.verifyCsrf`) and forwards the create upstream,
   then POST-redirect-GET. The form body lives in the plugin's own `views/partials/shift-form.ejs`,
   reusing the core `field` partial.
-- **Role-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
+- **Permission-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
   `scheduling:write`; the whole "Scheduling" section is invisible to anyone without the grant.
 
 The plugin holds **no state** — data lives upstream (README → *Stateless*). Handlers are thin and
@@ -46,6 +46,6 @@ cosmetically) — normalise to your backend's format there if it matters.
 
 ## Granting access
 
-A user sees Scheduling once they hold the `scheduling:read` role in Keto (and `scheduling:write`
+A user sees Scheduling once they hold the `scheduling:read` permission in Keto (and `scheduling:write`
 to create). The one-command bootstrap grants both to the demo admin, so the seeded
 `admin@plainpages.local` can use it immediately.

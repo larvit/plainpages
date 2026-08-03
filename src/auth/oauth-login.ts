@@ -2,7 +2,7 @@
 // Hydra hands the browser to /oauth2/login?login_challenge=… (hydra.yml urls.login). We
 // authenticate the user with their existing Kratos session and accept the request; Hydra then
 // proceeds to consent and mints the tokens. No first-party page needs this — it's the OAuth2
-// provider role only (README).
+// provider permission only (README).
 import type { HydraAdmin } from "./hydra-admin.ts";
 import type { KratosPublic } from "./kratos-public.ts";
 

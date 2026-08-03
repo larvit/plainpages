@@ -29,16 +29,16 @@ export interface Route {
   handler: RouteHandler;
   method: HttpMethod;
   path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
-  role?: string; // coarse gate — the Keto Role the caller must hold; checked before the handler runs
-  // Mark the page reachable by anyone, signed in or not. The same as omitting `role`
+  permission?: string; // coarse gate — the Keto Permission the caller must hold; checked before the handler runs
+  // Mark the page reachable by anyone, signed in or not. The same as omitting `permission`
   // — an ungated route is already open — but stated outright, so "public" is a deliberate
-  // choice, not an accident. Mutually exclusive with `role` (discovery refuses both).
+  // choice, not an accident. Mutually exclusive with `permission` (discovery refuses both).
   public?: boolean;
 }
 
-// A Keto Role this plugin gates on — declared for docs/seeding. Role names are a shared
+// A Keto Permission this plugin gates on — declared for docs/seeding. Permission names are a shared
 // global namespace (so an operator grants them once in Keto); namespace as `<id>:<action>`.
-export interface RoleDecl {
+export interface PermissionDecl {
   description?: string;
   name: string;
 }
@@ -63,7 +63,7 @@ export interface PluginManifest {
   home?: RouteHandler;
   hooks?: PluginHooks;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
-  roles?: RoleDecl[];
+  permissions?: PermissionDecl[];
   routes?: Route[];
 }
 
@@ -147,7 +147,7 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
 }
 
 export interface PluginConflict {
-  kind: "dashboard" | "home" | "id" | "nav-id" | "role" | "route";
+  kind: "dashboard" | "home" | "id" | "nav-id" | "permission" | "route";
   level: "error" | "warn";
   message: string;
   plugins: string[]; // unique ids involved
@@ -155,7 +155,7 @@ export interface PluginConflict {
 
 // The conflict rules: defined, loud resolution — never last-write-wins. Pure over the discovered
 // plugins; discovery throws on any "error" and logs every "warn". Mount-path (`/<id>`) uniqueness
-// is structural — it follows from the id check, so it needs no rule of its own. Shared role
+// is structural — it follows from the id check, so it needs no rule of its own. Shared permission
 // names are the one intentional overlap, so they warn rather than error.
 export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   const out: PluginConflict[] = [];
@@ -184,9 +184,9 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   });
 
   collect(plugins, (plugin, push) => {
-    for (const decl of plugin.roles ?? []) push(decl.name);
+    for (const decl of plugin.permissions ?? []) push(decl.name);
   }).forEach((owners, name) => {
-    if (owners.length > 1) out.push({ kind: "role", level: "warn", message: `role "${name}" declared by ${uniq(owners).length} plugins; namespace as "<id>:<action>" unless shared on purpose`, plugins: uniq(owners) });
+    if (owners.length > 1) out.push({ kind: "permission", level: "warn", message: `permission "${name}" declared by ${uniq(owners).length} plugins; namespace as "<id>:<action>" unless shared on purpose`, plugins: uniq(owners) });
   });
 
   return out;

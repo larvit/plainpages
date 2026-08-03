@@ -48,7 +48,7 @@ test("rotateJwks --prune keeps only the newest (first) key, dropping superseded 
 test("a JWS signed with a generated key verifies via our own verifier (reads what Kratos signs)", () => {
   const key = generateJwks().keys[0]!;
   const head = b64url(JSON.stringify({ alg: "ES256", kid: key.kid }));
-  const body = b64url(JSON.stringify({ email: "a@b.c", roles: [], sub: key.kid }));
+  const body = b64url(JSON.stringify({ email: "a@b.c", permissions: [], sub: key.kid }));
   const sig = sign("SHA256", Buffer.from(`${head}.${body}`), { dsaEncoding: "ieee-p1363", key: createPrivateKey({ key: key as unknown as JsonWebKey, format: "jwk" }) });
   const token = `${head}.${body}.${sig.toString("base64url")}`;
 

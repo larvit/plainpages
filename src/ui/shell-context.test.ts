@@ -5,7 +5,7 @@ import { buildShellContext, shellUser } from "./shell-context.ts";
 test("shellUser derives the profile from the real user; anonymous → Guest", () => {
   assert.deepEqual(shellUser(null), { email: "", initials: "G", name: "Guest" });
   // Real user: name = email local part, email kept, initials = first two letters of the local part.
-  assert.deepEqual(shellUser({ email: "ada@example.com", id: "u1", roles: [] }), { email: "ada@example.com", initials: "AD", name: "ada" });
+  assert.deepEqual(shellUser({ email: "ada@example.com", id: "u1", permissions: [] }), { email: "ada@example.com", initials: "AD", name: "ada" });
 });
 
 test("buildShellContext maps branding + breadcrumbs, omitting unset optional fields", () => {
@@ -22,7 +22,7 @@ test("buildShellContext maps branding + breadcrumbs, omitting unset optional fie
     menu: { branding: { logo: "/l.svg", name: "Acme", sub: "Ops", theme: "dark" }, override: {} },
     signInHref: "/login?return_to=%2Fx",
     title: "Users",
-    identity: { email: "a@b.c", id: "u1", roles: ["admin"] },
+    identity: { email: "a@b.c", id: "u1", permissions: ["admin"] },
   });
   assert.deepEqual(full.brand, { logo: "/l.svg", name: "Acme", sub: "Ops" });
   assert.equal(full.theme, "dark");
