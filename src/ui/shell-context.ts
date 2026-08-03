@@ -10,6 +10,18 @@ import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
 import { type MenuConfig } from "./menu-config.ts";
 
+// The brand block both the chrome and the shell model carry. `name`/`sub` pass through `t`, so a
+// catalog key is translated and an operator's own wording renders as written.
+export function branding(menu: MenuConfig, t: Translate): { logo?: string; name: string; sub?: string; theme?: string } {
+  const b = menu.branding;
+  return {
+    ...(b.logo != null ? { logo: b.logo } : {}),
+    name: t(b.name),
+    ...(b.sub != null ? { sub: t(b.sub) } : {}),
+    ...(b.theme != null ? { theme: b.theme } : {}),
+  };
+}
+
 export interface ShellUser {
   email: string;
   initials: string;
@@ -44,14 +56,14 @@ export function buildShellContext(opts: {
   title: string;
   user?: User | null;
 }): ShellModel {
-  const b = opts.menu.branding;
   const t = opts.t ?? ENGLISH;
+  const { theme, ...brand } = branding(opts.menu, t);
   return {
-    brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: t(b.name), ...(b.sub != null ? { sub: t(b.sub) } : {}) },
+    brand,
     ...(opts.breadcrumbs ? { breadcrumbs: opts.breadcrumbs } : {}),
     csrfToken: opts.csrfToken ?? "",
     ...(opts.signInHref != null ? { signInHref: opts.signInHref } : {}),
-    ...(b.theme != null ? { theme: b.theme } : {}),
+    ...(theme != null ? { theme } : {}),
     title: opts.title,
     user: shellUser(opts.user, t),
   };

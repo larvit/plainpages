@@ -99,6 +99,26 @@ test("a plugin with translations but no en-US baseline is an error", async () =>
   await assert.rejects(loadI18n({ localesDir, pluginIds: ["shop"], pluginsDir }), /shop/);
 });
 
+test("a mounted locales/ adds a language, and replaces a shipped one wholesale", async () => {
+  const { localesDir, pluginsDir } = await fixture({
+    "locales/en-US.ts": catalog(`{ hello: "Hello" }`),
+    "locales/sv-SE.ts": catalog(`{ hello: "Hej" }`),
+    "mounted/nb-NO.ts": catalog(`{ hello: "Hei" }`),
+    "mounted/sv-SE.ts": catalog(`{ hello: "Tjena" }`),
+  });
+  const loaded = await loadI18n({ localesDir, mountedLocalesDir: join(localesDir, "..", "mounted"), pluginsDir });
+  assert.deepEqual(loaded.available, ["en-US", "nb-NO", "sv-SE"]);
+  assert.deepEqual(loaded.core.get("sv-SE"), { hello: "Tjena" }); // the operator's file wins outright
+});
+
+test("a mounted catalog is held to the same baseline as a shipped one", async () => {
+  const { localesDir, pluginsDir } = await fixture({
+    "locales/en-US.ts": catalog(`{ hello: "Hello", bye: "Bye" }`),
+    "mounted/nb-NO.ts": catalog(`{ hello: "Hei" }`), // no `bye` ⇒ half the app would be English
+  });
+  await assert.rejects(loadI18n({ localesDir, mountedLocalesDir: join(localesDir, "..", "mounted"), pluginsDir }), /nb-NO.*missing key "bye"/s);
+});
+
 test("a plugin without an i18n folder is fine", async () => {
   const { localesDir, pluginsDir } = await fixture({ "locales/en-US.ts": catalog(`{ hello: "Hello" }`) });
   const loaded = await loadI18n({ localesDir, pluginIds: ["plain"], pluginsDir });

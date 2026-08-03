@@ -13,3 +13,7 @@ e2e-tests/artifacts/
 # config/ is a drop-in mount point for your menu/branding override — keep it empty (see examples/config/ for the template)
 /config/*
 !/config/.gitkeep
+
+# locales/ is a drop-in mount point for extra (or replacement) language catalogs — keep it empty
+/locales/*
+!/locales/.gitkeep

@@ -5,13 +5,11 @@
 import type { PluralMessage } from "#plugin-api";
 
 const messages = {
-  "scheduling.cancel": "Cancel",
   "scheduling.field.assignee": "Assignee",
   "scheduling.field.end": "End",
   "scheduling.field.start": "Start",
   "scheduling.field.title": "Shift title",
   "scheduling.filter.label": "Filter shifts",
-  "scheduling.filter.search": "Search",
   "scheduling.filter.searchLabel": "Search shifts",
   "scheduling.filter.searchPlaceholder": "Search title or assignee…",
   "scheduling.form.submit": "Create shift",

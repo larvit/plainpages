@@ -151,7 +151,7 @@ function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "des
       return { href: listHref(state, { page: 1, sort: next }), label: t(c.label), sort: dir, sortable: true };
     }),
     rows: rows.map((u) => ({
-      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: "i-edit", label: t("admin.common.edit") }],
+      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: "i-edit", label: t("common.edit") }],
       cells: [
         { user: { initials: u.initials, name: u.name } },
         u.email,
@@ -164,7 +164,7 @@ function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "des
 
 function listFilterBar(state: ListState, total: number, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.q) pills.push({ label: t("filter.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
   if (state.status !== "all") pills.push({ label: t("admin.users.status.label"), remove: listHref(state, { page: 1, status: "all" }), value: t(`admin.users.status.${state.status}`) });
   return {
     applyLabel: t("filter.apply"), // an untranslated core key still resolves: the host catalog is the fallback
@@ -196,7 +196,7 @@ function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: 
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
+    rows: { hidden, label: t("pagination.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("pagination.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -239,7 +239,7 @@ export function buildUserFormModel(opts: {
   if (!editing) fields.push({ autocomplete: "new-password", hint: t("admin.users.field.passwordHint"), icon: "i-lock", id: "password", label: t("admin.users.field.password"), name: "password", optional: true, type: "password" });
 
   return {
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: editing ? t("admin.common.edit") : t("admin.common.new") }],
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: editing ? t("common.edit") : t("common.new") }],
     edit: editing ? {
       deleteAction: `${idPath}/delete`,
       id: view!.id,
@@ -351,7 +351,7 @@ export const usersDeleteConfirm = withTarget((deps, identity, id) => {
   const view = toUserView(identity);
   const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: tt("admin.users.title") }, { href: back, label: view.name }, { label: tt("admin.common.delete") }],
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: tt("admin.users.title") }, { href: back, label: view.name }, { label: tt("common.delete") }],
     cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: tt("admin.users.delete"),
     message: tt("admin.users.deleteMessage", { email: view.email }), title: tt("admin.users.delete"),
   }) }, view: "confirm" });

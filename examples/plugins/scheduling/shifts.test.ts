@@ -4,14 +4,14 @@ import { Readable } from "node:stream";
 import test from "node:test";
 // Import only from the #plugin-api barrel — the same contract boundary shifts.ts uses (the host may
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
-import { createTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "#plugin-api";
+import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "#plugin-api";
 import enUS from "./i18n/en-US.ts";
 import {
   assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
-const t = createTranslator({ catalogs: [enUS], locale: "en-US" }); // this plugin's own catalog, as the host would pass it
+const t = englishTranslator(enUS); // this plugin's catalog then the host's, as the host would chain them
 const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } };
 
 function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {

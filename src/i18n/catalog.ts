@@ -12,6 +12,7 @@ export type Catalog = Record<string, Message>;
 export const DEFAULT_LOCALE = "en-US";
 
 const CATEGORIES: ReadonlySet<string> = new Set(["few", "many", "one", "other", "two", "zero"]);
+const PLACEHOLDER = /\{\{(\w+)\}\}/g;
 
 export function isPluralMessage(value: Message): value is PluralMessage {
   return typeof value !== "string";
@@ -51,6 +52,7 @@ export function checkCatalog({ baseline, baselineLocale, catalog, locale }: Pari
       problems.push(`"${key}" must be a ${isPluralMessage(expected) ? "plural message" : "string"}, like ${baselineLocale}`);
       continue;
     }
+    for (const problem of placeholderProblems(key, expected, actual, baselineLocale)) problems.push(problem);
     if (!isPluralMessage(actual)) continue;
     const forms = new Set(Object.keys(actual));
     const missing = categories.filter((category) => !forms.has(category));
@@ -65,6 +67,28 @@ export function checkCatalog({ baseline, baselineLocale, catalog, locale }: Pari
   }
 
   return problems;
+}
+
+// A translation must interpolate exactly what the baseline does: a dropped {{name}} renders
+// "Signed in as ", a misspelled one renders the placeholder itself — the half-translated class this
+// check exists to stop, and neither is visible from the key set alone.
+function placeholderProblems(key: string, expected: Message, actual: Message, baselineLocale: string): string[] {
+  const wanted = placeholders(expected);
+  const got = placeholders(actual);
+  const missing = [...wanted].filter((name) => !got.has(name));
+  const unknown = [...got].filter((name) => !wanted.has(name));
+  return [
+    ...(missing.length ? [`"${key}" never uses ${missing.map((n) => `{{${n}}}`).join(", ")}, which ${baselineLocale} does`] : []),
+    ...(unknown.length ? [`"${key}" uses ${unknown.map((n) => `{{${n}}}`).join(", ")}, which ${baselineLocale} does not supply`] : []),
+  ];
+}
+
+function placeholders(message: Message): Set<string> {
+  const names = new Set<string>();
+  for (const text of typeof message === "string" ? [message] : Object.values(message)) {
+    for (const match of (text ?? "").matchAll(PLACEHOLDER)) names.add(match[1] as string);
+  }
+  return names;
 }
 
 // The plural categories a locale actually selects, sorted; unknown tags fall back to English's.

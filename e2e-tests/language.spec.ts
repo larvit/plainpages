@@ -51,6 +51,12 @@ test("the switcher changes language, and the choice survives clicking through th
   await expect(page.getByRole("heading", { name: "Pass" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sök" })).toBeVisible(); // the core filter bar, in Swedish
 
+  // The filter bar is a GET form: submitting it replaces the whole query string, so the choice
+  // survives only because the form carries it as a hidden field.
+  await page.getByRole("button", { name: "Sök" }).click();
+  await expect(page).toHaveURL(/locale=sv-SE/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+
   // …and back to English the same way.
   await page.locator('summary[aria-label="Språk"]').click();
   await page.getByRole("link", { name: /English/i }).click();

@@ -23,7 +23,7 @@
     <span class="field-hint"><%= t("admin.clients.field.typeHint") %></span>
     <label class="check"><input type="checkbox" name="firstParty"<% if (form.firstParty) { %> checked<% } %>> First-party (auto-grant consent — skip the consent screen)</label>
     <div class="form-actions">
-      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= t("admin.common.cancel") %></a>
+      <a class="btn" href="<%= localeHref(form.cancelHref) %>"><%= t("common.cancel") %></a>
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>

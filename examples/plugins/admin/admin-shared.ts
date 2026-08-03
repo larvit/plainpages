@@ -3,12 +3,13 @@
 // (themed not-found / capability-unavailable). Ported from the former built-in admin screens;
 // everything imports the host only through the #plugin-api barrel.
 
-import { can, createTranslator, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "#plugin-api";
+import { can, CSRF_FIELD, englishTranslator, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "#plugin-api";
 import enUS from "./i18n/en-US.ts";
 
-// This plugin's English, for a view model built outside a request (its unit tests). At runtime the
-// handlers pass ctx.t, which reads this catalog in the visitor's locale first, then the host's.
-export const ADMIN_EN: Translate = createTranslator({ catalogs: [enUS], locale: "en-US" });
+// This plugin's English (its catalog, then the host's — the screens reuse core words like Cancel and
+// Search), for a view model built outside a request: its unit tests. At runtime the handlers pass
+// ctx.t, which reads this catalog in the visitor's locale first, then the host's.
+export const ADMIN_EN: Translate = englishTranslator(enUS);
 
 export const ADMIN_PERMISSION = "admin"; // the permission gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";

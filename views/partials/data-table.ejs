@@ -8,6 +8,8 @@
   Cell ∈ string | { text, className? } | { user:{name,initials} } | { rowHeader:{text,href?} } | { badge:{tone,label} } | { html, className? }
     user + rowHeader cells render as <th scope="row"> — they identify the row (the row header).
   Action = { label, icon?, href?, danger?, separatorBefore? }
+  Every href (sort headers, row-header links, row actions) is run through localeHref, so a sorted or
+  paged list stays in the visitor's language without the caller wiring it.
 %><%
   const caption = locals.caption;
   const selectable = !!locals.selectable;
@@ -28,7 +30,7 @@
 <% } -%>
 <% columns.forEach((col) => { -%>
 <% if (col.sortable) { -%>
-        <th scope="col"<% if (col.sort === "asc") { %> aria-sort="ascending"<% } else if (col.sort === "desc") { %> aria-sort="descending"<% } %><% if (col.className) { %> class="<%= col.className %>"<% } %>><a class="th-sort" href="<%= col.href %>"><%= col.label %> <svg class="ico ico-sm sort-ico"><use href="#<%= col.sort ? "i-up" : "i-sort" %>"/></svg></a></th>
+        <th scope="col"<% if (col.sort === "asc") { %> aria-sort="ascending"<% } else if (col.sort === "desc") { %> aria-sort="descending"<% } %><% if (col.className) { %> class="<%= col.className %>"<% } %>><a class="th-sort" href="<%= localeHref(col.href) %>"><%= col.label %> <svg class="ico ico-sm sort-ico"><use href="#<%= col.sort ? "i-up" : "i-sort" %>"/></svg></a></th>
 <% } else { -%>
         <th scope="col"<% if (col.className) { %> class="<%= col.className %>"<% } %>><%= col.label %></th>
 <% } -%>
@@ -53,7 +55,7 @@
 <% } else if (cell.user) { -%>
         <th scope="row"><span class="cell-user"><span class="avatar" aria-hidden="true"><%= cell.user.initials %></span><span class="cell-strong"><%= cell.user.name %></span></span></th>
 <% } else if (cell.rowHeader) { -%>
-        <th scope="row"><% if (cell.rowHeader.href) { %><a class="cell-strong" href="<%= cell.rowHeader.href %>"><%= cell.rowHeader.text %></a><% } else { %><span class="cell-strong"><%= cell.rowHeader.text %></span><% } %></th>
+        <th scope="row"><% if (cell.rowHeader.href) { %><a class="cell-strong" href="<%= localeHref(cell.rowHeader.href) %>"><%= cell.rowHeader.text %></a><% } else { %><span class="cell-strong"><%= cell.rowHeader.text %></span><% } %></th>
 <% } else if (cell.badge) { -%>
         <td><span class="badge <%= cell.badge.tone %>"><span class="dot"></span><%= cell.badge.label %></span></td>
 <% } else if (cell.html != null) { -%>
@@ -65,7 +67,7 @@
 <% if (withActions) { -%>
 <% if ((row.actions || []).length) { -%>
         <td class="col-actions"><details class="menu kebab"><summary aria-label="<%= t("table.rowActions", { name: row.name || t("table.row") }) %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
-<% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= a.href %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
+<% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= localeHref(a.href) %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
 </div></details></td>
 <% } else { -%>
         <td class="col-actions"></td>

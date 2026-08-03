@@ -30,6 +30,14 @@ const messages: CoreMessages = {
 
   "brand.sub": "Konsol",
 
+  "common.add": "Lägg till",
+  "common.cancel": "Avbryt",
+  "common.delete": "Ta bort",
+  "common.edit": "Redigera",
+  "common.new": "Ny",
+  "common.remove": "Ta bort",
+  "common.save": "Spara",
+
   "consent.allow": "Tillåt",
   "consent.deny": "Neka",
   "consent.notYou": "Inte du?",

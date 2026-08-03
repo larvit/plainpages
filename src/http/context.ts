@@ -23,16 +23,19 @@ export interface RequestContext {
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).
   chrome: PageChrome;
-  // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
-  // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
-  // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
-  locale: string; // the locale this request is served in, e.g. "sv-SE" — also <html lang>
+  // The locale this request is served in, e.g. "sv-SE" — also what <html lang> says.
+  locale: string;
   // Carry the visitor's chosen locale onto a link this page renders. A no-op unless the request
   // asked for one with ?locale (there is no locale cookie — the URL is where the choice lives), and
   // on off-site URLs. The host already does this for the chrome and its own redirects; a plugin
   // wraps the hrefs it builds itself.
   localeHref(href: string): string;
-  locales: string[]; // every installed locale, sorted — for a plugin building its own language picker
+  // Every installed locale, sorted. With `localeLabel` (from #plugin-api) it is what a plugin needs
+  // to build its own language picker; the host's own picker is already in the shell.
+  locales: string[];
+  // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
+  // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by
+  // requestId. Additive, stable per the contract; defaults to a silent logger off the request path.
   log: Log;
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   permissions: string[]; // user?.permissions ?? [] — coarse gate without a null-check

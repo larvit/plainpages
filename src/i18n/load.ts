@@ -12,7 +12,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkCatalog, DEFAULT_LOCALE, isCatalog, type Catalog } from "./catalog.ts";
 import { PLUGINS_DIR } from "../plugin-host/discovery.ts";
 
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+// The shipped catalogs, and the drop-in mount root an operator adds their own to — a folder there
+// is a whole locale: a new tag adds a language, an existing one replaces the shipped catalog for it
+// (and is held to the same parity check, so a partial replacement fails the boot rather than
+// leaving half the app in English). Mirrors plugins/ and config/; ships empty.
 export const LOCALES_DIR = join(dirname(fileURLToPath(import.meta.url)), "locales");
+export const MOUNTED_LOCALES_DIR = join(rootDir, "locales");
 
 // A catalog file is named for the full locale it holds — sv-SE.ts, never sv.ts. Anything else in
 // the folder is a mistake worth stopping for.
@@ -20,6 +27,8 @@ const LOCALE_FILE = /^([a-z]{2,3}-[A-Z]{2})\.ts$/;
 
 export interface LoadI18nOptions {
   localesDir?: string;
+  logger?: Pick<Console, "warn">; // warn-level diagnostics (a plugin missing an installed locale); defaults to console
+  mountedLocalesDir?: string;
   pluginIds?: string[]; // discovered plugins; their i18n/ folders are loaded under their id
   pluginsDir?: string;
 }
@@ -32,10 +41,13 @@ export interface LoadedI18n {
 
 export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18n> {
   const localesDir = options.localesDir ?? LOCALES_DIR;
+  const mountedDir = options.mountedLocalesDir ?? MOUNTED_LOCALES_DIR;
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
+  const logger = options.logger ?? console;
   const errors: string[] = [];
 
   const core = await readSet(localesDir, "core", errors);
+  for (const [locale, catalog] of await readSet(mountedDir, "locales", errors)) core.set(locale, catalog);
   if (!core.has(DEFAULT_LOCALE)) errors.push(`core: no ${DEFAULT_LOCALE}.ts — it is the baseline every other locale is checked against`);
   checkSet(core, "core", errors);
   const available = [...core.keys()].sort();
@@ -51,6 +63,10 @@ export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18
       if (!available.includes(locale)) errors.push(`plugins/${id}: ${locale} is not installed — add src/i18n/locales/${locale}.ts first`);
     }
     checkSet(set, `plugins/${id}`, errors);
+    // Legitimate — the plugin's strings fall back to en-US on that page — but an operator who
+    // installed a locale should hear about the gap at deploy time, not see English islands later.
+    const gaps = available.filter((locale) => !set.has(locale));
+    if (gaps.length) logger.warn(`[i18n] plugins/${id}: no ${gaps.join(", ")} — those strings render in ${DEFAULT_LOCALE}`);
     plugins.set(id, set);
   }
 

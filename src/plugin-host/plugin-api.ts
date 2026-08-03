@@ -14,6 +14,12 @@ export { can, check, GuardError, requireSession } from "../auth/guards.ts";
 // authoring a plugin's own catalogs (plugins/<id>/i18n/<locale>.ts) and for building a translator
 // in a unit test. `PluralMessage` types a message that varies with a count.
 export { createTranslator } from "../i18n/translate.ts";
+// `englishTranslator(yourCatalog)` chains your catalog in front of the host's English — the default
+// for a view model built outside a request, so core words you reuse still read as words in a test.
+export { englishTranslator } from "../i18n/english.ts";
+// `localeLabel(tag)` names a locale in its own language ("svenska (Sverige)") — what ctx.locales
+// needs to become a language picker of your own.
+export { localeLabel } from "../i18n/locale.ts";
 export type { Translate, TranslateVars } from "../i18n/translate.ts";
 export type { Catalog, PluralMessage } from "../i18n/catalog.ts";
 export { parseListQuery } from "../ui/list-query.ts";

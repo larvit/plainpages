@@ -8,6 +8,8 @@
     select    { name, label, value?, options:{value,label}[] }
     chips     { name, legend?, value?:string[], options:{value,label}[] }    (checkboxes)
     daterange { legend?, from:{name,value?,label?}, to:{name,value?,label?} }
+  The form is a GET, which replaces the whole query string — so the visitor's chosen language rides
+  along as a hidden input, and every href here (pills, clear) is run through localeHref.
 %><%
   const action = locals.action || "";
   const label = locals.label || t("filter.label");
@@ -17,7 +19,10 @@
   const applyLabel = locals.applyLabel || t("filter.apply");
   const eq = (a, b) => String(a ?? "") === String(b);
 -%>
-<form class="filters" method="get"<% if (action) { %> action="<%= action %>"<% } %> aria-label="<%= label %>">
+<form class="filters" method="get"<% if (action) { %> action="<%= localeHref(action) %>"<% } %> aria-label="<%= label %>">
+<% if (localeParam) { -%>
+  <input type="hidden" name="locale" value="<%= localeParam %>">
+<% } -%>
 <% rows.forEach((row) => { -%>
   <div class="filter-row">
 <% row.forEach((c) => { -%>
@@ -39,7 +44,7 @@
 <% }) -%>
   <div class="filter-row filter-foot">
 <% if (pills.length) { -%>
-    <div class="active-pills" aria-label="<%= t("filter.appliedFilters") %>"><span class="filter-legend"><%= t("filter.applied") %></span><% pills.forEach((p) => { %><span class="pill"><b><%= p.label %>:</b> <%= p.value %> <a class="pill-x" href="<%= p.remove %>" aria-label="<%= t("filter.remove", { label: p.label }) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span><% }) %><a class="pill-clear" href="<%= clearHref %>"><%= t("filter.clearAll") %></a></div>
+    <div class="active-pills" aria-label="<%= t("filter.appliedFilters") %>"><span class="filter-legend"><%= t("filter.applied") %></span><% pills.forEach((p) => { %><span class="pill"><b><%= p.label %>:</b> <%= p.value %> <a class="pill-x" href="<%= localeHref(p.remove) %>" aria-label="<%= t("filter.remove", { label: p.label }) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></a></span><% }) %><a class="pill-clear" href="<%= localeHref(clearHref) %>"><%= t("filter.clearAll") %></a></div>
 <% } -%>
     <div class="spacer"></div>
     <div class="filter-actions">

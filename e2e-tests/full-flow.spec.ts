@@ -24,6 +24,19 @@ async function loginPassword(page: Page): Promise<void> {
   await expect(page.locator(".profile-mail")).toHaveText(ADMIN_EMAIL); // waits through the redirect chain
 }
 
+// The themed Kratos page in another language: our own chrome, Kratos' own strings mapped by id, and
+// the card's own links keeping the choice (they are rendered by the flow body, not by the menu).
+test("the login page speaks the visitor's language, links included", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/login?locale=sv-SE");
+  await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+  await expect(page.getByRole("heading", { name: "Logga in" })).toBeVisible();
+  await expect(page.getByLabel("Lösenord", { exact: true })).toBeVisible(); // Kratos' own field, labelled via auth.field.password
+  await expect(page.getByRole("link", { name: "Glömt lösenordet?" })).toHaveAttribute("href", /locale=sv-SE/);
+  await expect(page.getByRole("link", { name: "Skapa ett" })).toHaveAttribute("href", /locale=sv-SE/);
+  await page.context().close();
+});
+
 test.describe.serial("authenticated admin journey", () => {
   let browser: Browser;
   let page: Page;
@@ -35,6 +48,26 @@ test.describe.serial("authenticated admin journey", () => {
     await loginPassword(page);
   });
   test.afterAll(async () => { await page.context().close(); });
+
+  // The list screens rebuild their query from the list state (sort/page/filter), so they are where
+  // a chosen language used to get dropped — the core building blocks carry it now.
+  test("a sorted, paged admin list keeps the visitor's language", async () => {
+    await page.goto("/admin/users?locale=sv-SE");
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+    await expect(page.getByRole("heading", { name: "Användare" })).toBeVisible();
+
+    await page.getByRole("link", { name: /E-postadress/ }).click(); // a sort header
+    await expect(page).toHaveURL(/locale=sv-SE/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+
+    await page.getByRole("button", { name: "Använd filter" }).click(); // the filter bar's GET form
+    await expect(page).toHaveURL(/locale=sv-SE/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+
+    await page.getByRole("button", { name: "Visa" }).click(); // the rows-per-page GET form
+    await expect(page).toHaveURL(/locale=sv-SE/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+  });
 
   test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {
     // The signed-in admin holds admin + scheduling:read/write, so both gated sections are present

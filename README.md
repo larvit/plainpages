@@ -913,14 +913,29 @@ dropping another file next to them.
 ```
 src/i18n/locales/en-US.ts     the baseline — every other locale is checked against it
 src/i18n/locales/sv-SE.ts
+locales/                      drop-in mount root: your own catalogs, ships empty (like plugins/ and config/)
 plugins/<id>/i18n/en-US.ts    a plugin's own words, looked up before the host's
 plugins/<id>/i18n/sv-SE.ts
 ```
 
+`locales/` is the operator's, mounted like `plugins/` and `config/` — a file there for a new tag
+**adds** a language, one for a tag the image already ships **replaces** that catalog wholesale (and
+is held to the same parity check, so a partial replacement fails the boot instead of leaving half
+the app in English):
+
+```yaml
+# compose.override.yml
+services:
+  web:
+    volumes:
+      - ./locales:/app/locales:ro
+```
+
 **Which language a request gets:** `?locale=sv-SE` wins, else `Accept-Language`, else `en-US`.
-Matching is exact on a full tag — `?locale=sv-FI` with only `sv-SE` installed lands on `en-US`
-rather than a neighbouring region — but a lone language (`sv`, as browsers send) resolves to the
-first regional catalog for it. There is **no locale cookie**: the URL is the only place a choice
+Matching is exact on a full tag — `?locale=sv-FI` with only `sv-SE` installed matches nothing and
+falls through to `Accept-Language` (and from there to `en-US`), rather than being served a
+neighbouring region — but a lone language (`sv`, as browsers send) resolves to the first regional
+catalog for it. There is **no locale cookie**: the URL is the only place a choice
 is stored, so a link is shareable and a page is what its address says it is. When the URL asked
 for a language, the host carries `?locale=` onto every link *it* renders (menu, sign-in, its own
 redirects) and `ctx.localeHref(href)` does the same for a plugin's links. The picker in the
@@ -961,6 +976,11 @@ include depth:
 ```ts
 // handler
 return { data: { title: ctx.t("shop.title"), lead: ctx.t("shop.greeting", { name }) }, view: "shop" };
+
+// a pure view model built outside a request (its unit test) defaults to the plugin's own English:
+import { englishTranslator, type Translate } from "#plugin-api";
+import enUS from "./i18n/en-US.ts";
+const EN: Translate = englishTranslator(enUS); // your catalog, then the host's
 ```
 ```html
 <!-- view -->
@@ -978,6 +998,16 @@ Three rules worth knowing:
   that deliberately carries markup is rendered with `<%- %>` — and must never interpolate
   untrusted data, since nothing escapes it there.
 - **Dates and numbers are `Intl`'s job**, not the catalog's: `new Intl.DateTimeFormat(ctx.locale)`.
+- **The core building blocks carry the locale for you.** `pagination`, `filter-bar`, `data-table`,
+  `auth-card` and the nav wrap every href they render, and the two GET forms carry it as a hidden
+  `locale` input (a GET submit replaces the whole query string). `ctx.localeHref` is only for hrefs
+  your own markup emits — and `localeParam` (a view local: the tag, or null) for your own GET forms.
+- **Reuse the core words.** Generic UI verbs live in the core catalog — `common.add/cancel/delete/
+  edit/new/remove/save`, `filter.*`, `pagination.*`, `table.*` — and a plugin's lookup falls through
+  to them. Keep your catalog for your domain words, so N plugins don't re-translate "Cancel" N times.
+- **These view locals are reserved:** `t`, `locale`, `locales`, `localeHref`, `localeParam`,
+  `localeSwitch`, `dir`. They are merged after your `data`, so a key of yours with one of those names
+  is ignored rather than breaking the shell.
 
 **Kratos writes the auth flow's own text** (field labels, validation errors) and tags each string
 with a stable numeric id; a `kratos.<id>` key replaces it, and anything unmapped renders Kratos'
@@ -1774,9 +1804,10 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     list-query.ts     parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
     paginate.ts       paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 
-views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Permissions/Clients + confirm bodies)
+views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, language picker, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Permissions/Clients + confirm bodies)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
+locales/             Drop-in mount point for extra (or replacement) language catalogs — a <locale>.ts here adds a language, or replaces the shipped catalog for that tag wholesale. Ships empty (.gitkeep, git-ignored otherwise); see Languages
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — permission/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Permissions/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)

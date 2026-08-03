@@ -115,11 +115,13 @@ export function createApp(options: AppOptions = {}): Server {
   // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
-  // Every view renders with its context's i18n locals (t/locale/dir/localeSwitch) merged in, so a
-  // view — core or plugin, at any include depth — calls `t(...)` without its handler passing it.
-  // A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
-  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...i18nLocals(ctx), ...data });
-  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...i18nLocals(ctx), ...data });
+  // Every view renders with its context's i18n locals (t/locale/dir/localeSwitch/localeParam) merged
+  // in, so a view — core or plugin, at any include depth — calls `t(...)` without its handler passing
+  // it. A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
+  // They are merged LAST: these names are reserved (README → Building plugins), and a handler that
+  // happens to use one loses that key rather than breaking the shell that renders around it.
+  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(ctx) });
+  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(ctx) });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -172,7 +174,7 @@ export function createApp(options: AppOptions = {}): Server {
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
-    let renderPage: ViewRenderer = (view, data) => render(view, { ...ENGLISH_LOCALS, ...data });
+    let renderPage: ViewRenderer = (view, data) => render(view, { ...data, ...ENGLISH_LOCALS });
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");

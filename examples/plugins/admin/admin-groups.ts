@@ -163,9 +163,9 @@ function listTable(rows: GroupView[], state: ListState, sort: { dir: "asc" | "de
 
 function listFilterBar(state: ListState, t: Translate) {
   const pills: { label: string; remove: string; value: string }[] = [];
-  if (state.q) pills.push({ label: t("admin.common.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
+  if (state.q) pills.push({ label: t("filter.search"), remove: listHref(state, { page: 1, q: "" }), value: state.q });
   return {
-    applyLabel: t("admin.common.apply"),
+    applyLabel: t("filter.apply"),
     clearHref: ADMIN_GROUPS_BASE,
     label: t("admin.groups.filter"),
     pills,
@@ -188,7 +188,7 @@ function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: 
         : p.current ? { current: true, label: String(p.page) }
           : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
     prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: t("admin.common.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("admin.common.go"), value: state.pageSize },
+    rows: { hidden, label: t("pagination.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("pagination.go"), value: state.pageSize },
     summary: { from: page.from, to: page.to, total: page.total },
   };
 }
@@ -208,7 +208,7 @@ export function buildGroupFormModel(opts: {
     id: "name", label: t("admin.groups.field.name"), name: "name", required: true, value: opts.values?.name ?? "",
   };
   return {
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.groups.title") }, { label: t("admin.common.new") }],
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.groups.title") }, { label: t("common.new") }],
     error: opts.error,
     form: {
       action: ADMIN_GROUPS_BASE,
@@ -358,7 +358,7 @@ export const groupsDeleteConfirm = withGroupName((deps, name) => {
   const base = detailHref(name);
   const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
-    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: tt("admin.groups.title") }, { href: base, label: name }, { label: tt("admin.common.delete") }],
+    breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: tt("admin.groups.title") }, { href: base, label: name }, { label: tt("common.delete") }],
     cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.groups.delete"),
     message: tt("admin.groups.deleteMessage", { name }), title: tt("admin.groups.delete"),
   }) }, view: "confirm" });

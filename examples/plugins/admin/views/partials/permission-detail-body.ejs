@@ -21,7 +21,7 @@
   <section class="form-card" aria-labelledby="members-h">
     <h2 class="card-title" id="members-h"><%= t("admin.permissions.assignedTo") %></h2>
 <% if (members.rows.length) { -%>
-    <div class="table-wrap"><table class="table"><caption class="sr-only"><%= t("admin.groups.membersOf", { name: permission.name }) %></caption><thead><tr><th scope="col"><%= t("admin.common.member") %></th><th scope="col"><%= t("admin.common.type") %></th><th class="col-actions" scope="col"><span class="sr-only"><%= t("admin.common.actions") %></span></th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><caption class="sr-only"><%= t("admin.groups.membersOf", { name: permission.name }) %></caption><thead><tr><th scope="col"><%= t("admin.common.member") %></th><th scope="col"><%= t("admin.common.type") %></th><th class="col-actions" scope="col"><span class="sr-only"><%= t("table.actions") %></span></th></tr></thead><tbody>
 <% members.rows.forEach((m) => { -%>
       <tr><th scope="row"><span class="cell-strong"><%= m.label %></span></th><td><span class="badge info"><span class="dot"></span><%= m.kind === "group" ? t("admin.common.group") : t("admin.common.user") %></span></td><td class="col-actions"><form method="post" action="<%= members.action %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="member" value="<%= m.subject %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><%= t("admin.permissions.revoke") %></button></form></td></tr>
 <% }) -%>

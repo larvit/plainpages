@@ -6,12 +6,13 @@
 // pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
 // One import from the host's #plugin-api barrel — the stable author surface (see README.md → Building plugins).
-import { can, createTranslator, CSRF_FIELD, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "#plugin-api";
+import { can, CSRF_FIELD, englishTranslator, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "#plugin-api";
 import enUS from "./i18n/en-US.ts";
 
-// The plugin's own English, for a view model built outside a request (its unit tests). At runtime a
-// handler passes ctx.t, which reads this plugin's catalog for the visitor's locale first.
-const EN: Translate = createTranslator({ catalogs: [enUS], locale: "en-US" });
+// The plugin's own English (its catalog, then the host's), for a view model built outside a request:
+// its unit tests. At runtime a handler passes ctx.t, which reads this catalog in the visitor's
+// locale first, then the host's.
+const EN: Translate = englishTranslator(enUS);
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
@@ -102,10 +103,10 @@ export function buildListModel(opts: { canWrite: boolean; chrome: PageChrome; er
     count: t("scheduling.shifts.count", { count: opts.shifts.length }),
     ...(opts.error ? { error: opts.error } : {}),
     filterBar: {
-      applyLabel: t("scheduling.filter.search"),
+      applyLabel: t("filter.search"),
       clearHref: SHIFTS_PATH,
       label: t("scheduling.filter.label"),
-      pills: opts.q ? [{ label: t("scheduling.filter.search"), remove: SHIFTS_PATH, value: opts.q }] : [],
+      pills: opts.q ? [{ label: t("filter.search"), remove: SHIFTS_PATH, value: opts.q }] : [],
       rows: [[
         { label: t("scheduling.filter.searchLabel"), name: "q", placeholder: t("scheduling.filter.searchPlaceholder"), type: "search", value: opts.q },
         { type: "spacer" },
@@ -139,7 +140,7 @@ export function buildFormModel(opts: { chrome: PageChrome; errors?: Record<strin
       action: SHIFTS_PATH,
       cancelHref: SHIFTS_PATH,
       csrfToken: opts.chrome.csrfToken,
-      cancelLabel: t("scheduling.cancel"),
+      cancelLabel: t("common.cancel"),
       fields: [
         field({ icon: "i-cal", id: "title", label: t("scheduling.field.title"), value: v.title ?? "" }),
         field({ icon: "i-user", id: "assignee", label: t("scheduling.field.assignee"), value: v.assignee ?? "" }),

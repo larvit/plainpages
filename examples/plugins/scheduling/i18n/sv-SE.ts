@@ -1,13 +1,11 @@
 import type { SchedulingMessages } from "./en-US.ts";
 
 const messages: SchedulingMessages = {
-  "scheduling.cancel": "Avbryt",
   "scheduling.field.assignee": "Tilldelad",
   "scheduling.field.end": "Slut",
   "scheduling.field.start": "Start",
   "scheduling.field.title": "Passets namn",
   "scheduling.filter.label": "Filtrera pass",
-  "scheduling.filter.search": "Sök",
   "scheduling.filter.searchLabel": "Sök pass",
   "scheduling.filter.searchPlaceholder": "Sök på namn eller person…",
   "scheduling.form.submit": "Skapa pass",

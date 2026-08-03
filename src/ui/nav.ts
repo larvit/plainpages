@@ -6,6 +6,7 @@
 // the override (+ branding); this helper only transforms data, so its result is per-deployment
 // up to the final permission filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
 
+import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
 
 export interface NavNode {
@@ -42,7 +43,7 @@ export function composeNav(
   fragments: NavNode[][] = [],
   override: NavOverride = {},
   permissions: string[] = [],
-  t: Translate = (key) => key,
+  t: Translate = ENGLISH,
 ): NavNode[] {
   let nodes: NavNode[] = fragments.flat();
   if (override.rename) nodes = renameTree(nodes, override.rename);

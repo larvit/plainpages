@@ -38,12 +38,13 @@ const denylist = config.revocationDenylist ? createDenylist({ ttlSec: config.rev
 
 const plugins = await discoverPlugins(); // scans plugins/, validates — fails loud on a bad plugin
 log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => p.id).join(", ") });
-await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
-
 // Translation catalogs: the core locales plus each discovered plugin's — fails loud if a locale
-// drifts from its en-US baseline, so a half-translated deploy never reaches a visitor.
-const i18n = createI18n(await loadI18n({ pluginIds: plugins.map((p) => p.id) }));
+// drifts from its en-US baseline, so a half-translated deploy never reaches a visitor. Loaded
+// before the boot hooks, so a catalog mismatch aborts before a plugin's onBoot has any side effect.
+const i18n = createI18n(await loadI18n({ logger: log, pluginIds: plugins.map((p) => p.id) }));
 log.info("locales loaded", { locales: i18n.available.join(", ") });
+
+await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
 
 const server = createApp({
   // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless

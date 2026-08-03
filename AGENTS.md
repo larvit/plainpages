@@ -109,6 +109,20 @@ them. Revisit only if the stated reason stops holding.
   — keys, string-vs-plural kind, and the plural categories `Intl.PluralRules` says that locale needs —
   and a mismatch stops startup, same fail-loud contract as a bad manifest. A plugin may ship fewer
   locales than the host (its strings fall back to `en-US` per key), never one the host lacks.
+- **The core building blocks carry the locale; a plugin doesn't have to.** `pagination`,
+  `filter-bar`, `data-table`, `auth-card`, `flow-body`, `menu` and the nav wrap every href they
+  render in `localeHref`, and the two GET forms carry it as a hidden `locale` input (a GET submit
+  replaces the whole query string, so no href wrapper can reach it). Putting the obligation on each
+  call site was tried first and missed five of eight sites inside one commit — including the admin
+  screens. `ctx.localeHref` remains for hrefs a plugin's own markup emits. Decided 2026-08-03 after
+  an architecture review.
+- **`locale` is a host-owned query param.** It is in `parseListQuery`'s reserved set, so it never
+  shows up as a plugin filter; the i18n view locals (`t`, `locale`, `locales`, `localeHref`,
+  `localeParam`, `localeSwitch`, `dir`) are likewise reserved names, merged after a handler's `data`
+  so a collision loses the key instead of breaking the shell.
+- **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`.** A catalog there
+  for a new tag adds a language; one for a tag the image ships replaces that catalog wholesale, held
+  to the same parity check. Adding a language must not require forking the image.
 - **An unknown translation key renders as itself.** That single rule is what lets a nav label,
   branding, or a menu `rename` be either a key or plain text without a second field or a migration.
   Don't "fix" it into a loud failure: a manifest with plain labels must keep working.
@@ -194,6 +208,11 @@ Same test before adding a row to a table or the file map — a clause, not a par
   versions** — never ranges (`^`, `~`) and never digests/hashes. npm deps are kept
   exact by `.npmrc` (`save-exact=true`) + `npm ci`; the base image by tag (e.g.
   `node:24.16.0-alpine3.24`).
+- **`HOST_API_VERSION` is frozen at 1.0.0 until the first external install**, even for additive
+  contract changes (i18n added four `RequestContext` fields and several barrel exports without a
+  minor bump). Valid while nothing is installed against it: with no third-party plugin in the wild,
+  a version bump can only produce noise. The promotion trigger is the first external plugin — from
+  then on, follow the versioning table in README → Contract versioning as written. Decided 2026-08-03.
 - A plugin's `apiVersion` is a **hand-written literal** semver — the host version the
   plugin was built against — bumped by hand on rebuild, **never** the host's
   `HOST_API_VERSION` constant. Importing the constant makes every plugin always equal the

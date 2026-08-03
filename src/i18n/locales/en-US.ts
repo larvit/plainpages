@@ -37,6 +37,16 @@ const messages = {
 
   "brand.sub": "Console",
 
+  // Generic UI verbs every screen needs. A plugin reuses these (the lookup falls through to core)
+  // and keeps its own catalog for its domain words — see README → Languages.
+  "common.add": "Add",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.new": "New",
+  "common.remove": "Remove",
+  "common.save": "Save",
+
   "consent.allow": "Allow",
   "consent.deny": "Deny",
   "consent.notYou": "Not you?",

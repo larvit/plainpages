@@ -11,7 +11,7 @@ import type { Translate } from "../i18n/translate.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import { shellUser, type ShellUser } from "./shell-context.ts";
+import { branding, shellUser, type ShellUser } from "./shell-context.ts";
 
 // The "Dashboard" link to the gated app home (/dashboard). It targets a gated route, so it's shown
 // only to a signed-in user (an anonymous click would only dead-end at /login). Its label is a
@@ -62,15 +62,15 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     if (target) markCurrent(nav, target);
   }
 
-  const b = opts.menu.branding;
   // The sign-in link keeps the visitor's locale, and brings it back afterwards via return_to.
   const returnTo = opts.currentPath ? `/login?return_to=${encodeURIComponent(carryLocale(opts.currentPath))}` : "/login";
+  const { theme, ...brand } = branding(opts.menu, t);
   return {
-    brand: { ...(b.logo != null ? { logo: b.logo } : {}), name: t(b.name), ...(b.sub != null ? { sub: t(b.sub) } : {}) },
+    brand,
     csrfToken: opts.csrfToken ?? "",
     nav: carryLocaleInto(nav, carryLocale),
     signInHref: carryLocale(returnTo),
-    ...(b.theme != null ? { theme: b.theme } : {}),
+    ...(theme != null ? { theme } : {}),
     user: shellUser(opts.user, t),
   };
 }
