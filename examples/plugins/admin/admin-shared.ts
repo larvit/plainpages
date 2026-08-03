@@ -5,7 +5,7 @@
 
 import { can, CSRF_FIELD, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type User } from "#plugin-api";
 
-export const ADMIN_ROLE = "admin"; // role token gating the whole admin section
+export const ADMIN_ROLE = "admin"; // the role gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
 export const ADMIN_ROLES_BASE = "/admin/roles";

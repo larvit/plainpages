@@ -30,7 +30,7 @@ test("roleTuple grants a role to user:<id> in the Role namespace", () => {
   });
 });
 
-test("seedRoles unions ADMIN_ROLES (default 'admin') with the discovered plugins' declared tokens", () => {
+test("seedRoles unions ADMIN_ROLES (default 'admin') with the discovered plugins' declared roles", () => {
   // Clean clone: no ADMIN_ROLES, the scheduling plugin declares its two tokens → the demo admin
   // gets exactly today's behaviour, but derived from discovery, not hardcoded in the host.
   assert.deepEqual(seedRoles(undefined, ["scheduling:read", "scheduling:write"]), ["admin", "scheduling:read", "scheduling:write"]);

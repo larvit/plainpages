@@ -32,9 +32,9 @@ export function roleTuple(identityId: string, role: string) {
 // unioned with every discovered plugin's declared role names (a route/nav `role` is a
 // coarse role — granted as a Keto `Role:<token>#members` tuple). So the host names no plugin, yet a
 // dropped-in plugin's tokens are seeded out of the box. Deduped, order-stable, blanks dropped.
-export function seedRoles(adminRolesEnv: string | undefined, declaredTokens: string[]): string[] {
+export function seedRoles(adminRolesEnv: string | undefined, declaredRoles: string[]): string[] {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
-  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredTokens)])];
+  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredRoles)])];
 }
 
 // --- JWKS safety net -----------------------------------------------------------------

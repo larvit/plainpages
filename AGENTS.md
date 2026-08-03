@@ -120,10 +120,14 @@ docker compose -f compose.yml up --build -d              # production
    running **building plugins** comes first, then **configuring and securing** the system
    (Configuration, Auth); the **inner workings** (Architecture) and ops/runbooks are
    deliberately deferred — they're not top of mind when starting out. Concretely: Overview →
-   Building plugins → menu/blocks/interactivity → Configuration → Auth → Email →
-   Architecture → Testing → Production → Observability → the JWT-rotation runbook → the
+   Users, groups & roles → Building plugins → menu/blocks/interactivity → Configuration → Auth →
+   Email → Architecture → Testing → Production → Observability → the JWT-rotation runbook → the
    Project-layout file map → Extending. When adding a section, place it by this value (how
    early an adopter needs it), not by where it sits in the stack.
+
+   **Users, groups & roles precedes Building plugins** because a manifest's `role:` gate is
+   unreadable without the model, and operators need it as much as plugin authors. It is the one
+   home for that model — the plugin and auth sections link to it rather than restating it.
 
 When editing: put content in the section it belongs to (don't prepend rationale above Quick
 start); keep the ToC in sync when you add/rename/remove an `H2`/`H3`; and state each fact in

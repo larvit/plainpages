@@ -30,7 +30,7 @@ export default definePlugin({
     label: "Scheduling",
   }],
 
-  // Tokens this plugin introduces (docs + Keto seeding). Namespaced `<id>:<action>`.
+  // Roles this plugin introduces (docs + Keto seeding). Namespaced `<id>:<action>`.
   roles: [
     { description: "View shifts", name: READ },
     { description: "Create and edit shifts", name: WRITE },

@@ -69,6 +69,10 @@ From here, render real pages against the app shell and fetch upstream data — s
 
 - [Overview](#overview)
   - [how it compares](#how-it-compares)
+- [Users, groups & roles](#users-groups--roles)
+  - [a worked example](#a-worked-example)
+  - [granting a role](#granting-a-role)
+  - [fine-grained, per-row access](#fine-grained-per-row-access)
 - [Building plugins](#building-plugins)
   - [anatomy](#anatomy-of-a-plugin)
   - [the manifest](#the-manifest)
@@ -76,7 +80,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [landing pages](#the-landing-pages-home--dashboard)
   - [RequestContext](#requestcontext)
   - [system capabilities (ctx.system)](#system-capabilities-the-ctxsystem-surface)
-  - [nav & permissions](#nav--permissions)
+  - [nav & role gates](#nav--role-gates)
   - [versioning](#contract-versioning)
   - [conflict rules](#conflict-rules)
   - [hooks](#hooks)
@@ -89,7 +93,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [canonical host](#canonical-host-one-public-url)
   - [what you must supply](#what-you-must-supply-the-only-manual-prep)
   - [SSO](#social-sign-in-sso)
-- [Auth, sessions & permissions](#auth-sessions--permissions)
+- [Auth, sessions & access](#auth-sessions--access)
   - [login & the session JWT](#login-and-the-session-jwt)
   - [instant revoke](#instant-revoke-the-optional-denylist)
   - [three tiers](#three-tiers-of-may-i)
@@ -116,7 +120,7 @@ or gated**, so the same foundation serves a purely public site, a fully locked-d
 tool, or the common middle: a public front with an authenticated area behind it. Its **sweet
 spot** is the **back-office and operational tooling** you'd otherwise hand-roll for the tenth
 time, but nothing ties it to internal-only use. The core itself ships **no domain screens at
-all** — even the screens for running the system (**users, groups, permissions**) are a **drop-in
+all** — even the screens for running the system (**users, groups, roles**) are a **drop-in
 plugin** you opt into ([`examples/plugins/admin/`](examples/plugins/admin/)). Everything is a plugin.
 
 **Who it's for.** Experienced developers building server-rendered web products — back-office
@@ -124,7 +128,7 @@ and operational tools, dashboards, portals, or public sites with a gated area �
 use or for a client. You know HTTP, Docker, and identity
 providers, and you'd rather assemble pages from building blocks than fight a framework or
 hand-roll auth for the tenth time. It's not a no-code tool and doesn't hide its moving
-parts: if "Ory is down ⇒ no logins" (see [Auth](#auth-sessions--permissions)) reads as
+parts: if "Ory is down ⇒ no logins" (see [Auth](#auth-sessions--access)) reads as
 obvious rather than surprising, you're the audience.
 
 **Included vs. what you add.**
@@ -142,7 +146,7 @@ obvious rather than surprising, you're the audience.
 **Priorities (unchanged from day one):** **simplicity, few dependencies, strict
 TypeScript, no build step, Docker-only, environment-agnostic** (no `NODE_ENV` — every
 behaviour is an explicit config toggle). Heavy lifting that *isn't* simple to do well —
-identity, sessions, SSO, OAuth2, permission checks — is delegated to **Ory** sidecar
+identity, sessions, SSO, OAuth2, role checks — is delegated to **Ory** sidecar
 services rather than reinvented. "Simple" is about the *whole architecture* staying simple
 — not just at the start, but after you've dropped in 240 plugins and run it hard in
 production. The shape doesn't change as it grows: every plugin is the same self-contained
@@ -190,9 +194,125 @@ Plainpages sits relative to them:
 | **Themed auth UI on Ory** — Kratos self-service UIs (`ory/kratos-selfservice-ui-node`, `kratos-admin-ui`) | the **login / registration screens** over Ory | The one *slice* with a direct off-the-shelf alternative: Plainpages reimplements it inside its own shell, so you could swap it out to avoid maintaining that part. |
 
 No family combines the whole set: **[drop-in plugin folders](#building-plugins)**, a **zero-JS
-server-rendered** design system, **[optional auth](#auth-sessions--permissions)** (any page
+server-rendered** design system, **[optional auth](#auth-sessions--access)** (any page
 public or gated), **no app database**, and a **framework-light TypeScript** core with no build
 step. Each neighbour shares one trait and trades away the rest — Plainpages is the intersection.
+
+## Users, groups & roles
+
+Authorization here is **two hops, not three**: a user — directly, or through a group — is a
+member of a **role**, and that role's *name* is exactly the string a plugin gates on. There is no
+separate "permission" object to define, register, or wire up.
+
+- **Group** answers *who* — a reusable set of people. Optional: a role can be granted straight to a user.
+- **Role** answers *what* — its **name is the string** you write in a manifest's `role:` gate.
+- **A relation tuple** is the grant: `Role:<name>#members@user:<id>`, or `@Group:<name>#members`.
+- **Resource** answers *which row* — a live check, run only where a plugin explicitly asks for it.
+
+| Entity | Lives in | Answers | Example |
+| --- | --- | --- | --- |
+| **User** | Kratos | who you are | the identity behind `user:0198f2c1-…` |
+| **Group** | Keto | who — a reusable set | `Group:support` |
+| **Role** | Keto | what you may do | `Role:scheduling:read` |
+| **Resource** | Keto | which specific row | `Resource:shift-4471` |
+
+Identities live in Kratos; every authorization edge is a Keto relation tuple. The app itself
+stores none of it — it is [stateless](#stateless). The model is `ory/keto/namespaces.keto.ts`.
+
+> **On the word "permission".** Ory uses it for the fine-grained `Resource` tier — the `permits`
+> block (`view`/`edit`/`delete`). Plainpages therefore never uses it for the coarse tier: what a
+> route or a menu item gates on is a **role**, always.
+
+### A worked example
+
+Alice works support and leads scheduling; Bob works support; Carol administers the system.
+
+```
+  people                groups                            roles
+  ──────                ──────                            ─────
+
+  alice ──┬─────────>  Group:support ────┐
+          │                              ├──>  Group:staff ──>  Role:scheduling:read
+  bob ────┘                              │
+                                         │
+  alice ────────────>  Group:sched-leads ┴──>  Role:scheduling:write
+
+  carol ───────────────────────────────────────────────>  Role:admin
+```
+
+At login the host asks Keto which roles the user holds, walking those arrows transitively, and
+bakes the answer into the session JWT (see [Login and the session
+JWT](#login-and-the-session-jwt)):
+
+```
+alice → roles: ["scheduling:read", "scheduling:write"]
+bob   → roles: ["scheduling:read"]
+carol → roles: ["admin"]
+```
+
+Note what Carol does *not* have. **There is no role hierarchy and no superuser** — `admin` is
+just another name, granting nothing except where a route gates on `admin` itself.
+
+Against the reference plugins' actual routes:
+
+| Request | Gate | alice | bob | carol | anonymous |
+| --- | --- | --- | --- | --- | --- |
+| `GET /scheduling` | `public: true` | ✅ | ✅ | ✅ | ✅ |
+| `GET /scheduling/shifts` | `scheduling:read` | ✅ | ✅ | 403 | → `/login` |
+| `GET /scheduling/shifts/new` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
+| `POST /scheduling/shifts` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
+| `GET /admin/users` | `admin` | 403 | 403 | ✅ | → `/login` |
+
+Bob reaches the shifts list with no direct grant: he is in `support`, support's members are
+`staff`, and staff holds `scheduling:read` — two hops, resolved by Keto at his login. He is
+refused the new-shift form because `scheduling:write` hangs off `sched-leads`, which he is not in.
+An anonymous visitor gets a **redirect**, not a 403, carrying `return_to` so signing in lands them
+on the page they asked for; a signed-in user who merely lacks the role gets the 403 page, because
+there is nothing to sign in *as* that would help. The menu is filtered by the same roles, so
+nobody is shown a door they cannot open.
+
+### Granting a role
+
+Write the tuple. The admin plugin's **Groups** and **Roles** screens do exactly this, or use
+Keto's write API directly:
+
+```bash
+# everyone in sched-leads may write shifts
+curl -X PUT http://keto:4467/admin/relation-tuples -H 'content-type: application/json' -d '{
+  "namespace": "Role", "object": "scheduling:write", "relation": "members",
+  "subject_set": { "namespace": "Group", "object": "sched-leads", "relation": "members" }
+}'
+```
+
+Roles are authored **only in Keto** — nothing else writes them. Role names are a shared global
+namespace on purpose, so an operator grants `scheduling:read` once and every plugin referencing it
+is gated consistently; namespace yours as `<id>:<action>`.
+
+A change takes effect on the user's **next login or JWT re-mint** (~10 min) — see [Instant
+revoke](#instant-revoke-the-optional-denylist) when you need it sooner.
+
+### Fine-grained, per-row access
+
+The `Resource` namespace covers what a role cannot express: *this* row, shared with *this* person.
+Its permissions nest — `owner` ⊇ `editor` ⊇ `viewer`.
+
+**A per-row grant never widens a coarse gate.** The route's `role` is checked *before* the handler
+runs, so a user rejected there never reaches the check. Gate the route on something they hold,
+then narrow inside the handler:
+
+```ts
+{ method: "POST", path: "/shifts/:id", role: READ, handler: editShift }
+
+async function editShift(ctx) {
+  if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id, relation: "editors" })))
+    throw new GuardError(403, "not an editor of this shift");
+  …
+}
+```
+
+Reserve this tier for relationship rules (sharing, delegation, inheritance). Ownership and tenant
+rules belong in the upstream service that holds the row — see [Three tiers of "may
+I?"](#three-tiers-of-may-i).
 
 ## Building plugins
 
@@ -204,7 +324,7 @@ contract is **TypeScript** (`src/plugin-host/plugin.ts`), so the types there are
 source of truth; the sections below explain them, the guarantees around them, and the rules
 the host enforces. A complete, runnable example lives in
 **[`examples/plugins/scheduling/`](examples/plugins/scheduling/)** — a public overview page, a
-permission-gated list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend;
+role-gated list page fetching upstream data (it points `SCHEDULING_UPSTREAM` at its backend;
 the dev compose ships a tiny mock, `examples/shifts-upstream/`), a CSRF-guarded form forwarding
 writes upstream, and a mix of public + role-gated nav. It is **not** pre-installed — `plugins/`
 ships empty so you mount your own. To run it in dev, copy it in
@@ -237,7 +357,7 @@ single `plugin.ts`.
 must be **URL/path-safe** (`isValidPluginId`: lowercase `a–z`, digits, and dashes — dashes
 anywhere; no uppercase, underscores, dots, or slashes); the host rejects a malformed folder name
 at discovery. The id also namespaces the plugin's `views/`, its `/public/<id>/` assets, and (by
-convention) its nav/permission tokens.
+convention) its nav/role names.
 
 A handful of ids are **reserved** for the host's own first-party mounts — the gated `dashboard`, the
 Kratos auth flows (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`),
@@ -269,20 +389,20 @@ import { listThings, createThings } from "./handlers.ts";
 export default definePlugin({
   apiVersion: "1.0.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
-  // Nav fragment, merged into the global menu and permission-filtered per user.
+  // Nav fragment, merged into the global menu and role-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
-  nav: [{ href: "/things", icon: "i-cal", id: "things:list", label: "Things", permission: "things:read" }],
+  nav: [{ href: "/things", icon: "i-cal", id: "things:list", label: "Things", role: "things:read" }],
 
-  // Permission tokens this plugin introduces. Optional — see Nav & permissions.
-  permissions: [
-    { token: "things:read", description: "View things" },
-    { token: "things:write", description: "Create and edit things" },
+  // Roles this plugin gates on. Optional — see Nav & role gates.
+  roles: [
+    { description: "View things", name: "things:read" },
+    { description: "Create and edit things", name: "things:write" },
   ],
 
-  // Route handlers, mounted under the plugin's path (/things). `permission` gates first.
+  // Route handlers, mounted under the plugin's path (/things). `role` gates first.
   routes: [
-    { method: "GET",  path: "/", permission: "things:read",  handler: listThings },
-    { method: "POST", path: "/", permission: "things:write", handler: createThings },
+    { method: "GET",  path: "/", role: "things:read",  handler: listThings },
+    { method: "POST", path: "/", role: "things:write", handler: createThings },
   ],
 });
 ```
@@ -299,7 +419,7 @@ there is **no `id` or `basePath`** in the manifest — both come from the folder
 | `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. |
-| `permissions` | no | Tokens this plugin introduces. See [Nav & permissions](#nav--permissions). |
+| `roles` | no | Roles this plugin gates on. See [Nav & role gates](#nav--role-gates). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 
@@ -307,10 +427,10 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 
 ### Routes & handlers
 
-A route is `{ method, path, permission?, public?, handler }`. `path` is **relative to the plugin's
+A route is `{ method, path, role?, public?, handler }`. `path` is **relative to the plugin's
 mount path `/<id>`** (so `path: "/:id"` in the `things` plugin serves `/things/:id`); the host
 matches `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`,
-runs the `permission` gate (a coarse JWT-claim check — see [Nav & permissions](#nav--permissions)),
+runs the `role` gate (a coarse JWT-claim check — see [Nav & role gates](#nav--role-gates)),
 and only then calls the handler with the [request context](#requestcontext). When the gate fails, an
 **anonymous** visitor is redirected to `/login` to sign in; the
 requested page is preserved as `return_to`, so after signing in they land **back on the page they
@@ -355,7 +475,7 @@ export async function listThings(ctx: RequestContext) {
   partials/subfolders to render a full page — exactly as the admin plugin's screens do. To load the
   plugin's own CSS, pass its `/public/<id>/x.css` href in the shell's `styles` slot (an array of
   extra stylesheet hrefs) — see the reference's `views/shifts.ejs`.
-- **Finer authorization than the route `permission`** uses the guards from `#plugin-api`:
+- **Finer authorization than the route `role`** uses the guards from `#plugin-api`:
   `requireSession(ctx)` (assert a session — throws a `GuardError` the host turns into a redirect
   to sign in), `can(ctx, role)` (a coarse JWT-claim check, zero I/O), and `check(keto, ctx,
   {namespace, object, relation})` (a live Keto check for relationship rules — the subject is the
@@ -414,7 +534,7 @@ points there.
 
 For the gated `dashboard`, the host enforces the session gate first, so `ctx.user` is non-null;
 branch on `ctx.roles` *inside* to tailor the page per role. Don't gate `dashboard` itself behind a
-single permission — there's no second dashboard to fall back to, so a user lacking it would land on a
+single role — there's no second dashboard to fall back to, so a user lacking it would land on a
 403. (Both slots answer `GET` and `HEAD`.)
 
 Only **one** plugin may own each slot: two declaring `home` (or two declaring `dashboard`) is a
@@ -505,15 +625,15 @@ OAuth2 clients use `ctx.system.hydra`, and a deactivate/delete or user role-chan
 `ctx.system.revoke` so the change lands now instead of after the JWT TTL; where a capability is missing
 the screen renders a themed 503.
 
-This is a **privileged** surface — it hands a plugin the keys to identity and permissions. It's meant
+This is a **privileged** surface — it hands a plugin the keys to identity and authorization. It's meant
 for first-party system plugins you author or vendor, the same trust level as any plugin (the host
 doesn't sandbox — [crash-isolation is a non-goal](#overview)). An ordinary domain plugin ignores it.
 
-### Nav & permissions
+### Nav & role gates
 
 A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/ui/nav.ts`), which
 applies the central override and then **filters per user** by the roles in the session JWT — a
-node shows iff it is `public`, declares no `permission`, or the user's roles include that token. Use
+node shows iff it is `public`, declares no `role`, or the user's roles include that name. Use
 arbitrary depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a
 **Lucide icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids
 are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
@@ -521,9 +641,9 @@ are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its luci
 #### Public pages & menu items
 
 A route or nav node may be marked **`public: true`** — reachable by **anyone, signed in or not**,
-and the menu item shows for everyone. This is the same as omitting `permission` (a no-permission
+and the menu item shows for everyone. This is the same as omitting `role` (an ungated
 route/node is already open) but stated outright, so "public" is a **deliberate choice, not the
-accident of a forgotten gate**. `public` and `permission` are **mutually exclusive** — declaring
+accident of a forgotten gate**. `public` and `role` are **mutually exclusive** — declaring
 both is contradictory and discovery refuses the plugin at boot.
 
 A public page still renders in the native shell via `ctx.chrome`; for an anonymous visitor
@@ -533,18 +653,14 @@ empty (read a role with `can(ctx, …)` to branch). The reference plugin's `/sch
 **Overview** is a worked example: it's `public`, so the "Scheduling" menu header shows for everyone,
 while the actual shifts list stays behind `scheduling:read`.
 
-**A `permission` token is a coarse role.** The route/nav gate passes iff the user's JWT `roles`
-include the token; those roles come from Keto at login, so an operator grants a token by writing the
-Keto tuple `Role:<token>#members@user:<id>` (or to a group) — the admin **Roles** screen does this.
-(The fine-grained, per-row tier is the separate Keto `Resource` namespace — see
-[Three tiers of "may I?"](#three-tiers-of-may-i); it is not what a route `permission` checks.)
+The gate passes iff the user's JWT `roles` include that name. How roles are granted, why their
+names are a shared global namespace, and the fine-grained per-row tier are all covered in
+[Users, groups & roles](#users-groups--roles).
 
-Permission tokens are a **shared global namespace** — that's deliberate, so an operator grants
-`scheduling:read` once in Keto and every plugin referencing it is gated consistently. Namespace
-your tokens as `<id>:<action>` to avoid accidental clashes. Declaring them in `permissions` is
-optional but recommended: it documents them, feeds conflict detection, and lets the one-command
-bootstrap seed them — the demo admin is granted every discovered plugin's declared tokens, so
-a dropped-in plugin works out of the box without editing host config.
+Declaring the ones you gate on in `roles` is **optional but recommended**: it documents them,
+feeds conflict detection, and lets the one-command bootstrap seed them — the demo admin is
+granted every discovered plugin's declared roles, so a dropped-in plugin works out of the box
+without editing host config.
 
 ### Contract versioning
 
@@ -579,15 +695,15 @@ with `findConflicts` and resolves them **loudly — never last-write-wins**. `er
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
 | `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
-| `permission` | warn | A permission token is declared by more than one plugin. Sharing is legitimate (shared role); namespace as `<id>:<action>` if unintended. |
+| `role` | warn | A role name is declared by more than one plugin. Sharing is legitimate; namespace as `<id>:<action>` if unintended. |
 
 There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its
-uniqueness follows from the id check. `permission` is the one intentional overlap, so it warns
+uniqueness follows from the id check. `role` is the one intentional overlap, so it warns
 rather than aborts; everything else is an error an author fixes before the host will start.
 
 Beyond cross-plugin conflicts, discovery also rejects **per-manifest shape errors** at boot: a
-non-array `nav`/`routes`/`permissions`, a non-function `home`/`dashboard`, or a route/nav node that
-sets both `public` and `permission` (mutually exclusive — [Public pages](#public-pages--menu-items)).
+non-array `nav`/`routes`/`roles`, a non-function `home`/`dashboard`, or a route/nav node that
+sets both `public` and `role` (mutually exclusive — [Public pages](#public-pages--menu-items)).
 
 ### Hooks
 
@@ -654,7 +770,7 @@ can't escape its own package scope, so it can't point at the host's file directl
 > Discovery — scanning `plugins/`, importing each `plugin.ts` default export, and
 > validating it (id, `apiVersion`, conflicts) — runs at boot (`src/plugin-host/discovery.ts`); a bad
 > plugin stops startup with a precise message. The router (`src/plugin-host/router.ts`) then mounts
-> each route at `/<id>`, resolves `:name` params, runs the permission gate, and turns the
+> each route at `/<id>`, resolves `:name` params, runs the role gate, and turns the
 > handler's `RouteResult` into the response; a `view` result renders
 > `plugins/<id>/views/<view>.ejs` (`src/plugin-host/view-resolver.ts`), which may `include()` the core
 > building-block partials. A plugin's `public/` assets are served at `/public/<id>/`
@@ -685,7 +801,7 @@ worked example: thin handlers bound to an injectable upstream client, unit-teste
 
 3. **E2E the user-facing flow.** Per AGENTS.md §6, ship a side-effect-free Playwright test in
    `e2e-tests/` for each plugin page/form so the suite stays `fullyParallel`, run against the live `web`
-   service with the plugin mounted. The reference's permission-gating is covered in `visual.spec.ts`;
+   service with the plugin mounted. The reference's role-gating is covered in `visual.spec.ts`;
    its authenticated list/form happy-path is the full-E2E item (needs cross-host login infra).
 
 The validation an author hits is the same the host runs: bad `apiVersion` or a conflict
@@ -713,13 +829,13 @@ The menu is **driven entirely by config** and assembled from two sources:
    export default defineMenu({ branding: { name: "Acme Ops" }, override: { hide: ["teams"] } });
    ```
 
-Every nav item may carry a `permission`; the rendered tree is **filtered per user** by
+Every nav item may carry a `role`; the rendered tree is **filtered per user** by
 reading the roles in the session JWT (no per-request authz call — see
-[Auth, sessions & permissions](#auth-sessions--permissions)), so the menu only ever shows
+[Auth, sessions & access](#auth-sessions--access)), so the menu only ever shows
 what that person can reach. An item (or a whole page) may instead be marked **`public:
 true`** to show it to **everyone, signed in or not** — the blessed, explicit way to expose
-a public page and its menu entry (a no-permission item is already public; `public` just
-says so on purpose, and is mutually exclusive with `permission`). The markup is the
+a public page and its menu entry (an ungated item is already public; `public` just
+says so on purpose, and is mutually exclusive with `role`). The markup is the
 recursive, zero-JS nav tree from the design foundation (header/leaf × clickable/static,
 counts, arbitrary depth). Branding (name, logo, default theme) renders in the app shell —
 the sidebar brand shows the configured logo (else a default mark), and the theme sets the
@@ -786,7 +902,7 @@ The app is **environment-agnostic**: there is no `NODE_ENV`. Behaviour that used
 | `OTLP_ENDPOINT` | _unset_ | OpenTelemetry Collector HTTP base URI; set ⇒ export logs + traces (unset ⇒ console only) |
 | `OTLP_PROTOCOL` | `http/json` | OTLP wire format: `http/json` or `http/protobuf` |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
-| `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | permission check / write |
+| `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | authorization check / write |
 | `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (login/consent handshake) |
 | `JWKS_URL` | `file://…/tokenizer/jwks.json` | the Kratos tokenizer signing key; verifies the session JWT |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | _unset_ | optional: when set, the session JWT's `iss` / `aud` must match (the dev tokenizer sets neither) |
@@ -880,7 +996,7 @@ button, and the whole SSO section disappears when none are configured — no cod
 add or remove one. Open-source Kratos has **no native SAML** — front it with an OIDC bridge
 (Ory Polis) and register that bridge as a generic OIDC provider the same way.
 
-## Auth, sessions & permissions
+## Auth, sessions & access
 
 Identity comes from **Kratos**; the hot path stays I/O-free by carrying coarse authorization
 in a **locally-validated JWT**, and **Keto** is reserved for the rare fine-grained,
@@ -969,6 +1085,9 @@ deactivate the user, or use a direct user-role change, for an instant effect.
 
 ### Three tiers of "may I?"
 
+[Users, groups & roles](#users-groups--roles) covers *what* the entities are; this is where each
+**kind** of rule belongs.
+
 ```
   coarse  (menu / route / feature)        → JWT claim     · in-process, zero I/O
   fine + attribute (owner / tenant / …)   → upstream service that owns the row
@@ -983,10 +1102,8 @@ deactivate the user, or use a direct user-role change, for an instant effect.
   is for. Reserve it for those; don't pay its tuple-sync cost for rules a service can already
   answer from its own data.
 
-The built-in users / groups / permissions screens write authorization **only to Keto** —
-coarse roles and fine-grained relationships alike. Roles reach the JWT by being read from
-Keto at login and projected through the tokenizer (above); nothing authors them anywhere
-else.
+The admin plugin's users / groups / roles screens write authorization **only to Keto** — coarse
+roles and fine-grained relationships alike.
 
 ### OAuth2 provider (Hydra)
 
@@ -1027,7 +1144,7 @@ what defends what, and which guarantees are deliberately not offered.
   plus `nbf` and the optional `iss`/`aud`. Before that it is bytes.
 - **The private container network is the *only* thing guarding the Ory APIs.** Kratos admin
   (`4434`), Hydra admin (`4445`) and Keto write (`4467`) authenticate no one — reaching them
-  *is* full identity and permission control. Keto **read** (`4466`) cannot write, but discloses
+  *is* full identity and authorization control. Keto **read** (`4466`) cannot write, but discloses
   the entire authorization graph, so treat it the same. `compose.yml` publishes none of the six
   Ory ports (guarded by `src/compose.test.ts`); dev publishes only the two a browser must reach.
   Never expose one, and never front one with a proxy that lacks its own auth.
@@ -1126,7 +1243,7 @@ pages by **verifying the JWT in-process, with no per-request call to Ory**. Keto
 the rarer fine-grained checks; Hydra is used only when the app acts as an OAuth2 **login &
 consent provider** for other apps. It reaches the Ory services over their **REST APIs
 using Node's built-in `fetch`** — no SDK dependency. See
-[Auth, sessions & permissions](#auth-sessions--permissions).
+[Auth, sessions & access](#auth-sessions--access).
 
 In **dev** the host-facing Ory ports are published — Kratos public `4433` (where the browser
 POSTs self-service flows) and Hydra public `4444`; **prod** (`docker compose -f compose.yml
@@ -1170,7 +1287,7 @@ service — no Node/browsers on the host. There are five suites:
 **Visual + design system** (`visual.spec.ts`) — Ory-free, so it stays fast. It screenshots
 the live pages and asserts the rendered design system — the app shell, theme switch, mobile
 off-canvas layout, icon sprite, CSRF-guarded sign-out, the public landing, the 404 page, and
-plugin permission-gating — the last exercised by bind-mounting the reference example
+plugin role-gating — the last exercised by bind-mounting the reference example
 (`examples/plugins/scheduling/`) onto `/app/plugins/scheduling`.
 
 ```bash
@@ -1206,7 +1323,7 @@ docker compose -f compose.yml -f e2e-tests/compose.oauth.yml down -v            
 the themed **password login** and a **mocked-SSO** login (an in-network mock OIDC provider,
 `e2e-tests/mock-oidc.ts`), **menu filtering by role**, the **users/groups/roles** admin CRUD, the
 **OAuth2-clients** admin screen (register → one-time secret → delete; Hydra is part of this stack
-for it), a permission-gated **plugin page**, and **logout**. Because the themed form posts straight to
+for it), a role-gated **plugin page**, and **logout**. Because the themed form posts straight to
 Kratos and cookies are host-scoped, a tiny same-origin gateway (`e2e-tests/proxy.ts`) fronts web +
 Kratos on one host (`ory/kratos/e2e-proxy.yml` points Kratos at it) — exactly as a production
 reverse proxy would.
@@ -1401,7 +1518,7 @@ mid-response, so container restarts are clean.
 
 The first-boot **bootstrap** is idempotent and runs on every `up` — it generates the JWT
 signing key if absent, creates the demo admin in Kratos, and grants it the `admin` role plus
-every discovered plugin's declared permission tokens in Keto, so permission checks (and any
+every discovered plugin's declared role names in Keto, so role checks (and any
 dropped-in plugin) resolve out of the box. The web app waits for Kratos + Keto to be healthy
 *and* the bootstrap to finish before starting. **Change the demo admin before production.**
 
@@ -1538,7 +1655,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     jwks.ts           JwksProvider — resolve the verify key by kid; createJwksProvider() picks by scheme: staticJwks (base64) or cachingJwks (file/http: TTL cache + rotation-on-miss reload)
     gen-jwks.ts       generateJwks()/rotateJwks() + CLI (mint · --prepend · --prune): the ES256 session-tokenizer signing JWKS; see JWT signing key & rotation
     login.ts          completeLogin()/remintSession(): login completion + TTL re-mint — roles from Keto → metadata_public projection → tokenize → session JWT cookie
-    guards.ts         requireSession()/can()/check(): in-handler authorization — the imperative counterpart to the route permission gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
+    guards.ts         requireSession()/can()/check(): in-handler authorization — the imperative counterpart to the route role gate; GuardError → 303 /login or 403; check() is the one live Keto "may I?" call
     csrf.ts           CSRF for our own POST forms: signed double-submit token — issue/verify, cookie, request gate
     denylist.ts       Optional instant-revoke denylist: in-memory, auto-evicting; hot path rejects a revoked subject's pre-revoke tokens (REVOCATION_DENYLIST)
     flow-view.ts      buildFlowView(): Kratos self-service Flow → themed view model (fields, hidden csrf, buttons, tone-mapped messages) for views/auth.ejs
@@ -1557,7 +1674,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     plugin-api.ts     Stable plugin author barrel — the one module a plugin imports, as `#plugin-api` (definePlugin, ctx/result types, guards, body/CSRF/list-query/paginate helpers, and the ctx.system Ory client types)
     system.ts         SystemCapabilities: the privileged ctx.system surface (Ory admin clients + instant-revoke) a system plugin uses; the host populates it from the wired clients, the admin plugin consumes it
     discovery.ts      discoverPlugins(): scan plugins/, import + validate each plugin.ts default export, fail loud at boot
-    router.ts         matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, permission gate
+    router.ts         matchRoute()/allowedMethods()/isAuthorized(): map method+path → plugin route, params, role gate
     hooks.ts          runBootHooks()/runRequestHooks()/runResponseHooks(): invoke a plugin's optional lifecycle hooks in discovery order; no sandbox (a throwing hook fails loud), skipped when no plugin declares one
     view-resolver.ts  renderPluginView(): render plugins/<id>/views/<view>.ejs; plugin views can include() core partials
 
@@ -1576,7 +1693,7 @@ public/              Static assets under /public/ (css/styles.css + auth.css, fa
 config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — role/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
-examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
+examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + role-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Roles/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-role, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 .gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;
