@@ -86,6 +86,17 @@ them. Revisit only if the stated reason stops holding.
   `tsconfig.include` and resolve the host surface via `#`-imports, so each example typechecks
   in place *and* copies across unchanged. Never commit real plugins/config into the root
   mount dirs (`plugins/`, `config/`) — they ship empty (`.gitkeep`, git-ignored otherwise).
+- **Authorization vocabulary: `Identity` → `Group` → `Permission`, and there is no `Role`.** Keto
+  ships no namespaces — all four in `ory/keto/namespaces.keto.ts` are ours. `Identity` matches
+  Kratos, which owns that record. `Permission` follows RBAC, where a permission is one operation
+  ("read shifts") and a role is a *bundle* of them; a route gates on one operation, so it gates on
+  a permission, and a bundle is just a group with several grants (groups nest). Ory's own
+  "permission" (the `Resource` `permits`: view/edit/delete) is the separate per-row tier.
+- **UI labels stay in ordinary words — the menu says "Users", not "Identities".** The model uses
+  domain vocabulary; labels use the reader's, per Nielsen's heuristic #2 (match between system and
+  the real world). This is not a rename of an Ory concept: Ory's own docs state it uses "identity"
+  *interchangeably* with "users"/"accounts". Same split as `chrome.user`/`ShellUser` (the avatar
+  view-model) versus `SessionIdentity`/`ctx.identity` (the entity).
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
   concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),
