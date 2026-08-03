@@ -32,6 +32,7 @@ export interface I18nRequest {
   locale: string;
   localeHref: (href: string) => string;
   locales: string[];
+  method: string; // a page rendered in response to a POST has no linkable URL — see localeSwitch
   t: Translate;
   url: URL;
 }
@@ -50,6 +51,10 @@ export const ENGLISH_LOCALS: I18nLocals = {
 
 export function i18nLocals(ctx: I18nRequest): I18nLocals {
   const here = `${ctx.url.pathname}${ctx.url.search}`;
+  // The picker links to this same page in another language. After a POST that page's URL often has
+  // no GET at all (the admin's recovery-code screen, say), so linking there would dead-end on a 405
+  // — and on a re-rendered form it would silently discard what the user typed. Offer nothing.
+  const linkable = ctx.method === "GET" || ctx.method === "HEAD";
   // ctx.localeHref is a no-op unless the URL asked for a locale, so it is also the honest answer to
   // "did it?" — asking the function that decides keeps the two from drifting apart.
   const carried = ctx.localeHref("/") === "/" ? null : ctx.locale;
@@ -58,7 +63,7 @@ export function i18nLocals(ctx: I18nRequest): I18nLocals {
     locale: ctx.locale,
     localeHref: (href) => ctx.localeHref(href),
     localeParam: carried,
-    localeSwitch: ctx.locales.map((tag) => ({ current: tag === ctx.locale, href: localeHref(here, tag), label: localeLabel(tag), tag })),
+    localeSwitch: linkable ? ctx.locales.map((tag) => ({ current: tag === ctx.locale, href: localeHref(here, tag), label: localeLabel(tag), tag })) : [],
     locales: ctx.locales,
     t: ctx.t,
   };

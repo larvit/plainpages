@@ -24,7 +24,7 @@ export const MOUNTED_LOCALES_DIR = join(rootDir, "locales");
 // A catalog file is named for the full locale it holds — sv-SE.ts, never sv.ts — with the script
 // subtag when the language needs one (sr-Latn-RS). Anything else in the folder is a mistake worth
 // stopping for.
-const LOCALE_FILE = /^([a-z]{2,3}(?:-[A-Z][a-z]{3})?-[A-Z]{2})\.ts$/;
+const LOCALE_FILE = /^([a-z]{2,3}(?:-[A-Z][a-z]{3})?-(?:[A-Z]{2}|[0-9]{3}))\.ts$/;
 
 export interface LoadI18nOptions {
   localesDir?: string;
@@ -90,7 +90,7 @@ async function readSet(dir: string, label: string, errors: string[]): Promise<Ma
     if (entry.isDirectory() || entry.name.startsWith(".")) continue;
     const locale = LOCALE_FILE.exec(entry.name)?.[1];
     if (locale === undefined) {
-      errors.push(`${label}: "${entry.name}" is not a locale catalog — name it <language>-<REGION>.ts (e.g. sv-SE.ts)`);
+      errors.push(`${label}: "${entry.name}" is not a locale catalog — name it <language>-<REGION>.ts (sv-SE.ts, es-419.ts, sr-Latn-RS.ts)`);
       continue;
     }
     let mod: { default?: unknown };

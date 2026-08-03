@@ -29,7 +29,14 @@ export async function runRequestHooks(
 }
 
 // After a route handler produces its result. Observers only — the return value is ignored, so a
-// hook cannot change the response; a throw fails the request.
-export async function runResponseHooks(plugins: Plugin[], ctx: RequestContext, result: RouteResult | null): Promise<void> {
-  for (const plugin of plugins) await plugin.hooks?.onResponse?.(ctx, result);
+// hook cannot change the response; a throw fails the request. Each observer gets a context scoped to
+// its own plugin, like onRequest, so `ctx.t` is never another plugin's translator.
+export async function runResponseHooks(
+  plugins: Plugin[],
+  contextFor: (pluginId: string) => RequestContext,
+  result: RouteResult | null,
+): Promise<void> {
+  for (const plugin of plugins) {
+    if (plugin.hooks?.onResponse) await plugin.hooks.onResponse(contextFor(plugin.id), result);
+  }
 }

@@ -9,6 +9,6 @@
 <%- include("menu", {
   up: locals.up !== false,
   trigger: { class: "btn icon-btn", icon: "i-globe", label: t("locale.label") },
-  items: [{ head: t("locale.label") }, ...choices.map((c) => ({ current: c.current, href: c.href, hreflang: c.tag, label: c.label }))],
+  items: [{ head: t("locale.label") }, ...choices.map((c) => ({ current: c.current, href: c.href, hreflang: c.tag, label: c.label, ownLocale: true }))],
 }) %>
 <% } -%>

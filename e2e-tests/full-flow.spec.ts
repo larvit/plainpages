@@ -74,6 +74,25 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
   });
 
+  // A POST that re-renders a page: the write must keep the language, and the picker must not offer
+  // a link to a URL that only answers POST.
+  test("a write keeps the visitor's language, and offers no language link on the POST-rendered page", async () => {
+    await page.goto("/admin/users?locale=sv-SE");
+    await page.getByRole("link", { name: "Ny användare" }).click();
+    await page.fill('input[name="email"]', `lang-${suffix}@plainpages.local`);
+    await page.getByRole("button", { name: "Skapa användare" }).click();
+    await expect(page).toHaveURL(/locale=sv-SE/); // the POST → redirect → GET keeps it
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
+
+    // Open the new user's edit page the way the CRUD test does — the row's Edit link carries the id.
+    const row = page.locator("tr", { hasText: `lang-${suffix}@plainpages.local` });
+    const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
+    await page.goto(`${editHref}`);
+    await page.getByRole("button", { name: "Skapa återställningskod" }).click(); // POST-only route
+    await expect(page.getByText("Återställningskod skapad")).toBeVisible();
+    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(0); // no dead-end link offered
+  });
+
   test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {
     // The signed-in admin holds admin + scheduling:read/write, so both gated sections are present
     // in the menu (collapsed by default → assert they're in the DOM, not necessarily visible).

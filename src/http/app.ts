@@ -14,7 +14,7 @@ import { GuardError, loginRedirect } from "../auth/guards.ts";
 import { ENGLISH_I18N } from "../i18n/english.ts";
 import type { I18n } from "../i18n/runtime.ts";
 import { localeHref } from "../i18n/locale.ts";
-import { ENGLISH_LOCALS, i18nLocals } from "../i18n/view-locals.ts";
+import { ENGLISH_LOCALS, i18nLocals, type I18nRequest } from "../i18n/view-locals.ts";
 import { runRequestHooks, runResponseHooks } from "../plugin-host/hooks.ts";
 import type { HydraAdmin } from "../auth/hydra-admin.ts";
 import type { JwksProvider } from "../auth/jwks.ts";
@@ -120,8 +120,9 @@ export function createApp(options: AppOptions = {}): Server {
   // it. A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
   // They are merged LAST: these names are reserved (README → Building plugins), and a handler that
   // happens to use one loses that key rather than breaking the shell that renders around it.
-  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(ctx) });
-  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(ctx) });
+  const localsOf = (ctx: RequestContext): I18nRequest => ({ ...ctx, method: ctx.req.method ?? "GET" });
+  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)) });
+  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)) });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -138,7 +139,7 @@ export function createApp(options: AppOptions = {}): Server {
       // The plugin owns this page, so it runs on its own context — its catalog first, then core.
       const pluginCtx = contextFor(homePlugin.id);
       const result = (await homePlugin.home(pluginCtx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, pluginCtx, result);
+      if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result);
       await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, homePlugin.id), pluginCtx.localeHref);
       return null;
     }
@@ -156,7 +157,7 @@ export function createApp(options: AppOptions = {}): Server {
     if (dashboardPlugin) {
       const pluginCtx = contextFor(dashboardPlugin.id); // as serveHome: the owner's own translator
       const result = (await dashboardPlugin.dashboard(pluginCtx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, pluginCtx, result);
+      if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result);
       await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, dashboardPlugin.id), pluginCtx.localeHref);
       return null;
     }
@@ -186,9 +187,6 @@ export function createApp(options: AppOptions = {}): Server {
       // Set before any branch so every response — static/redirect/error included — inherits them
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
       for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
-      // The same URL renders in different languages depending on Accept-Language, so a cache in
-      // front of us must key on it — otherwise the first visitor's language is served to everyone.
-      res.setHeader("vary", "accept-language");
 
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
         // /public/<id>/… serves a plugin's public/; everything else the core public/.
@@ -197,6 +195,12 @@ export function createApp(options: AppOptions = {}): Server {
         await serveStatic(dir, subPath, res, method === "HEAD", (err) => reqLog.error("static stream error", { error: String(err) }));
         return;
       }
+
+      // Rendered pages content-negotiate on Accept-Language, so a cache in front of us must key on
+      // it — otherwise the first visitor's language is served to everyone. Set after the static
+      // branch above: an asset is the same bytes in every language, and a Vary there would fragment
+      // its cache entry per raw header string.
+      res.setHeader("vary", "accept-language");
 
       // Canonical host (APP_URL): a visitor who reached us on a different host (localhost vs
       // 127.0.0.1, a secondary domain) is sent to the configured origin, path + query preserved, so
@@ -303,7 +307,7 @@ export function createApp(options: AppOptions = {}): Server {
         }
         csrfMint.setCookie();
         const result = (await match.route.handler(routeCtx)) ?? null;
-        if (anyResponseHooks) await runResponseHooks(plugins, routeCtx, result); // observers; a throw → 500
+        if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result); // observers; a throw → 500
         await sendResult(res, result, pluginViewsFor(routeCtx, match.plugin.id), carryLocale);
         return;
       }

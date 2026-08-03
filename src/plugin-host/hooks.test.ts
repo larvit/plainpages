@@ -44,11 +44,12 @@ test("runRequestHooks short-circuits on the first RouteResult (with its plugin);
 
 test("runResponseHooks runs every onResponse as an observer with the result; a throw fails", async () => {
   const seen: unknown[] = [];
+  const contextFor = () => ctx; // each observer gets a context scoped to its own plugin
   await runResponseHooks([
     plugin("a", { onResponse: (_c, r) => void seen.push(r) }),
     plugin("b", {}), // no onResponse → skipped
-  ], ctx, { html: "ok" });
+  ], contextFor, { html: "ok" });
   assert.deepEqual(seen, [{ html: "ok" }]);
 
-  await assert.rejects(runResponseHooks([plugin("x", { onResponse: () => { throw new Error("boom"); } })], ctx, null), /boom/);
+  await assert.rejects(runResponseHooks([plugin("x", { onResponse: () => { throw new Error("boom"); } })], contextFor, null), /boom/);
 });

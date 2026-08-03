@@ -8,6 +8,7 @@ const request = (overrides: Partial<I18nRequest> = {}): I18nRequest => ({
   locale: "sv-SE",
   localeHref: (href) => href,
   locales: ["en-US", "sv-SE"],
+  method: "GET",
   t: ENGLISH,
   url: new URL("http://localhost/admin/users?q=ada"),
   ...overrides,
@@ -29,4 +30,10 @@ test("localeParam is the tag only when the URL asked — it is what the GET form
 test("dir follows the locale's script", () => {
   assert.equal(i18nLocals(request()).dir, "ltr");
   assert.equal(i18nLocals(request({ locale: "ar-EG" })).dir, "rtl");
+});
+
+test("a page rendered from a POST offers no language links — that URL may have no GET at all", () => {
+  // Following one would dead-end on a 405 (a POST-only route), or silently discard a re-rendered
+  // form's input. The picker renders nothing below two choices, so an empty list hides it.
+  assert.deepEqual(i18nLocals(request({ method: "POST" })).localeSwitch, []);
 });
