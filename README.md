@@ -998,8 +998,8 @@ Three rules worth knowing:
   plain text — `nav: [{ label: "shop.title" }]` is translated, `label: "Shop"` is not, and neither
   breaks. The same holds for `config/menu.ts` branding and its `rename` overrides.
 - **`t()` returns raw text; the view escapes it.** Use `<%= %>` as for any other value. A message
-  that deliberately carries markup is rendered with `<%- %>` — and must never interpolate
-  untrusted data, since nothing escapes it there.
+  that deliberately carries markup is rendered with `<%- %>` — and its `{{vars}}` must then be
+  escaped at the call site, since nothing escapes them there (`pagination.ejs` is the worked example).
 - **Dates and numbers are `Intl`'s job**, not the catalog's: `new Intl.DateTimeFormat(ctx.locale)`.
 - **The core building blocks carry the locale for you** — every href they render (menu, breadcrumbs,
   pagination, sort headers, row actions, the auth card's links) goes through `localeHref`, and their

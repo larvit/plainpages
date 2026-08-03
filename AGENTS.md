@@ -147,8 +147,9 @@ them. Revisit only if the stated reason stops holding.
   branding, or a menu `rename` be either a key or plain text without a second field or a migration.
   Don't "fix" it into a loud failure: a manifest with plain labels must keep working.
 - **`t()` returns raw text; the view escapes it.** Messages go through `<%= %>` like any other value,
-  so nothing is double-escaped; a message carrying markup uses `<%- %>` and must not interpolate
-  untrusted data. Don't move escaping into `t()`.
+  so nothing is double-escaped; a message carrying markup uses `<%- %>`, and then its `{{vars}}` are
+  escaped at the call site (see `views/partials/pagination.ejs`). Don't move escaping into `t()` —
+  every other value in a view would then be the odd one out.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`:
   concurrent jobs can race (one job's logout can 401 another's push — recover by re-running),

@@ -68,3 +68,10 @@ test("pagination renders a valid empty footer and never throws on missing config
   assert.match(html, /<option value="50" selected>50 \/ page<\/option>/);
   assert.match(html, /<button class="page-btn" type="submit">Set<\/button>/);
 });
+
+test("the summary message renders its markup but escapes the values interpolated into it", async () => {
+  // It is the one message rendered raw (<%- %>), so a value that arrives as text can't inject.
+  const html = await render({ summary: { from: 1, to: 12, total: '<img src=x onerror=alert(1)>' } });
+  assert.match(html, /<b>&lt;img src=x onerror=alert\(1\)&gt;<\/b>/);
+  assert.doesNotMatch(html, /<img/);
+});

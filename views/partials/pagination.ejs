@@ -18,10 +18,14 @@
   const next = locals.next;
   const pages = locals.pages || [];
   const eq = (a, b) => String(a ?? "") === String(b);
+  // The summary message carries markup (<b> around the total), so it renders raw — which means its
+  // values must be escaped here instead. Callers pass paginate() numbers today; a building block
+  // shouldn't depend on that.
+  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 -%>
 <footer class="pager">
 <% if (summary) { -%>
-  <span><%- t("pagination.summary", { from: summary.from, to: summary.to, total: summary.total }) %></span>
+  <span><%- t("pagination.summary", { from: esc(summary.from), to: esc(summary.to), total: esc(summary.total) }) %></span>
 <% } -%>
 <% if (rows) { -%>
   <form class="pager-rows" method="get"<% if (rows.action) { %> action="<%= localeHref(rows.action) %>"<% } %>>
