@@ -151,7 +151,6 @@ const messages = {
   "shell.guest": "Guest",
   "shell.mainNav": "Main navigation",
   "shell.openMenu": "Open menu",
-  "shell.profile": "Profile",
   "shell.sidebar": "Primary",
   "shell.signedInAs": "Signed in as {{name}}",
   "shell.signIn": "Sign in",

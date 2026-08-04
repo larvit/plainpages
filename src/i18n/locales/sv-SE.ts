@@ -137,7 +137,6 @@ const messages: CoreMessages = {
   "shell.guest": "Gäst",
   "shell.mainNav": "Huvudmeny",
   "shell.openMenu": "Öppna menyn",
-  "shell.profile": "Profil",
   "shell.sidebar": "Primär",
   "shell.signedInAs": "Inloggad som {{name}}",
   "shell.signIn": "Logga in",

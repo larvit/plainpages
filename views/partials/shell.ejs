@@ -68,7 +68,6 @@
               </summary>
               <div class="menu-pop left up" style="min-width:220px">
                 <div class="menu-head"><%= t("shell.signedInAs", { name: user.name }) %></div>
-                <button class="menu-item" type="button"><svg class="ico"><use href="#i-user" /></svg><%= t("shell.profile") %></button>
                 <%# Sign out is a state change → a POST form (not a GET link), CSRF-guarded by app.ts %>
                 <form class="menu-item-form" method="post" action="<%= localeHref("/logout") %>">
                   <input type="hidden" name="_csrf" value="<%= locals.csrfToken || '' %>" />

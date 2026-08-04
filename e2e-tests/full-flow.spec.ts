@@ -187,6 +187,8 @@ test.describe.serial("authenticated admin journey", () => {
   test("logout: signing out ends the session and returns to the login page", async () => {
     await page.goto("/dashboard");
     await page.locator("summary.profile").click(); // open the profile dropdown
+    // Sign out is the only item in it — the menu offers nothing that goes nowhere.
+    await expect(page.locator("details.menu:has(summary.profile) .menu-item")).toHaveText(["Sign out"]);
     await page.locator('form[action="/logout"] button[type="submit"]').click();
     await page.waitForURL(/\/login(\?|$)/);
     // The session is gone: /dashboard is gated, so it bounces back to the login page (no admin nav).
