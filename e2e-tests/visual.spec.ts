@@ -101,7 +101,7 @@ test("the public landing at / is ungated and links to sign in + register", async
   await expect(page.locator(".landing")).toBeVisible();
   // the same app shell every page renders — the menu shows even signed out (permission-filtered).
   await expect(page.locator(".sidebar")).toBeVisible();
-  await expect(page.locator('.side-footer use[href="#i-gear"]')).toHaveCount(0); // no settings cog to offer a signed-out visitor
+  await expect(page.locator('use[href="#i-gear"]')).toHaveCount(0); // no settings cog to offer a signed-out visitor
   await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("link", { name: "Create account" })).toHaveAttribute("href", "/registration");
   await shot(page, "live-05-public-landing");

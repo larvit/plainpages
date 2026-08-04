@@ -168,6 +168,14 @@ them. Revisit only if the stated reason stops holding.
   workspace dir, so ci.sh's web-image build races another run's container creation on the
   `<project>-web` tag. Accepted for a single-maintainer cadence; serialize with a workflow
   `concurrency` group if it ever bites.
+- **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract.** It is
+  deliberately not re-exported from `#plugin-api`, and README → Nav & permission gates already tells an
+  author that using a new icon means registering it there. So the palette may narrow when the last
+  reference to an id goes — `i-gear` left with the settings menu 2026-08-05 — and a plugin needing one
+  gets it re-registered in the same change. Accepted cost: an unknown sprite id renders a blank icon
+  instead of failing loud; the `every icon <use> resolves to a defined <symbol>` e2e test catches it for
+  anything reaching the nav. Removing an id is a core edit, so weigh it per icon rather than sweeping the
+  registry — a few ids are registered ahead of a caller (see `todo.md`).
 
 ## Docker only — no host tooling
 

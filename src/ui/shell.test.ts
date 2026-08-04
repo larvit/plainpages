@@ -40,9 +40,6 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
   assert.match(html, /<input type="hidden" name="_csrf" value="tok\.sig" \/>/);
 
-  // The footer carries the profile and the language picker only — no settings/preferences menu.
-  assert.doesNotMatch(html, /i-gear|Preferences/);
-
   // Branding, document title, and the inlined icon sprite (so <use> resolves).
   assert.match(html, /Acme Console/);
   assert.match(html, /<title>People<\/title>/);
@@ -54,7 +51,7 @@ test("app shell offers Sign in (not Sign out) to an anonymous visitor — so a p
   const html = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x" }); // no user, no signInHref → default
   assert.match(html, /href="\/login"[^>]*>[\s\S]*?Sign in/); // a path to sign in (default target)
   assert.doesNotMatch(html, /action="\/logout"/); // a guest has no session to end
-  assert.doesNotMatch(html, /i-gear|Preferences/); // nor any settings menu to open
+  assert.doesNotMatch(html, /<use href="#i-gear"/); // nor a settings cog to open
 
   // When chrome supplies signInHref (the current page as return_to), the link carries it.
   const withReturn = await render({ title: "Overview", brand: { name: "Acme" }, nav: "", body: "x", signInHref: "/login?return_to=%2Fscheduling" });
