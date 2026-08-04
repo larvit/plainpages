@@ -277,11 +277,12 @@ Same test before adding a row to a table or the file map — a clause, not a par
   in words; handlers pass `ctx.t`.
 - **One verb per action in the English UI: sign in, sign out, create account.** Not "log in",
   "log out" or "sign up", inflections included — a second spelling for one button reads as a second
-  thing; the noun ("a sign-in error", "the sign-in identifier") is unaffected. Guarded over the
-  shipped core catalog by `src/i18n/load.test.ts` (a test file cannot live in `locales/`, which loads
-  every `.ts` in it as a catalog); a plugin's catalog and every other locale follow the same rule in
-  their own language, unguarded. An unmapped Kratos id still renders Kratos' own wording — map it to
-  hold the line.
+  thing; the noun ("a sign-in error", "the sign-in identifier") is unaffected. A plugin's catalog and
+  every other locale follow the same rule in their own language. An unmapped Kratos id renders
+  Kratos' own wording — map the id when it matters. **Held by the author, never by a test:** as the
+  UI grows, slightly different wording is often the right call, and a check that fails the build on
+  a word takes that judgment away. Maintainer's call 2026-08-05, dropping the guard that shipped
+  with the rule.
 - Use well formed, standard compliant, rich URIs. Prefer state in the URL over POST:ing in for
   for example list pages with filters and pagination. Do: "ids=x&ids=y" and not "ids[]=x&ids[]=y"
   and not "ids=x,y".
