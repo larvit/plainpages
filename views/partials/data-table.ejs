@@ -66,9 +66,11 @@
 <% }) -%>
 <% if (withActions) { -%>
 <% if ((row.actions || []).length) { -%>
-        <td class="col-actions"><details class="menu kebab"><summary aria-label="<%= t("table.rowActions", { name: row.name || t("table.row") }) %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
-<% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= localeHref(a.href) %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
-</div></details></td>
+        <td class="col-actions"><%- include("menu", {
+          kebab: true,
+          trigger: { class: "", icon: "i-kebab", label: t("table.rowActions", { name: row.name || t("table.row") }) },
+          items: row.actions.flatMap((a) => (a.separatorBefore ? [{ sep: true }, a] : [a])),
+        }) %></td>
 <% } else { -%>
         <td class="col-actions"></td>
 <% } -%>

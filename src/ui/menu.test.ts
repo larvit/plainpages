@@ -11,6 +11,7 @@ const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " 
 
 test("menu renders trigger, positioning, the item matrix and check groups", async () => {
   const html = flat(await render({
+    id: "cols-menu", // given explicitly here; the default is a fresh one per menu (see below)
     trigger: { icon: "i-cols", text: "Columns", label: "Column settings" },
     align: "left", up: true, width: 240,
     items: [
@@ -27,9 +28,9 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
     ],
   }));
 
-  // Trigger: icon + text + aria-label; popover carries align/up classes + width.
-  assert.match(html, /<details class="menu"><summary class="btn" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/summary>/);
-  assert.match(html, /<div class="menu-pop left up" style="min-width:240px">/);
+  // Trigger: icon + text + aria-label, wired to the panel by id; popover carries align/up + width.
+  assert.match(html, /<button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/button>/);
+  assert.match(html, /<div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
 
   // Item matrix: head, button-with-icon, link, separator, danger button.
   assert.match(html, /<div class="menu-head">Actions<\/div>/);
@@ -44,17 +45,26 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
 });
 
 test("menu supports a raw/kebab trigger, escapes labels, and renders empty by default", async () => {
-  // Raw trigger HTML, no summary class, kebab + open flags.
+  // Raw trigger HTML, no button class, kebab flag.
   const kebab = flat(await render({
-    kebab: true, open: true,
+    id: "row-menu", kebab: true,
     trigger: { class: "", label: "Row actions", html: '<svg class="ico ico-sm"><use href="#i-kebab"/></svg>' },
     items: [{ label: "Edit", href: "/e" }],
   }));
-  assert.match(kebab, /<details class="menu kebab" open><summary aria-label="Row actions"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/summary>/);
+  assert.match(kebab, /<button class="kebab" type="button" popovertarget="row-menu" aria-label="Row actions"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/button>/);
 
   // Labels are escaped (item text + trigger text).
-  assert.match(flat(await render({ trigger: { text: "<x>" }, items: [{ label: "<y>" }] })), /<summary class="btn">&lt;x&gt;<\/summary>.*&lt;y&gt;/);
+  assert.match(flat(await render({ trigger: { text: "<x>" }, items: [{ label: "<y>" }] })), /&lt;x&gt;<\/button>.*&lt;y&gt;/);
 
   // No locals → a valid empty menu, never throws.
-  assert.equal(flat(await render()), '<details class="menu"><summary class="btn"></summary><div class="menu-pop"></div></details>');
+  assert.equal(flat(await render({ id: "m" })), '<button class="btn" type="button" popovertarget="m"></button><div id="m" class="menu-pop" popover></div>');
+});
+
+test("menu mints its own popover id, so two menus on one page never cross-wire", async () => {
+  const idOf = (html: string): string => html.match(/popovertarget="([^"]+)"/)?.[1] ?? "";
+
+  const one = flat(await render());
+  const two = flat(await render());
+  assert.match(one, new RegExp(`<div id="${idOf(one)}" class="menu-pop" popover>`)); // trigger and panel agree
+  assert.notEqual(idOf(one), idOf(two)); // …and the next menu gets its own
 });

@@ -63,8 +63,9 @@ test("data-table renders sortable headers, row-select, typed cells, badges and k
   assert.match(html, /<td><span class="badge pos"><span class="dot"><\/span>Active<\/span><\/td>/);
   assert.match(html, /<td><a href="\/x">open<\/a><\/td>/);
 
-  // Kebab row actions: link item, danger button, separator.
-  assert.match(html, /<td class="col-actions"><details class="menu kebab"><summary aria-label="Row actions for Mara Delgado"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/summary><div class="menu-pop">/);
+  // Kebab row actions: a popover trigger and the panel it opens (\1 — the ids must agree), then
+  // link item, danger button, separator.
+  assert.match(html, /<td class="col-actions"><button class="kebab" type="button" popovertarget="(menu-[a-z0-9]+)" aria-label="Row actions for Mara Delgado"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/button><div id="\1" class="menu-pop" popover>/);
   assert.match(html, /<a class="menu-item" href="\/people\/1\/edit"><svg class="ico"><use href="#i-edit"\s*\/?><\/svg>Edit<\/a>/);
   assert.match(html, /<div class="menu-sep"><\/div><button class="menu-item danger" type="button"><svg class="ico"><use href="#i-trash"\s*\/?><\/svg>Delete<\/button>/);
 });

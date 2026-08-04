@@ -126,7 +126,7 @@ summary { list-style: none; cursor: pointer; }
   border-radius: 3px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .sidebar, .scrim, summary, .nav-item, .btn, .chip { transition: .15s ease; }
+  .sidebar, .scrim, summary, .nav-item, .btn, .chip, .profile, .kebab { transition: .15s ease; }
 }
 
 .sr-only {
@@ -475,19 +475,28 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   margin: 0; cursor: pointer; }
 .check:hover, .radio:hover { color: var(--text); }
 
-/* popover menu (column settings, kebab, etc.) — pure <details> */
-.menu { position: relative; display: inline-flex; }
-.menu > summary { display: inline-flex; }
-.menu > summary::after { content: none; }
+/* popover menu (language picker, profile, row kebab) — a <button popovertarget> and its [popover]
+   panel. The browser owns open/close, and the top layer keeps the panel clear of a scrolling
+   ancestor's overflow. `position-anchor: auto` binds it to the button that opened it; a bare
+   anchor() without it resolves to nothing in every engine. `color` is set because the UA sheet
+   gives [popover] a CanvasText of its own, which would ignore the theme. */
 .menu-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  position: absolute; inset: auto; margin: 6px 0 0;
+  position-anchor: auto;
+  position-try-fallbacks: flip-block, flip-inline;
+  top: anchor(bottom); right: anchor(right);
   min-width: 210px; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border-2);
-  border-radius: var(--radius);
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(0,0,0,.16);
 }
-.menu-pop.left { right: auto; left: 0; }
-.menu-pop.up { top: auto; bottom: calc(100% + 6px); }
+.menu-pop.left { right: auto; left: anchor(left); }
+.menu-pop.up { top: auto; bottom: anchor(top); margin: 0 0 6px; }
+/* A browser too old for the Popover API leaves the trigger inert, so show the panel inline instead
+   of stranding Sign out and the language picker behind a button that does nothing. */
+@supports not selector([popover]:popover-open) {
+  .menu-pop, .menu-pop.up { position: static; margin: 6px 0 0; }
+}
 .menu-head { font-size: var(--fz-xs); text-transform: uppercase;
   letter-spacing: .05em; color: var(--text-faint); font-weight: 600;
   padding: 5px 8px; }
@@ -610,10 +619,11 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 
 /* row kebab */
 .col-actions { width: 44px; text-align: center; }
-.kebab summary { width: 26px; height: 26px; border-radius: var(--radius);
-  display: grid; place-items: center; color: var(--text-faint); margin: 0 auto; }
-.kebab summary:hover { background: var(--surface-2); color: var(--text); }
-.kebab[open] summary { background: var(--surface-2); color: var(--text); }
+.kebab { width: 26px; height: 26px; border-radius: var(--radius);
+  display: grid; place-items: center; color: var(--text-faint); margin: 0 auto;
+  background: transparent; border: 0; padding: 0; cursor: pointer; }
+/* hovered, or holding an open panel — a trigger's panel is its next sibling */
+.kebab:hover, .kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
 
 /* ---------- 10. PAGINATION --------------------------------- */
 .pager {

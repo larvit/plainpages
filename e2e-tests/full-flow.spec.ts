@@ -88,12 +88,12 @@ test.describe.serial("authenticated admin journey", () => {
     const row = page.locator("tr", { hasText: `lang-${suffix}@plainpages.local` });
     const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
     await page.goto(`${editHref}`);
-    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(1);
+    await expect(page.locator('button[aria-label="Språk"]')).toHaveCount(1);
     await page.getByRole("button", { name: "Skapa återställningskod" }).click(); // POST-only route
     await expect(page.getByText("Återställningskod skapad")).toBeVisible();
 
     // The picker is here too, and following it lands on a real page in the other language.
-    await page.locator('summary[aria-label="Språk"]').click();
+    await page.locator('button[aria-label="Språk"]').click();
     await page.getByRole("link", { name: /English/i }).click();
     expect(page.url()).toContain("locale=en-US");
     await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
@@ -119,6 +119,11 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page).toHaveURL(/\/admin\/users(\?|$)/); // PRG back to the list
     const row = page.locator("tr", { hasText: email });
     await expect(row).toBeVisible();
+
+    // Row actions sit behind the kebab popover: opening it reveals them, in the top layer, so the
+    // scrolling table around the row cannot clip the panel.
+    await row.locator("button.kebab").click();
+    await expect(row.locator('a[href^="/admin/users/"]').first()).toBeVisible();
 
     // Delete through the confirm interstitial (the row's Edit link carries the id).
     const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
@@ -186,9 +191,9 @@ test.describe.serial("authenticated admin journey", () => {
 
   test("logout: signing out ends the session and returns to the login page", async () => {
     await page.goto("/dashboard");
-    await page.locator("summary.profile").click(); // open the profile dropdown
+    await page.locator("button.profile").click(); // open the profile dropdown
     // Sign out is the only item in it — the menu offers nothing that goes nowhere.
-    await expect(page.locator("details.menu:has(summary.profile) .menu-item")).toHaveText(["Sign out"]);
+    await expect(page.locator("#profile-menu .menu-item")).toHaveText(["Sign out"]);
     await page.locator('form[action="/logout"] button[type="submit"]').click();
     await page.waitForURL(/\/login(\?|$)/);
     // The session is gone: /dashboard is gated, so it bounces back to the login page (no admin nav).

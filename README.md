@@ -912,8 +912,12 @@ set of reusable EJS partials + TS helpers, fully styled and zero-JS:
 
 ## Interactivity: zero-JS spine
 
-The core and all building blocks **work with zero JavaScript** — menus, theme switching,
-and filtering are pure CSS + GET forms. On the [low-end, low-bandwidth targets](#overview)
+The core and all building blocks **work with zero JavaScript** — theme switching and filtering
+are pure CSS + GET forms, and menus are the platform's own [popover
+API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API): a `<button popovertarget>`
+opens the panel and the browser dismisses it on a click outside or `Esc`. A browser too old for
+that (before mid-2024) shows each panel inline instead, so nothing is stranded behind an inert
+button. On the [low-end, low-bandwidth targets](#overview)
 we care about this is usually *faster*: a round-trip returning a small, pre-rendered HTML
 page beats a client-side runtime that must boot, fetch JSON, and re-render before anything
 shows. List state (`?q=…&status=…&sort=…&page=…`) lives **in the URL**, so a view is

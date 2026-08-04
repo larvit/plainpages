@@ -168,6 +168,14 @@ them. Revisit only if the stated reason stops holding.
   workspace dir, so ci.sh's web-image build races another run's container creation on the
   `<project>-web` tag. Accepted for a single-maintainer cadence; serialize with a workflow
   `concurrency` group if it ever bites.
+- **A dropdown is a `<button popovertarget>` + `[popover]`, never a `<details>`.** The browser then
+  owns open/close, which is the only zero-JS way to dismiss a menu by clicking outside it (the whole
+  point), and the panel sits in the top layer so a row kebab is no longer clipped by `.table-wrap`'s
+  `overflow`. Two things not to "fix": the panel must carry **`position-anchor: auto`** — a bare
+  `anchor()` resolves to nothing in Chromium, Firefox *and* WebKit (measured in all three before
+  choosing) — and no `aria-expanded` is written, because a zero-JS invoker cannot keep one truthful;
+  the state is the browser's to expose. `<details>` stays where it means disclosure rather than
+  popup: the nav tree. Decided 2026-08-05.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract.** It is
   deliberately not re-exported from `#plugin-api`, and README → Nav & permission gates already tells an
   author that using a new icon means registering it there. So the palette may narrow when the last

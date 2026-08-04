@@ -31,7 +31,7 @@ test("the switcher changes language, and the choice survives clicking through th
 
   // The picker sits in the sidebar footer beside the theme switch; each entry is a plain link to
   // this same page in that language (zero-JS).
-  await page.locator('summary[aria-label="Language"]').click();
+  await page.locator('button[aria-label="Language"]').click();
   await page.getByRole("link", { name: /svenska/i }).click();
 
   await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
@@ -58,7 +58,7 @@ test("the switcher changes language, and the choice survives clicking through th
   await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
 
   // …and back to English the same way.
-  await page.locator('summary[aria-label="Språk"]').click();
+  await page.locator('button[aria-label="Språk"]').click();
   await page.getByRole("link", { name: /English/i }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
   await expect(page.getByRole("heading", { name: "Shifts" })).toBeVisible();
