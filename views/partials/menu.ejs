@@ -2,28 +2,31 @@
   Popover menu: a <button popovertarget> and the [popover] panel it opens, zero-JS. The browser owns
   open/close, so clicking outside or pressing Esc dismisses it, opening one closes the others, and the
   panel sits in the top layer instead of being clipped by a scrolling ancestor.
+  The panel must stay the trigger's next sibling inside the .menu wrapper: the open-state style
+  (.kebab:has(+ .menu-pop:popover-open)) and the old-browser fallback both read that adjacency.
   Config:
+    id      string          REQUIRED — the panel's id and the trigger's popovertarget. Name it for what
+                            the menu is (`locale-menu`); it must be unique on the page.
     trigger { class?(="btn", "" ⇒ none) · label?(aria-label) · icon? · text? · html?(raw inner, wins) }
     align?  "left"          left-align the popover (default right)
     up?     boolean         open upward (footer menus)
     kebab?  boolean         bare kebab trigger (adds .kebab)
     width?  number|string   popover min-width (number ⇒ px)
-    id?     string          popover id; defaults to a fresh one — pass it only to address this menu
     items:  Item[]          popover content, top→bottom
   Item ∈ { head } · { sep } · { label, icon?, href? ⇒ <a>, hreflang?, ownLocale?, current?, danger? }   (default: menu-item button)
            ownLocale: the href already states its language (the picker) — don't carry the current one onto it
        · { group: { legend?, name, control?(="checkbox"|"radio"), options:{value,label,checked?}[] } }
 %><%
+  // popovertarget is an idref: without one the trigger opens nothing, so say so instead of rendering
+  // a dead button.
+  if (!locals.id) throw new Error("menu partial: `id` is required — it wires the trigger to its panel");
   const trigger = locals.trigger || {}; // not `t` — that name is the translator in every view
   const btnCls = [("class" in trigger ? trigger.class : "btn"), locals.kebab ? "kebab" : ""].filter(Boolean).join(" ");
   const items = locals.items || [];
   const popCls = "menu-pop" + (locals.align === "left" ? " left" : "") + (locals.up ? " up" : "");
   const width = locals.width;
-  // popovertarget is an idref, so two menus on one page must not share an id.
-  const id = locals.id || "menu-" + Math.random().toString(36).slice(2, 10);
 -%>
-<button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></button>
-<div id="<%= id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
+<span class="menu"><button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= locals.id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></button><div id="<%= locals.id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
 <% items.forEach((it) => { -%>
 <% if (it.head != null) { -%>
   <div class="menu-head"><%= it.head %></div>
@@ -37,4 +40,4 @@
   <button class="menu-item<%= it.danger ? " danger" : "" %>" type="button"><% if (it.icon) { %><svg class="ico"><use href="#<%= it.icon %>"/></svg><% } %><%= it.label %></button>
 <% } -%>
 <% }) -%>
-</div>
+</div></span>

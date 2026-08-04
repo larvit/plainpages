@@ -3,10 +3,12 @@
   so switching is a plain navigation — zero-JS, and the address bar always says which language the
   page is in. Renders nothing for a single-language deployment.
   Locals: localeSwitch (host-supplied: { current, href, label, tag }[]) · up? (open upward, default true)
+          id? (the menu's id; name a second picker on the same page)
 -%>
 <% const choices = locals.localeSwitch || []; -%>
 <% if (choices.length > 1) { -%>
 <%- include("menu", {
+  id: locals.id || "locale-menu",
   up: locals.up !== false,
   trigger: { class: "btn icon-btn", icon: "i-globe", label: t("locale.label") },
   items: [

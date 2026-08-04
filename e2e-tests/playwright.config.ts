@@ -15,5 +15,11 @@ export default defineConfig({
     screenshot: "only-on-failure",
     viewport: { width: 1280, height: 800 },
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // CSS anchor positioning is the newest platform feature in the app and every popup menu rests on
+  // it, so the tests tagged @engines run in all three engines; the rest stay on chromium.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", grep: /@engines/, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", grep: /@engines/, use: { ...devices["Desktop Safari"] } },
+  ],
 });

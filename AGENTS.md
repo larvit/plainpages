@@ -171,11 +171,21 @@ them. Revisit only if the stated reason stops holding.
 - **A dropdown is a `<button popovertarget>` + `[popover]`, never a `<details>`.** The browser then
   owns open/close, which is the only zero-JS way to dismiss a menu by clicking outside it (the whole
   point), and the panel sits in the top layer so a row kebab is no longer clipped by `.table-wrap`'s
-  `overflow`. Two things not to "fix": the panel must carry **`position-anchor: auto`** — a bare
-  `anchor()` resolves to nothing in Chromium, Firefox *and* WebKit (measured in all three before
-  choosing) — and no `aria-expanded` is written, because a zero-JS invoker cannot keep one truthful;
-  the state is the browser's to expose. `<details>` stays where it means disclosure rather than
-  popup: the nav tree. Decided 2026-08-05.
+  `overflow`. Four rules hold it together, none of them cosmetic. The panel carries
+  **`position-anchor: auto`** — a bare `anchor()` resolves to nothing in Chromium, Firefox *and*
+  WebKit alike, which is why the `@engines`-tagged test in `visual.spec.ts` runs in all three rather
+  than resting on a one-time manual measurement. The panel stays the trigger's **next sibling inside
+  the `.menu` wrapper**, because the open-state style and the old-browser fallback both read that
+  adjacency, and a two-element partial cannot be dropped into an arbitrary layout. The `menu` partial
+  **requires a caller-named `id`** and fails loud without one: it is the `popovertarget` idref, and
+  generated random ids were tried and rejected the same day — nondeterministic HTML forecloses the
+  still-open caching decision and names nothing a reader can use. And **neither `aria-expanded` nor
+  `aria-haspopup` is written**: a zero-JS invoker cannot keep the first truthful, and the second would
+  promise `role="menu"` keyboard semantics these panels do not implement. `<details>` stays where it
+  means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
+  profile menu because its trigger composes escaped user values and its one item is a CSRF POST form,
+  neither of which the partial's `Item` shapes cover — keep the two in step, or fold it in if
+  `todo.md`'s "does the profile dropdown still earn a dropdown" settles the other way. Decided 2026-08-05.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract.** It is
   deliberately not re-exported from `#plugin-api`, and README → Nav & permission gates already tells an
   author that using a new icon means registering it there. So the palette may narrow when the last
@@ -261,6 +271,12 @@ Same test before adding a row to a table or the file map — a clause, not a par
   minor bump). Valid while nothing is installed against it: with no third-party plugin in the wild,
   a version bump can only produce noise. The promotion trigger is the first external plugin — from
   then on, follow the versioning table in README → Contract versioning as written. Decided 2026-08-03.
+  **The frozen surface includes `views/partials/*.ejs`**, not just the manifest and the barrel: the
+  view resolver makes every core partial an `include()` root for a plugin's views, so their option
+  names and emitted markup are author-visible (under this freeze the popover change dropped the `menu`
+  partial's `open?` and rewrote its markup). Know the hole that leaves — discovery fails loud on a bad
+  `apiVersion`, but `include("menu", { open: true })` silently ignores the option and a plugin styling
+  `.menu > summary` silently loses it. Promotion must cover the partial vocabulary too. Added 2026-08-05.
 - A plugin's `apiVersion` is a **hand-written literal** semver — the host version the
   plugin was built against — bumped by hand on rebuild, **never** the host's
   `HOST_API_VERSION` constant. Importing the constant makes every plugin always equal the

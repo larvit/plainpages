@@ -74,7 +74,7 @@ test("theme switch flips the palette with no JavaScript", async ({ page }) => {
 // longer has to click the trigger again to get rid of one. Driven through the language picker; the
 // profile menu is the same block. Anchoring is asserted too — without `position-anchor` the panel
 // silently detaches and lands in the middle of the viewport.
-test("a popover menu sits on its trigger and closes on an outside click or Esc — no JavaScript", async ({ page }) => {
+test("a popover menu sits on its trigger and closes on an outside click or Esc — no JavaScript @engines", async ({ page }) => {
   await page.goto("/dashboard");
   const trigger = page.locator('button[aria-label="Language"]');
   const panel = page.locator('button[aria-label="Language"] + .menu-pop');

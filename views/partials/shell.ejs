@@ -57,22 +57,26 @@
 
           <div class="footer-actions">
             <% if (user.email) { %>
-            <%# signed in: profile menu inline (the trigger composes escaped user values) %>
-            <button class="profile" type="button" popovertarget="profile-menu">
-              <span class="avatar" aria-hidden="true"><%= user.initials %></span>
-              <span class="profile-meta">
-                <span class="profile-name"><%= user.name %></span>
-                <span class="profile-mail"><%= user.email %></span>
-              </span>
-            </button>
-            <div id="profile-menu" class="menu-pop left up" popover style="min-width:220px">
-              <div class="menu-head"><%= t("shell.signedInAs", { name: user.name }) %></div>
-              <%# Sign out is a state change → a POST form (not a GET link), CSRF-guarded by app.ts %>
-              <form class="menu-item-form" method="post" action="<%= localeHref("/logout") %>">
-                <input type="hidden" name="_csrf" value="<%= locals.csrfToken || '' %>" />
-                <button class="menu-item danger" type="submit"><svg class="ico"><use href="#i-logout" /></svg><%= t("shell.signOut") %></button>
-              </form>
-            </div>
+            <%# Signed in: the same popover block as the menu partial, hand-rolled because this one's
+                trigger composes escaped user values and its item is a CSRF POST form, neither of which
+                the partial's Item shapes cover (AGENTS.md). Keep the two in step. %>
+            <span class="menu" style="flex:1 1 auto">
+              <button class="profile" type="button" popovertarget="profile-menu">
+                <span class="avatar" aria-hidden="true"><%= user.initials %></span>
+                <span class="profile-meta">
+                  <span class="profile-name"><%= user.name %></span>
+                  <span class="profile-mail"><%= user.email %></span>
+                </span>
+              </button>
+              <div id="profile-menu" class="menu-pop left up" popover style="min-width:220px">
+                <div class="menu-head"><%= t("shell.signedInAs", { name: user.name }) %></div>
+                <%# Sign out is a state change → a POST form (not a GET link), CSRF-guarded by app.ts %>
+                <form class="menu-item-form" method="post" action="<%= localeHref("/logout") %>">
+                  <input type="hidden" name="_csrf" value="<%= locals.csrfToken || '' %>" />
+                  <button class="menu-item danger" type="submit"><svg class="ico"><use href="#i-logout" /></svg><%= t("shell.signOut") %></button>
+                </form>
+              </div>
+            </span>
             <% } else if (!hideSignIn) { %>
             <%# anonymous (a public page in the shell): no session to end — offer a way in instead.
                 signInHref carries this page as return_to (chrome.signInHref); falls back to bare /login.

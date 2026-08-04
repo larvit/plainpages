@@ -476,10 +476,11 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .check:hover, .radio:hover { color: var(--text); }
 
 /* popover menu (language picker, profile, row kebab) — a <button popovertarget> and its [popover]
-   panel. The browser owns open/close, and the top layer keeps the panel clear of a scrolling
-   ancestor's overflow. `position-anchor: auto` binds it to the button that opened it; a bare
-   anchor() without it resolves to nothing in every engine. `color` is set because the UA sheet
-   gives [popover] a CanvasText of its own, which would ignore the theme. */
+   panel, wrapped so the pair is one element in any layout. The browser owns open/close, and the top
+   layer keeps the panel clear of a scrolling ancestor's overflow. `position-anchor: auto` binds it to
+   the button that opened it; a bare anchor() without it resolves to nothing in every engine. `color`
+   is set because the UA sheet gives [popover] a CanvasText of its own, which would ignore the theme. */
+.menu { display: inline-flex; }
 .menu-pop {
   position: absolute; inset: auto; margin: 6px 0 0;
   position-anchor: auto;
@@ -492,10 +493,14 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .menu-pop.left { right: auto; left: anchor(left); }
 .menu-pop.up { top: auto; bottom: anchor(top); margin: 0 0 6px; }
-/* A browser too old for the Popover API leaves the trigger inert, so show the panel inline instead
-   of stranding Sign out and the language picker behind a button that does nothing. */
+/* A browser too old for the Popover API leaves the trigger inert, so let each panel flow under its
+   trigger rather than stranding Sign out and the language picker behind a button that does nothing.
+   The wrapper turns block so the pair stacks instead of sitting side by side, and min-width goes —
+   it would otherwise push the sidebar and a 44px action cell far past their width. Cramped but
+   reachable, and unreachable by any test: a browser that supports popover cannot render this path. */
 @supports not selector([popover]:popover-open) {
-  .menu-pop, .menu-pop.up { position: static; margin: 6px 0 0; }
+  .menu { display: block; }
+  .menu-pop, .menu-pop.up { position: static; min-width: 0; margin: 6px 0 0; }
 }
 .menu-head { font-size: var(--fz-xs); text-transform: uppercase;
   letter-spacing: .05em; color: var(--text-faint); font-weight: 600;
