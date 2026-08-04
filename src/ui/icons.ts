@@ -16,7 +16,6 @@ export const ICON_NAMES: Record<string, string> = {
   "i-copy": "copy",
   "i-download": "download",
   "i-edit": "pencil",
-  "i-gear": "settings",
   "i-globe": "globe",
   "i-grid": "layout-grid",
   "i-kebab": "ellipsis-vertical",

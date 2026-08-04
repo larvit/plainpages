@@ -84,12 +84,6 @@
             <% } %>
 
             <%- include("locale-switch") %>
-
-            <%- include("menu", {
-              up: true,
-              trigger: { class: "btn icon-btn", label: t("shell.settings"), html: '<svg class="ico"><use href="#i-gear"/></svg>' },
-              items: [{ head: t("shell.settings") }, { label: t("shell.preferences"), icon: "i-gear" }],
-            }) %>
           </div>
         </div>
       </aside>
