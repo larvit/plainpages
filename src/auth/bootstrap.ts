@@ -122,7 +122,7 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
   const rule = "─".repeat(58);
   return [
     `┌${rule}`,
-    `│ Plainpages is ready — log in at ${opts.appUrl}`,
+    `│ Plainpages is ready — sign in at ${opts.appUrl}`,
     `│   email:    ${opts.email}`,
     `│   password: ${opts.password}`,
     `│ ⚠ Demo admin credentials — change them before production.`,

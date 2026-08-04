@@ -108,7 +108,7 @@ const messages = {
   // "Email" on the login form and "First name" on a registration form with that trait, so it can
   // only be translated per field (auth.field.* above), never per id.
   "kratos.1010022": "Sign in with password",
-  "kratos.1040001": "Sign up",
+  "kratos.1040001": "Create account",
   "kratos.1060003":
     "An email containing a recovery code has been sent to the email address you provided. If you have not received an email, check the spelling of the address and make sure to use the address you registered with.",
   "kratos.1070008": "Resend code",
@@ -127,7 +127,7 @@ const messages = {
   "landing.lead":
     "{{brand}} is a self-hostable foundation for admin and operational UIs — sign-in, a config-driven menu, and a server-rendered, zero-JS design system. You add the domain-specific screens by dropping in plugin folders.",
   "landing.register": "Create account",
-  "landing.signIn": "Log in",
+  "landing.signIn": "Sign in",
   "landing.title": "Operational web apps, without the boilerplate.",
 
   "locale.label": "Language",
@@ -137,7 +137,7 @@ const messages = {
 
   "oauth.consentExpired": "This authorization request has expired. Please start again from the application you were signing in to.",
   "oauth.loginExpired": "This sign-in request has expired. Please start again from the application you were signing in to.",
-  "oauth.logoutExpired": "This logout request has expired. Please start again from the application you were signing out of.",
+  "oauth.logoutExpired": "This sign-out request has expired. Please start again from the application you were signing out of.",
 
   "pagination.go": "Go",
   "pagination.label": "Pagination",

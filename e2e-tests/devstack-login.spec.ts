@@ -26,9 +26,9 @@ async function signIn(page: import("@playwright/test").Page): Promise<void> {
 
 test("seeded admin logs in from the advertised URL (http://localhost:3000) and reaches the dashboard", async ({ page }) => {
   test.setTimeout(90_000);
-  // Open the app at the URL the first-run banner prints, then follow its "Log in" call to action.
+  // Open the app at the URL the first-run banner prints, then follow the landing's "Sign in" action.
   await page.goto("/");
-  await page.getByRole("link", { name: "Log in" }).click();
+  await page.locator("#main-content").getByRole("link", { name: "Sign in" }).click();
   await signIn(page);
 
   // Signed in on the app — NOT dumped on the Kratos /error "Page not found" page.

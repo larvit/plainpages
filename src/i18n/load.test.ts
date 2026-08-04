@@ -24,6 +24,16 @@ test("the shipped core catalogs load and agree key for key", async () => {
   assert.ok(loaded.available.includes("sv-SE"));
   assert.deepEqual([...loaded.available].sort(), loaded.available); // sorted, so "sv" resolves deterministically
   assert.ok(Object.keys(loaded.core.get("en-US") ?? {}).length > 20);
+
+  // One verb per action: sign in / sign out / create account. Two spellings for one button ("Log in"
+  // on the landing, "Sign in" in the sidebar) read as two different things. Nouns ("a sign-in error")
+  // are fine — only the competing verbs are out. AGENTS.md → Rules.
+  const competing = /\b(log[\s-]?in|log[\s-]?out|sign[\s-]?up)\b/i;
+  const offenders = Object.entries(loaded.core.get("en-US") ?? {})
+    .map(([key, message]) => [key, typeof message === "string" ? message : Object.values(message).join(" ")] as const)
+    .filter(([, text]) => competing.test(text))
+    .map(([key, text]) => `${key}: ${text}`);
+  assert.deepEqual(offenders, []);
 });
 
 test("a plugin's catalogs load under its id and may cover fewer locales than the host", async () => {
