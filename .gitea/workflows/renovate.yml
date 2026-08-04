@@ -54,7 +54,7 @@ jobs:
           fi
           BUMPS=$(git log "${LATEST}..origin/main" --author='renovate@larvit.se' \
                   --format='%(trailers:key=Release-Bump,valueonly)' | { grep -vx '' || true; })
-          NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.18.1-alpine3.24 \
+          NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
                  node auto-release/next-version.ts "$LATEST" $BUMPS)
           echo "Releasing $LATEST -> $NEXT"
           git tag "$NEXT" origin/main
