@@ -940,10 +940,12 @@ is stored, so a link is shareable and a page is what its address says it is. Whe
 for a language, the host carries `?locale=` onto every link *it* renders (menu, sign-in, its own
 redirects) and `ctx.localeHref(href)` does the same for a plugin's links. The picker in the
 sidebar footer (and on the auth pages) lists every installed locale, each a plain link to the
-same page in that language. It renders only when more than one is installed, and **not at all on a
-page rendered in response to a POST** — that URL often answers no GET (following the link would
-dead-end), and on a re-rendered form it would throw away what the visitor typed. A plugin building
-its own picker from `ctx.locales` should do the same (`ctx.req.method`).
+same page in that language; it renders whenever more than one locale is installed — **on every
+page**. After a POST the current URL may answer no GET at all (`POST /admin/users/:id/recovery`
+renders a page and has no GET sibling), so the host points the picker at the nearest page that does:
+this path when it answers GET, else the page the form was submitted from, else `/`. Switching
+language there therefore leaves the POST's own result behind — a re-rendered form's input, or a
+one-time code — which is the accepted cost of having the picker everywhere.
 
 **Writing a catalog.** `en-US.ts` exports the object and its type; every other locale is written
 against that type, so a missing or misspelled key is a type error before the app ever boots:

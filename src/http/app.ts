@@ -30,6 +30,7 @@ import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
 import { securityHeaders } from "./security-headers.ts";
+import { localPath } from "./safe-url.ts";
 import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "../plugin-host/view-resolver.ts";
 
@@ -120,6 +121,18 @@ export function createApp(options: AppOptions = {}): Server {
   // it. A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
   // They are merged LAST: these names are reserved (README → Building plugins), and a handler that
   // happens to use one loses that key rather than breaking the shell that renders around it.
+  // Where the language picker on this page should point. Normally the page itself; after a POST
+  // that URL may answer no GET (POST /admin/users/:id/delete has no GET sibling), so fall back to
+  // the page the form was submitted from, then to the front page — the picker is on every page, so
+  // every one of its links has to land somewhere real.
+  const switchBase = (req: IncomingMessage, url: URL): string => {
+    const method = (req.method ?? "GET").toUpperCase();
+    if (method === "GET" || method === "HEAD") return `${url.pathname}${url.search}`;
+    const answersGet = matchRoute(plugins, "GET", url.pathname) !== null
+      || matchBuiltinRoute(builtinRoutes, "GET", url.pathname) !== undefined;
+    return answersGet ? url.pathname : (sameOriginPath(req) ?? "/");
+  };
+
   // Named field by field on purpose: spreading the context would trigger its lazy `chrome` getter,
   // composing the menu for every render — including the standalone error pages, which exist to
   // render when the shell's own data is what failed.
@@ -127,7 +140,7 @@ export function createApp(options: AppOptions = {}): Server {
     locale: ctx.locale,
     localeHref: ctx.localeHref,
     locales: ctx.locales,
-    method: ctx.req.method ?? "GET",
+    switchBase: switchBase(ctx.req, ctx.url),
     t: ctx.t,
     url: ctx.url,
   });
@@ -401,6 +414,20 @@ export function createApp(options: AppOptions = {}): Server {
       .catch((err) => log.error("request handler escaped its try/catch", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) }))
       .finally(() => { settled = true; finalize(); });
   });
+}
+
+// The Referer as a host-relative path, when it is one of ours — the page a form was submitted
+// from. Anything off-origin or malformed is discarded rather than trusted into a link.
+function sameOriginPath(req: IncomingMessage): string | null {
+  const referer = req.headers.referer;
+  if (typeof referer !== "string") return null;
+  try {
+    const url = new URL(referer);
+    if (req.headers.host !== undefined && url.host !== req.headers.host) return null;
+    return localPath(`${url.pathname}${url.search}`);
+  } catch {
+    return null;
+  }
 }
 
 type ViewRenderer = (view: string, data: Record<string, unknown>) => Promise<string>;

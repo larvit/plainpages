@@ -8,7 +8,7 @@ const request = (overrides: Partial<I18nRequest> = {}): I18nRequest => ({
   locale: "sv-SE",
   localeHref: (href) => href,
   locales: ["en-US", "sv-SE"],
-  method: "GET",
+  switchBase: "/admin/users?q=ada",
   t: ENGLISH,
   url: new URL("http://localhost/admin/users?q=ada"),
   ...overrides,
@@ -32,8 +32,9 @@ test("dir follows the locale's script", () => {
   assert.equal(i18nLocals(request({ locale: "ar-EG" })).dir, "rtl");
 });
 
-test("a page rendered from a POST offers no language links — that URL may have no GET at all", () => {
-  // Following one would dead-end on a 405 (a POST-only route), or silently discard a re-rendered
-  // form's input. The picker renders nothing below two choices, so an empty list hides it.
-  assert.deepEqual(i18nLocals(request({ method: "POST" })).localeSwitch, []);
+test("the picker points wherever the host says — after a POST that is the nearest page answering GET", () => {
+  // The picker is on every page; on a POST-rendered one its own URL may answer no GET, so the host
+  // resolves the target (app.ts → switchBase) and this just renders it.
+  const locals = i18nLocals(request({ switchBase: "/admin/users/u1" }));
+  assert.deepEqual(locals.localeSwitch.map((c) => c.href), ["/admin/users/u1?locale=en-US", "/admin/users/u1?locale=sv-SE"]);
 });

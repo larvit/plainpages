@@ -74,9 +74,9 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
   });
 
-  // A POST that re-renders a page: the write must keep the language, and the picker must not offer
-  // a link to a URL that only answers POST.
-  test("a write keeps the visitor's language, and offers no language link on the POST-rendered page", async () => {
+  // A POST that re-renders a page: the write must keep the language, and the picker — which is on
+  // every page — must point somewhere that answers GET rather than at the POST-only URL.
+  test("a write keeps the visitor's language, and the picker still works on the POST-rendered page", async () => {
     await page.goto("/admin/users?locale=sv-SE");
     await page.getByRole("link", { name: "Ny användare" }).click();
     await page.fill('input[name="email"]', `lang-${suffix}@plainpages.local`);
@@ -88,10 +88,16 @@ test.describe.serial("authenticated admin journey", () => {
     const row = page.locator("tr", { hasText: `lang-${suffix}@plainpages.local` });
     const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
     await page.goto(`${editHref}`);
-    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(1); // control: it IS there on the GET
+    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(1);
     await page.getByRole("button", { name: "Skapa återställningskod" }).click(); // POST-only route
     await expect(page.getByText("Återställningskod skapad")).toBeVisible();
-    await expect(page.locator('summary[aria-label="Språk"]')).toHaveCount(0); // no dead-end link offered
+
+    // The picker is here too, and following it lands on a real page in the other language.
+    await page.locator('summary[aria-label="Språk"]').click();
+    await page.getByRole("link", { name: /English/i }).click();
+    expect(page.url()).toContain("locale=en-US");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
+    await expect(page.getByRole("heading", { name: "Edit user" })).toBeVisible(); // not a 405
   });
 
   test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {

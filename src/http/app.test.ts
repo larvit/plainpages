@@ -1503,3 +1503,33 @@ test("an error page renders without composing the menu — it exists for when th
   assert.match(await res.text(), /Page not found/);
   assert.equal(built, 0);
 });
+
+test("a POST-rendered page still offers the language picker, pointed at a page that answers GET", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-post-lang-"));
+  mkdirSync(join(dir, "demo", "views"), { recursive: true });
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  // The view renders the picker exactly as the shell does.
+  writeFileSync(join(dir, "demo", "views", "page.ejs"), `<%- include("partials/locale-switch") %>`);
+  const demo: Plugin = {
+    apiVersion: "1.0.0",
+    id: "demo",
+    routes: [
+      { handler: () => ({ view: "page" }), method: "GET", path: "/thing" },
+      { handler: () => ({ view: "page" }), method: "POST", path: "/thing" },
+      { handler: () => ({ view: "page" }), method: "POST", path: "/thing/act" }, // POST-only: no GET sibling
+    ],
+  };
+  const app = createApp({ i18n: createI18n(await loadI18n()), plugins: [demo], pluginsDir: dir });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const post = (path: string, headers: Record<string, string> = {}) => fetch(url + path, { headers, method: "POST" });
+
+  // A POST whose path also answers GET → the picker points at that page.
+  assert.match(await (await post("/demo/thing?locale=sv-SE")).text(), /href="\/demo\/thing\?locale=en-US"/);
+  // A POST-only path → the page the form was submitted from, so the link can't dead-end on a 405.
+  const fromForm = await post("/demo/thing/act?locale=sv-SE", { referer: `${url}/demo/thing?locale=sv-SE` });
+  assert.match(await fromForm.text(), /href="\/demo\/thing\?locale=en-US"/);
+  // …and with no referer to fall back on, the front page.
+  assert.match(await (await post("/demo/thing/act?locale=sv-SE")).text(), /href="\/\?locale=en-US"/);
+});
