@@ -129,7 +129,7 @@ const messages = {
   "admin.users.error.selfDeactivate": "You can't deactivate your own account.",
   "admin.users.error.selfDelete": "You can't delete your own account.",
   "admin.users.field.email": "Email",
-  "admin.users.field.emailHint": "The login identifier — can't be changed here.",
+  "admin.users.field.emailHint": "The sign-in identifier — can't be changed here.",
   "admin.users.field.first": "First name",
   "admin.users.field.last": "Last name",
   "admin.users.field.password": "Password",

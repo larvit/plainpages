@@ -276,10 +276,12 @@ Same test before adding a row to a table or the file map — a clause, not a par
   A pure view-model builder takes an optional `t` defaulting to its own English, so a unit test reads
   in words; handlers pass `ctx.t`.
 - **One verb per action in the English UI: sign in, sign out, create account.** Not "log in",
-  "log out" or "sign up" — a second spelling for one button reads as a second thing. Guarded by
-  `src/i18n/load.test.ts` (a test file cannot live in `locales/`, which loads every `.ts` in it as a
-  catalog); the noun ("a sign-in error") is unaffected. A plugin's catalog
-  and every other locale follow the same one-verb-per-action rule in their own language.
+  "log out" or "sign up", inflections included — a second spelling for one button reads as a second
+  thing; the noun ("a sign-in error", "the sign-in identifier") is unaffected. Guarded over the
+  shipped core catalog by `src/i18n/load.test.ts` (a test file cannot live in `locales/`, which loads
+  every `.ts` in it as a catalog); a plugin's catalog and every other locale follow the same rule in
+  their own language, unguarded. An unmapped Kratos id still renders Kratos' own wording — map it to
+  hold the line.
 - Use well formed, standard compliant, rich URIs. Prefer state in the URL over POST:ing in for
   for example list pages with filters and pagination. Do: "ids=x&ids=y" and not "ids[]=x&ids[]=y"
   and not "ids=x,y".

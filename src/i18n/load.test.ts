@@ -18,17 +18,16 @@ async function fixture(files: Record<string, string>): Promise<{ localesDir: str
   return { localesDir: join(root, "locales"), pluginsDir: join(root, "plugins") };
 }
 
-test("the shipped core catalogs load and agree key for key", async () => {
+test("the shipped core catalogs load, agree key for key, and use one verb per action", async () => {
   const loaded = await loadI18n(); // no args ⇒ the real src/i18n/locales + plugins/
   assert.ok(loaded.available.includes("en-US"));
   assert.ok(loaded.available.includes("sv-SE"));
   assert.deepEqual([...loaded.available].sort(), loaded.available); // sorted, so "sv" resolves deterministically
   assert.ok(Object.keys(loaded.core.get("en-US") ?? {}).length > 20);
 
-  // One verb per action: sign in / sign out / create account. Two spellings for one button ("Log in"
-  // on the landing, "Sign in" in the sidebar) read as two different things. Nouns ("a sign-in error")
-  // are fine — only the competing verbs are out. AGENTS.md → Rules.
-  const competing = /\b(log[\s-]?in|log[\s-]?out|sign[\s-]?up)\b/i;
+  // One verb per action; inflected too, and the noun ("a sign-in error") is fine. AGENTS.md → Rules.
+  // The lookbehind spares a path (/login) and a word ending in one (blog in…).
+  const competing = /(?<![/\w])(log(?:ged|ging)?[\s-]?(?:in|out)|sign(?:ed|ing)?[\s-]?up)s?\b/i;
   const offenders = Object.entries(loaded.core.get("en-US") ?? {})
     .map(([key, message]) => [key, typeof message === "string" ? message : Object.values(message).join(" ")] as const)
     .filter(([, text]) => competing.test(text))
