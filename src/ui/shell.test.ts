@@ -39,7 +39,9 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   // Sign out is a CSRF-guarded POST form (state change, not a GET link), carrying the token.
   assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
   assert.match(html, /<input type="hidden" name="_csrf" value="tok\.sig" \/>/);
-  assert.doesNotMatch(html, /<button class="menu-item" type="button"/); // every item in the menu goes somewhere
+  // …and it is the profile menu's only control: nothing dead sits beside it.
+  const profileMenu = html.slice(html.indexOf('<div class="menu-pop'), html.indexOf("</details>"));
+  assert.deepEqual(profileMenu.match(/<button/g), ["<button"]);
 
   // Branding, document title, and the inlined icon sprite (so <use> resolves).
   assert.match(html, /Acme Console/);
