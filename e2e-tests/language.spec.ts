@@ -37,7 +37,7 @@ test("the switcher changes language, and the choice survives clicking through th
   await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
   await expect(page).toHaveURL(/locale=sv-SE/);
   await expect(page.getByRole("heading", { name: "Startpanel" })).toBeVisible(); // the starter dashboard, in Swedish
-  await expect(page.getByRole("link", { name: "Panel" })).toBeVisible(); // the menu too
+  await expect(page.getByRole("link", { name: "Översikt", exact: true })).toBeVisible(); // the menu too
   await mkdir(SHOTS, { recursive: true });
   await page.screenshot({ fullPage: true, path: `${SHOTS}/live-05-swedish.png` });
 

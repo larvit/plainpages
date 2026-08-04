@@ -13,6 +13,7 @@
     <main>
       <h1><%= t("error.403.title") %></h1>
       <p><%= t("error.403.body") %></p>
+      <%- include("partials/locale-switch", { up: false }) %>
       <p><a href="<%= localeHref("/") %>"><%= t("error.backHome") %></a></p>
     </main>
   </body>

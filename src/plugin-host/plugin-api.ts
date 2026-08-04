@@ -22,6 +22,9 @@ export { englishTranslator } from "../i18n/english.ts";
 export { localeLabel } from "../i18n/locale.ts";
 export type { Translate, TranslateVars } from "../i18n/translate.ts";
 export type { Catalog, PluralMessage } from "../i18n/catalog.ts";
+// The shape of the core catalog — what an operator's own locales/<tag>.ts is written against, so a
+// missing key is a type error in the editor rather than a wall of boot errors.
+export type { CoreMessages } from "../i18n/locales/en-US.ts";
 export { parseListQuery } from "../ui/list-query.ts";
 export { paginate } from "../ui/paginate.ts";
 export type { PageModel } from "../ui/paginate.ts";

@@ -948,7 +948,11 @@ language there therefore leaves the POST's own result behind — a re-rendered f
 one-time code — which is the accepted cost of having the picker everywhere.
 
 **Writing a catalog.** `en-US.ts` exports the object and its type; every other locale is written
-against that type, so a missing or misspelled key is a type error before the app ever boots:
+against that type, so a missing or misspelled key is a type error before the app ever boots. For a
+language of your own: copy `src/i18n/locales/en-US.ts` into `locales/<tag>.ts`, type it
+`CoreMessages` (from `#plugin-api`), and translate. The `as PluralMessage` cast below is required —
+without it the inferred type pins the plural forms to English's two, and a locale that selects more
+(Polish, Arabic) becomes unwritable:
 
 ```ts
 // plugins/shop/i18n/en-US.ts

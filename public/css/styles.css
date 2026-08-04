@@ -500,6 +500,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .menu-item-form { display: contents; } /* form wraps the Sign-out button without changing layout */
 .menu-item:hover { background: var(--surface-2); }
+.menu-item[aria-current] { font-weight: 600; color: var(--text); } /* the language you are in */
 .menu-item.danger { color: var(--neg); }
 .menu-item .ico { color: var(--text-faint); }
 .menu-item.danger .ico { color: var(--neg); }

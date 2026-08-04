@@ -32,7 +32,7 @@ const messages: CoreMessages = {
 
   "common.add": "Lägg till",
   "common.cancel": "Avbryt",
-  "common.delete": "Ta bort",
+  "common.delete": "Radera",
   "common.edit": "Redigera",
   "common.new": "Ny",
   "common.remove": "Ta bort",
@@ -52,14 +52,14 @@ const messages: CoreMessages = {
   "dashboard.starter.intro":
     "Detta är den inbyggda <code>/dashboard</code> — den inloggade startsidan. Den är en platshållare så att en färsk klon har något här; den innehåller inga riktiga data.",
   "dashboard.starter.reference":
-    "Se plugin-kontraktet i <code>docs/plugin-contract.md</code> (avsnittet om startsidorna) och referensen <code>plugins/scheduling/</code>.",
+    "Se plugin-kontraktet i <code>README.md</code> (Building plugins → startsidorna) och referensen <code>examples/plugins/scheduling/</code>.",
   "dashboard.starter.replace":
     "Ersätt den från ett plugin: exportera en <code>dashboard</code>-hanterare från pluginets manifest så äger det den här sidan, renderad mot dina egna vyer med appens eget skal (samma meny du ser nu) via <code>ctx.chrome</code>.",
   "dashboard.starter.title": "Startpanel",
-  "dashboard.title": "Panel",
+  "dashboard.title": "Översikt",
 
   "error.403.body": "Du har inte behörighet att se det här (403).",
-  "error.403.docTitle": "Åtkomst nekad",
+  "error.403.docTitle": "Förbjudet",
   "error.403.title": "Åtkomst nekad",
   "error.404.body": "Vi hittade inte sidan (404).",
   "error.404.docTitle": "Sidan finns inte",
@@ -114,11 +114,12 @@ const messages: CoreMessages = {
     "{{brand}} är en självhostad grund för administrativa och operativa gränssnitt — inloggning, en konfigurationsstyrd meny och ett serverrenderat designsystem utan JavaScript. Du lägger till de verksamhetsnära skärmarna genom att släppa in plugin-mappar.",
   "landing.register": "Skapa konto",
   "landing.signIn": "Logga in",
-  "landing.title": "Operativa webbappar, utan all pannplåt.",
+  "landing.title": "Operativa webbappar, utan allt grundarbete.",
 
   "locale.label": "Språk",
+  "locale.leavesPage": "Byter du språk lämnar du den här sidan",
 
-  "nav.dashboard": "Panel",
+  "nav.dashboard": "Översikt",
 
   "oauth.consentExpired": "Den här behörighetsbegäran har gått ut. Börja om från appen du skulle logga in i.",
   "oauth.loginExpired": "Den här inloggningsbegäran har gått ut. Börja om från appen du skulle logga in i.",

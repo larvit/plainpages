@@ -7,6 +7,7 @@ import { readFormBody } from "../http/body.ts";
 import type { BuiltinRoute, RequestCsrf } from "../http/builtin-routes.ts";
 import type { RequestContext } from "../http/context.ts";
 import { CSRF_FIELD } from "./csrf.ts";
+import { chosenLocale } from "../i18n/locale.ts";
 import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
 import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
 import type { KetoClient } from "./keto-client.ts";
@@ -60,10 +61,16 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
         // as-is — Kratos allow-lists it. localPath rejects an off-origin "//evil.com".
         const raw = ctx.url.searchParams.get("return_to");
         const local = localPath(raw);
+        const chosen = chosenLocale(ctx);
         let returnTo: string | undefined;
-        if (local) {
+        if (local || chosen) {
+          // The flow's return target is the host's, not Kratos' — so the language the visitor picked
+          // on the sign-in page survives the round-trip through Kratos and lands on the page after
+          // it. Without this the most-travelled path in the product (pick Swedish → sign in) drops
+          // straight back to Accept-Language.
           const complete = new URL(`${selfOrigin(ctx, secureCookies)}/auth/complete`);
-          complete.searchParams.set("return_to", local);
+          if (local) complete.searchParams.set("return_to", ctx.localeHref(local));
+          if (chosen) complete.searchParams.set("locale", chosen);
           returnTo = complete.toString();
         } else if (raw) returnTo = raw;
         const { flow: initiated, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });

@@ -372,8 +372,8 @@ test("/error renders a themed sign-in error page (Kratos' flow error sink), not 
 
 test("renders the 500 HTML page when a handler throws", async () => {
   const dir = mkdtempSync(join(tmpdir(), "pp-views-"));
-  writeFileSync(join(dir, "index.ejs"), "<% throw new Error('boom'); %>"); // the dashboard view
-  cpSync(join(viewsDir, "500.ejs"), join(dir, "500.ejs"));
+  cpSync(viewsDir, dir, { recursive: true }); // the real views: 500.ejs includes the language picker
+  writeFileSync(join(dir, "index.ejs"), "<% throw new Error('boom'); %>"); // …but the dashboard view throws
   const app = createApp({ jwks: staticJwks([ecJwk]), viewsDir: dir });
   try {
     await new Promise<void>((resolve) => app.listen(0, resolve));

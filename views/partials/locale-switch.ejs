@@ -9,6 +9,12 @@
 <%- include("menu", {
   up: locals.up !== false,
   trigger: { class: "btn icon-btn", icon: "i-globe", label: t("locale.label") },
-  items: [{ head: t("locale.label") }, ...choices.map((c) => ({ current: c.current, href: c.href, hreflang: c.tag, label: c.label, ownLocale: true }))],
+  items: [
+    { head: t("locale.label") },
+    ...choices.map((c) => ({ current: c.current, href: c.href, hreflang: c.tag, label: c.label, ownLocale: true })),
+    // This page can't be re-rendered in another language (its URL answers no GET), so switching
+    // navigates away — and may leave a one-time secret behind. Say it before the click.
+    ...(locals.leavesPage ? [{ head: t("locale.leavesPage") }] : []),
+  ],
 }) %>
 <% } -%>

@@ -13,6 +13,7 @@
     <main>
       <h1><%= t("error.flow.title") %></h1>
       <p><%= t("error.flow.body") %></p>
+      <%- include("partials/locale-switch", { up: false }) %>
       <p><a href="<%= localeHref("/login") %>"><%= t("error.backToSignIn") %></a></p>
       <% if (locals.id) { %><p><small><%= t("error.reference", { id }) %></small></p><% } %>
     </main>

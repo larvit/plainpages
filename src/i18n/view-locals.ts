@@ -4,7 +4,7 @@
 
 import { DEFAULT_LOCALE } from "./catalog.ts";
 import { ENGLISH } from "./english.ts";
-import { localeHref, localeLabel, textDirection } from "./locale.ts";
+import { chosenLocale, localeHref, localeLabel, textDirection } from "./locale.ts";
 import type { Translate } from "./translate.ts";
 
 export interface LocaleChoice {
@@ -16,6 +16,10 @@ export interface LocaleChoice {
 
 export interface I18nLocals {
   dir: "ltr" | "rtl";
+  // True when switching language cannot stay on this page (its URL answers no GET, so the picker
+  // points elsewhere) — the page then says so, because what it leaves behind may be a one-time
+  // secret that cannot be shown again.
+  leavesPage: boolean;
   locale: string;
   localeHref: (href: string) => string;
   // The locale to carry as a hidden field, or null when the visitor never asked for one. A GET form
@@ -43,6 +47,7 @@ export interface I18nRequest {
 // left-to-right, no language picker.
 export const ENGLISH_LOCALS: I18nLocals = {
   dir: "ltr",
+  leavesPage: false,
   locale: DEFAULT_LOCALE,
   localeHref: (href) => href,
   localeParam: null,
@@ -52,11 +57,10 @@ export const ENGLISH_LOCALS: I18nLocals = {
 };
 
 export function i18nLocals(ctx: I18nRequest): I18nLocals {
-  // ctx.localeHref is a no-op unless the URL asked for a locale, so it is also the honest answer to
-  // "did it?" — asking the function that decides keeps the two from drifting apart.
-  const carried = ctx.localeHref("/") === "/" ? null : ctx.locale;
+  const carried = chosenLocale(ctx);
   return {
     dir: textDirection(ctx.locale),
+    leavesPage: ctx.switchBase !== `${ctx.url.pathname}${ctx.url.search}`,
     locale: ctx.locale,
     localeHref: (href) => ctx.localeHref(href),
     localeParam: carried,

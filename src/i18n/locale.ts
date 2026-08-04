@@ -76,13 +76,20 @@ export function localeHref(href: string, locale: string | null): string {
 const directions = new Map<string, "ltr" | "rtl">();
 const labels = new Map<string, string>();
 
+// The locale this request explicitly asked for, or null. `localeHref` is a no-op unless one was
+// chosen, so asking the function that decides keeps callers from re-deriving the rule.
+export function chosenLocale(ctx: { locale: string; localeHref: (href: string) => string }): string | null {
+  return ctx.localeHref("/") === "/" ? null : ctx.locale;
+}
+
 interface TextInfoLocale {
   getTextInfo?: () => { direction?: string };
   textInfo?: { direction?: string };
 }
 
-// The document direction for <html dir>. Derived from the locale's script, so an RTL catalog flips
-// the document the day it is added.
+// The document direction for <html dir>, from the locale's script. It states the direction — the
+// shipped stylesheet still uses physical left/right properties, so an RTL locale also needs those
+// moved to logical ones before it lays out correctly.
 export function textDirection(locale: string): "ltr" | "rtl" {
   const cached = directions.get(locale);
   if (cached !== undefined) return cached;

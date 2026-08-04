@@ -61,7 +61,7 @@ const messages = {
   "dashboard.starter.intro":
     "This is the built-in <code>/dashboard</code> — the gated home shown to a signed-in user. It's a placeholder so a fresh clone has something here; it holds no real data.",
   "dashboard.starter.reference":
-    "See the plugin contract in <code>docs/plugin-contract.md</code> (the landing-pages section) and the bundled <code>plugins/scheduling/</code> reference.",
+    "See the plugin contract in <code>README.md</code> (Building plugins → the landing pages) and the <code>examples/plugins/scheduling/</code> reference.",
   "dashboard.starter.replace":
     "Replace it from a plugin: export a <code>dashboard</code> handler from your plugin's manifest and it owns this page, rendered against your own views with the native app shell (the same menu you see now) via <code>ctx.chrome</code>.",
   "dashboard.starter.title": "Starter dashboard",
@@ -131,6 +131,7 @@ const messages = {
   "landing.title": "Operational web apps, without the boilerplate.",
 
   "locale.label": "Language",
+  "locale.leavesPage": "Switching leaves this page",
 
   "nav.dashboard": "Dashboard",
 

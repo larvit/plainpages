@@ -54,8 +54,12 @@ export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18
   const baseline = shipped.get(DEFAULT_LOCALE);
   if (!baseline) errors.push(`core: no ${DEFAULT_LOCALE}.ts — it is the baseline every other locale is checked against`);
   const core = new Map(shipped);
-  for (const [locale, catalog] of await readSet(mountedDir, "locales", errors)) core.set(locale, catalog);
-  checkSet(core, "core", baseline, errors);
+  const mounted = await readSet(mountedDir, "locales", errors);
+  for (const [locale, catalog] of mounted) core.set(locale, catalog);
+  // Checked under the folder they actually live in: telling an operator "core de-DE: missing key …"
+  // sends them to src/i18n/locales/, which holds no de-DE.ts at all.
+  checkSet(new Map([...core].filter(([locale]) => !mounted.has(locale))), "core", baseline, errors);
+  checkSet(mounted, "locales", baseline, errors);
   const available = [...core.keys()].sort();
 
   const plugins = new Map<string, Map<string, Catalog>>();
