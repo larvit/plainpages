@@ -4,7 +4,9 @@
 // so a half-translated deploy is caught at startup rather than as a stray English word in production.
 //
 // Installed locales are whatever the core folder holds; a plugin may translate fewer of them (its
-// strings then render in en-US on that page) but never one the host does not have.
+// strings then render in en-US on that page) but never one the host does not have. The operator's
+// `locales/` mount extends both sides — `locales/<tag>.ts` for the core, `locales/plugins/<id>/<tag>.ts`
+// for a plugin — so adding a language never means forking the image or a vendored plugin.
 
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -64,19 +66,26 @@ export async function loadI18n(options: LoadI18nOptions = {}): Promise<LoadedI18
 
   const plugins = new Map<string, Map<string, Catalog>>();
   for (const id of options.pluginIds ?? []) {
-    const dir = join(pluginsDir, id, "i18n");
-    if (!existsSync(dir)) continue;
-    const set = await readSet(dir, `plugins/${id}`, errors);
-    if (set.size === 0) continue;
-    if (!set.has(DEFAULT_LOCALE)) errors.push(`plugins/${id}: no ${DEFAULT_LOCALE}.ts — a plugin's own baseline`);
-    for (const locale of set.keys()) {
-      if (!available.includes(locale)) errors.push(`plugins/${id}: ${locale} is not installed — add src/i18n/locales/${locale}.ts first`);
+    // A plugin's own catalogs, and the operator's for it. Adding a language must not require forking
+    // a vendored plugin folder, so `locales/plugins/<id>/` extends and overrides the same way
+    // `locales/` does for the core: a new tag adds it, a tag the plugin ships replaces it wholesale.
+    const own = await readSet(join(pluginsDir, id, "i18n"), `plugins/${id}`, errors);
+    const mine = await readSet(join(mountedDir, "plugins", id), `locales/plugins/${id}`, errors);
+    if (own.size === 0 && mine.size === 0) continue;
+    const set = new Map([...own, ...mine]);
+    // The plugin's own en-US is the baseline; an operator who supplies the only one is translating a
+    // plugin that ships no words of its own, which is nothing this can check.
+    const pluginBaseline = own.get(DEFAULT_LOCALE) ?? mine.get(DEFAULT_LOCALE);
+    if (!pluginBaseline) errors.push(`plugins/${id}: no ${DEFAULT_LOCALE}.ts — a plugin's own baseline, which its other locales are checked against`);
+    for (const [locale, from] of [...[...own.keys()].map((l) => [l, `plugins/${id}`] as const), ...[...mine.keys()].map((l) => [l, `locales/plugins/${id}`] as const)]) {
+      if (!available.includes(locale)) errors.push(`${from}: ${locale} is not installed — add locales/${locale}.ts first`);
     }
-    checkSet(set, `plugins/${id}`, set.get(DEFAULT_LOCALE), errors);
+    checkSet(new Map([...own].filter(([locale]) => !mine.has(locale))), `plugins/${id}`, pluginBaseline, errors);
+    checkSet(mine, `locales/plugins/${id}`, pluginBaseline, errors);
     // Legitimate — the plugin's strings fall back to en-US on that page — but an operator who
     // installed a locale should hear about the gap at deploy time, not see English islands later.
     const gaps = available.filter((locale) => !set.has(locale));
-    if (gaps.length) logger.warn(`[i18n] plugins/${id}: no ${gaps.join(", ")} — those strings render in ${DEFAULT_LOCALE}`);
+    if (gaps.length) logger.warn(`[i18n] plugins/${id}: no ${gaps.join(", ")} — those strings render in ${DEFAULT_LOCALE} (add locales/plugins/${id}/<locale>.ts)`);
     plugins.set(id, set);
   }
 

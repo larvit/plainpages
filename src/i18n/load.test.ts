@@ -124,3 +124,34 @@ test("a plugin without an i18n folder is fine", async () => {
   const loaded = await loadI18n({ localesDir, pluginIds: ["plain"], pluginsDir });
   assert.equal(loaded.plugins.size, 0);
 });
+
+test("an operator adds a language for a plugin without forking it, and may replace one it ships", async () => {
+  const { localesDir, pluginsDir } = await fixture({
+    "locales/en-US.ts": catalog(`{ hello: "Hello" }`),
+    "locales/sv-SE.ts": catalog(`{ hello: "Hej" }`),
+    "plugins/shop/i18n/en-US.ts": catalog(`{ "shop.title": "Shop" }`),
+    "plugins/shop/i18n/sv-SE.ts": catalog(`{ "shop.title": "Butik" }`),
+    "mounted/plugins/shop/sv-SE.ts": catalog(`{ "shop.title": "Affär" }`), // replaces the plugin's
+    "mounted/plugins/shop/nb-NO.ts": catalog(`{ "shop.title": "Butikk" }`), // …and adds one
+    "mounted/nb-NO.ts": catalog(`{ hello: "Hei" }`), // the core side of the same language
+  });
+  const loaded = await loadI18n({ localesDir, mountedLocalesDir: join(localesDir, "..", "mounted"), pluginIds: ["shop"], pluginsDir });
+
+  assert.deepEqual(loaded.available, ["en-US", "nb-NO", "sv-SE"]);
+  assert.deepEqual(loaded.plugins.get("shop")?.get("sv-SE"), { "shop.title": "Affär" });
+  assert.deepEqual(loaded.plugins.get("shop")?.get("nb-NO"), { "shop.title": "Butikk" });
+  assert.deepEqual(loaded.plugins.get("shop")?.get("en-US"), { "shop.title": "Shop" }); // untouched
+});
+
+test("an operator's plugin catalog is held to the plugin's own baseline, and named by where it lives", async () => {
+  const { localesDir, pluginsDir } = await fixture({
+    "locales/en-US.ts": catalog(`{ hello: "Hello" }`),
+    "locales/sv-SE.ts": catalog(`{ hello: "Hej" }`),
+    "plugins/shop/i18n/en-US.ts": catalog(`{ "shop.title": "Shop", "shop.new": "New" }`),
+    "mounted/plugins/shop/sv-SE.ts": catalog(`{ "shop.title": "Butik" }`), // shop.new missing
+  });
+  await assert.rejects(
+    loadI18n({ localesDir, mountedLocalesDir: join(localesDir, "..", "mounted"), pluginIds: ["shop"], pluginsDir }),
+    /locales\/plugins\/shop sv-SE: missing key "shop.new"/, // the folder the operator actually edited
+  );
+});

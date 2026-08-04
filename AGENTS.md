@@ -140,10 +140,18 @@ them. Revisit only if the stated reason stops holding.
   context with `contextFor(pluginId)` exactly as a plugin route does — otherwise `ctx.t` is the core
   translator and the plugin's own keys render as bare keys on the pages it owns. Found by review
   2026-08-03 after all three paths shipped with the host's context.
-- **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`.** The SHIPPED
-  `en-US` stays the parity baseline even when the mount replaces it, so a mounted catalog is checked
-  rather than trusted (a mounted `en-US` compared only against itself would boot green with the
-  whole UI rendering keys). A catalog there
+- **`locales/` at the repo root is a drop-in mount, like `plugins/` and `config/`** — `locales/<tag>.ts`
+  for the core and `locales/plugins/<id>/<tag>.ts` for an installed plugin, each adding a language or
+  replacing that tag's catalog wholesale. Adding a language must never require forking the image or a
+  vendored plugin folder. The SHIPPED `en-US` (core's, or the plugin's own) stays the parity baseline
+  even when the mount replaces it, so a mounted catalog is checked rather than trusted (one compared
+  only against itself would boot green with the whole UI rendering keys), and each half is reported
+  under the folder it actually lives in.
+- **RTL is out of scope until there is a real use case.** `textDirection` sets `<html dir>` from the
+  locale's script because that is free and correct, but the stylesheet keeps physical `left`/`right`
+  properties — a genuine RTL locale needs those moved to logical ones first. Don't convert the CSS or
+  file findings about it on spec. Maintainer's call 2026-08-04; valid while no deployment needs an
+  RTL language. A catalog there
   for a new tag adds a language; one for a tag the image ships replaces that catalog wholesale, held
   to the same parity check. Adding a language must not require forking the image.
 - **An unknown translation key renders as itself.** That single rule is what lets a nav label,

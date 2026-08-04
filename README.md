@@ -132,6 +132,25 @@ hand-roll auth for the tenth time. It's not a no-code tool and doesn't hide its 
 parts: if "Ory is down ⇒ no logins" (see [Auth](#auth-sessions--access)) reads as
 obvious rather than surprising, you're the audience.
 
+**Who *they* build for.** The people who end up in front of a Plainpages app are not the
+audience above, and three of them shape the design more than any feature request does:
+
+- **The end user** — anyone using the product you assemble from Plainpages + your plugins.
+  They never hear the word "plugin": to them the menu, the screens and the sign-in are one app,
+  which is why the shell, the auth pages and every plugin share one design system, one menu and
+  one language.
+- **The power user** — lives in the app all day. Ctrl-clicks a row to open it in a new tab,
+  bookmarks a filtered-and-sorted list to come back to on Monday, sends that URL to a colleague,
+  and edits the query string by hand when it's faster. This is why list state and the chosen
+  language live **in the URL** and why every navigation is a real `<a href>`: middle-click, "open
+  in new tab", back, and bookmark all have to work without a second thought.
+- **The non-technical user** — clicks a button twice when nothing happens fast enough, never
+  touches the tab key, doesn't distinguish a link from a button, and won't recognise an error
+  code. This is why destructive actions go through a confirm page instead of an inline
+  `?confirm=1`, why a form's labels are clickable and its errors sit next to the field they
+  belong to, and why a page must never depend on keyboard-only affordances. A double-clicked
+  submit is a real event, not a misuse.
+
 **Included vs. what you add.**
 
 - **Included in the core:** themed sign-in / register / reset (Kratos-backed), the design
@@ -914,6 +933,7 @@ dropping another file next to them.
 src/i18n/locales/en-US.ts     the baseline — every other locale is checked against it
 src/i18n/locales/sv-SE.ts
 locales/                      drop-in mount root: your own catalogs, ships empty (like plugins/ and config/)
+locales/plugins/<id>/sv-SE.ts the same, for a plugin's words — so adding a language never forks a plugin
 plugins/<id>/i18n/en-US.ts    a plugin's own words, looked up before the host's
 plugins/<id>/i18n/sv-SE.ts
 ```
@@ -921,7 +941,9 @@ plugins/<id>/i18n/sv-SE.ts
 `locales/` is the operator's, mounted like `plugins/` and `config/` — a file there for a new tag
 **adds** a language, one for a tag the image already ships **replaces** that catalog wholesale (and
 is held to the same parity check, so a partial replacement fails the boot instead of leaving half
-the app in English):
+the app in English). `locales/plugins/<id>/<tag>.ts` does the same for an installed plugin's words,
+checked against *that plugin's* `en-US` — so translating a vendored plugin, or fixing its wording,
+never means forking its folder:
 
 ```yaml
 # compose.override.yml
@@ -1819,7 +1841,7 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
 views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, language picker, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Permissions/Clients + confirm bodies)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
-locales/             Drop-in mount point for extra (or replacement) language catalogs — a <locale>.ts here adds a language, or replaces the shipped catalog for that tag wholesale. Ships empty (.gitkeep, git-ignored otherwise); see Languages
+locales/             Drop-in mount point for extra (or replacement) language catalogs — a <locale>.ts here adds a language for the core, or replaces the shipped catalog for that tag wholesale; plugins/<id>/<locale>.ts does the same for an installed plugin. Ships empty (.gitkeep, git-ignored otherwise); see Languages
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — permission/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
 examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Permissions/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
