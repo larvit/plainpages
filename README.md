@@ -1490,7 +1490,7 @@ plugin permission-gating — the last exercised by bind-mounting the reference e
 the plugin's own pages, an `Accept-Language`-only visitor, and the fallback for an uninstalled locale.
 
 ```bash
-docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --user "$(id -u):$(id -g)" --build --rm e2e   # run the suite
 docker compose -f compose.yml -f e2e-tests/compose.visual.yml down -v                 # tear down after
 ```
 
@@ -1502,7 +1502,7 @@ live Kratos session (permissions re-read from Keto), and once that session is re
 cookie is **cleared**.
 
 ```bash
-docker compose -f compose.yml -f e2e-tests/compose.auth.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f e2e-tests/compose.auth.yml run --user "$(id -u):$(id -g)" --build --rm e2e   # run the suite
 docker compose -f compose.yml -f e2e-tests/compose.auth.yml down -v                 # tear down after
 ```
 
@@ -1514,7 +1514,7 @@ then shows the consent screen for the third-party client and **Allow** drives Hy
 the authorization code.
 
 ```bash
-docker compose -f compose.yml -f e2e-tests/compose.oauth.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f e2e-tests/compose.oauth.yml run --user "$(id -u):$(id -g)" --build --rm e2e   # run the suite
 docker compose -f compose.yml -f e2e-tests/compose.oauth.yml down -v                 # tear down after
 ```
 
@@ -1528,7 +1528,7 @@ Kratos on one host (`ory/kratos/e2e-proxy.yml` points Kratos at it) — exactly 
 reverse proxy would.
 
 ```bash
-docker compose -f compose.yml -f e2e-tests/compose.full.yml run --build --rm e2e   # run the suite
+docker compose -f compose.yml -f e2e-tests/compose.full.yml run --user "$(id -u):$(id -g)" --build --rm e2e   # run the suite
 docker compose -f compose.yml -f e2e-tests/compose.full.yml down -v                 # tear down after
 ```
 
@@ -1546,11 +1546,12 @@ proxied full-flow suite can't catch this (it fronts web + Kratos on one origin).
 `ci.sh` — it needs host networking and the host ports `3000`/`4433` free (Linux).
 
 ```bash
-docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml run --build --rm e2e   # run it
+docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml run --user "$(id -u):$(id -g)" --build --rm e2e   # run it
 docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml down -v                # tear down
 ```
 
-Screenshots + an HTML report land in `e2e-tests/artifacts/` (git-ignored). Every user-facing flow
+Screenshots + an HTML report land in `e2e-tests/artifacts/` (git-ignored; `--user` above is what
+keeps them yours to delete — the runner writes them into your checkout). Every user-facing flow
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
 ([AGENTS.md](AGENTS.md)) — keep new tests side-effect-free so the suite stays fast.
 

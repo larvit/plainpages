@@ -29,6 +29,14 @@ test("the commit-hash image is pushed even when the gate no-ops", () => {
 	assert.doesNotMatch(step("docker push"), /^\s*if:/m);
 });
 
+test("every E2E suite the gate runs writes its artifacts as the invoking user", () => {
+	// The documented hand-run commands carry the same flag (src/compose.test.ts).
+	const runs = gate.split("\n").filter((l) => /docker compose .*\brun\b.*\be2e\b/.test(l));
+	assert.equal(runs.length, 2, "the suite helper and the devstack run");
+	for (const line of runs)
+		assert.match(line, /--user "\$\(id -u\):\$\(id -g\)"/, `runs as the caller: ${line.trim()}`);
+});
+
 test("only *.md counts as docs; a dirty tree and a rename both count as changed", () => {
 	assert.ok(gate.includes("\\.md$"), "the non-docs match is a *.md suffix test");
 	assert.match(gate, /git status --porcelain --no-renames/, "uncommitted code and a staged rename can never be skipped over");

@@ -224,6 +224,14 @@ Revisit only if the stated reason stops holding.
   destination as root whatever `--user` says, leaving a root-owned dir in the checkout. Nothing may
   sit at that path now — it shadows `/node_modules` silently (`src/compose.test.ts` guards the compose
   files, `.dockerignore` the image).
+- **A container that writes into the checkout runs as `--user "$(id -u):$(id -g)"`** — the E2E runner
+  (artifacts) and a lockfile edit both do, or the output is root-owned and needs `sudo` to delete,
+  which a dev box may not have at all. Two consequences: `e2e-tests/artifacts/` is *tracked*
+  (`.gitkeep`), since an absent bind-mount source is daemon-created as root and that uid then cannot
+  write it; and the runner image points `HOME` + npm's cache at `/tmp`, since an arbitrary uid has no
+  home in it. Baking a `USER` in instead does not work — the image's `pwuser` is 1001, and no fixed
+  uid matches every host. `src/compose.test.ts` guards every documented command, `src/ci-gate.test.ts`
+  the gate's own.
 - **Anything the browser logs fails the E2E test that provoked it.** Every spec takes its `test` from
   `e2e-tests/console-guard.ts`, which fails a test on a console error/warning or uncaught exception on
   any page it opened. A zero-JS app has nothing to say in the console, so the bar is *zero* rather than

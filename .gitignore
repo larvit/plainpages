@@ -3,8 +3,10 @@
 *.log
 node_modules
 
-# Playwright E2E outputs (screenshots, html report, traces)
-e2e-tests/artifacts/
+# Playwright E2E outputs (screenshots, html report, traces). The dir itself is tracked: an absent
+# bind-mount source is created by the daemon as root, which the unprivileged runner cannot write.
+/e2e-tests/artifacts/*
+!/e2e-tests/artifacts/.gitkeep
 
 # plugins/ is a drop-in mount point, not committed code — keep it empty (see examples/plugins/ for the reference)
 /plugins/*

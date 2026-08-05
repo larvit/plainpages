@@ -2,7 +2,7 @@
 # visual suite (e2e-tests/compose.visual.yml) covers the design system; this is its full-stack counterpart:
 # real Postgres + Kratos + Keto + bootstrap + web, with a SHORT tokenizer TTL (ory/kratos/e2e.yml)
 # and zero clock skew, so the JWT lapses and re-mints within seconds instead of ~10m.
-#   docker compose -f compose.yml -f e2e-tests/compose.auth.yml run --build --rm e2e
+#   docker compose -f compose.yml -f e2e-tests/compose.auth.yml run --user "$(id -u):$(id -g)" --build --rm e2e
 #   docker compose -f compose.yml -f e2e-tests/compose.auth.yml down -v   # tear down after
 services:
   web:

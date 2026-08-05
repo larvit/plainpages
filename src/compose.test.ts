@@ -6,9 +6,13 @@
 // by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+const composeFiles = (dir: string) =>
+  readdirSync(new URL(`../${dir}`, import.meta.url))
+    .filter((f) => f.startsWith("compose.") && f.endsWith(".yml"))
+    .map((f) => `${dir}${f}`);
 const compose = read("compose.yml");
 const override = read("compose.override.yml");
 const visual = read("e2e-tests/compose.visual.yml");
@@ -98,12 +102,22 @@ test("deps live above WORKDIR, so no mount creates a root-owned dir in the check
   assert.match(beforeWorkdir, /npm ci/, "npm ci runs before WORKDIR /app");
   assert.match(beforeWorkdir, /mv\s+node_modules\s+\/node_modules/, "and its tree lands at /node_modules");
 
-  const composeFiles = (dir: string) =>
-    readdirSync(new URL(`../${dir}`, import.meta.url))
-      .filter((f) => f.startsWith("compose.") && f.endsWith(".yml"))
-      .map((f) => `${dir}${f}`);
   for (const f of [...composeFiles(""), ...composeFiles("e2e-tests/")])
     assert.ok(!read(f).includes("/app/node_modules"), `${f} mounts nothing at /app/node_modules`);
+});
+
+test("the E2E runner writes its artifacts as the invoking user, never as root", () => {
+  // Same trap as the node_modules mountpoint above, but the runner must write into the checkout,
+  // so the fix is the uid: root-owned output needs sudo to delete, which a dev box may not have.
+  const documented = [read("README.md"), ...composeFiles("e2e-tests/").map(read)]
+    .join("\n").split("\n").filter((l) => /docker compose .*--rm e2e\b/.test(l));
+  assert.ok(documented.length >= 5, "every suite's run command is documented");
+  for (const l of documented)
+    assert.match(l, /--user "\$\(id -u\):\$\(id -g\)"/, `passes the uid: ${l.trim()}`);
+  // An absent mount source is daemon-created as root, and then that uid can't write it at all.
+  assert.ok(existsSync(new URL("../e2e-tests/artifacts/.gitkeep", import.meta.url)),
+    "the mount point exists in the checkout");
+  assert.match(read(".gitignore"), /^!\/e2e-tests\/artifacts\/\.gitkeep$/m, "and stays tracked");
 });
 
 test("the visual E2E does not drag in the Ory stack", () => {

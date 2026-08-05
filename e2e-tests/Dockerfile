@@ -9,4 +9,9 @@ RUN npm ci
 
 COPY e2e-tests/ ./
 
+# Runs as the invoking `--user` so artifacts land owned by them, not root — that uid has no home
+# here, so point everything that wants one at /tmp (npm's cache, and the browsers' profile dirs).
+ENV HOME=/tmp
+ENV npm_config_cache=/tmp/.npm
+
 CMD ["npx", "playwright", "test"]

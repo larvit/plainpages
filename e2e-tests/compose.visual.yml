@@ -1,7 +1,7 @@
 # Playwright E2E. Brings up the app + a Playwright runner and exercises the live pages (design
 # system, theme switch, mobile layout, CSRF, landing, 404, plugin gating, language switching) —
 # Ory-free, so it's fast.
-#   docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --build --rm e2e
+#   docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --user "$(id -u):$(id -g)" --build --rm e2e
 #   docker compose -f compose.yml -f e2e-tests/compose.visual.yml down -v   # tear down after
 # --build rebuilds the runner (the image bakes in e2e-tests/) so spec edits are picked up.
 # Screenshots + HTML report land in ./e2e-tests/artifacts/ (git-ignored).

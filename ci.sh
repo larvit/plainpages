@@ -62,11 +62,13 @@ count=$(echo "$units" | grep -oE 'tests [0-9]+' | grep -oE '[0-9]+' | head -1 ||
 
 # Run one E2E suite against its OWN named stack, then always tear it down (even on failure). The
 # per-suite project name keeps a flaky teardown from leaking containers/volumes into the next suite.
+# --user: the runner writes screenshots + the report into the checkout, so they must belong to
+# whoever ran the gate — root-owned output needs sudo to delete, and a dev box may have none.
 e2e() {
   step "E2E: $1"
   local proj="plainpages-e2e-$(basename "$1" .yml | tr '.' '-')" # dots aren't valid in a compose project name
   local rc=0
-  docker compose -p "$proj" -f compose.yml -f "$1" run --build --rm e2e || rc=$?
+  docker compose -p "$proj" -f compose.yml -f "$1" run --user "$(id -u):$(id -g)" --build --rm e2e || rc=$?
   docker compose -p "$proj" -f compose.yml -f "$1" down -v >/dev/null 2>&1 || true
   [ "$rc" -eq 0 ] || { echo "E2E suite $1 failed (exit $rc)"; exit "$rc"; }
 }
@@ -82,7 +84,7 @@ e2e e2e-tests/compose.full.yml      # full browser flow: login (password + SSO),
 step "E2E: e2e-tests/compose.devstack.yml (dev-stack login: localhost works + 127.0.0.1 canonicalised)"
 devstack_files=(-f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml)
 rc=0
-docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" run --build --rm e2e || rc=$?
+docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" run --user "$(id -u):$(id -g)" --build --rm e2e || rc=$?
 docker compose -p plainpages-e2e-devstack "${devstack_files[@]}" down -v >/dev/null 2>&1 || true
 [ "$rc" -eq 0 ] || { echo "E2E suite e2e-tests/compose.devstack.yml failed (exit $rc)"; exit "$rc"; }
 

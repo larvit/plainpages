@@ -4,7 +4,7 @@
 # runs against the *plain* `docker compose up` topology and drives the browser on the HOST network, so
 # it sees http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host
 # browser does. Merge the dev override so the live stack is byte-for-byte `docker compose up`:
-#   docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml run --build --rm e2e
+#   docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml run --user "$(id -u):$(id -g)" --build --rm e2e
 #   docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devstack.yml down -v   # tear down
 services:
   web:
