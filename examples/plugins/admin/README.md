@@ -13,6 +13,11 @@ docker compose up -d
 The bootstrap grants the seeded `admin@plainpages.local` every permission this plugin declares, so the
 section appears in the menu and the screens work immediately.
 
+> **Already have `plugins/admin` from an earlier version?** Re-copy it. Your copy is yours — the host
+> never updates it — and this plugin's permissions changed on 2026-08-05 (`admin` → `users:`/`groups:`/
+> `oauth2-clients:` × `read`/`write`). A stale copy stops the boot with a message naming it; see
+> [README → Upgrading](../../../README.md#upgrading).
+
 Every string it renders comes from its own catalogs (`i18n/en-US.ts`, `i18n/sv-SE.ts`) — the nav
 labels included, which are catalog keys in `admin-shared.ts`. Each pure view-model builder takes an
 optional `t`; the handlers pass `ctx.t`, and the default is the plugin's own English so a unit test

@@ -93,6 +93,15 @@ them. Revisit only if the stated reason stops holding.
   gates on one operation, so it gates on a permission, and a bundle is just a group with several
   grants (groups nest). Ory's own "permission" (the `Resource` `permits`: view/edit/delete) is the
   separate per-row tier.
+- **Tightening a discovery rule breaks every already-copied plugin, and CI cannot see it.** `plugins/`
+  is an operator-owned drop-in mount that ships empty, so every test — unit and e2e — only ever sees a
+  *fresh* copy of `examples/`. An operator's copy is whatever version they took. When a manifest rule
+  gets stricter, it must ship with a README → Upgrading entry and a re-copy instruction, and the
+  discovery error carries a line saying so. Learned the hard way twice on 2026-08-05: the
+  `<resource>:<action>` rule bricked a pre-existing `plugins/admin` at boot, and the matching
+  `ADMIN_PERMISSIONS` check bricked it on a value that had been the shipped default. Fail-loud stays
+  right — the alternative is a route gating on a name nobody can be granted, i.e. a permanent silent
+  403 — but "loud" has to include the remedy.
 - **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. A bare
   word names *who someone is* — a role — and roles are groups here; the old catch-all `admin`
   permission was exactly that mistake, split into `users:`/`groups:`/`permissions:`/`oauth2-clients:`

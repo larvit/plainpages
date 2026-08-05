@@ -65,7 +65,14 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
   }
 
   if (errors.length) {
-    throw new Error(`Plugin discovery failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+    // `plugins/` is a drop-in mount the operator owns, so the reader of this message often didn't
+    // write the manifest — they copied it. Tightening a contract rule breaks those copies at boot,
+    // and the rule alone doesn't tell them the remedy is one command.
+    throw new Error(
+      `Plugin discovery failed:\n${errors.map((e) => `  - ${e}`).join("\n")}\n` +
+      `A plugin under plugins/ is your own copy. If it came from examples/, re-copy it — ` +
+      `the host contract may have changed since (see README → Upgrading).`,
+    );
   }
   return plugins;
 }

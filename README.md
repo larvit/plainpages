@@ -113,6 +113,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [the full gate](#the-full-gate-one-command)
 - [CI/CD](#cicd)
 - [Production & deployment](#production--deployment)
+- [Upgrading](#upgrading)
 - [Observability](#observability)
 - [JWT signing key & rotation](#jwt-signing-key--rotation)
 - [Project layout](#project-layout)
@@ -1739,6 +1740,29 @@ signing key if absent, creates the demo admin in Kratos, and grants it every dis
 declared permission names in Keto (plus any `ADMIN_PERMISSIONS`), so permission checks (and any
 dropped-in plugin) resolve out of the box. The web app waits for Kratos + Keto to be healthy
 *and* the bootstrap to finish before starting. **Change the demo admin before production.**
+
+## Upgrading
+
+**Re-copy your drop-in plugins.** Anything under `plugins/` is *your* copy — the host never updates
+it. When you pull a newer Plainpages, a plugin you copied from `examples/` is still the old one, and
+the host may have tightened a manifest rule since. Discovery fails loud at boot rather than running a
+plugin it can't honour, naming the plugin and the rule:
+
+```bash
+rm -rf plugins/admin && cp -r examples/plugins/admin plugins/admin
+docker compose up -d --build
+```
+
+Do the same for any other folder you copied out of `examples/`. A plugin you wrote yourself needs the
+manifest change the error names — the same rules the shipped examples follow.
+
+### Breaking changes
+
+- **Permission names must be `<resource>:<action>`** (2026-08-05). A manifest gating on — or
+  declaring — a bare word like `admin` now stops the boot. The bundled admin plugin was split into
+  `users:`/`groups:`/`oauth2-clients:` × `read`/`write`, so a copy taken before this needs re-copying.
+  `ADMIN_PERMISSIONS` is held to the same rule, but an unusable value there is dropped with a warning
+  rather than failing the boot. See [Naming a permission](#naming-a-permission).
 
 ## Observability
 

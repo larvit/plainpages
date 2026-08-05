@@ -67,6 +67,18 @@ for (const c of badCases) {
   });
 }
 
+// The reader of a discovery failure is usually an operator whose plugins/ copy went stale after an
+// upgrade, not the author of the manifest — so the message has to carry the remedy, not just the
+// rule. A pre-existing `plugins/admin` gating on the old `admin` permission is exactly this case.
+test("a discovery failure tells the operator their plugins/ copy may just be out of date", async (t) => {
+  const dir = scaffold(t, { "admin/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/users", permission: "admin", handler: () => ({ html: "x" }) }] };` });
+  await assert.rejects(discoverPlugins({ dir }), (err: Error) => {
+    assert.match(err.message, /gates on "admin"/); // what is wrong
+    assert.match(err.message, /re-copy it/); // …and what to do about it
+    return true;
+  });
+});
+
 test("a route + nav node may be marked public and load fine", async (t) => {
   const dir = scaffold(t, { "pub/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };` });
   const plugins = await discoverPlugins({ dir });
