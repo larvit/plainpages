@@ -7,7 +7,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkApiVersion, findConflicts, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
+import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -100,6 +100,20 @@ function shapeError(manifest: PluginManifest): string | null {
   }
   const navContradiction = findPublicNavContradiction(manifest.nav);
   if (navContradiction) return navContradiction;
+  // Every permission name the manifest mentions — gated on or declared — must be `<resource>:<action>`.
+  // A bare word names a role, and roles are groups here (README → Naming a permission).
+  for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
+    if (route?.permission != null && !isValidPermissionName(route.permission)) {
+      return `route "${route.method} ${route.path}" gates on "${route.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
+    }
+  }
+  for (const decl of Array.isArray(manifest.permissions) ? manifest.permissions : []) {
+    if (decl?.name == null || !isValidPermissionName(decl.name)) {
+      return `declared permission "${decl?.name}" is not <resource>:<action>, e.g. "things:read"`;
+    }
+  }
+  const navPermission = findInvalidNavPermission(manifest.nav);
+  if (navPermission) return navPermission;
   return null;
 }
 
@@ -108,6 +122,17 @@ function findPublicNavContradiction(nodes: PluginManifest["nav"]): string | null
   for (const node of Array.isArray(nodes) ? nodes : []) {
     if (node?.public === true && node.permission != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and permission — they are mutually exclusive`;
     const inChild = findPublicNavContradiction(node?.children);
+    if (inChild) return inChild;
+  }
+  return null;
+}
+
+function findInvalidNavPermission(nodes: PluginManifest["nav"]): string | null {
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (node?.permission != null && !isValidPermissionName(node.permission)) {
+      return `nav node "${node.label ?? node.id ?? "?"}" gates on "${node.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
+    }
+    const inChild = findInvalidNavPermission(node?.children);
     if (inChild) return inChild;
   }
   return null;

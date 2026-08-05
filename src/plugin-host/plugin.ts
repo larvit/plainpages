@@ -45,6 +45,15 @@ export interface PermissionDecl {
   name: string;
 }
 
+// `<resource>:<action>`, each half lowercase alphanumeric with dashes/underscores inside. The 64-char
+// cap keeps a name usable as a Keto object and a URL path segment. Enforced at discovery like every
+// other manifest rule, so the convention holds for plugins the admin GUI never touches.
+const PERMISSION_NAME = /^[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*$/;
+
+export function isValidPermissionName(name: string): boolean {
+  return name.length <= 64 && PERMISSION_NAME.test(name);
+}
+
 // Optional hooks on system actions. Crash-isolation is a non-goal — a throwing hook fails loud.
 export interface PluginHooks {
   onBoot?: () => Promise<void> | void; // after discovery, before the server listens

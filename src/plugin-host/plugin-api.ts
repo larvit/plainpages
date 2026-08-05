@@ -4,7 +4,7 @@
 // contract boundary in code — the host may refactor any other src/* freely as long as it holds, so
 // a plugin should import from here, never reach into deeper modules. See README.md → Building plugins.
 
-export { definePlugin } from "./plugin.ts";
+export { definePlugin, isValidPermissionName } from "./plugin.ts";
 export type { HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
 export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";

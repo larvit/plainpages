@@ -285,6 +285,16 @@ bundle it back up with a group if you want one grant to hand out several:
 Group:it-support ──> Permission:users:read, Permission:users:write, Permission:groups:read, …
 ```
 
+The host checks the shape at **discovery**: a plugin gating on — or declaring — a name that isn't
+`<resource>:<action>` stops the boot, like any other bad manifest. Declaring is still optional, so
+two plugins may deliberately share a name.
+
+> **A `:write` is not a small grant.** Splitting by resource contains the **read** half — `users:read`
+> alone is a safe helpdesk grant. It contains the write half much less than the naming suggests:
+> `groups:write` lets someone add themselves to a group that holds every permission, and `users:write`
+> lets them mint a recovery code for any account and sign in as it. Treat `users:write` and
+> `groups:write` as full administrative access.
+
 ### A worked example
 
 Alice works support and leads scheduling; Bob works support; Carol administers the system.
@@ -715,6 +725,12 @@ node shows iff it is `public`, declares no `permission`, or the user's permissio
 arbitrary depth, counts, and icons; see `composeNav` for the node shape. A node's `icon` is a
 **Lucide icon**, referenced by its sprite id (e.g. `i-cal` → lucide `calendar`); the available ids
 are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
+
+**Gating a section header.** Putting the `permission` on the header is the simple form — the whole
+subtree disappears with it. When the children need *different* permissions, leave the header ungated
+and gate each child: `composeNav` drops a header whose children all filtered out. That second form
+only works while the header carries **no `href`** — give it one and it survives the filter as an
+ungated leaf, visible to everyone. The admin example uses it (four screens, four permissions).
 
 #### Public pages & menu items
 

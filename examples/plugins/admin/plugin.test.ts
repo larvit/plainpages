@@ -3,6 +3,7 @@
 // with nothing in the logs to explain it. Pin the two halves against each other here.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { isValidPermissionName } from "#plugin-api";
 import manifest from "./plugin.ts";
 
 const routes = manifest.routes ?? [];
@@ -23,7 +24,7 @@ test("the manifest declares no permission it never gates on", () => {
 });
 
 test("every declared permission is <resource>:<action>, and reads and writes are split per resource", () => {
-  for (const name of declared) assert.match(name, /^[a-z0-9][a-z0-9_-]*:(read|write)$/, name);
+  for (const name of declared) assert.ok(isValidPermissionName(name), name); // the host's rule, not a copy of it
   assert.deepEqual([...declared].sort(), [
     "groups:read", "groups:write",
     "oauth2-clients:read", "oauth2-clients:write",

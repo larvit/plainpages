@@ -50,8 +50,13 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
   { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
-  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
-  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x" }] };` }, match: /contranav.*public.*permission/s },
+  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
+  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x:read" }] };` }, match: /contranav.*public.*permission/s },
+  // A permission name is <resource>:<action> wherever the manifest mentions one. Enforced here, not
+  // only in the admin GUI, so it holds for a plugin installed without that GUI.
+  { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
+  { name: "a nav node gating on a bare word", files: { "barenav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", permission: "admin" }] };` }, match: /barenav.*admin.*<resource>:<action>/s },
+  { name: "a declared permission that is a bare word", files: { "baredecl/plugin.ts": `export default { apiVersion: "1.0.0", permissions: [{ name: "admin" }] };` }, match: /baredecl.*admin.*<resource>:<action>/s },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];

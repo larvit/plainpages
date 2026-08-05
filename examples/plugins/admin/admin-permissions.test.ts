@@ -12,7 +12,6 @@ import {
   buildPermissionsListModel,
   expandToEffectiveUsers,
   isPermissionPathSegment,
-  isValidPermissionName,
   permissionGrantTuple,
 } from "./admin-permissions.ts";
 import type { ExpandTree, RelationTuple } from "#plugin-api";
@@ -22,14 +21,6 @@ const userTuple = (permission: string, n: number): RelationTuple =>
   ({ namespace: "Permission", object: permission, relation: "granted", subject_id: `user:${uid(n)}` });
 const groupTuple = (permission: string, group: string): RelationTuple =>
   ({ namespace: "Permission", object: permission, relation: "granted", subject_set: { namespace: "Group", object: group, relation: "members" } });
-
-test("isValidPermissionName requires <resource>:<action> so the convention holds for anything created here", () => {
-  for (const ok of ["users:read", "scheduling:write", "oauth2-clients:read", "team-a:a1_b9"]) assert.equal(isValidPermissionName(ok), true, ok);
-  // A bare word is what this rule exists to stop — "admin" says who you are, not what you may do.
-  for (const bad of ["admin", "", "Users:read", "users:", ":read", "users:read:extra", "a b:read", "-bad:read", `${"a".repeat(60)}:read`]) {
-    assert.equal(isValidPermissionName(bad), false, bad);
-  }
-});
 
 test("isPermissionPathSegment stays loose enough to address a permission that predates the rule", () => {
   // Addressing is not creating: an "admin" tuple left in Keto must still open and delete, or it is

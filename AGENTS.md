@@ -93,16 +93,39 @@ them. Revisit only if the stated reason stops holding.
   gates on one operation, so it gates on a permission, and a bundle is just a group with several
   grants (groups nest). Ory's own "permission" (the `Resource` `permits`: view/edit/delete) is the
   separate per-row tier.
-- **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. Enforced
-  where names are minted (the admin plugin's create form, `isValidPermissionName`) rather than only
-  documented, so the convention survives an operator adding one by hand. A bare word names *who
-  someone is* — a role — and roles are groups here; the old catch-all `admin` permission was exactly
-  that mistake and was split into `users:`/`groups:`/`permissions:`/`oauth2-clients:` × `read`/`write`
-  2026-08-05. Two consequences worth keeping straight: `<resource>` is global, not plugin-scoped
-  (hence `oauth2-clients`, not `clients`), and *addressing* a permission stays looser than *creating*
-  one (`isPermissionPathSegment`) so a name written before the rule can still be opened and deleted
-  instead of stranding in Keto. `ADMIN_PERMISSIONS` therefore defaults to empty: every permission is
-  owned by the plugin that gates on it, and a host-invented default would gate nothing.
+- **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. A bare
+  word names *who someone is* — a role — and roles are groups here; the old catch-all `admin`
+  permission was exactly that mistake, split into `users:`/`groups:`/`permissions:`/`oauth2-clients:`
+  × `read`/`write` 2026-08-05. **Enforced at discovery** (`isValidPermissionName` in
+  `plugin-host/plugin.ts`, checked by `shapeError` over every route/nav `permission` and every
+  declared name), fail-loud like every other manifest rule — not only in the admin GUI, which an
+  operator removes by not copying the example in. The admin plugin's create form calls the same host
+  function; there is one regex. Decisions around it:
+  - `<resource>` is **global, not plugin-scoped** (hence `oauth2-clients`, not `clients`). Deliberate
+    cross-plugin sharing is a goal, so the pre-2026-08-05 `<id>:<action>` guidance was wrong: users
+    are the *host's*, not the admin plugin's. Cost: collision-freedom became a convention rather than
+    structural. Accepted — the alternative penalizes the sharing case.
+  - **Declaring a permission stays optional.** Requiring every gated route to declare its permission
+    would make `findConflicts` see all overlaps, but would then warn on exactly the legitimate
+    sharing case above. Shape is enforced; declaration is not.
+  - ***Addressing* a permission is looser than *minting* one** (`isPermissionPathSegment`) so a name
+    written before the rule can still be opened and deleted instead of stranding in Keto. Both mint
+    points are guarded — the create form, and `rolesAddMember`, whose write would otherwise create a
+    permission under a hand-typed name.
+  - `ADMIN_PERMISSIONS` **defaults to empty**: every permission is owned by the plugin that gates on
+    it, and a host-invented default would gate nothing. This makes the seed a function of what
+    `bootstrap` discovers, so `bootstrap` bind-mounts `./plugins` like `web` does, and a plugin
+    dropped in after first boot needs `docker compose up -d` (which re-runs the one-shot), not
+    `restart web`. Valid while bootstrap is the only writer of grants.
+  - **`actionForMethod` is plugin-local and must not migrate into `#plugin-api`.** Inside the admin
+    example it buys one thing: the route table and the in-handler guard derive from one function, so
+    29 routes × 2 gate sites cannot drift. As a general mechanism it would make authorization a
+    function of the transport verb, and a route table must answer "what does this need?" on its own.
+- **`users:write` and `groups:write` are equivalent to full administrative access**, and the split
+  does not change that: `groups:write` adds you to any group, including one holding every permission;
+  `users:write` mints a recovery code for any account. The containment the split buys is real on the
+  **read** half only (`users:read` is a safe helpdesk grant). Don't let the per-resource naming imply
+  otherwise in docs. Raised by the architecture review 2026-08-05.
 - **Plainpages says "user" everywhere; Ory's word for it is "identity".** Kratos calls the record
   an identity, but Ory's own docs state it uses that term *interchangeably* with "users" and
   "accounts" — so this is house style, not a renamed concept, and "user" is the word readers

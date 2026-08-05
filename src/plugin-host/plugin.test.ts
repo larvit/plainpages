@@ -5,6 +5,7 @@ import {
   definePlugin,
   findConflicts,
   HOST_API_VERSION,
+  isValidPermissionName,
   isValidPluginId,
   parseSemver,
   RESERVED_PLUGIN_IDS,
@@ -44,6 +45,16 @@ test("isValidPluginId accepts lowercase/digits/dashes anywhere and rejects every
   }
   for (const bad of ["People", "people_dir", "a/b", "a.b", "a b", ""]) {
     assert.ok(!isValidPluginId(bad), bad);
+  }
+});
+
+test("isValidPermissionName requires <resource>:<action> — a bare word names a role, and roles are groups", () => {
+  for (const ok of ["users:read", "scheduling:write", "oauth2-clients:read", "team-a:a1_b9", "invoices:approve"]) {
+    assert.ok(isValidPermissionName(ok), ok);
+  }
+  // "admin" is the shape this rule exists to stop: it says who someone is, not what they may do.
+  for (const bad of ["admin", "", "Users:read", "users:", ":read", "users:read:extra", "a b:read", "-bad:read", "a/b:read", `${"a".repeat(60)}:read`]) {
+    assert.ok(!isValidPermissionName(bad), bad);
   }
 });
 

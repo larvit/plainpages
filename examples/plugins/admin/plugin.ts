@@ -11,15 +11,15 @@ import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clie
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsRemoveMember } from "./admin-groups.ts";
 import { rolesAddMember, rolesCreate, rolesDelete, rolesDeleteConfirm, rolesDetail, rolesList, rolesNewForm, rolesRemoveMember } from "./admin-permissions.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
-import { ADMIN_NAV, adminPermission, type AdminResource } from "./admin-shared.ts";
+import { ADMIN_NAV, actionForMethod, type AdminResource, permissionName } from "./admin-shared.ts";
 
-// One route factory per screen: `permission` is derived by `adminPermission`, so a GET gates on
-// `<resource>:read` and a POST on `<resource>:write` and the table below cannot drift from the guard
-// each handler runs. The host redirects an anonymous visitor to /login, gives a signed-in user
-// missing the permission the 403 page, and filters the nav the same way. Handlers are thin and keyed
-// on ctx.params (the host extracts :id / :name), the idiomatic per-route style.
+// One route factory per screen: a GET gates on `<resource>:read` and a POST on `<resource>:write`,
+// derived through the same two helpers the in-handler guard uses, so the table below cannot drift
+// from it. The host redirects an anonymous visitor to /login, gives a signed-in user missing the
+// permission the 403 page, and filters the nav the same way. Handlers are thin and keyed on
+// ctx.params (the host extracts :id / :name), the idiomatic per-route style.
 const on = (resource: AdminResource) => (method: HttpMethod, path: string, handler: RouteHandler): Route =>
-  ({ handler, method, path, permission: adminPermission(resource, method) });
+  ({ handler, method, path, permission: permissionName(resource, actionForMethod(method)) });
 
 const users = on("users");
 const groups = on("groups");

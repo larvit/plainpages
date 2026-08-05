@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
-import { GuardError, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, adminPermission, buildConfirmModel, guardedForm, requirePermission } from "./admin-shared.ts";
+import { GuardError, isValidPermissionName, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
+import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, actionForMethod, buildConfirmModel, guardedForm, permissionName, requirePermission } from "./admin-shared.ts";
 
 const reader: User = { email: "ada@x.io", id: "u1", permissions: ["users:read"] };
 const writer: User = { email: "cy@x.io", id: "u3", permissions: ["users:read", "users:write"] };
@@ -31,7 +31,10 @@ test("ADMIN_NAV: an ungated Admin header whose four screens each gate on their o
   assert.equal(ADMIN_NAV.id, "admin");
   // No gate on the header: a user may hold one screen's permission and not another's. composeNav
   // drops a header left with no visible children, so holding none of the four hides the section.
+  // Both halves matter — give the header an `href` and it survives the filter as a visible leaf,
+  // ungated, for anonymous visitors included.
   assert.equal(ADMIN_NAV.permission, undefined);
+  assert.equal(ADMIN_NAV.href, undefined);
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/permissions", "/admin/clients"]);
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.permission), ["users:read", "groups:read", "permissions:read", "oauth2-clients:read"]);
@@ -44,12 +47,18 @@ test("ADMIN_NAV: an ungated Admin header whose four screens each gate on their o
 
 // ---- permission naming ----
 
-test("adminPermission builds <resource>:<action> — read for GET/HEAD, write for every mutation", () => {
-  assert.equal(adminPermission("users", "GET"), "users:read");
-  assert.equal(adminPermission("users", "HEAD"), "users:read"); // a GET route also answers HEAD
-  assert.equal(adminPermission("users", "POST"), "users:write");
-  assert.equal(adminPermission("groups", "DELETE"), "groups:write"); // anything that isn't a read is a write
-  assert.equal(adminPermission("oauth2-clients", "get"), "oauth2-clients:read"); // method case is the caller's
+test("permissionName builds <resource>:<action>, and the host agrees the result is well-formed", () => {
+  assert.equal(permissionName("users", "read"), "users:read");
+  assert.equal(permissionName("oauth2-clients", "write"), "oauth2-clients:write");
+  assert.ok(isValidPermissionName(permissionName("oauth2-clients", "write"))); // the rule discovery enforces
+});
+
+test("actionForMethod: read for GET/HEAD, write for every mutation", () => {
+  assert.equal(actionForMethod("GET"), "read");
+  assert.equal(actionForMethod("HEAD"), "read"); // a GET route also answers HEAD
+  assert.equal(actionForMethod("POST"), "write");
+  assert.equal(actionForMethod("DELETE"), "write"); // anything that isn't a read is a write
+  assert.equal(actionForMethod("get"), "read"); // method case is the caller's
 });
 
 // ---- auth gates ----

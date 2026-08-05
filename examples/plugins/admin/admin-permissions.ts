@@ -8,8 +8,8 @@
 // Kratos is read only to label members. Below the builders are thin per-route handlers (keyed on
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
-import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_PERMISSIONS_BASE, adminPermission, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
+import { type ExpandTree, isValidPermissionName, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { ADMIN_EN, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
   groupsFromTuples,
@@ -26,7 +26,7 @@ const PERMISSION_NS = "Permission";
 const GRANTED = "granted";
 // The one irreversible move on this screen: delete this permission, or revoke your own grant of it,
 // and nobody can grant anything ever again. Guarded like the `admin` permission it replaces.
-const LOCKOUT_PERMISSION = adminPermission("permissions", "POST");
+const LOCKOUT_PERMISSION = permissionName("permissions", "write");
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];
 // Expand far past any sane group-nesting depth so the effective-access view never silently
@@ -38,16 +38,11 @@ const EXPAND_MAX_DEPTH = 50;
 export type PermissionView = GroupView;
 export const permissionsFromTuples = groupsFromTuples;
 
-const PERMISSION_NAME = /^[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*$/;
 const PERMISSION_SEGMENT = /^[a-z0-9][a-z0-9_:-]*$/;
-
-// Creating one enforces the convention, so it holds going forward.
-export function isValidPermissionName(name: string): boolean {
-  return name.length <= 64 && PERMISSION_NAME.test(name);
-}
 
 // Addressing one only has to recognise a name Keto can already hold: a permission written before
 // this rule — or by another tool — stays viewable and deletable instead of 404ing out of reach.
+// Minting one goes through the host's `isValidPermissionName`, the same rule discovery enforces.
 export function isPermissionPathSegment(name: string): boolean {
   return name.length <= 64 && PERMISSION_SEGMENT.test(name);
 }
@@ -347,6 +342,10 @@ export const rolesDetail = withRoleName((deps, name) => permissionDetailResult(d
 export const rolesAddMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
+  // A permission exists only while a tuple carries it, so this write would *create* one under a
+  // hand-typed name — the second mint point, and the one that would slip past the create form's
+  // <resource>:<action> rule. Assigning to something that doesn't exist is a 404, not a create.
+  if (!(await roleExists(keto, name))) return notFound(ctx);
   const member = (form.get("member") ?? "").trim();
   const tuple = permissionGrantTuple(name, member); // the picker only offers real users/groups
   if (tuple) { await keto.writeTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission assigned", { actor: user.id, member, permission: name }); }

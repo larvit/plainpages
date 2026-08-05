@@ -20,12 +20,21 @@ export const ADMIN_CLIENTS_BASE = "/admin/clients";
 // `oauth2-clients` rather than `clients` because permission names are one global namespace.
 export type AdminResource = "groups" | "oauth2-clients" | "permissions" | "users";
 
-// `<resource>:<action>` (README → Users, groups & permissions). Every screen reads on GET/HEAD and
-// mutates on POST, so the manifest's route table and the in-handler guard both derive the name here
-// rather than each spelling it out — they cannot drift into gating on different permissions.
-export function adminPermission(resource: AdminResource, method: string): string {
+export type AdminAction = "read" | "write";
+
+// `<resource>:<action>` (README → Naming a permission).
+export function permissionName(resource: AdminResource, action: AdminAction): string {
+  return `${resource}:${action}`;
+}
+
+// This plugin's mapping from method to action: every screen reads on GET/HEAD and mutates on POST.
+// The manifest's route table and the in-handler guard both go through it rather than each spelling
+// the permission out, so they cannot drift into gating on different names. Deliberately local — as
+// a general mechanism it would make authorization a function of the transport verb, and a route
+// table should answer "what does this need?" on its own (AGENTS.md).
+export function actionForMethod(method: string): AdminAction {
   const verb = method.toUpperCase();
-  return `${resource}:${verb === "GET" || verb === "HEAD" ? "read" : "write"}`;
+  return verb === "GET" || verb === "HEAD" ? "read" : "write";
 }
 
 // The plugin's nav fragment: an ungated "Admin" header + its four screens, each gated on its own
@@ -50,7 +59,7 @@ export const ADMIN_NAV: NavNode = {
 // handler to thread on. GuardError → /login or 403.
 export function requirePermission(ctx: RequestContext, resource: AdminResource): User {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
-  const permission = adminPermission(resource, ctx.req.method ?? "GET");
+  const permission = permissionName(resource, actionForMethod(ctx.req.method ?? "GET"));
   if (!can(ctx, permission)) throw new GuardError(403, `${permission} required`);
   return user;
 }
