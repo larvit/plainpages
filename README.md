@@ -1768,6 +1768,13 @@ so for now the error names the rule it tripped instead.
   `users:`/`groups:`/`oauth2-clients:` × `read`/`write`, so a copy taken before this needs re-copying.
   `ADMIN_PERMISSIONS` is held to the same rule, but an unusable value there is dropped with a warning
   rather than failing the boot. See [Naming a permission](#naming-a-permission).
+- **Deps moved to `/node_modules`, above `/app`** (2026-08-05). The dev override no longer mounts an
+  anonymous volume at `/app/node_modules`, so after pulling, delete the empty directory the daemon
+  left behind: `rmdir node_modules` — no `sudo`, it is empty. `docker volume prune` reclaims the
+  orphaned volumes. Keep that path clear: anything there shadows the image's deps silently, and a
+  populated one is root-owned and needs `sudo` to remove. Add a dependency with the
+  `--package-lock-only` command in [Extending the core](#extending-the-core), never a bare
+  `npm install` in `/app`.
 
 ## Observability
 

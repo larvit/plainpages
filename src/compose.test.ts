@@ -94,14 +94,19 @@ test("deps live above WORKDIR, so no mount creates a root-owned dir in the check
   // a volume at /app/node_modules leaves a root-owned node_modules/ in the developer's own checkout
   // (dev bind-mounts `.:/app`). Installing above /app lets Node resolve upward instead — nothing to
   // shadow, so nothing to mount over.
-  const beforeWorkdir = read("Dockerfile").split("WORKDIR /app")[0]!;
+  const dockerfile = read("Dockerfile");
+  // Asserted, not assumed: split() returns the whole file when the marker is missing, which would
+  // silently widen "before WORKDIR" to "anywhere".
+  assert.ok(dockerfile.includes("WORKDIR /app"), "the app dir is /app");
+  const beforeWorkdir = dockerfile.split("WORKDIR /app")[0]!;
   assert.match(beforeWorkdir, /npm ci/, "npm ci runs before WORKDIR /app");
   assert.match(beforeWorkdir, /mv\s+node_modules\s+\/node_modules/, "and its tree lands at /node_modules");
 
-  const composeFiles = readdirSync(new URL("../e2e-tests", import.meta.url))
-    .filter((f) => f.startsWith("compose."))
-    .map((f) => `e2e-tests/${f}`);
-  for (const f of ["compose.yml", "compose.override.yml", ...composeFiles])
+  const composeFiles = (dir: string) =>
+    readdirSync(new URL(`../${dir}`, import.meta.url))
+      .filter((f) => f.startsWith("compose.") && f.endsWith(".yml"))
+      .map((f) => `${dir}${f}`);
+  for (const f of [...composeFiles(""), ...composeFiles("e2e-tests/")])
     assert.ok(!read(f).includes("/app/node_modules"), `${f} mounts nothing at /app/node_modules`);
 });
 

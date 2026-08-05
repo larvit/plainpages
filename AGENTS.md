@@ -329,7 +329,12 @@ them. Revisit only if the stated reason stops holding.
   as `<repo>/node_modules` no longer resolves, so `src/ui/icons.test.ts` locates lucide-static by
   specifier via `import.meta.resolve`; and `npm install` must not run in `/app` or it recreates the
   problem — README → Extending the core documents `--package-lock-only` plus `--user` instead, which
-  is also why the image sets `npm_config_cache` (the host uid has no home dir here). Decided 2026-08-05.
+  is also why the image sets `npm_config_cache` (the host uid has no home dir here). Nothing masks
+  that path any more, so anything at `/app/node_modules` now **shadows `/node_modules` silently** —
+  wrong dependency code, no warning, and CI stays green because a fresh clone has none. An empty
+  leftover dir is harmless (resolution falls through); a populated one from the superseded root
+  `npm install` needs `sudo` to remove, which is worse than the bug this replaced. `.dockerignore`'s
+  `node_modules` line is what keeps a builder's stray copy out of the image. Decided 2026-08-05.
 
 ## Docker only — no host tooling
 
