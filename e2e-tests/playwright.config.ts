@@ -3,6 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 // Visual + functional checks against the live app (the `web` compose service, BASE_URL). Run via
 // e2e-tests/compose.visual.yml. Parallel per the project's E2E principle; deterministic colorScheme/viewport
 // so the rendered design is stable across runs.
+
+const ORY_FREE = /(visual|language)\.spec\.ts$/;
+
 export default defineConfig({
   testDir: ".",
   outputDir: "artifacts/test-output",
@@ -15,11 +18,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
     viewport: { width: 1280, height: 800 },
   },
-  // CSS anchor positioning is the newest platform feature in the app and every popup menu rests on
-  // it, so the tests tagged @engines run in all three engines; the rest stay on chromium.
+  // The Ory-free suites run in all three engines: the console guard (console-guard.ts) only sees an
+  // engine's warnings when that engine renders the page, and the newest platform features in the app
+  // (popover, CSS anchor positioning, `:has()`) are exactly where engines disagree. They stay
+  // side-effect-free, so three parallel runs of them don't collide. The Ory-backed suites write to
+  // one shared backend and stay on chromium.
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", grep: /@engines/, use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", grep: /@engines/, use: { ...devices["Desktop Safari"] } },
+    { name: "firefox", testMatch: ORY_FREE, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testMatch: ORY_FREE, use: { ...devices["Desktop Safari"] } },
   ],
 });

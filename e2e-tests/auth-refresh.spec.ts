@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./console-guard.ts";
 
 // Full-stack auth E2E: token timeout + silent re-mint ("stay signed in"). Runs against the
 // real Ory stack via e2e-tests/compose.auth.yml, where the session→JWT TTL is shortened to 8s and the

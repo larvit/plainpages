@@ -1,14 +1,14 @@
 import { createPrivateKey, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { allowConsole, expect, test } from "./console-guard.ts";
 
-const SHOTS = "artifacts/screenshots";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const SESSION_COOKIE = "plainpages_jwt"; // src/auth/login.ts — web verifies it against the committed dev JWKS
 
+// Per engine: the three projects run this suite in parallel and would otherwise write one file.
 const shot = (page: Page, name: string): Promise<Buffer> =>
-  page.screenshot({ fullPage: true, path: `${SHOTS}/${name}.png` });
+  page.screenshot({ fullPage: true, path: `artifacts/screenshots/${test.info().project.name}/${name}.png` });
 
 // Sign a session JWT with the committed dev tokenizer key (bind-mounted at /repo/jwks.json), so the
 // gated dashboard renders for a "signed-in" user without standing up Ory — web verifies it
@@ -21,8 +21,6 @@ function devSession(permissions: string[] = []): string {
   const input = `${b64({ alg: "ES256", kid: jwk.kid, typ: "JWT" })}.${b64({ email: "demo@plainpages.local", exp: now + 3600, iat: now, permissions, sub: "visual-demo" })}`;
   return `${input}.${sign("SHA256", Buffer.from(input), { dsaEncoding: "ieee-p1363", key }).toString("base64url")}`;
 }
-
-test.beforeAll(async () => { await mkdir(SHOTS, { recursive: true }); });
 
 // The dashboard is gated: a page navigation needs a session. Plant one per test — a plain
 // member (no permissions) so the gated scheduling nav stays filtered out.
@@ -74,7 +72,7 @@ test("theme switch flips the palette with no JavaScript", async ({ page }) => {
 // longer has to click the trigger again to get rid of one. Driven through the language picker; the
 // profile menu is the same block. Anchoring is asserted too — without `position-anchor` the panel
 // silently detaches and lands in the middle of the viewport.
-test("a popover menu sits on its trigger and closes on an outside click or Esc — no JavaScript @engines", async ({ page }) => {
+test("a popover menu sits on its trigger and closes on an outside click or Esc — no JavaScript", async ({ page }) => {
   await page.goto("/dashboard");
   const trigger = page.locator('button[aria-label="Language"]');
   const panel = page.locator('button[aria-label="Language"] + .menu-pop');
@@ -138,6 +136,7 @@ test("the public landing at / is ungated and links to sign in + register", async
 });
 
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
+  allowConsole(/status of 404/); // Chromium and WebKit log the status of the navigation under test
   const res = await page.goto("/no-such-page");
   expect(res?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();

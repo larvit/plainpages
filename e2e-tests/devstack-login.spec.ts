@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./console-guard.ts";
 
 // Regression: the from-scratch dev experience the README/banner advertises must work. `docker compose
 // up`, open the printed login URL (http://localhost:3000), sign in as the seeded admin → you land on

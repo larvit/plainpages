@@ -1500,6 +1500,12 @@ Screenshots + an HTML report land in `e2e-tests/artifacts/` (git-ignored). Every
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
 ([AGENTS.md](AGENTS.md)) — keep new tests side-effect-free so the suite stays fast.
 
+**Anything the browser logs fails the test.** Specs import `test` from
+`e2e-tests/console-guard.ts`, which watches every page a test opens — a console error or warning, or
+an uncaught exception, fails that test; a page that provokes one on purpose allows it explicitly with
+`allowConsole(/…/)`. The Ory-free suites run in **Chromium, Firefox and WebKit**, so each engine's
+console is read; the Ory-backed suites share one backend and stay on Chromium.
+
 ### The full gate (one command)
 
 `ci.sh` is the whole gate in one reproducible command — typecheck → unit tests →

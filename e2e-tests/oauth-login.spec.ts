@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./console-guard.ts";
 
 // Full-stack OAuth2 login + consent E2E: another app logs in *through* plainpages. Hydra
 // starts an authorization flow and hands the browser to web's /oauth2/login; web resolves it via

@@ -1,4 +1,5 @@
-import { type Browser, type Page, expect, test } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { expect, test, watchedPage } from "./console-guard.ts";
 import { randomUUID } from "node:crypto";
 
 // Full browser E2E: the real Playwright UI against the live stack via the same-origin
@@ -27,7 +28,7 @@ async function loginPassword(page: Page): Promise<void> {
 // The themed Kratos page in another language: our own chrome, Kratos' own strings mapped by id, and
 // the card's own links keeping the choice (they are rendered by the flow body, not by the menu).
 test("the login page speaks the visitor's language, links included", async ({ browser }) => {
-  const page = await (await browser.newContext()).newPage();
+  const page = await watchedPage(await browser.newContext());
   await page.goto("/login?locale=sv-SE");
   await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
   await expect(page.getByRole("heading", { name: "Logga in" })).toBeVisible();
@@ -43,7 +44,7 @@ test.describe.serial("authenticated admin journey", () => {
 
   test.beforeAll(async ({ browser: b }) => {
     browser = b;
-    page = await (await browser.newContext()).newPage();
+    page = await watchedPage(await browser.newContext());
     test.setTimeout(90_000);
     await loginPassword(page);
   });

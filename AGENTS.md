@@ -193,7 +193,7 @@ them. Revisit only if the stated reason stops holding.
   point), and the panel sits in the top layer so a row kebab is no longer clipped by `.table-wrap`'s
   `overflow`. Four rules hold it together, none of them cosmetic. The panel carries
   **`position-anchor: auto`** — a bare `anchor()` resolves to nothing in Chromium, Firefox *and*
-  WebKit alike, which is why the `@engines`-tagged test in `visual.spec.ts` runs in all three rather
+  WebKit alike, which is why the popover test in `visual.spec.ts` runs in all three rather
   than resting on a one-time manual measurement. The panel stays the trigger's **next sibling inside
   the `.menu` wrapper**, because the open-state style and the old-browser fallback both read that
   adjacency, and a two-element partial cannot be dropped into an arbitrary layout. The `menu` partial
@@ -214,6 +214,22 @@ them. Revisit only if the stated reason stops holding.
   instead of failing loud; the `every icon <use> resolves to a defined <symbol>` e2e test catches it for
   anything reaching the nav. Removing an id is a core edit, so weigh it per icon rather than sweeping the
   registry — a few ids are registered ahead of a caller (see `todo.md`).
+- **Anything the browser logs fails the E2E test that provoked it.** Every spec takes its `test` from
+  `e2e-tests/console-guard.ts`, which watches every page a test opens: a console error or warning, or
+  an uncaught exception, fails that test. A zero-JS app has nothing to say in the console, so the bar
+  is *zero* rather than a curated list of tolerated noise — and the two exceptions are explicit and
+  narrow: one module-level allowance for the COOP header Chromium drops because the e2e stacks serve
+  plain http over container hostnames (a deployment serves https, where it applies), and
+  `allowConsole(re)` for a test whose own page provokes a message on purpose — the 404 spec, whose
+  navigation Chromium and WebKit log. `src/e2e-console-guard.test.ts` locks the wiring in the *unit*
+  gate, because a spec importing `test` straight from Playwright would run unwatched and green.
+- **The Ory-free specs run in all three engines; the Ory-backed ones stay on Chromium.**
+  `visual.spec.ts` + `language.spec.ts` are side-effect-free, so three parallel runs don't collide,
+  and a console message only appears in the engine that renders the page — the reason the per-test
+  `@engines` tag is gone: the whole Ory-free suite is the engine matrix now (`ORY_FREE` in
+  `e2e-tests/playwright.config.ts`). The rest write users, groups and sessions to one shared backend,
+  where a second engine's run would race the first, so widening them means giving each engine its own
+  stack. Screenshots are written per project name for the same reason. Decided 2026-08-05.
 
 ## Docker only — no host tooling
 

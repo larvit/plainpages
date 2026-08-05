@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createPrivateKey, sign } from "node:crypto";
-import { mkdir } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test, watchedPage } from "./console-guard.ts";
 
 // Language switching in a real browser, Ory-free (the visual stack). Proves the whole path a
 // visitor takes: pick a language, read the page in it, and stay in it while clicking around —
@@ -9,7 +8,6 @@ import { expect, test } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const SESSION_COOKIE = "plainpages_jwt";
-const SHOTS = "artifacts/screenshots";
 
 // Same trick as visual.spec.ts: sign a session JWT with the committed dev tokenizer key so the
 // gated pages render without standing up Ory.
@@ -38,8 +36,7 @@ test("the switcher changes language, and the choice survives clicking through th
   await expect(page).toHaveURL(/locale=sv-SE/);
   await expect(page.getByRole("heading", { name: "Startpanel" })).toBeVisible(); // the starter dashboard, in Swedish
   await expect(page.getByRole("link", { name: "Översikt", exact: true })).toBeVisible(); // the menu too
-  await mkdir(SHOTS, { recursive: true });
-  await page.screenshot({ fullPage: true, path: `${SHOTS}/live-05-swedish.png` });
+  await page.screenshot({ fullPage: true, path: `artifacts/screenshots/${test.info().project.name}/live-05-swedish.png` });
 
   // Clicking a menu item keeps Swedish — the host carries the choice onto the links it renders,
   // and the plugin's own page is translated from its own catalog. The section's own label comes
@@ -66,7 +63,7 @@ test("the switcher changes language, and the choice survives clicking through th
 
 test("a browser that asks for Swedish gets it without touching the URL", async ({ browser }) => {
   const context = await browser.newContext({ locale: "sv" }); // a browser set to Swedish, no region
-  const page = await context.newPage();
+  const page = await watchedPage(context);
   await page.goto(`${BASE_URL}/`);
 
   await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
