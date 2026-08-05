@@ -121,7 +121,14 @@ them. Revisit only if the stated reason stops holding.
     Permissions screen's create form instead and needed a second guard for the assign form, which
     could also mint one — deleting the screen removed both.
   - `ADMIN_PERMISSIONS` **defaults to empty**: every permission is owned by the plugin that gates on
-    it, and a host-invented default would gate nothing. This makes the seed a function of what
+    it, and a host-invented default would gate nothing. **An unusable value there is dropped with a
+    warning, never fatal** — fail-loud belongs at the manifest boundary, where a developer authored
+    the mistake; `bootstrap` gates `web`, so refusing operator env takes the whole stack down. This
+    is not hypothetical: `admin` was this setting's own default until 2026-08-05, so a boot-breaking
+    value is the *expected* leftover on upgrade, and a revision of this branch shipped exactly that
+    bug past a green CI. `e2e-tests/compose.auth.yml` now seeds `ADMIN_PERMISSIONS: admin,users:read`
+    so the container proves it survives one; verified by negative control (re-adding the throw fails
+    that suite at stack-up). This makes the seed a function of what
     `bootstrap` discovers, and a plugin dropped in after first boot therefore needs
     `docker compose up -d` (which re-runs the one-shot), not `restart web`. The base file gives
     `bootstrap` and `web` the same baked `plugins/`; only `compose.override.yml`'s dev-only `.:/app`

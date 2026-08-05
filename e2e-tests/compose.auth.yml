@@ -33,9 +33,14 @@ services:
   # This stack mounts no plugins, so nothing declares a permission for the bootstrap to seed — and
   # the suite asserts that Keto's grants reach the JWT claim. Name one explicitly so there is
   # something to project.
+  #
+  # `admin` rides along on purpose: it was this setting's default until 2026-08-05 and is not a legal
+  # `<resource>:<action>` name, so it is exactly the leftover an upgrading deployment carries. An
+  # earlier revision made that fatal, and bootstrap gates `web` — so if the boot ever refuses operator
+  # env again, `web` never turns healthy and this suite fails instead of CI going green over it.
   bootstrap:
     environment:
-      ADMIN_PERMISSIONS: users:read
+      ADMIN_PERMISSIONS: admin,users:read
 
   # Shorten the session→JWT TTL and expose a network-resolvable base_url (ory/kratos/e2e.yml),
   # merged after the base config.

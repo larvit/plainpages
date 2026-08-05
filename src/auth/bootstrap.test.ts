@@ -33,19 +33,31 @@ test("permissionTuple grants a permission to user:<id> in the Permission namespa
 test("seedPermissions unions ADMIN_PERMISSIONS (empty by default) with the discovered plugins' declared permissions", () => {
   // Clean clone: no ADMIN_PERMISSIONS, the scheduling plugin declares its two names → the demo admin
   // holds exactly what the installed plugins gate on, derived from discovery, not hardcoded here.
-  assert.deepEqual(seedPermissions(undefined, ["scheduling:read", "scheduling:write"]), ["scheduling:read", "scheduling:write"]);
+  const names = (env: string | undefined, declared: string[]): string[] => seedPermissions(env, declared).permissions;
+  assert.deepEqual(names(undefined, ["scheduling:read", "scheduling:write"]), ["scheduling:read", "scheduling:write"]);
   // No plugins → nothing to grant. A host-invented base would be a permission that gates nothing.
-  assert.deepEqual(seedPermissions(undefined, []), []);
-  assert.deepEqual(seedPermissions("ops:read, ops:write ", ["inventory:read"]), ["ops:read", "ops:write", "inventory:read"]); // env trimmed + extended
-  assert.deepEqual(seedPermissions("scheduling:read", ["scheduling:read"]), ["scheduling:read"]); // dedup, no double grant
-  assert.deepEqual(seedPermissions(",, ", [" scheduling:read ", ""]), ["scheduling:read"]); // blanks dropped, names trimmed (both sides)
+  assert.deepEqual(names(undefined, []), []);
+  assert.deepEqual(names("ops:read, ops:write ", ["inventory:read"]), ["ops:read", "ops:write", "inventory:read"]); // env trimmed + extended
+  assert.deepEqual(names("scheduling:read", ["scheduling:read"]), ["scheduling:read"]); // dedup, no double grant
+  assert.deepEqual(names(",, ", [" scheduling:read ", ""]), ["scheduling:read"]); // blanks dropped, names trimmed (both sides)
 });
 
-test("seedPermissions refuses an ADMIN_PERMISSIONS name that isn't <resource>:<action>", () => {
-  // The operator's env is the one remaining hand-typed path; a manifest's names were checked at
-  // discovery. `admin` would otherwise write a tuple that gates nothing, with no error anywhere.
-  assert.throws(() => seedPermissions("admin", []), /ADMIN_PERMISSIONS.*<resource>:<action>.*admin/s);
-  assert.throws(() => seedPermissions("users:read,Bad Name", []), /Bad Name/);
+// The regression this pins: an earlier revision *threw* here, so `ADMIN_PERMISSIONS=admin` — this
+// setting's own default until 2026-08-05 — exited bootstrap 1, and bootstrap gates `web`, so a
+// leftover variable bricked the whole stack on upgrade. Bootstrap must never refuse to start over
+// operator env: drop what it can't use, report it, seed the rest.
+test("seedPermissions drops an ADMIN_PERMISSIONS name that isn't <resource>:<action>, and never throws", () => {
+  const legacy = seedPermissions("admin", ["users:read"]);
+  assert.deepEqual(legacy, { ignored: ["admin"], permissions: ["users:read"] });
+
+  const mixed = seedPermissions("admin, ops:read ,Bad Name", ["users:read"]);
+  assert.deepEqual(mixed, { ignored: ["admin", "Bad Name"], permissions: ["ops:read", "users:read"] });
+
+  // Whatever an operator puts there, the boot survives it — that is the property, not the parsing.
+  for (const value of ["admin", "Bad Name", ":", "::", "a".repeat(200), ",,,", "ADMIN", "1"]) {
+    assert.doesNotThrow(() => seedPermissions(value, ["users:read"]), value);
+    assert.deepEqual(seedPermissions(value, ["users:read"]).permissions.includes("users:read"), true, value);
+  }
 });
 
 test("seedAdmin on a fresh stack creates the identity and grants every permission (one tuple each)", async () => {

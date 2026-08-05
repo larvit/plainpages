@@ -36,14 +36,18 @@ export function permissionTuple(userId: string, permission: string) {
 // The base is empty because permissions are `<resource>:<action>` and every one of them is owned by
 // the plugin that gates on it — a host-invented default would gate nothing.
 // ADMIN_PERMISSIONS is the one place an operator names a permission by hand, so it is held to the
-// same `<resource>:<action>` rule discovery applies to a manifest — fail loud rather than write a
-// tuple that gates nothing. A declared name has already passed that check at discovery.
-export function seedPermissions(adminPermissionsEnv: string | undefined, declaredNames: string[]): string[] {
+// same `<resource>:<action>` rule discovery applies to a manifest — but *dropped with a warning*,
+// never fatal. Fail-loud belongs at the manifest boundary, where a developer authored the mistake
+// and can fix it; this is operator env, bootstrap gates `web`, and the whole stack must not refuse
+// to start over a stale variable. `admin` was this setting's own default before 2026-08-05, so a
+// value that bricks the boot is the *expected* leftover on any upgrade. The name it would have
+// written gates nothing anyway. Declared names already passed the check at discovery.
+export function seedPermissions(adminPermissionsEnv: string | undefined, declaredNames: string[]): { ignored: string[]; permissions: string[] } {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
   const configured = clean((adminPermissionsEnv ?? "").split(","));
-  const bad = configured.filter((name) => !isValidPermissionName(name));
-  if (bad.length > 0) throw new Error(`bootstrap: ADMIN_PERMISSIONS must be <resource>:<action> names, e.g. "things:read"; got ${bad.join(", ")}`);
-  return [...new Set([...configured, ...clean(declaredNames)])];
+  const ignored = configured.filter((name) => !isValidPermissionName(name));
+  const valid = configured.filter((name) => isValidPermissionName(name));
+  return { ignored, permissions: [...new Set([...valid, ...clean(declaredNames)])] };
 }
 
 // --- JWKS safety net -----------------------------------------------------------------
@@ -155,7 +159,10 @@ async function main() {
     // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
     const declared = declaredPermissions(await discoverPlugins()).map((decl) => decl.name);
-    const permissions = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
+    const { ignored, permissions } = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
+    if (ignored.length > 0) {
+      log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });
+    }
     const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
     const password = env["ADMIN_PASSWORD"] ?? "admin";
     const result = await seedAdmin({
