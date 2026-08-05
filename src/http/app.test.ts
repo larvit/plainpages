@@ -1238,12 +1238,19 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
   assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
 
+  // Give it a permission first, so the delete below has an orphan to avoid leaving behind.
+  await post("/admin/groups/eng/permissions", `_csrf=${token}&permission=users%3Aread`);
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "users:read" && tp.subject_set?.object === "eng"));
+
   // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
   assert.match(await (await get("/admin/groups/eng/delete")).text(), /Cancel/);
   const del = await post("/admin/groups/eng/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.equal(del.headers.get("location"), "/admin/groups");
   assert.ok(!tuples.some((tp) => tp.object === "eng"));
+  // …and the permissions it held go with it. A Keto set exists only through its tuples, so an
+  // orphaned grant would resurrect the moment someone re-created a group with the same name.
+  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.subject_set?.object === "eng"));
 
   // An invalid group name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/groups/Bad%20Name")).status, 404);
@@ -1319,7 +1326,8 @@ test("admin screens render no write affordance for a read-only holder", async (t
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   // Hydra is wired so the clients screen renders for real — without it the page is a 503 and the
   // "no Register button" assertion below would pass without proving anything.
-  const hydra = stubHydra({ listClients: async () => ({ clients: [{ client_id: "existing", client_name: "Reporting" }], nextPageToken: null }) });
+  const reporting = { client_id: "existing", client_name: "Reporting" };
+  const hydra = stubHydra({ getClient: async (id) => (id === reporting.client_id ? reporting : null), listClients: async () => ({ clients: [reporting], nextPageToken: null }) });
   const { get } = await adminHarness(t, { hydra, keto, kratosAdmin });
   const readOnly = ["users:read", "groups:read"];
 
@@ -1346,6 +1354,10 @@ test("admin screens render no write affordance for a read-only holder", async (t
   const clients = await clientsRes.text();
   assert.match(clients, /Reporting/); // the list is there — that's what :read buys
   assert.doesNotMatch(clients, /href="\/admin\/clients\/new"/);
+  // The detail page is where Delete lives, so check it too and not just the list.
+  const clientDetail = await (await get("/admin/clients/existing", ["oauth2-clients:read"])).text();
+  assert.match(clientDetail, /Reporting/);
+  assert.doesNotMatch(clientDetail, /clients\/existing\/delete/);
 
   // A write-intent GET — a create form or a delete-confirm — refuses a reader outright rather than
   // rendering a form whose submit would 403.

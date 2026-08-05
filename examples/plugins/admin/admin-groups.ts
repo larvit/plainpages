@@ -7,7 +7,7 @@
 // each returning a RouteResult.
 
 import { can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -401,8 +401,14 @@ export const groupsDeleteConfirm = withGroupName((deps, name) => {
 // POST /admin/groups/:name/delete — remove every member tuple (the group ceases to exist).
 export const groupsDelete = withGroupName(async ({ ctx, keto, user }, name) => {
   await guardedForm(ctx); // CSRF-verify the POST
+  // Drop what the group *holds* before what it *contains*: a Keto set exists only through its
+  // tuples, so leaving the grants behind would resurrect every permission the moment someone
+  // re-created a group with the same name.
+  const subject = groupSubject(name);
+  const held = await heldPermissions(keto, subject);
+  for (const permission of held) await keto.deleteTuple(grantTuple(permission, subject));
   await keto.deleteTuple({ namespace: GROUP_NS, object: name, relation: MEMBERS });
-  ctx.log.info("admin: group deleted", { actor: user.id, group: name });
+  ctx.log.info("admin: group deleted", { actor: user.id, group: name, revoked: held.join(",") });
   return { redirect: ADMIN_GROUPS_BASE };
 });
 

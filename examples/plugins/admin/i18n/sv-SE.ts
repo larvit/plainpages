@@ -49,6 +49,7 @@ const messages: AdminMessages = {
   "admin.common.user": "Användare",
 
   "admin.grants.hint": "Vilka behörigheter som finns bestäms av de plugins som är installerade. Kryssa i för att tilldela, ur för att återkalla.",
+  "admin.grants.hintReadOnly": "Vilka behörigheter som finns bestäms av de plugins som är installerade. Du kan se dem, men inte ändra dem.",
   "admin.grants.inherited": "Gråmarkerade behörigheter kommer från en grupp. Ändra dem på gruppen.",
   "admin.grants.legend": "Behörigheter",
   "admin.grants.none": "Ingen installerad plugin deklarerar någon behörighet, så det finns inget att tilldela.",
@@ -63,7 +64,7 @@ const messages: AdminMessages = {
   "admin.groups.column.name": "Grupp",
   "admin.groups.create": "Skapa grupp",
   "admin.groups.delete": "Radera grupp",
-  "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det tar bort gruppen och alla dess medlemskap.",
+  "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det tar bort gruppen, dess medlemmar och de behörigheter den ger dem.",
   "admin.groups.field.name": "Gruppnamn",
   "admin.groups.field.nameHint": "Små bokstäver, siffror, bindestreck och understreck.",
   "admin.groups.filter": "Filtrera grupper",
@@ -87,7 +88,6 @@ const messages: AdminMessages = {
 
   "admin.notFound.message": "Objektet finns inte.",
   "admin.notFound.title": "Hittades inte",
-
 
   "admin.unavailable.message": "{{what}} är inte konfigurerat i den här installationen.",
   "admin.unavailable.title": "Administrationen är otillgänglig",

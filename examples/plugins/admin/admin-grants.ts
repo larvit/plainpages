@@ -93,8 +93,10 @@ export function buildPermissionPicker(opts: {
     choices,
     empty: opts.declared.length === 0 ? t("admin.grants.none") : undefined,
     field: PERMISSIONS_FIELD,
-    hint: t("admin.grants.hint"),
-    inheritedNote: choices.some((c) => c.inherited) ? t("admin.grants.inherited") : undefined,
+    // A reader sees every row disabled, so "tick to grant" is false and "greyed-out means group-held"
+    // is worse than false — it would misattribute a *direct* grant to a group that doesn't hold it.
+    hint: t(opts.readOnly === true ? "admin.grants.hintReadOnly" : "admin.grants.hint"),
+    inheritedNote: opts.readOnly !== true && choices.some((c) => c.inherited) ? t("admin.grants.inherited") : undefined,
     legend: t("admin.grants.legend"),
     pending: opts.transitive === true ? t("admin.grants.pending") : undefined,
     readOnly: opts.readOnly === true,

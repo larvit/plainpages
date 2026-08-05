@@ -7,7 +7,7 @@
   there) and every row when `readOnly` (the viewer holds :read but not :write). Neither can be diffed
   into an accidental revoke, because grantDiff compares against the direct grants only.
 
-  Locals: csrfToken, permissions ({ action, choices, empty, error, field, hint, inheritedNote, legend, readOnly, submit }).
+  Locals: csrfToken, permissions ({ action, choices, empty, error, field, hint, inheritedNote, legend, pending, readOnly, submit }).
 %>
   <section class="form-card" aria-labelledby="permissions-h">
     <h2 class="card-title" id="permissions-h"><%= permissions.legend %></h2>

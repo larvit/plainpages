@@ -645,7 +645,7 @@ interface RequestContext {
   req: IncomingMessage;
   res: ServerResponse;
   permissions: string[];                   // user?.permissions ?? [] — coarse gate without a null-check
-  declaredPermissions: PermissionDecl[];   // every permission the installed plugins declare, deduped + sorted — what *exists*, vs `permissions` = what this user *holds*
+  declaredPermissions: readonly PermissionDecl[]; // every permission the installed plugins declare, deduped + sorted — what *exists*, vs `permissions` = what this user *holds*
   system?: SystemCapabilities;       // privileged Ory clients + instant-revoke, for a system plugin (see below); undefined unless the host wired them
   url: URL;
   verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie

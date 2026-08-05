@@ -60,9 +60,20 @@ test("buildPermissionPicker distinguishes a direct grant from one inherited thro
 });
 
 test("buildPermissionPicker in read-only mode still shows the state, and marks itself unwritable", () => {
-  const picker = buildPermissionPicker({ action: "/x", declared, direct: ["users:read"], readOnly: true });
+  const picker = buildPermissionPicker({ action: "/x", declared, direct: ["users:read"], effective: ["users:read", "groups:read"], readOnly: true });
   assert.equal(picker.readOnly, true);
-  assert.deepEqual(picker.choices.map((c) => c.checked), [true, false, false]); // a reader still sees who holds what
+  assert.deepEqual(picker.choices.map((c) => c.checked), [true, false, true]); // a reader still sees who holds what
+  // Every row renders disabled for a reader, so the writable copy would be wrong twice over: "tick to
+  // grant" is false, and "greyed-out means group-held" would misattribute the direct grant.
+  assert.equal(picker.inheritedNote, undefined);
+  assert.notEqual(picker.hint, buildPermissionPicker({ action: "/x", declared, direct: [] }).hint);
+});
+
+test("buildPermissionPicker notes the transitive lag for a group, and stays quiet for a user", () => {
+  // A group's members inherit, so the change reaches them at their next re-mint; a user's own grant
+  // change revokes their live tokens, so there is nothing to warn about.
+  assert.ok(buildPermissionPicker({ action: "/x", declared, direct: [], transitive: true }).pending);
+  assert.equal(buildPermissionPicker({ action: "/x", declared, direct: [] }).pending, undefined);
 });
 
 test("buildPermissionPicker says so when no plugin declares a permission, rather than rendering an empty box", () => {

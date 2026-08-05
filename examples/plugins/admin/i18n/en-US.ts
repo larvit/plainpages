@@ -49,6 +49,7 @@ const messages = {
   "admin.common.user": "User",
 
   "admin.grants.hint": "Which permissions exist is set by the plugins installed on this system. Tick to grant, untick to revoke.",
+  "admin.grants.hintReadOnly": "Which permissions exist is set by the plugins installed on this system. You can see these, but not change them.",
   "admin.grants.inherited": "Greyed-out permissions come from a group. Change them on that group.",
   "admin.grants.legend": "Permissions",
   "admin.grants.none": "No installed plugin declares a permission, so there is nothing to grant.",
@@ -63,7 +64,7 @@ const messages = {
   "admin.groups.column.name": "Group",
   "admin.groups.create": "Create group",
   "admin.groups.delete": "Delete group",
-  "admin.groups.deleteMessage": "Delete group {{name}}? This removes the group and all its memberships.",
+  "admin.groups.deleteMessage": "Delete group {{name}}? This removes the group, its members, and the permissions it grants them.",
   "admin.groups.field.name": "Group name",
   "admin.groups.field.nameHint": "Lowercase letters, digits, dashes and underscores.",
   "admin.groups.filter": "Filter groups",
@@ -87,7 +88,6 @@ const messages = {
 
   "admin.notFound.message": "That item doesn't exist.",
   "admin.notFound.title": "Not found",
-
 
   "admin.unavailable.message": "{{what}} is not configured on this deployment.",
   "admin.unavailable.title": "Admin unavailable",
