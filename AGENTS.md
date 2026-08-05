@@ -226,8 +226,10 @@ Revisit only if the stated reason stops holding.
   files, `.dockerignore` the image).
 - **A container whose output a human then edits or deletes runs as `--user "$(id -u):$(id -g)"`** —
   the E2E runner (artifacts) and a lockfile edit, or the output is root-owned and needs `sudo`, which
-  a dev box may not have at all. Not universal: `bootstrap` writes `jwks.json` as root on a first
-  boot, and a generated signing key is the operator's to leave alone. Three consequences.
+  a dev box may not have at all. Not universal: `bootstrap` writes `jwks.json` as root when it is
+  absent on first boot — the committed dev key makes that rare, and when it happens the rotation
+  runbook's host-side `>` needs the file re-owned first. Valid while the dev key ships committed.
+  Three consequences.
   `e2e-tests/artifacts/` is *tracked* (`.gitkeep`), since an absent bind-mount source is
   daemon-created as root and that uid then cannot write it — which also makes a root-owned leftover
   an upgrade hazard (README → Breaking changes). The runner image sets `HOME=/tmp`, since an

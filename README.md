@@ -1775,12 +1775,13 @@ so for now the error names the rule it tripped instead.
   silently shadows the image's deps.
 - **`e2e-tests/artifacts/` is tracked, and the E2E runner writes as you** (2026-08-05). A root-owned
   leftover from an earlier run blocks the checkout of its `.gitkeep` — git reports the failure but
-  still exits 0, leaving the file staged as deleted — and every E2E suite then fails `EACCES`. Clear
-  it before pulling; a root container does what `sudo` would, which this needs and a dev box may lack:
+  still exits 0, leaving the file deleted in your working tree, where a later `git commit -a` would
+  commit that deletion — and every E2E suite then fails `EACCES`. Clear it before pulling; a root
+  container does what `sudo` would, which this needs and a dev box may lack:
 
   ```bash
-  docker run --rm -v "$PWD/e2e-tests:/x" alpine:3.23 rm -rf /x/artifacts
-  git checkout -- e2e-tests/artifacts/.gitkeep
+  docker run --rm -v "$PWD/e2e-tests:/x" node:24.19.0-alpine3.24 rm -rf /x/artifacts
+  git checkout -- e2e-tests/artifacts/.gitkeep   # only if a pull already deleted it
   ```
 
 ## Observability
