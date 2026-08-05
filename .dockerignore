@@ -1,6 +1,5 @@
 .git
-# Load-bearing: deps live at /node_modules, so a builder's stray copy would bake in at
-# /app/node_modules and shadow them for every consumer of the image, production included.
+# Load-bearing: a stray copy would bake in at /app/node_modules and shadow /node_modules.
 node_modules
 npm-debug.log
 *.log

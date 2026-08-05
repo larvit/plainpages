@@ -1768,13 +1768,9 @@ so for now the error names the rule it tripped instead.
   `users:`/`groups:`/`oauth2-clients:` × `read`/`write`, so a copy taken before this needs re-copying.
   `ADMIN_PERMISSIONS` is held to the same rule, but an unusable value there is dropped with a warning
   rather than failing the boot. See [Naming a permission](#naming-a-permission).
-- **Deps moved to `/node_modules`, above `/app`** (2026-08-05). The dev override no longer mounts an
-  anonymous volume at `/app/node_modules`, so after pulling, delete the empty directory the daemon
-  left behind: `rmdir node_modules` — no `sudo`, it is empty. `docker volume prune` reclaims the
-  orphaned volumes. Keep that path clear: anything there shadows the image's deps silently, and a
-  populated one is root-owned and needs `sudo` to remove. Add a dependency with the
-  `--package-lock-only` command in [Extending the core](#extending-the-core), never a bare
-  `npm install` in `/app`.
+- **Deps moved to `/node_modules`, above `/app`** (2026-08-05). Run `rmdir node_modules` after
+  pulling (it is empty — no `sudo`) and `docker volume prune`. Keep that path clear: anything there
+  silently shadows the image's deps.
 
 ## Observability
 
@@ -1971,17 +1967,14 @@ README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/pla
 - **New page in a plugin:** add a route + handler to the plugin manifest and a template in
   its `views/`.
 - **Static asset:** drop it in the plugin's `public/`; served at `/public/<plugin>/<path>`.
-- **New dependency:** update the manifest + lockfile, then rebuild — the image is where deps
-  live, so there is nothing to install into the checkout:
+- **New dependency:** deps live in the image, so update the manifest + lockfile and rebuild —
+  `--package-lock-only` writes nothing into the checkout, `--user` keeps the two files yours.
+  Keep deps minimal — prefer the Node standard library, and an Ory REST call over an SDK.
 
   ```bash
   docker compose run --rm --no-deps --user "$(id -u):$(id -g)" web npm install --package-lock-only <pkg>
   docker compose build
   ```
-
-  `--package-lock-only` writes only `package.json` + `package-lock.json`, and `--user` keeps
-  both yours. Keep deps minimal — prefer the Node standard library, and prefer an Ory REST call
-  over an SDK.
 
 All versions are pinned to **exact, human-readable semantic versions** (no ranges, no
 digests): npm deps via `.npmrc` (`save-exact=true`) + the committed lockfile (`npm ci`), and

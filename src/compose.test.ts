@@ -90,13 +90,9 @@ test("a one-shot bootstrap seeds the stack before web starts", () => {
 });
 
 test("deps live above WORKDIR, so no mount creates a root-owned dir in the checkout", () => {
-  // The daemon creates a missing mount destination as root whatever user the container runs as, so
-  // a volume at /app/node_modules leaves a root-owned node_modules/ in the developer's own checkout
-  // (dev bind-mounts `.:/app`). Installing above /app lets Node resolve upward instead — nothing to
-  // shadow, so nothing to mount over.
+  // A volume at /app/node_modules would leave a root-owned dir in the checkout (AGENTS.md).
   const dockerfile = read("Dockerfile");
-  // Asserted, not assumed: split() returns the whole file when the marker is missing, which would
-  // silently widen "before WORKDIR" to "anywhere".
+  // split() returns the whole file when the marker is missing, widening "before" to "anywhere".
   assert.ok(dockerfile.includes("WORKDIR /app"), "the app dir is /app");
   const beforeWorkdir = dockerfile.split("WORKDIR /app")[0]!;
   assert.match(beforeWorkdir, /npm ci/, "npm ci runs before WORKDIR /app");
