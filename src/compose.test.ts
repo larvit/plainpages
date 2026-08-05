@@ -6,7 +6,7 @@
 // by running the stack; this catches edits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const compose = read("compose.yml");
@@ -87,6 +87,22 @@ test("a one-shot bootstrap seeds the stack before web starts", () => {
     "bootstrap mounts the tokenizer dir read-write");
   assert.match(webBlock, /bootstrap:\s*\n\s*condition:\s*service_completed_successfully/,
     "web waits for bootstrap to finish");
+});
+
+test("deps live above WORKDIR, so no mount creates a root-owned dir in the checkout", () => {
+  // The daemon creates a missing mount destination as root whatever user the container runs as, so
+  // a volume at /app/node_modules leaves a root-owned node_modules/ in the developer's own checkout
+  // (dev bind-mounts `.:/app`). Installing above /app lets Node resolve upward instead — nothing to
+  // shadow, so nothing to mount over.
+  const beforeWorkdir = read("Dockerfile").split("WORKDIR /app")[0]!;
+  assert.match(beforeWorkdir, /npm ci/, "npm ci runs before WORKDIR /app");
+  assert.match(beforeWorkdir, /mv\s+node_modules\s+\/node_modules/, "and its tree lands at /node_modules");
+
+  const composeFiles = readdirSync(new URL("../e2e-tests", import.meta.url))
+    .filter((f) => f.startsWith("compose."))
+    .map((f) => `e2e-tests/${f}`);
+  for (const f of ["compose.yml", "compose.override.yml", ...composeFiles])
+    assert.ok(!read(f).includes("/app/node_modules"), `${f} mounts nothing at /app/node_modules`);
 });
 
 test("the visual E2E does not drag in the Ory stack", () => {

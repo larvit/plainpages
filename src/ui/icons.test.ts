@@ -7,7 +7,8 @@ import ejs from "ejs";
 import { ICON_NAMES, buildIconSprite } from "./icons.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const lucideDir = join(rootDir, "node_modules", "lucide-static", "icons");
+// Resolved by specifier, not by path: the install lives above the app dir, not in it (Dockerfile).
+const lucideDir = join(dirname(fileURLToPath(import.meta.resolve("lucide-static/package.json"))), "icons");
 const partial = join(rootDir, "views", "partials", "icons.ejs");
 
 const symbolInner = (sprite: string, id: string): string =>

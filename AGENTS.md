@@ -319,6 +319,17 @@ them. Revisit only if the stated reason stops holding.
   `e2e-tests/playwright.config.ts`). The rest write users, groups and sessions to one shared backend,
   where a second engine's run would race the first, so widening them means giving each engine its own
   stack. Screenshots are written per project name for the same reason. Decided 2026-08-05.
+- **Deps install to `/node_modules`, one level above `WORKDIR /app`** — Node resolves bare specifiers
+  upward, so dev's `.:/app` bind mount has nothing to shadow. The usual fix, a volume at
+  `/app/node_modules`, is what this replaces: the daemon creates a missing mount destination **as
+  root whatever user the container runs as** (verified — `--user 1000:1000` still yields a root-owned
+  dir), so it left an empty root-owned `node_modules/` sitting in the developer's own checkout, and
+  the anonymous volume also went stale on a dep bump until `down -v`. Consequences worth knowing:
+  nothing may mount inside `/app` at that path again (locked by `src/compose.test.ts`); a path built
+  as `<repo>/node_modules` no longer resolves, so `src/ui/icons.test.ts` locates lucide-static by
+  specifier via `import.meta.resolve`; and `npm install` must not run in `/app` or it recreates the
+  problem — README → Extending the core documents `--package-lock-only` plus `--user` instead, which
+  is also why the image sets `npm_config_cache` (the host uid has no home dir here). Decided 2026-08-05.
 
 ## Docker only — no host tooling
 

@@ -1964,9 +1964,17 @@ README-dockerhub.md  The Docker Hub repository description (docker.io/larvit/pla
 - **New page in a plugin:** add a route + handler to the plugin manifest and a template in
   its `views/`.
 - **Static asset:** drop it in the plugin's `public/`; served at `/public/<plugin>/<path>`.
-- **New dependency:** `docker compose run --rm web npm install <pkg>` (updates `package.json`
-  + `package-lock.json`), then `docker compose build`. Keep deps minimal — prefer the Node
-  standard library, and prefer an Ory REST call over an SDK.
+- **New dependency:** update the manifest + lockfile, then rebuild — the image is where deps
+  live, so there is nothing to install into the checkout:
+
+  ```bash
+  docker compose run --rm --no-deps --user "$(id -u):$(id -g)" web npm install --package-lock-only <pkg>
+  docker compose build
+  ```
+
+  `--package-lock-only` writes only `package.json` + `package-lock.json`, and `--user` keeps
+  both yours. Keep deps minimal — prefer the Node standard library, and prefer an Ory REST call
+  over an SDK.
 
 All versions are pinned to **exact, human-readable semantic versions** (no ranges, no
 digests): npm deps via `.npmrc` (`save-exact=true`) + the committed lockfile (`npm ci`), and
