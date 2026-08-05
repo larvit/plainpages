@@ -369,7 +369,7 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
   const diff = grantDiff(ctx.declaredPermissions, await heldPermissions(keto, subject), form.getAll(PERMISSIONS_FIELD));
   // Self-lockout guard, matching the self-deactivate/self-delete ones: revoking your own grants can
   // remove the last `users:write` on the deployment, and the instant-revoke hook lands it on the very
-  // next request. Recovery would be a curl against Keto — not something the operator persona can do.
+  // next request — leaving a `curl` against Keto as the only way back in.
   if (id === user.id && diff.revoke.length > 0) {
     ctx.log.warn("admin: refused a self-revoke of permissions", { actor: user.id, refused: diff.revoke.join(",") });
     const permissions = await userPermissionPicker(deps, id, ctx.t("admin.grants.selfRevoke"));

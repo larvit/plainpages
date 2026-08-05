@@ -1,11 +1,10 @@
-// Reference config/menu.ts — copy into the (empty) config/ mount at the repo root:
+// Reference config/menu.ts — copy into the empty config/ mount at the repo root:
 //   cp examples/config/menu.ts config/menu.ts
-// config/ ships empty; mount your own or copy this in. Absent config = built-in defaults.
+// Absent config = built-in defaults.
 //
-// Brand the app and reorder/rename/group/hide nav nodes (by their `id`) across all plugins —
-// the override always wins, applied before the per-user permission filter. Every field is
-// optional; delete one to fall back to the default.
-// See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), README.md (The menu system).
+// Brand the app and reorder/rename/group/hide nav nodes (by their `id`) across all plugins — the
+// override always wins, applied before the per-user permission filter. Every field is optional.
+// See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), README → The menu system.
 
 import { defineMenu } from "#menu-config";
 
