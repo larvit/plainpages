@@ -93,15 +93,19 @@ them. Revisit only if the stated reason stops holding.
   gates on one operation, so it gates on a permission, and a bundle is just a group with several
   grants (groups nest). Ory's own "permission" (the `Resource` `permits`: view/edit/delete) is the
   separate per-row tier.
-- **Tightening a discovery rule breaks every already-copied plugin, and CI cannot see it.** `plugins/`
-  is an operator-owned drop-in mount that ships empty, so every test — unit and e2e — only ever sees a
-  *fresh* copy of `examples/`. An operator's copy is whatever version they took. When a manifest rule
-  gets stricter, it must ship with a README → Upgrading entry and a re-copy instruction, and the
-  discovery error carries a line saying so. Learned the hard way twice on 2026-08-05: the
-  `<resource>:<action>` rule bricked a pre-existing `plugins/admin` at boot, and the matching
-  `ADMIN_PERMISSIONS` check bricked it on a value that had been the shipped default. Fail-loud stays
-  right — the alternative is a route gating on a name nobody can be granted, i.e. a permanent silent
-  403 — but "loud" has to include the remedy.
+- **A stricter manifest rule breaks already-copied plugins, and while `HOST_API_VERSION` is frozen the
+  failure names a symptom rather than the cause.** `plugins/` is an operator-owned drop-in mount that
+  ships empty, so no test ever sees a *stale* copy — an operator's is whatever version they took. On
+  2026-08-05 the `<resource>:<action>` rule stopped a pre-existing `plugins/admin` at boot with
+  "route gates on admin", which reads as the operator's bug rather than an out-of-date copy.
+  **Accepted during development** (maintainer, 2026-08-05): `checkApiVersion` is already the right
+  mechanism — a breaking manifest change bumps the major and a stale plugin is refused by *version*,
+  which says plainly what happened. That only starts working once the freeze lifts, so until then a
+  stricter rule ships with a README → Upgrading entry and the discovery error carries the re-copy
+  hint. **Valid while `HOST_API_VERSION` stays frozen at 1.0.0** — when the first external plugin
+  lifts it (see the Rules section), the version check takes over and this note can go.
+  Fail-loud stays right either way: the alternative is a route gating on a name nobody can be
+  granted, i.e. a permanent silent 403.
 - **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. A bare
   word names *who someone is* — a role — and roles are groups here; the old catch-all `admin`
   permission was exactly that mistake, split into `users:`/`groups:`/`permissions:`/`oauth2-clients:`

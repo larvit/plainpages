@@ -1756,6 +1756,11 @@ docker compose up -d --build
 Do the same for any other folder you copied out of `examples/`. A plugin you wrote yourself needs the
 manifest change the error names — the same rules the shipped examples follow.
 
+Once [`HOST_API_VERSION`](#contract-versioning) starts moving, you won't have to read the rule to know
+why: a breaking manifest change bumps the major, and a plugin built against an older host is refused
+by **version**, naming both. The version is frozen at `1.0.0` until the first external plugin exists,
+so for now the error names the rule it tripped instead.
+
 ### Breaking changes
 
 - **Permission names must be `<resource>:<action>`** (2026-08-05). A manifest gating on — or
