@@ -15,13 +15,16 @@ step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 # Docs-only fast path: nothing but *.md changed since main, so there is nothing here to break.
 # The working tree counts too — a dirty tree carrying real code must never skip. Anything
 # undeterminable (no git, no reachable main, no merge-base) falls through to the gate, never a skip.
+# --no-renames on both channels: rename detection names only the destination, so `git mv src/app.ts
+# notes.md` reads as a lone *.md and would skip the gate over a source file that is gone.
 docs_only() {
 	local base changed
 	git rev-parse --git-dir >/dev/null 2>&1 || return 1
 	git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main 2>/dev/null || true
 	base=$(git merge-base refs/remotes/origin/main HEAD 2>/dev/null) || return 1
 	changed=$(
-		{ git diff --name-only "$base" HEAD && git status --porcelain --untracked-files=all | cut -c4-; } 2>/dev/null
+		{ git diff --name-only --no-renames "$base" HEAD \
+			&& git status --porcelain --no-renames --untracked-files=all | cut -c4-; } 2>/dev/null
 	) || return 1
 	[ -n "$changed" ] || return 1
 	! printf '%s\n' "$changed" | grep -qvE '\.md$'
