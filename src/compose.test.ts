@@ -109,15 +109,19 @@ test("deps live above WORKDIR, so no mount creates a root-owned dir in the check
 test("the E2E runner writes its artifacts as the invoking user, never as root", () => {
   // Same trap as the node_modules mountpoint above, but the runner must write into the checkout,
   // so the fix is the uid: root-owned output needs sudo to delete, which a dev box may not have.
+  // Matched independently of flag order, and counted: a reordered flag that slips out of the
+  // filter would otherwise leave that command silently unguarded.
   const documented = [read("README.md"), ...composeFiles("e2e-tests/").map(read)]
-    .join("\n").split("\n").filter((l) => /docker compose .*--rm e2e\b/.test(l));
-  assert.ok(documented.length >= 5, "every suite's run command is documented");
+    .join("\n").split("\n").filter((l) => /docker compose .*\brun\b.*\be2e\b/.test(l));
+  assert.equal(documented.length, 10, "5 compose headers + 5 README blocks");
   for (const l of documented)
     assert.match(l, /--user "\$\(id -u\):\$\(id -g\)"/, `passes the uid: ${l.trim()}`);
   // An absent mount source is daemon-created as root, and then that uid can't write it at all.
   assert.ok(existsSync(new URL("../e2e-tests/artifacts/.gitkeep", import.meta.url)),
     "the mount point exists in the checkout");
-  assert.match(read(".gitignore"), /^!\/e2e-tests\/artifacts\/\.gitkeep$/m, "and stays tracked");
+  const gitignore = read(".gitignore");
+  assert.match(gitignore, /^\/e2e-tests\/artifacts\/\*$/m, "its output stays ignored");
+  assert.match(gitignore, /^!\/e2e-tests\/artifacts\/\.gitkeep$/m, "the mount point stays tracked");
 });
 
 test("the visual E2E does not drag in the Ory stack", () => {

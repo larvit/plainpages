@@ -1551,7 +1551,8 @@ docker compose -f compose.yml -f compose.override.yml -f e2e-tests/compose.devst
 ```
 
 Screenshots + an HTML report land in `e2e-tests/artifacts/` (git-ignored; `--user` above is what
-keeps them yours to delete — the runner writes them into your checkout). Every user-facing flow
+keeps them yours to delete — the runner writes them into your checkout). On **rootless** Docker drop
+that flag: container root is already you there, and a mapped uid cannot write. Every user-facing flow
 is covered end-to-end; tests are independent and run **fully in parallel** for speed
 ([AGENTS.md](AGENTS.md)) — keep new tests side-effect-free so the suite stays fast.
 
@@ -1772,6 +1773,15 @@ so for now the error names the rule it tripped instead.
 - **Deps moved to `/node_modules`, above `/app`** (2026-08-05). Run `rmdir node_modules` after
   pulling (it is empty — no `sudo`) and `docker volume prune`. Keep that path clear: anything there
   silently shadows the image's deps.
+- **`e2e-tests/artifacts/` is tracked, and the E2E runner writes as you** (2026-08-05). A root-owned
+  leftover from an earlier run blocks the checkout of its `.gitkeep` — git reports the failure but
+  still exits 0, leaving the file staged as deleted — and every E2E suite then fails `EACCES`. Clear
+  it before pulling; a root container does what `sudo` would, which this needs and a dev box may lack:
+
+  ```bash
+  docker run --rm -v "$PWD/e2e-tests:/x" alpine:3.23 rm -rf /x/artifacts
+  git checkout -- e2e-tests/artifacts/.gitkeep
+  ```
 
 ## Observability
 
