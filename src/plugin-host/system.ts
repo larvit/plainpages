@@ -10,11 +10,10 @@ import type { HydraAdmin } from "../auth/hydra-admin.ts";
 import type { KetoClient } from "../auth/keto-client.ts";
 import type { KratosAdmin } from "../auth/kratos-admin.ts";
 
-// Grouping criterion (keep this cohesive — it's a contract, so the "no catch-all bucket" rule that
-// governs folders governs this bag too): every field is a *privileged, host-owned, wire-dependent*
-// capability for administering Plainpages' own identity/permission stack. Add a field only when it
-// meets all three; if unrelated privileged concerns accrete (mailer, metrics, flags), sub-group
-// rather than pile them in flat.
+// Keep this cohesive — it is a contract, so the "no catch-all bucket" rule applies: every field is a
+// *privileged, host-owned, wire-dependent* capability for administering Plainpages' own
+// identity/permission stack. Add one only when it meets all three; sub-group rather than pile in
+// unrelated privileged concerns (mailer, metrics, flags).
 export interface SystemCapabilities {
   hydra?: HydraAdmin; // OAuth2 client admin (Hydra); present when the Hydra admin client is wired
   keto?: KetoClient; // relationship read/write (Keto); present when Keto is wired

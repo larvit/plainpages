@@ -42,10 +42,9 @@ test("seedPermissions unions ADMIN_PERMISSIONS (empty by default) with the disco
   assert.deepEqual(names(",, ", [" scheduling:read ", ""]), ["scheduling:read"]); // blanks dropped, names trimmed (both sides)
 });
 
-// The regression this pins: an earlier revision *threw* here, so `ADMIN_PERMISSIONS=admin` — this
-// setting's own default until 2026-08-05 — exited bootstrap 1, and bootstrap gates `web`, so a
-// leftover variable bricked the whole stack on upgrade. Bootstrap must never refuse to start over
-// operator env: drop what it can't use, report it, seed the rest.
+// Bootstrap gates `web`, so it must never refuse to start over operator env — a leftover
+// ADMIN_PERMISSIONS would otherwise brick the whole stack. Drop what it can't use, report it, seed
+// the rest.
 test("seedPermissions drops an ADMIN_PERMISSIONS name that isn't <resource>:<action>, and never throws", () => {
   const legacy = seedPermissions("admin", ["users:read"]);
   assert.deepEqual(legacy, { ignored: ["admin"], permissions: ["users:read"] });

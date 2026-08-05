@@ -1,20 +1,12 @@
-// Optional revocation denylist: instant permission/session revoke without putting Keto
-// back on the hot path. Off by default — enable with REVOCATION_DENYLIST=true.
+// Optional revocation denylist: instant permission/session revoke without putting Keto back on the
+// hot path. Off by default — enable with REVOCATION_DENYLIST=true. An admin action records the
+// subject as revoked-now; the hot path then rejects that subject's pre-revoke tokens at once,
+// forcing a re-mint (which re-reads permissions from Keto, or clears a now-dead session).
 //
-// The hot path verifies a short-lived (~10m) session JWT in-process, so a revoked permission or a
-// killed session only takes effect when the token is next minted (re-login / TTL refresh) —
-// up to one token TTL of lag. For security-critical revoke (offboarding, a compromised
-// account) that lag is too long. An admin action records the subject as revoked-now and the
-// hot path then rejects that subject's pre-revoke tokens at once, forcing a re-mint (which
-// re-reads permissions from Keto, or clears a now-dead session).
-//
-// Cost & scope: an in-memory, auto-evicting Map — no database, like the JWKS cache, so it
-// stays inside the stateless model. A token carries `iat`, so a *fresh* re-login (iat after
-// the revoke) passes while every token minted before the revoke is rejected. Entries self-evict
-// after one token TTL, by which point any pre-revoke token has expired anyway. Single-process:
-// instant on the instance that handled the revoke; across replicas/restarts the guarantee
-// falls back to the token TTL (the gap is just no longer closed early). Back it with a shared
-// store for hard multi-instance instant-revoke.
+// An in-memory, auto-evicting Map — no database, so it stays inside the stateless model. Entries
+// self-evict after one token TTL, by which point any pre-revoke token has expired anyway.
+// Single-process: instant on the instance that handled the revoke, elsewhere the guarantee falls
+// back to the token TTL. Back it with a shared store for hard multi-instance instant-revoke.
 
 export interface Denylist {
   // Hot-path check: is a token for `sub`, issued at `iat` (unix sec), revoked? A token minted

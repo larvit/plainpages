@@ -39,15 +39,11 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export interface AppOptions {
   appUrl?: string; // canonical public URL (config.appUrl); off-host GET/HEAD visitors are 308'd here. Omitted ⇒ no redirect
   auth?: VerifyOptions; // expected JWT issuer/audience + clock skew (config); used with jwks
-  // Cache compiled templates; caller decides (server passes config.cacheTemplates).
-  // Off by default so edits show live; the app itself never inspects the environment.
-  cache?: boolean;
+  cache?: boolean; // cache compiled EJS templates (config.cacheTemplates); off ⇒ edits show live
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
-  // Loaded translation catalogs (server.ts passes the discovered ones). Omitted ⇒ the built-in
-  // en-US catalog only, so an unwired app still renders real English.
-  i18n?: I18n;
+  i18n?: I18n; // discovered catalogs; omitted ⇒ the built-in en-US only, so an unwired app still renders English
   jwks?: JwksProvider; // verify the session JWT → ctx.user/permissions; absent ⇒ always anonymous
   keto?: KetoClient; // Keto client; with kratos+kratosAdmin enables login completion
   kratos?: KratosPublic; // Kratos public client; enables the themed self-service routes
@@ -62,15 +58,12 @@ export interface AppOptions {
 }
 
 export function createApp(options: AppOptions = {}): Server {
-  // The denylist (when enabled) rides in the verify options so resolveSession rejects a revoked
-  // subject on the hot path; the bound `revoke` is handed to the admin handlers that should
-  // revoke instantly. Both absent ⇒ the feature is fully off (no cost, no behaviour change).
+  // The denylist rides in the verify options so resolveSession rejects a revoked subject on the hot
+  // path; the bound `revoke` goes to the admin handlers. Both absent ⇒ the feature is fully off.
   const denylist = options.denylist;
   const authOptions: VerifyOptions = denylist ? { ...(options.auth ?? {}), denylist } : (options.auth ?? {});
   const revoke = denylist ? (sub: string): void => denylist.revoke(sub) : undefined;
   const cache = options.cache ?? false;
-  // Canonical public host (APP_URL): when set, an off-host GET/HEAD visitor is redirected here so
-  // every cookie (esp. Kratos' cross-origin CSRF cookie) shares one host. Omitted ⇒ feature off.
   const canonical = options.appUrl ? new URL(options.appUrl) : undefined;
   const canonicalHost = canonical?.host; // host[:port], default ports omitted — matches the Host header
   const canonicalOrigin = canonical?.origin; // scheme + host[:port], no trailing slash
@@ -82,9 +75,7 @@ export function createApp(options: AppOptions = {}): Server {
   const keto = options.keto;
   const kratos = options.kratos;
   const kratosAdmin = options.kratosAdmin;
-  // Privileged host services handed to a system plugin via ctx.system — the Ory admin clients and
-  // the instant-revoke hook. Only the wired capabilities are present; with none wired ctx.system
-  // stays undefined, so an ordinary deployment (no Ory, hence no system plugin) pays nothing.
+  // Only the wired capabilities are present; with none wired ctx.system stays undefined.
   const system: SystemCapabilities | undefined = kratosAdmin || keto || hydra || revoke
     ? { ...(hydra ? { hydra } : {}), ...(keto ? { keto } : {}), ...(kratosAdmin ? { kratosAdmin } : {}), ...(revoke ? { revoke } : {}) }
     : undefined;
@@ -93,15 +84,11 @@ export function createApp(options: AppOptions = {}): Server {
   const menu = options.menu ?? DEFAULT_MENU;
   const plugins = options.plugins ?? [];
   const pluginIds = new Set(plugins.map((p) => p.id));
-  // A plugin may fully replace the public landing "/" (`home`) or the gated dashboard "/dashboard"
-  // (`dashboard`) — Discovery's findConflicts guarantees at most one of each, so `find` is
-  // unambiguous; the predicates narrow the slot to defined.
+  // `find` is unambiguous: findConflicts guarantees at most one owner of each landing slot.
   const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
   const dashboardPlugin = plugins.find((p): p is Plugin & { dashboard: RouteHandler } => typeof p.dashboard === "function");
-  // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
-  // The permission catalog is a property of the installed plugin set, so it is computed once at
-  // wiring rather than per request.
   const permissionCatalog = declaredPermissions(plugins);
+  // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
   const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
@@ -115,19 +102,11 @@ export function createApp(options: AppOptions = {}): Server {
   const render = (view: string, data: Record<string, unknown>): Promise<string> =>
     ejs.renderFile(join(viewsDir, `${view}.ejs`), data, { cache, views: [viewsDir] });
 
-  // A `view` RouteResult renders plugins/<id>/views/<view>.ejs; such views may include() the core
-  // building-block partials (resolved from viewsDir) and their own partials/subfolders.
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
-  // Every view renders with its context's i18n locals (t/locale/dir/localeSwitch/localeParam) merged
-  // in, so a view — core or plugin, at any include depth — calls `t(...)` without its handler passing
-  // it. A plugin's context carries that plugin's translator, so its own catalog wins in its own views.
-  // They are merged LAST: these names are reserved (README → Building plugins), and a handler that
-  // happens to use one loses that key rather than breaking the shell that renders around it.
-  // Where the language picker on this page should point. Normally the page itself; after a POST
-  // that URL may answer no GET (POST /admin/users/:id/delete has no GET sibling), so fall back to
-  // the page the form was submitted from, then to the front page — the picker is on every page, so
-  // every one of its links has to land somewhere real.
+  // Where the language picker points. Normally the page itself; after a POST that URL may answer no
+  // GET (POST /admin/users/:id/delete has no GET sibling), so fall back to the page the form was
+  // submitted from, then to the front page — the picker is on every page, so every link must land.
   const switchBase = (req: IncomingMessage, url: URL): string => {
     const method = (req.method ?? "GET").toUpperCase();
     if (method === "GET" || method === "HEAD") return `${url.pathname}${url.search}`;
@@ -147,6 +126,8 @@ export function createApp(options: AppOptions = {}): Server {
     t: ctx.t,
     url: ctx.url,
   });
+  // i18n locals go last: their names are reserved, so a handler's colliding key loses instead of
+  // breaking the shell around it.
   const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)) });
   const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)) });
 
@@ -155,10 +136,7 @@ export function createApp(options: AppOptions = {}): Server {
     res.end(html);
   };
 
-  // The public landing "/": ungated — anyone may see it. A plugin may fully own it via `home`
-  // (rendered against its own views, native shell via ctx.chrome, with a fresh CSRF cookie for
-  // any form it ships). Else the built-in intro page with prominent sign-in / register links
-  // (`user` picks "go to dashboard" vs sign-in; the shell's Sign-out form needs the CSRF cookie).
+  // The public landing "/", ungated. A plugin may own it via `home`; else the built-in intro page.
   const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
     csrf.setCookie();
     if (homePlugin) {
@@ -172,10 +150,8 @@ export function createApp(options: AppOptions = {}): Server {
     return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
   };
 
-  // The post-login app home "/dashboard", gated to a signed-in user: anonymous bounces to sign
-  // in, remembering /dashboard as return_to. A plugin may fully own it via `dashboard` — its
-  // handler renders against its own views, same path as a plugin route. Else the built-in
-  // mock-data People list with the one global menu (ctx.chrome.nav) + branding from config/menu.ts.
+  // "/dashboard", gated to a signed-in user. A plugin may own it via `dashboard`; else the built-in
+  // starter page.
   const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
     if (!ctx.user) return { redirect: loginRedirect(ctx), status: 303 };
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
@@ -214,26 +190,21 @@ export function createApp(options: AppOptions = {}): Server {
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
       for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
 
+      // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
-        // /public/<id>/… serves a plugin's public/; everything else the core public/.
-        // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
         const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
         await serveStatic(dir, subPath, res, method === "HEAD", (err) => reqLog.error("static stream error", { error: String(err) }));
         return;
       }
 
-      // Rendered pages content-negotiate on Accept-Language, so a cache in front of us must key on
-      // it — otherwise the first visitor's language is served to everyone. Set after the static
-      // branch above: an asset is the same bytes in every language, and a Vary there would fragment
-      // its cache entry per raw header string.
+      // A cache in front of us must key on the language. Set after the static branch: an asset is
+      // the same bytes in every language, and a Vary there fragments its entry per raw header.
       res.setHeader("vary", "accept-language");
 
-      // Canonical host (APP_URL): a visitor who reached us on a different host (localhost vs
-      // 127.0.0.1, a secondary domain) is sent to the configured origin, path + query preserved, so
-      // the browser, the themed forms, and the cross-origin Kratos POST all share one cookie host —
-      // otherwise the host-scoped Kratos CSRF cookie is lost and login dumps onto /error. Static
-      // assets above are served on any host (health checks). GET/HEAD only — a 308 must not replay a
-      // cross-host POST; first-party forms are always served from a canonical page anyway.
+      // Canonical host (APP_URL): send an off-host visitor to the configured origin so the browser,
+      // the themed forms and the cross-origin Kratos POST share one cookie host — otherwise the
+      // host-scoped Kratos CSRF cookie is lost and login dumps onto /error. GET/HEAD only: a 308
+      // must not replay a cross-host POST.
       if (canonicalHost && (method === "GET" || method === "HEAD")) {
         const host = req.headers.host;
         if (host !== undefined && host !== canonicalHost) {
@@ -242,18 +213,14 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
-      // Which language this request is served in: ?locale wins, else Accept-Language, else en-US.
-      // `explicit` (the URL asked) is what makes the choice travel: the chrome, this request's
-      // redirects and ctx.localeHref then carry ?locale onto the links they emit.
+      // `explicit` (the URL asked for a locale) is what makes the choice travel: the chrome, this
+      // request's redirects and ctx.localeHref then carry ?locale onto the links they emit.
       const { explicit, locale } = i18n.resolve({ acceptLanguage: req.headers["accept-language"], param: url.searchParams.get("locale") });
       const carryLocale = (href: string): string => localeHref(href, explicit ? locale : null);
       const t = i18n.translator(locale);
 
-      // Verify the session JWT once (cached JWKS) → ctx.user/permissions; none/invalid ⇒ anonymous.
-      // If the token has lapsed but a live Kratos session still backs it (and we have the Ory
-      // clients), silently re-mint it — "stay signed in": re-read permissions from Keto, re-tokenize,
-      // and set the fresh cookie via setHeader so it rides whatever response this request produces
-      // (a dead session clears the stale cookie). This is the only place the hot path touches Ory.
+      // A lapsed token still backed by a live Kratos session is silently re-minted — "stay signed
+      // in". The only place the hot path touches Ory.
       let user: User | null = null;
       if (jwks) {
         const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
@@ -264,32 +231,25 @@ export function createApp(options: AppOptions = {}): Server {
             user = reminted.user;
             res.appendHeader("set-cookie", reminted.setCookie);
           } catch (err) {
-            // Ory unreachable (Kratos/Keto 5xx, refused, timeout) — degrade to anonymous instead of
-            // 500ing every lapsed request. Leave the cookie alone: it can re-mint once Ory recovers.
+            // Ory unreachable — degrade to anonymous instead of 500ing every lapsed request. Leave
+            // the cookie alone: it can re-mint once Ory recovers.
             reqLog.warn("session re-mint failed (Ory unreachable?)", { error: String(err) });
           }
         }
       }
-      // CSRF token for this request's first-party forms: reuse a genuine cookie token, else mint
-      // one (a page-emitting handler Set-Cookies it via csrfMint). Verified on our own
-      // state-changing routes.
       const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
       const csrfMint: RequestCsrf = {
         setCookie: (): void => { if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies })); },
         token: csrf.token,
       };
-      // Bound CSRF verifier handed to plugins via ctx.verifyCsrf (the host owns the secret).
       const verifyCsrf = (submitted: string | null | undefined): boolean =>
         verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
-      // Chrome (brand/global-nav/user/theme/csrf) composes the whole menu, so it's resolved lazily and
-      // at most once per request: this app-level memo shares it across the contexts below, and each
-      // ctx.chrome getter only triggers it when a handler actually reads it (a json/redirect handler,
-      // or the public "/" with a standalone home, never composes the menu).
+      // Chrome composes the whole menu, so it is memoized and resolved lazily — a json/redirect
+      // handler, or the public "/" with a standalone home, never pays for it.
       let chromeMemo: PageChrome | undefined;
       const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, localeHref: carryLocale, menu, plugins, t, translatorFor: (id) => i18n.translator(locale, id), user }));
 
-      // The i18n half of every context: the locale, its translator, and the link carrier. A plugin
-      // route swaps in the plugin's own translator (its catalog first, then core).
+      // A plugin's context gets the plugin's own translator — its catalog first, then core.
       const i18nFor = (pluginId?: string) => ({
         locale,
         localeHref: carryLocale,
@@ -297,9 +257,8 @@ export function createApp(options: AppOptions = {}): Server {
         t: pluginId === undefined ? t : i18n.translator(locale, pluginId),
       });
 
-      // base context (no route params yet); reused for the built-in routes. A plugin-owned render
-      // (a landing slot, a hook short-circuit, a plugin route) gets `contextFor(id)` instead, so its
-      // own catalog is what `ctx.t` reads.
+      // Base context (no route params), for the built-in routes. Every plugin-owned render — a
+      // landing slot, a hook short-circuit, a plugin route — gets `contextFor(id)` instead.
       const ctx = buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
       const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext =>
         buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
@@ -309,23 +268,19 @@ export function createApp(options: AppOptions = {}): Server {
       if (anyRequestHooks) {
         const short = await runRequestHooks(plugins, contextFor);
         if (short) {
-          // Set the fresh CSRF cookie like every other page-emitting path, so a form the hook
-          // renders (its token is in ctx.chrome.csrfToken) has the matching double-submit cookie.
+          // Like every other page-emitting path, so a form the hook renders has its matching cookie.
           csrfMint.setCookie();
           await sendResult(res, short.result, pluginViewsFor(short.ctx, short.plugin.id), carryLocale);
           return;
         }
       }
 
-      // Plugin routes (any method): gate on the route's permission, then run the handler. The
-      // handler gets ctx.chrome (native app shell) + ctx.verifyCsrf (guard its own forms); a fresh
-      // CSRF cookie is set so those forms have a valid double-submit token.
       const match = matchRoute(plugins, method, pathname);
       if (match) {
         const routeCtx = contextFor(match.plugin.id, match.params);
         if (!isAuthorized(match.route, routeCtx.permissions)) {
-          // Anonymous → sign in (like the built-in screens' requireSession), remembering the page as
-          // return_to; a signed-in user who simply lacks the permission gets the 403 page.
+          // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply
+          // lacks the permission gets the 403 page.
           if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
           reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
           sendHtml(res, 403, await renderPage("403", {}));
@@ -340,9 +295,6 @@ export function createApp(options: AppOptions = {}): Server {
         return;
       }
 
-      // Built-in endpoints (the auth/OAuth2 group, the landing slots, /error) from the internal
-      // route table — same handler shape as plugin routes; a `view` result renders the core views,
-      // null means the handler wrote to ctx.res itself.
       const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
       if (builtin) {
         await sendResult(res, await builtin.handler(ctx, csrfMint, contextFor), viewsFor(ctx), carryLocale);
@@ -385,20 +337,16 @@ export function createApp(options: AppOptions = {}): Server {
   };
 
   return createServer((req, res) => {
-    // Per-request log + trace span: a "request" span, continuing an upstream W3C traceparent
-    // when present (distributed tracing across a proxy). "close" (not "finish") fires on both a
-    // completed response and a premature disconnect/abort, so an aborted/truncated request is still
-    // logged and its span flushed.
+    // "close" (not "finish") fires on both a completed response and a premature disconnect, so an
+    // aborted request is still logged and its span flushed.
     const startMs = Date.now();
     const reqLog = requestLogger(log, {
       requestId: randomUUID(),
       ...(typeof req.headers.traceparent === "string" ? { traceparent: req.headers.traceparent } : {}),
     });
-    // end() must run exactly once, after BOTH the handler has fully unwound (settled) AND the
-    // response has closed (the access line is then emitted with the final status). Ending earlier
-    // would throw "already ended" from a still-running handler's ctx.log/tracedFetch on a client
-    // abort, or drop the access line on the happy path (handler settles before close). Coordinating
-    // the two signals avoids both. Logging must never crash a served request, so it's all guarded.
+    // end() must run exactly once, after BOTH the handler has unwound AND the response has closed.
+    // Earlier would throw "already ended" from a still-running handler's ctx.log on a client abort,
+    // or drop the access line on the happy path (the handler settles before close).
     let settled = false;
     let closed = false;
     const finalize = (): void => { if (settled && closed) void reqLog.end().catch(() => {}); };
@@ -410,9 +358,8 @@ export function createApp(options: AppOptions = {}): Server {
       } catch { /* never let logging crash a served request */ }
       finalize();
     });
-    // Make reqLog ambient for the whole handler (sync body + every await) so all outbound fetch is
-    // traced. handleRequest owns its own try/catch; the .catch logs a pathological escape via the
-    // app logger (not reqLog, which may be the thing that broke), never crashing the request.
+    // Make reqLog ambient for the whole handler so all outbound fetch is traced. The .catch logs a
+    // pathological escape via the app logger — not reqLog, which may be the thing that broke.
     void runWithLog(reqLog, () => handleRequest(req, res, reqLog))
       .catch((err) => log.error("request handler escaped its try/catch", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) }))
       .finally(() => { settled = true; finalize(); });

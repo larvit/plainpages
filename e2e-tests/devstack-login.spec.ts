@@ -1,20 +1,13 @@
 import { expect, test } from "./console-guard.ts";
 
-// Regression: the from-scratch dev experience the README/banner advertises must work. `docker compose
-// up`, open the printed login URL (http://localhost:3000), sign in as the seeded admin → you land on
-// the dashboard, signed in. Originally this dumped the user on http://127.0.0.1:3000/error?id=…
-// ("Page not found"): the banner printed `localhost` but kratos.yml hard-coded `127.0.0.1`, and a
-// host-scoped Kratos CSRF cookie can't cross `localhost`↔`127.0.0.1`, so the cross-host login POST
-// lost it and Kratos redirected to its error sink.
+// The from-scratch dev experience the banner advertises: `docker compose up`, open the printed
+// login URL, sign in as the seeded admin, land on the dashboard. A host-scoped Kratos CSRF cookie
+// cannot cross `localhost`↔`127.0.0.1`, so a cross-host login POST loses it and Kratos redirects to
+// its error sink; APP_URL canonicalises every off-host visitor onto one cookie host instead.
 //
-// The fix makes APP_URL the single source for the public host: the web app canonicalises every
-// off-host visitor onto it (so localhost / 127.0.0.1 / any alias funnel to one cookie host), Kratos'
-// browser URLs derive from it, and a real /error page replaces the 404.
-//
-// This is faithful to the user's environment: the runner uses the host network
-// (e2e-tests/compose.devstack.yml) against the plain `docker compose up` topology, so it sees
-// http://localhost:3000 (web) and http://127.0.0.1:4433 (Kratos public) exactly as a host browser
-// does. The proxied full-flow suite can't catch this regression — it fronts web + Kratos on one origin.
+// The runner is on the host network against the plain `docker compose up` topology, so it sees
+// http://localhost:3000 and http://127.0.0.1:4433 exactly as a host browser does. The proxied
+// full-flow suite cannot catch this — it fronts web + Kratos on one origin.
 const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap
 const ADMIN_PASSWORD = "admin";
 

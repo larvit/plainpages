@@ -1,15 +1,8 @@
-// URL safety helpers. Two pure, dependency-free guards:
-//
-//   safeUrl(value)  — sanitise an untrusted URL before rendering it in an href/src attribute.
-//                     Partials escape *text*, but a URL field is emitted verbatim, so a
-//                     `javascript:`/`data:` URL from upstream/user data would be live XSS. The
-//                     contract (README.md → Routes & handlers) is: a relative or http(s) URL is allowed,
-//                     anything else collapses to "#". Exported to plugins via plugin-api.ts.
-//
-//   localPath(value) — validate a redirect target is a *same-origin* path (the redirect-URI
-//                     allowlist). Used for `return_to`: a host-relative "/a/b?x=1" passes, an
-//                     absolute or protocol-relative ("//evil.com", "https://evil.com") is rejected
-//                     so a crafted ?return_to= can't turn login completion into an open redirect.
+//   safeUrl(value)   — a URL field is emitted verbatim into an href/src, so a `javascript:`/`data:`
+//                      URL from untrusted data would be live XSS. Relative or http(s) passes,
+//                      anything else collapses to "#". Exported to plugins via plugin-api.ts.
+//   localPath(value) — the redirect-URI allowlist for `return_to`: host-relative passes, absolute
+//                      or protocol-relative is rejected, so a crafted value can't open-redirect.
 
 // ASCII control chars + space that browsers strip/ignore when resolving a URL — strip them before
 // the scheme check so "java\tscript:" / a leading space can't masquerade as relative.

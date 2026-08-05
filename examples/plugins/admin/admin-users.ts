@@ -1,8 +1,7 @@
 // Users admin screen: list Kratos identities (filter/sort/paginate) +
-// create/edit/deactivate/delete/trigger-recovery. Writes go only to Kratos via the admin client
-// (README "stateless"). Pure builders turn identities + the request URL into building-block view
-// models; below them are thin per-route handlers (keyed on ctx.params) over a shared `withUser` gate
-// — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
+// create/edit/deactivate/delete/trigger-recovery. Pure builders turn identities + the request URL
+// into building-block view models; below them are thin per-route handlers keyed on ctx.params, over
+// a shared `withUser` gate.
 
 import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";

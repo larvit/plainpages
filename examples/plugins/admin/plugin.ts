@@ -1,10 +1,8 @@
-// Admin example plugin: the Users / Groups / OAuth2-clients screens for running the system.
-// These used to ship inside the core; they were extracted here so a fresh clone has no built-in admin
-// GUI. Copy this folder to plugins/admin (then restart) to enable it — see README → Quick start.
+// Admin example plugin: the Users / Groups / OAuth2-clients screens for running the system. Copy
+// this folder to plugins/admin (then restart) to enable it — see README → Quick start.
 //
-// It is a *system* plugin: its handlers reach the host's Ory admin clients (Kratos/Keto/Hydra) and the
-// instant-revoke hook via ctx.system, which the host populates when those services are wired (the dev
-// stack wires all of them). Where a capability is absent the screen degrades to a themed 503.
+// It is a *system* plugin: its handlers reach the host's Ory admin clients and the instant-revoke
+// hook via ctx.system. Where a capability is absent the screen degrades to a themed 503.
 
 import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "#plugin-api";
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";

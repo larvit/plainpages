@@ -50,8 +50,8 @@ test.describe.serial("authenticated admin journey", () => {
   });
   test.afterAll(async () => { await page.context().close(); });
 
-  // The list screens rebuild their query from the list state (sort/page/filter), so they are where
-  // a chosen language used to get dropped — the core building blocks carry it now.
+  // The list screens rebuild their query from the list state (sort/page/filter), so they are where a
+  // chosen language is most easily dropped; the core building blocks carry it through.
   test("a sorted, paged admin list keeps the visitor's language", async () => {
     await page.goto("/admin/users?locale=sv-SE");
     await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");

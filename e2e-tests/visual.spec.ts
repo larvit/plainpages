@@ -56,9 +56,8 @@ test("every icon <use> resolves to a defined <symbol> (no broken graphics)", asy
   expect(missing).toEqual([]);
 });
 
-// (The zero-JS URL-driven list — sortable headers, ?q search — is unit-tested per component
-// (list-query/data-table/filter-bar) and exercised live with real data by the full-flow E2E's admin
-// Users list. The mock-data dashboard that used to host it in this Ory-free suite is gone.)
+// The zero-JS URL-driven list — sortable headers, ?q search — is unit-tested per component and
+// exercised live by the full-flow E2E's admin Users list, so it has no Ory-free counterpart here.
 
 test("theme switch flips the palette with no JavaScript", async ({ page }) => {
   await page.goto("/dashboard");

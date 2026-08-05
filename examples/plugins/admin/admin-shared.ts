@@ -1,14 +1,12 @@
-// Shared plumbing for the admin example plugin: the section nav fragment, the admin-only gate, the
-// CSRF-guarded form reader, the destructive-confirm model builder, and small RouteResult helpers
-// (themed not-found / capability-unavailable). Ported from the former built-in admin screens;
-// everything imports the host only through the #plugin-api barrel.
+// Shared plumbing for the admin example plugin: the section nav fragment, the screen gate, the
+// CSRF-guarded form reader, the destructive-confirm model builder, and small RouteResult helpers.
+// Everything imports the host only through the #plugin-api barrel.
 
 import { can, CSRF_FIELD, englishTranslator, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "#plugin-api";
 import enUS from "./i18n/en-US.ts";
 
-// This plugin's English (its catalog, then the host's — the screens reuse core words like Cancel and
-// Search), for a view model built outside a request: its unit tests. At runtime the handlers pass
-// ctx.t, which reads this catalog in the visitor's locale first, then the host's.
+// This plugin's English — its catalog, then the host's — for a view model built outside a request,
+// i.e. its unit tests. At runtime the handlers pass ctx.t instead.
 export const ADMIN_EN: Translate = englishTranslator(enUS);
 
 export const ADMIN_USERS_BASE = "/admin/users";
@@ -28,11 +26,9 @@ export function permissionName(resource: AdminResource, action: AdminAction): st
   return `${resource}:${action}`;
 }
 
-// This plugin's mapping from method to action: every screen reads on GET/HEAD and mutates on POST.
-// The manifest's route table and the in-handler guard both go through it rather than each spelling
-// the permission out, so they cannot drift into gating on different names. Deliberately local — as
-// a general mechanism it would make authorization a function of the transport verb, and a route
-// table should answer "what does this need?" on its own (AGENTS.md).
+// Every screen reads on GET/HEAD and mutates on POST. The route table and the in-handler guard both
+// go through this rather than each spelling the permission out, so they cannot drift. Deliberately
+// local: generalised, it would make authorization a function of the transport verb (AGENTS.md).
 export function actionForMethod(method: string): AdminAction {
   const verb = method.toUpperCase();
   return verb === "GET" || verb === "HEAD" ? "read" : "write";
@@ -54,13 +50,10 @@ export const ADMIN_NAV: NavNode = {
 };
 
 // The screen gate: a signed-in user holding this request's `<resource>:<action>`. Each route already
-// declares the same permission, so the host enforces it before the handler runs; this is
-// defence-in-depth and what a direct unit test relies on. Returns the (non-null) user for the
-// handler to thread on. GuardError → /login or 403.
-// `action` defaults to the method's, and is passed explicitly by a *write-intent GET* — a create form
-// or a delete-confirm page, whose only purpose is to start a write. Those refuse a reader honestly
-// instead of rendering a form whose submit would 403; the route table declares the same override, so
-// the two still cannot disagree.
+// declares the same permission, so this is defence-in-depth and what a direct unit test relies on.
+// `action` defaults to the method's, and is passed explicitly by a *write-intent GET* — a create
+// form or a delete-confirm page — which refuses a reader rather than rendering a form whose submit
+// would 403. The route table declares the same override, so the two cannot disagree.
 export function requirePermission(ctx: RequestContext, resource: AdminResource, action?: AdminAction): User {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
   const permission = permissionName(resource, action ?? actionForMethod(ctx.req.method ?? "GET"));

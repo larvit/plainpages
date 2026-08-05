@@ -1,27 +1,22 @@
 # Admin — the system-administration plugin
 
-The Users / Groups / OAuth2-clients screens for running Plainpages itself. These used to be
-built into the core; they now ship as a **drop-in example plugin** so a fresh clone has no admin GUI
-until you opt in. Copy this folder into `plugins/` (it keeps the id and mount path `admin`, so the
-screens live at `/admin/*`) and restart:
+The Users / Groups / OAuth2-clients screens for running Plainpages itself, shipped as a **drop-in
+example plugin** so a fresh clone has no admin GUI until you opt in. Copy this folder into `plugins/`
+(it keeps the id and mount path `admin`, so the screens live at `/admin/*`) and restart:
 
 ```bash
 cp -r examples/plugins/admin plugins/admin
 docker compose up -d
 ```
 
-The bootstrap grants the seeded `admin@plainpages.local` every permission this plugin declares, so the
-section appears in the menu and the screens work immediately.
+The bootstrap grants the seeded `admin@plainpages.local` every permission this plugin declares, so
+the section appears in the menu and the screens work immediately. An older copy already in
+`plugins/` is yours — the host never updates it — so re-copy after a pull; a stale one stops the boot
+with a message naming it ([README → Upgrading](../../../README.md#upgrading)).
 
-> **Already have `plugins/admin` from an earlier version?** Re-copy it. Your copy is yours — the host
-> never updates it — and this plugin's permissions changed on 2026-08-05 (`admin` → `users:`/`groups:`/
-> `oauth2-clients:` × `read`/`write`). A stale copy stops the boot with a message naming it; see
-> [README → Upgrading](../../../README.md#upgrading).
-
-Every string it renders comes from its own catalogs (`i18n/en-US.ts`, `i18n/sv-SE.ts`) — the nav
-labels included, which are catalog keys in `admin-shared.ts`. Each pure view-model builder takes an
-optional `t`; the handlers pass `ctx.t`, and the default is the plugin's own English so a unit test
-reads in words rather than keys. (README → [Languages](../../../README.md#languages-i18n).)
+Every string it renders comes from its own catalogs (`i18n/en-US.ts`, `i18n/sv-SE.ts`), the nav
+labels included. Each pure view-model builder takes an optional `t` defaulting to the plugin's own
+English, so a unit test reads in words rather than keys.
 
 ## What it demonstrates — a *system* plugin
 
@@ -35,15 +30,14 @@ stack**, so they use the privileged **`ctx.system`** surface the host exposes to
 - **`ctx.system.revoke(sub)`** — the optional instant-revoke hook: a deactivate/delete or a
   user's permission change kills that subject's live tokens at once instead of waiting out the JWT TTL.
 
-`ctx.system` is populated only when the host wired those services (the dev stack wires Kratos + Keto,
-and Hydra when configured). Where a capability is absent the screen degrades to a themed 503 rather
-than crashing — see `admin-shared.ts`. Everything else is an ordinary plugin: folder-discovered,
-gated per route by its screen's `<resource>:<action>` permission, rendering the core building blocks
-in `views/`.
+`ctx.system` is populated only when the host wired those services. Where a capability is absent the
+screen degrades to a themed 503 rather than crashing. Everything else is an ordinary plugin:
+folder-discovered, gated per route by its screen's `<resource>:<action>` permission, rendering the
+core building blocks in `views/`.
 
-Each screen is its own resource — `users`, `groups`, `oauth2-clients` — and each splits into `:read`
-and `:write`, so a helpdesk account can be given `users:read` alone. The nav is filtered by the same
-permissions: holding none of the three hides the Admin section entirely.
+Each screen is its own resource — `users`, `groups`, `oauth2-clients` — split into `:read` and
+`:write`, so a helpdesk account can be given `users:read` alone. Holding none of the six hides the
+Admin section entirely.
 
 There is **no Permissions screen**. Permission names are declared in plugin code, not created in a
 GUI, so the host's catalog (`ctx.declaredPermissions`) is the fixed list — and holding one is a

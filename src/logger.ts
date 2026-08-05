@@ -21,11 +21,9 @@ export interface LoggerOptions {
   stdout?: (msg: string) => void;
 }
 
-// The app-level logger: a Log tagged service.name so every console line, OTLP log record and span is
-// attributed to the service. Level + format + name are explicit toggles (LOG_LEVEL/LOG_FORMAT/
-// SERVICE_NAME — environment-agnostic, AGENTS.md §4). With otlpEndpoint set, logs + spans also export
-// to that OTLP/HTTP collector (e.g. an OpenTelemetry Collector fronting Tempo/Loki); unset ⇒ console
-// only, at zero export cost. Conditional spreads keep exactOptionalPropertyTypes happy (no `key: undefined`).
+// The app-level logger, tagged service.name. With otlpEndpoint set, logs + spans also export to that
+// OTLP/HTTP collector; unset ⇒ console only, at zero export cost. The conditional spreads keep
+// exactOptionalPropertyTypes happy (no `key: undefined`).
 export function createLogger(opts: LoggerOptions = {}): Log {
   return new Log({
     context: { "service.name": opts.serviceName || SERVICE_NAME },
@@ -49,13 +47,10 @@ export function currentLog(): Log | undefined {
   return requestStore.getStore();
 }
 
-// A drop-in `fetch` that traces through the active request log — a client span nested under the
-// request span, with a W3C `traceparent` injected so the downstream service continues the same
-// trace. Outside a request (no ambient log) or for a non-string/URL input it's a plain `fetch`.
-// server.ts wires this (under the Ory timeout) into every Kratos/Keto/Hydra/JWKS call; a plugin
-// uses it for its upstream calls (exported via plugin-api.ts). The trace-setup adds no throw of its
-// own, but log.fetch throws synchronously if the request log has already ended (app.ts ends it only
-// after the handler unwinds, so a live handler never hits that).
+// A drop-in `fetch` that traces through the active request log — a client span under the request
+// span, with a W3C `traceparent` injected so the downstream service continues the same trace.
+// Outside a request, or for a non-string/URL input, it is a plain `fetch`. Note log.fetch throws
+// synchronously once the request log has ended; app.ts ends it only after the handler unwinds.
 export const tracedFetch: typeof fetch = (input, init) => {
   const log = currentLog();
   if (log && (typeof input === "string" || input instanceof URL)) return log.fetch(input, init);
@@ -63,11 +58,9 @@ export const tracedFetch: typeof fetch = (input, init) => {
 };
 
 // A per-request child logger holding a "request" trace span. `clone` (not parentLog) gives the
-// request its own root trace — so requests aren't all nested under one app-lifetime span — while
-// inheriting the parent's level/format/streams/OTLP. A valid upstream W3C `traceparent` is adopted
-// (the span continues that distributed trace across a reverse proxy/gateway; malformed ⇒ ignored, a
-// fresh trace starts). `requestId` tags every line + the span for log↔trace correlation. Flush with
-// `end()` on response finish to export the span — a no-op when OTLP is off.
+// request its own root trace, so requests aren't all nested under one app-lifetime span, while
+// inheriting the parent's level/format/streams/OTLP. A valid upstream `traceparent` is adopted;
+// malformed ⇒ ignored, a fresh trace starts. `end()` on response finish exports the span.
 export function requestLogger(appLog: Log, opts: { requestId: string; traceparent?: string | undefined }): Log {
   return appLog.clone({
     context: { ...appLog.context, requestId: opts.requestId },

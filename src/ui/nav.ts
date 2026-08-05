@@ -1,10 +1,7 @@
-// composeNav: merge each plugin's nav fragment into one tree, apply the central
-// override, then permission-filter per user. Pure and I/O-free — menu gating reads the JWT
-// `permissions` claim (README "The menu system"), never Keto. A node is visible iff it is `public`, or
-// declares no `permission`, or `permissions` includes that permission name; a gated header hides its whole
-// subtree, and a pure header left with no children is dropped. The config/menu.ts supplies
-// the override (+ branding); this helper only transforms data, so its result is per-deployment
-// up to the final permission filter and emits clean nodes ready for nav-tree.ejs (no id/permission).
+// composeNav: merge each plugin's nav fragment into one tree, apply the central override, then
+// permission-filter per user. Pure and I/O-free — menu gating reads the JWT `permissions` claim,
+// never Keto. A node is visible iff it is `public`, declares no `permission`, or the user holds that
+// name; a gated header hides its whole subtree, and a pure header left with no children is dropped.
 
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";

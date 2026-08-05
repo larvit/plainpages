@@ -113,7 +113,7 @@ test("the E2E runner writes its artifacts as the invoking user, never as root", 
   // filter would otherwise leave that command silently unguarded.
   const documented = [read("README.md"), ...composeFiles("e2e-tests/").map(read)]
     .join("\n").split("\n").filter((l) => /docker compose .*\brun\b.*\be2e\b/.test(l));
-  assert.equal(documented.length, 10, "5 compose headers + 5 README blocks");
+  assert.equal(documented.length, 6, "5 compose headers + 1 README block");
   for (const l of documented)
     assert.match(l, /--user "\$\(id -u\):\$\(id -g\)"/, `passes the uid: ${l.trim()}`);
   // An absent mount source is daemon-created as root, and then that uid can't write it at all.

@@ -29,19 +29,14 @@ export function permissionTuple(userId: string, permission: string) {
   return { namespace: "Permission", object: permission, relation: "granted", subject_id: `user:${userId}` };
 }
 
-// The permissions to grant the demo admin = the configured base (ADMIN_PERMISSIONS, empty by default)
-// unioned with every discovered plugin's declared permission names (a route/nav `permission` is a
-// coarse permission — granted as a Keto `Permission:<name>#granted` tuple). So the host names no plugin, yet a
-// dropped-in plugin's permissions are seeded out of the box. Deduped, order-stable, blanks dropped.
-// The base is empty because permissions are `<resource>:<action>` and every one of them is owned by
-// the plugin that gates on it — a host-invented default would gate nothing.
+// ADMIN_PERMISSIONS (empty by default) unioned with every discovered plugin's declared names, so
+// the host names no plugin yet a dropped-in one is seeded out of the box.
+//
 // ADMIN_PERMISSIONS is the one place an operator names a permission by hand, so it is held to the
-// same `<resource>:<action>` rule discovery applies to a manifest — but *dropped with a warning*,
-// never fatal. Fail-loud belongs at the manifest boundary, where a developer authored the mistake
-// and can fix it; this is operator env, bootstrap gates `web`, and the whole stack must not refuse
-// to start over a stale variable. `admin` was this setting's own default before 2026-08-05, so a
-// value that bricks the boot is the *expected* leftover on any upgrade. The name it would have
-// written gates nothing anyway. Declared names already passed the check at discovery.
+// same `<resource>:<action>` rule as a manifest — but *dropped with a warning*, never fatal:
+// fail-loud belongs at the manifest boundary where a developer authored the mistake, whereas this
+// is operator env and bootstrap gates `web`, so the whole stack must not refuse to start over a
+// stale variable. The name it would have written gates nothing anyway.
 export function seedPermissions(adminPermissionsEnv: string | undefined, declaredNames: string[]): { ignored: string[]; permissions: string[] } {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
   const configured = clean((adminPermissionsEnv ?? "").split(","));

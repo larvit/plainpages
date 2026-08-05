@@ -1,12 +1,9 @@
-// The translator: a key + vars → the string to render. Pure and synchronous — views call it
-// as `t("shell.signOut")` and handlers as `ctx.t(...)`.
-//
-// Two rules the rest of the app leans on:
-//   · the lookup walks a catalog chain (plugin locale → plugin en-US → core locale → core en-US) and,
-//     when nothing has the key, returns the key itself. That is what makes a plain nav label like
-//     "Shifts" its own fallback — a manifest needs no catalog to keep working.
-//   · the result is raw text. Views escape with <%= %> exactly as they do for any other value, so a
-//     translation is never double-escaped, and a message that carries markup is rendered with <%- %>.
+// The translator: a key + vars → the string to render. Two rules the rest of the app leans on:
+//   · the lookup walks a catalog chain (plugin locale → plugin en-US → core locale → core en-US)
+//     and returns the key itself when nothing has it — so a plain nav label like "Shifts" is its
+//     own fallback and a manifest needs no catalog to keep working.
+//   · the result is raw text, escaped by the view with <%= %> like any other value, so a
+//     translation is never double-escaped and one carrying markup is rendered with <%- %>.
 
 import { isPluralMessage, type Catalog, type PluralMessage } from "./catalog.ts";
 

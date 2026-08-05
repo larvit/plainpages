@@ -1,12 +1,6 @@
-// Config loaded once from the environment at boot: Ory endpoints, cookie/CSRF
-// secrets, JWKS location, listen port, behaviour toggles. Fail-loud — a bad value, a
-// missing enforced secret, a bad URL, or an out-of-range port throws here, never at
-// request time.
-//
-// Environment-agnostic (AGENTS.md): the app never asks "which environment am I?". Every
-// behaviour that used to ride on NODE_ENV is its own explicit toggle — `CACHE_TEMPLATES`,
-// `REQUIRE_SECURE_SECRETS`. Clean-clone (README): every value has a working dev default,
-// so `docker compose up` runs with zero config; a hardened deploy sets the toggles it wants.
+// Config loaded once from the environment at boot. Fail-loud — a bad value, a missing enforced
+// secret, a bad URL or an out-of-range port throws here, never at request time. Every value has a
+// working dev default, so `docker compose up` runs with zero config.
 
 // Log verbosity, most→least severe; "none" silences everything (matches @larvit/log's levels).
 export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly", "none"] as const;

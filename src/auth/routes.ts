@@ -231,10 +231,8 @@ function logout(kratos: KratosPublic, secureCookies: boolean): BuiltinRoute["han
 }
 
 // Kratos' self-service error sink (kratos.yml flows.error.ui_url → /error). A flow that fails a
-// security/expiry check redirects the browser here with ?id=<uuid>. Render a themed page with a
-// path back into sign-in instead of the catch-all 404 ("Page not found") it used to hit. The
-// canonical-host redirect prevents the common cause (a lost cross-host CSRF cookie); this is the
-// honest fallback for any genuine flow error. The id is shown only for support reference.
+// security/expiry check redirects the browser here with ?id=<uuid>; render a themed page with a
+// path back into sign-in rather than the catch-all 404. The id is shown for support reference only.
 const errorSink = (ctx: RequestContext): RouteResult =>
   ({ data: { id: ctx.url.searchParams.get("id") }, view: "error" });
 

@@ -1,8 +1,6 @@
-// Auth guards: in-handler authorization, the imperative counterpart to the
-// declarative route `permission` gate. The middleware already verified the session JWT and put
-// the User on ctx; these read it. `requireSession` asserts (throws GuardError, which app.ts maps
-// to a response); `can`/`check` are predicates a handler branches on. `check` is the one live
-// Keto call — the fine-grained "may I?" tier (README), reserved for relationship rules.
+// In-handler authorization, the imperative counterpart to the declarative route `permission` gate.
+// `requireSession` asserts (throws GuardError, which app.ts maps to a response); `can`/`check` are
+// predicates a handler branches on. `check` is the one live Keto call, for relationship rules.
 import type { RequestContext, User } from "../http/context.ts";
 import type { KetoClient } from "./keto-client.ts";
 import { localPath } from "../http/safe-url.ts";

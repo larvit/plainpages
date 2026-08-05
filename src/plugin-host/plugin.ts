@@ -1,6 +1,5 @@
-// The plugin contract — the product's main API surface: the machine-readable types +
-// pure rules; README.md (Building plugins) is the prose reference, discovery/router wire it to FS+HTTP.
-// Powerful, predictable, fails loud at boot/discovery rather than sandboxing at runtime.
+// The plugin contract — the product's main API surface: the machine-readable types + pure rules.
+// README → Building plugins is the prose reference; discovery/router wire this to FS + HTTP.
 //
 // A plugin's identity is its folder under plugins/: folder name = `id` (isValidPluginId), mount =
 // `/<id>`. Neither is in the manifest — the host derives them, so they can't drift or be claimed twice.
@@ -8,9 +7,7 @@
 import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
 
-// Host contract version (semver). Bump major on a breaking manifest/handler change, minor on an
-// additive one. A plugin pins the version it targets via `apiVersion`; the host applies
-// provider/consumer semver semantics in checkApiVersion (refuse/warn on mismatch).
+// Bump major on a breaking manifest/handler change, minor on an additive one.
 export const HOST_API_VERSION = "1.0.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";
@@ -30,24 +27,21 @@ export interface Route {
   method: HttpMethod;
   path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
   permission?: string; // coarse gate — the Keto Permission the caller must hold; checked before the handler runs
-  // Mark the page reachable by anyone, signed in or not. The same as omitting `permission`
-  // — an ungated route is already open — but stated outright, so "public" is a deliberate
-  // choice, not an accident. Mutually exclusive with `permission` (discovery refuses both).
+  // Same as omitting `permission`, but stated outright so public is a deliberate choice rather than
+  // a forgotten gate. Mutually exclusive with `permission` (discovery refuses both).
   public?: boolean;
 }
 
-// A Keto Permission this plugin gates on — declared for docs/seeding. Permission names are a shared
-// global namespace (so an operator grants them once in Keto) and are always `<resource>:<action>` —
-// `scheduling:read`, `users:write`. A bare word names who someone is rather than what they may do,
-// which is a role, and roles are groups here (README → Users, groups & permissions).
+// A Keto Permission this plugin gates on — declared for docs/seeding. Names are a shared global
+// namespace, so an operator grants them once in Keto. See README → Users, groups & permissions.
 export interface PermissionDecl {
   description?: string;
   name: string;
 }
 
-// `<resource>:<action>`, each half lowercase alphanumeric with dashes/underscores inside. The 64-char
-// cap keeps a name usable as a Keto object and a URL path segment. Enforced at discovery like every
-// other manifest rule, so the convention holds for plugins the admin GUI never touches.
+// `<resource>:<action>`. The 64-char cap keeps a name usable as a Keto object and a URL path
+// segment. Enforced at discovery like every other manifest rule, so the convention holds for
+// plugins the admin GUI never touches.
 const PERMISSION_NAME = /^[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*$/;
 
 export function isValidPermissionName(name: string): boolean {
@@ -77,12 +71,10 @@ export interface PluginHooks {
 // host derives them from the folder name at discovery (see Plugin).
 export interface PluginManifest {
   apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
-  // Take over the gated dashboard "/dashboard" — the post-login app home. A handler like any
-  // route's; the host gates it to a signed-in session (anonymous → /login), then renders its own view
-  // via ctx.chrome. At most one plugin may declare it (findConflicts → error, never last-write-wins).
+  // Take over "/dashboard"; the host gates it to a signed-in session first. At most one plugin may
+  // declare it (findConflicts → error, never last-write-wins).
   dashboard?: RouteHandler;
-  // Take over the public landing "/" — the ungated front page. A handler like any route's,
-  // anyone may reach it. At most one plugin may declare it (findConflicts → error).
+  // Take over the ungated public landing "/". At most one plugin may declare it.
   home?: RouteHandler;
   hooks?: PluginHooks;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
@@ -96,27 +88,23 @@ export interface Plugin extends PluginManifest {
   id: string;
 }
 
-// Identity helper: types the manifest, returns it unchanged. Validation happens at discovery
-//, so a plugin may equally be a plain typed object. Mirrors Vite's `defineConfig`.
+// Types the manifest and returns it unchanged; validation happens at discovery, so a plugin may
+// equally be a plain typed object.
 export function definePlugin(manifest: PluginManifest): PluginManifest {
   return manifest;
 }
 
-// A plugin id (its folder name) — lowercase a–z, digits, and dashes, dashes allowed anywhere.
-// Rejects uppercase, underscores, dots, slashes, spaces: the id forms the mount path `/<id>`,
-// the view/static namespace, and the central-override target, so it must stay URL/path-safe.
+// The id forms the mount path `/<id>`, the view/static namespace and the central-override target,
+// so it must stay URL/path-safe: no uppercase, underscores, dots, slashes or spaces.
 const PLUGIN_ID = /^[a-z0-9-]+$/;
 
 export function isValidPluginId(id: string): boolean {
   return PLUGIN_ID.test(id);
 }
 
-// Ids the host reserves for its own first-party mount segments (the gated /dashboard, the auth flows,
-// /auth/complete, /logout, the /oauth2 provider routes, the /public/ static). Plugin routes resolve
-// before these, so a folder named one of them would silently shadow a built-in route — discovery
-// refuses it, loud like any conflict. ("/" is owned by the `home` field, not a route, so it can't be
-// shadowed and needs no reservation.) Note `admin` is NOT reserved: the admin screens ship as a
-// drop-in plugin (examples/plugins/admin, mounted at /admin), not a built-in route.
+// Plugin routes resolve before the built-ins, so a folder named one of these would silently shadow
+// one — discovery refuses it. "/" is owned by the `home` field, not a route, so it needs no
+// reservation; `admin` is deliberately absent, the admin screens being a drop-in plugin.
 export const RESERVED_PLUGIN_IDS: ReadonlySet<string> = new Set([
   "auth", "dashboard", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
 ]);
@@ -127,14 +115,12 @@ export interface Semver {
   patch: number;
 }
 
-// The official semver.org 2.0.0 core regex (major.minor.patch, optional prerelease/build) — a
-// standardized parse with no dependency. We compare only major/minor for compatibility, so the
-// prerelease/build groups are matched (to accept valid input) but otherwise ignored.
+// The official semver.org 2.0.0 core regex. Only major/minor drive compatibility, so the
+// prerelease/build groups are matched to accept valid input but otherwise ignored.
 const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(?:\+[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*)?$/;
 
-// Parse a strict semver string → {major, minor, patch}, or null. Rejects ranges/prefixes
-// (`^1.2.3`, `v1`), leading zeros, whitespace and missing parts — fail loud over coerce.
+// Rejects ranges/prefixes (`^1.2.3`, `v1`), leading zeros and missing parts — fail loud over coerce.
 export function parseSemver(version: unknown): Semver | null {
   if (typeof version !== "string") return null;
   const m = SEMVER.exec(version);
@@ -147,9 +133,8 @@ export interface VersionCheck {
   message: string;
 }
 
-// Provider/consumer semver check (full table in README.md → Contract versioning): same major+minor → ok,
-// plugin minor < host → warn, else (newer minor, major mismatch, malformed) → refuse. Patch is
-// ignored. Discovery maps refuse→throw, warn→log.
+// Provider/consumer semver check (full table in README → Contract versioning). Discovery maps
+// refuse→throw, warn→log.
 export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HOST_API_VERSION): VersionCheck {
   const plugin = parseSemver(pluginVersion);
   const host = parseSemver(hostVersion);
@@ -176,9 +161,8 @@ export interface PluginConflict {
   plugins: string[]; // unique ids involved
 }
 
-// The conflict rules: defined, loud resolution — never last-write-wins. Pure over the discovered
-// plugins; discovery throws on any "error" and logs every "warn". Mount-path (`/<id>`) uniqueness
-// is structural — it follows from the id check, so it needs no rule of its own. Shared permission
+// Loud resolution, never last-write-wins: discovery throws on any "error" and logs every "warn".
+// Mount-path uniqueness needs no rule of its own — it follows from the id check. Shared permission
 // names are the one intentional overlap, so they warn rather than error.
 export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   const out: PluginConflict[] = [];

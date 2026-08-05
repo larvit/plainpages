@@ -1,9 +1,6 @@
-// Page chrome for plugin pages: the brand / global-nav / user / theme / csrf block a
-// plugin view hands to partials/shell so its page looks native — the same shell the dashboard and
-// every plugin renders. Pure; the host builds it per plugin request and exposes it on ctx.chrome.
-// nav is the global menu — Dashboard + every plugin's fragment (admin screens included, when the
-// admin plugin is installed) — run through composeNav (override + per-user filter) and
-// current-marked for the request path.
+// The brand / global-nav / user / theme / csrf block a view hands to partials/shell, exposed on
+// ctx.chrome. `nav` is the global menu — Dashboard plus every plugin's fragment — run through
+// composeNav (override + per-user filter) and current-marked for the request path.
 
 import type { User } from "../http/context.ts";
 import { ENGLISH } from "../i18n/english.ts";
@@ -13,9 +10,6 @@ import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { branding, shellUser, type ShellUser } from "./shell-context.ts";
 
-// The "Dashboard" link to the gated app home (/dashboard). It targets a gated route, so it's shown
-// only to a signed-in user (an anonymous click would only dead-end at /login). Its label is a
-// catalog key — composeNav translates every label, and an unknown one renders as written.
 const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard" };
 
 export interface PageChrome {
@@ -41,13 +35,11 @@ export interface ChromeOptions {
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   const t = opts.t ?? ENGLISH;
   const carryLocale = opts.localeHref ?? ((href: string) => href);
-  // The Dashboard link targets the gated /dashboard, so show it only to a signed-in user — to an
-  // anonymous visitor (a public page in the shell) it would only dead-end at /login. The admin
-  // section, when present, is just another plugin's nav fragment (examples/plugins/admin).
+  // Dashboard is gated, so an anonymous click would only dead-end at /login.
   const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
   // A plugin's nav labels are keys in *its* catalog, so translate each fragment with that plugin's
-  // translator before they are merged. composeNav then runs the core one over the result for the
-  // built-in nodes and the central override's labels; already-translated text passes through it.
+  // translator before merging. composeNav then runs the core one over the result; already-translated
+  // text passes through it.
   for (const p of opts.plugins ?? []) {
     if (p.nav?.length) fragments.push(translateNav(p.nav, opts.translatorFor?.(p.id) ?? t));
   }

@@ -27,15 +27,12 @@ import type { MenuConfig } from "../ui/menu-config.ts";
 import { loadI18n } from "../i18n/load.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
-// The admin screens ship as a drop-in example plugin; the HTTP-level admin tests mount it via
-// createApp (with stub Ory clients on ctx.system + views from examples/plugins) exactly as an
-// operator would after copying it into plugins/.
+// The HTTP-level admin tests mount the example plugin via createApp — stub Ory clients on
+// ctx.system, views from examples/plugins — exactly as an operator would after copying it in.
 const examplesPluginsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples", "plugins");
 const adminPlugin: Plugin = { ...adminManifest, id: "admin" };
 
-// A session JWT signed with a throwaway test key — the verify path. Wired into the shared
-// `server` (and the per-test apps) so a request can present a valid session; the dashboard and the
-// gated routes need one. `staticJwks([ecJwk])` is the matching verify side.
+// A session JWT signed with a throwaway test key; `staticJwks([ecJwk])` is the matching verify side.
 const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
 const ecJwk: JsonWebKey = { ...(ec.publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid: "test-kid" };
 const b64url = (i: Buffer | string): string => Buffer.from(i).toString("base64url");
@@ -101,8 +98,7 @@ test("plugins replace either landing: `home` owns the public /, `dashboard` owns
   const dir = mkdtempSync(join(tmpdir(), "pp-home-"));
   mkdirSync(join(dir, "portal", "views"), { recursive: true });
   writeFileSync(join(dir, "portal", "views", "welcome.ejs"), `<h1>Welcome to <%= brand %></h1><a href="/login">Sign in</a>`);
-  // The dashboard view renders the native app shell from ctx.chrome — the blessed plugin ergonomics:
-  // its own title/body, the global menu (chrome.nav), the signed-in user, the Sign-out CSRF token.
+  // The dashboard view renders the native app shell from ctx.chrome.
   writeFileSync(join(dir, "portal", "views", "board.ejs"),
     `<%- include("partials/shell", { body: "<p>Hi " + user.email + "</p>", brand: chrome.brand, csrfToken: chrome.csrfToken, nav: include("partials/nav-tree", { nodes: chrome.nav }), theme: chrome.theme, title: "My Portal", user: chrome.user }) %>`);
   t.after(() => rmSync(dir, { force: true, recursive: true }));
@@ -326,9 +322,8 @@ function rawGet(port: number, path: string, host: string, method = "GET"): Promi
 }
 
 test("APP_URL canonical-host redirect: an off-host visitor is 308'd to the configured origin (path+query kept)", async (t) => {
-  // The fix for the localhost-vs-127.0.0.1 / multi-domain trap: reach the app on any host and it
-  // sends you to APP_URL's host, so the browser, the themed form, and the cross-origin Kratos POST
-  // all share ONE cookie host. Off-canonical only — same-host requests pass straight through.
+  // Reach the app on any host and it sends you to APP_URL's, so the browser, the themed form and the
+  // cross-origin Kratos POST share ONE cookie host. Same-host requests pass straight through.
   const app = createApp({ jwks: staticJwks([ecJwk]), appUrl: "http://canonical.example:3000" });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
@@ -359,8 +354,8 @@ test("no APP_URL configured ⇒ no canonical redirect (unit-test apps and host-a
 });
 
 test("/error renders a themed sign-in error page (Kratos' flow error sink), not the 404", async () => {
-  // Kratos' flows.error.ui_url points here; a flow error redirects to /error?id=<uuid>. Without a
-  // handler it 404'd as "Page not found" (confusing). It must be a real, themed page now.
+  // Kratos' flows.error.ui_url points here; a flow error redirects to /error?id=<uuid>, which must
+  // land on a real themed page rather than the catch-all 404.
   const res = await fetch(base + `/error?id=${randomUUID()}`, { redirect: "manual" });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") ?? "", /text\/html/);
@@ -1257,9 +1252,8 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   assert.equal((await get("/admin/groups/%ZZ")).status, 404);
 });
 
-// Granting permissions over HTTP, on the two screens that replaced the deleted Permissions screen.
-// The offered set is the host's catalog (ctx.declaredPermissions, from what the installed plugins
-// declare), so the checkboxes are a fixed list and the POST is the desired state.
+// Granting permissions over HTTP. The offered set is the host's catalog (ctx.declaredPermissions),
+// so the checkboxes are a fixed list and the POST is the desired state.
 test("admin permission grants: the picker offers the declared catalog, and a save is the desired set", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
@@ -1348,7 +1342,7 @@ test("admin screens render no write affordance for a read-only holder", async (t
   assert.doesNotMatch(group, /Delete group/);
   assert.doesNotMatch(group, /Save permissions/);
 
-  // The OAuth2-clients screen is held to the same rule (it was the one this test was written to catch).
+  // The OAuth2-clients screen is held to the same rule.
   const clientsRes = await get("/admin/clients", ["oauth2-clients:read"]);
   assert.equal(clientsRes.status, 200); // a real render, not the capability-missing 503
   const clients = await clientsRes.text();

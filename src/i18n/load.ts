@@ -1,12 +1,10 @@
-// Catalog discovery: import src/i18n/locales/<tag>.ts and plugins/<id>/i18n/<tag>.ts, then
-// check every one against its set's en-US baseline. The imperative shell over catalog.ts's pure
-// rules — the same contract as plugin discovery: one boot-stopping Error listing every problem,
-// so a half-translated deploy is caught at startup rather than as a stray English word in production.
+// Catalog discovery: import src/i18n/locales/<tag>.ts and plugins/<id>/i18n/<tag>.ts, then check
+// every one against its set's en-US baseline. The imperative shell over catalog.ts's pure rules,
+// with plugin discovery's contract: one boot-stopping Error listing every problem, so a
+// half-translated deploy is caught at startup rather than as a stray English word in production.
 //
-// Installed locales are whatever the core folder holds; a plugin may translate fewer of them (its
-// strings then render in en-US on that page) but never one the host does not have. The operator's
-// `locales/` mount extends both sides — `locales/<tag>.ts` for the core, `locales/plugins/<id>/<tag>.ts`
-// for a plugin — so adding a language never means forking the image or a vendored plugin.
+// A plugin may translate fewer locales than the core holds (its strings then render in en-US) but
+// never one the host lacks. The operator's `locales/` mount extends both sides.
 
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";

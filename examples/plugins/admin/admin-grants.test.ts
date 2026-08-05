@@ -46,9 +46,9 @@ test("buildPermissionPicker ticks what is held and carries each declaration's de
   assert.equal(picker.inheritedNote, undefined); // nothing is group-held here
 });
 
-// The failure this prevents: a permission held through a group used to render unticked, so the page
-// said "not held" about a grant that reaches the JWT — and unticking it wrote nothing, which read as
-// a successful revoke. Inherited rows are ticked, disabled, and never posted.
+// An inherited permission rendered unticked would say "not held" about a grant that reaches the JWT,
+// and unticking it writes nothing, reading as a successful revoke. So inherited rows are ticked,
+// disabled, and never posted.
 test("buildPermissionPicker distinguishes a direct grant from one inherited through a group", () => {
   const picker = buildPermissionPicker({ action: "/x", declared, direct: ["users:write"], effective: ["users:read", "users:write"] });
   assert.deepEqual(picker.choices.map((c) => [c.name, c.checked, c.inherited]), [
