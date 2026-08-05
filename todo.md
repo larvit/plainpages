@@ -2,6 +2,9 @@
 
 ## Unfinnished work
 
+- [ ] Document permissions format so it is folled going forward: <resource>:<action>, for example scheduling:read. Permission "admin" does not match this, and needs to be users:read, users:write, groups:read, groups:write.
+- [ ] Permissions should be a list in code. Since no permissions exists in the database out of the box, but there are a fixed number of permissions in the plugins that the end consumer and user of plain pages can use, these permissions must surface to the UI somehow. The effects is that the permissions page should be deleted completely, and the users and groups pages should gain the functionality to add permissions to their things instead, provided the user have the right permissiosn to do so, of course. Run the product reviewer agent on this todo also.
+- [ ] The seeded admin@plainpages.local are assigned twice to the permission "admin", should only be one, right? (the "admin" permission name can be switched after previous todos have been done)
 - [ ] In Playwright tests, try different resolutions and sizes, from BIG desktop down to tiny phone.
 - [ ] Decide whether `e2e-tests/` should be typechecked. It is outside `tsconfig.include`, so the gate never checks the most logic-bearing file in it (`console-guard.ts`) — Playwright strips its types without checking them. Including it needs the DOM lib and `@playwright/test` present wherever `npm run typecheck` runs, which today is the `web` image that installs neither. Raised by review 2026-08-05.
 - [ ] Decide whether Playwright's `workers` should be pinned. It is unset, so Playwright sizes the pool from `os.cpus()`, which reports the host's cores regardless of a container CPU quota — and with `retries: 0` a starved runner turns a slow test straight into a red gate rather than a retry. Fine on the current act_runner; revisit if CI ever runs constrained. Raised by review 2026-08-05.
