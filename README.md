@@ -1524,7 +1524,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`, a no-op on a docs-only branch), then build + push the app image |
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
-| `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
+| `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags (pruning deleted ones) to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
 | `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green; the release-tag job only runs when `AUTO_RELEASE` is `true` |
 
@@ -1578,9 +1578,15 @@ Docker Hub when it changes.
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is a
 read-only mirror; after every merge, `mirror.yml` force-pushes `main` and all tags there,
-overwriting any drift (refs deleted on Gitea are not pruned). One-time setup: a dedicated
+overwriting any drift. Tags are pushed with `--prune`, so deleting one here deletes it there on
+the next mirror run — ref deletions don't trigger the workflow themselves — and the mirror can't
+go on advertising a version the source dropped; branches other than `main` are matched by no
+refspec and are left alone. The same sweep removes a tag *created* on GitHub, so cut releases on
+Gitea, never on the mirror — a GitHub Release made there loses its tag and does not come back.
+One-time setup: a dedicated
 GitHub machine account with write access to the GitHub repo (whose `main` must not block
-force-pushes), and a fine-grained PAT scoped to that repo (Contents: read & write), stored
+force-pushes, and which must carry no tag protection — that would reject the prune and fail every
+run), and a fine-grained PAT scoped to that repo (Contents: read & write), stored
 as the Gitea Actions secret `MIRROR_GITHUB_TOKEN` (repo Settings → Actions → Secrets; Gitea
 rejects secret names starting with `GITHUB_`/`GITEA_`). Trigger the workflow manually for
 the first sync — until the secret exists, the mirror job fails loud on each merge.

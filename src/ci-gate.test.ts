@@ -31,6 +31,6 @@ test("the commit-hash image is pushed even when the gate no-ops", () => {
 
 test("only *.md counts as docs; a dirty tree and a rename both count as changed", () => {
 	assert.ok(gate.includes("\\.md$"), "the non-docs match is a *.md suffix test");
-	assert.match(gate, /git status --porcelain --no-renames/, "uncommitted code can never be skipped over");
+	assert.match(gate, /git status --porcelain --no-renames/, "uncommitted code and a staged rename can never be skipped over");
 	assert.match(gate, /git diff --name-only --no-renames/, "a rename must list both of its paths");
 });

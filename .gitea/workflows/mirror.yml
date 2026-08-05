@@ -12,7 +12,10 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+          fetch-tags: true # load-bearing for --prune below: no local tags would delete every remote one
+      # --prune so a tag deleted here doesn't live on at GitHub forever. It only removes refs a
+      # refspec DESTINATION matches — so tags; main is a non-glob dst, other branches match nothing.
       - run: |
-          git push --force \
+          git push --force --prune \
             "https://x-access-token:${{ secrets.MIRROR_GITHUB_TOKEN }}@github.com/larvit/plainpages.git" \
             refs/remotes/origin/main:refs/heads/main 'refs/tags/*:refs/tags/*'

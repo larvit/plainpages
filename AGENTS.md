@@ -184,7 +184,10 @@ them. Revisit only if the stated reason stops holding.
   none; same reasoning that freezes `HOST_API_VERSION` at 1.0.0. Note the coupling:
   `registry-cleanup` keeps a hash image only while its commit is a branch head *or* release-tagged,
   so with zero tags only branch heads survive the nightly prune — a hand-cut tag must sit on `main`'s
-  tip. Valid until the maintainer says Plainpages is ready to show people.
+  tip. `mirror.yml` pushes tags with `--prune` so the deletions actually reach the public GitHub
+  mirror; that makes the runner's tag view load-bearing (hence `fetch-tags: true`) and means a tag
+  or Release created on GitHub is swept away, so releases are cut on Gitea only. Valid until the
+  maintainer says Plainpages is ready to show people.
 - **A dropdown is a `<button popovertarget>` + `[popover]`, never a `<details>`.** The browser then
   owns open/close, which is the only zero-JS way to dismiss a menu by clicking outside it (the whole
   point), and the panel sits in the top layer so a row kebab is no longer clipped by `.table-wrap`'s
