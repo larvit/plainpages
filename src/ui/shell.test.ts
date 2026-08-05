@@ -39,8 +39,13 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   // Sign out is a CSRF-guarded POST form (state change, not a GET link), carrying the token.
   assert.match(html, /<form class="menu-item-form" method="post" action="\/logout">/);
   assert.match(html, /<input type="hidden" name="_csrf" value="tok\.sig" \/>/);
-  // …and it is the profile menu's only control: nothing dead sits beside it.
-  const profileMenu = html.slice(html.indexOf('<div class="menu-pop'), html.indexOf("</details>"));
+  // The profile trigger opens that panel — the browser dismisses it on a click outside or Esc.
+  assert.match(html, /<button class="profile" type="button" popovertarget="profile-menu">/);
+  assert.match(html, /<div id="profile-menu" class="menu-pop left up" popover/);
+  // …and Sign out is the panel's only control: nothing dead sits beside it. The window runs to the
+  // sidebar's end so a control added *after* the form is caught too (this render has no picker —
+  // ENGLISH_LOCALS ships one locale, so locale-switch emits nothing).
+  const profileMenu = html.slice(html.indexOf('id="profile-menu"'), html.indexOf("</aside>"));
   assert.deepEqual(profileMenu.match(/<button/g), ["<button"]);
 
   // Branding, document title, and the inlined icon sprite (so <use> resolves).

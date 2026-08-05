@@ -11,6 +11,7 @@ const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " 
 
 test("menu renders trigger, positioning, the item matrix and check groups", async () => {
   const html = flat(await render({
+    id: "cols-menu",
     trigger: { icon: "i-cols", text: "Columns", label: "Column settings" },
     align: "left", up: true, width: 240,
     items: [
@@ -27,9 +28,9 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
     ],
   }));
 
-  // Trigger: icon + text + aria-label; popover carries align/up classes + width.
-  assert.match(html, /<details class="menu"><summary class="btn" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/summary>/);
-  assert.match(html, /<div class="menu-pop left up" style="min-width:240px">/);
+  // Trigger: icon + text + aria-label, wired to the panel by id; popover carries align/up + width.
+  // The panel is the trigger's next sibling inside the wrapper — the CSS open state reads that.
+  assert.match(html, /<div class="menu"><button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/button><div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
 
   // Item matrix: head, button-with-icon, link, separator, danger button.
   assert.match(html, /<div class="menu-head">Actions<\/div>/);
@@ -44,17 +45,21 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
 });
 
 test("menu supports a raw/kebab trigger, escapes labels, and renders empty by default", async () => {
-  // Raw trigger HTML, no summary class, kebab + open flags.
+  // Raw trigger HTML, no button class, kebab flag.
   const kebab = flat(await render({
-    kebab: true, open: true,
+    id: "row-menu", kebab: true,
     trigger: { class: "", label: "Row actions", html: '<svg class="ico ico-sm"><use href="#i-kebab"/></svg>' },
     items: [{ label: "Edit", href: "/e" }],
   }));
-  assert.match(kebab, /<details class="menu kebab" open><summary aria-label="Row actions"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/summary>/);
+  assert.match(kebab, /<button class="kebab" type="button" popovertarget="row-menu" aria-label="Row actions"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/button>/);
 
   // Labels are escaped (item text + trigger text).
-  assert.match(flat(await render({ trigger: { text: "<x>" }, items: [{ label: "<y>" }] })), /<summary class="btn">&lt;x&gt;<\/summary>.*&lt;y&gt;/);
+  assert.match(flat(await render({ id: "esc-menu", trigger: { text: "<x>" }, items: [{ label: "<y>" }] })), /&lt;x&gt;<\/button>.*&lt;y&gt;/);
 
-  // No locals → a valid empty menu, never throws.
-  assert.equal(flat(await render()), '<details class="menu"><summary class="btn"></summary><div class="menu-pop"></div></details>');
+  // Only an id → a valid empty menu, never throws.
+  assert.equal(flat(await render({ id: "m" })), '<div class="menu"><button class="btn" type="button" popovertarget="m"></button><div id="m" class="menu-pop" popover></div></div>');
+});
+
+test("menu demands an id — a trigger wired to nothing is a dead button, so say so", async () => {
+  await assert.rejects(render({ items: [{ label: "Edit", href: "/e" }] }), /`id` is required/);
 });

@@ -3,6 +3,8 @@
   Zero-JS (sort = links, select highlight = CSS).
   Config:
     caption?, selectable?, actions?       sr-only caption; toggle the check / kebab columns
+    actionsId?                            id stem for the row-action menus (default `row-actions`);
+                                          name it when two tables share a page
     columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
     rows:    { name?, cells: Cell[], actions?: Action[] }[]
   Cell ∈ string | { text, className? } | { user:{name,initials} } | { rowHeader:{text,href?} } | { badge:{tone,label} } | { html, className? }
@@ -17,6 +19,7 @@
   const columns = locals.columns || [];
   const rows = locals.rows || [];
   const emptyText = locals.emptyText || t("table.empty"); // shown when a table that has columns has no rows
+  const actionsId = locals.actionsId || "row-actions";
 -%>
 <div class="table-wrap">
   <table class="table">
@@ -44,7 +47,7 @@
 <% if (rows.length === 0 && columns.length) { -%>
       <tr><td class="table-empty" colspan="<%= columns.length + (selectable ? 1 : 0) + (withActions ? 1 : 0) %>"><%= emptyText %></td></tr>
 <% } -%>
-<% rows.forEach((row) => { -%>
+<% rows.forEach((row, i) => { -%>
       <tr>
 <% if (selectable) { -%>
         <td class="col-check"><input type="checkbox" class="row-select" aria-label="<%= t("table.select", { name: row.name || t("table.row") }) %>"></td>
@@ -66,9 +69,17 @@
 <% }) -%>
 <% if (withActions) { -%>
 <% if ((row.actions || []).length) { -%>
-        <td class="col-actions"><details class="menu kebab"><summary aria-label="<%= t("table.rowActions", { name: row.name || t("table.row") }) %>"><svg class="ico ico-sm"><use href="#i-kebab"/></svg></summary><div class="menu-pop"><% row.actions.forEach((a) => { -%>
-<% if (a.separatorBefore) { %><div class="menu-sep"></div><% } %><% if (a.href) { %><a class="menu-item<% if (a.danger) { %> danger<% } %>" href="<%= localeHref(a.href) %>"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></a><% } else { %><button class="menu-item<% if (a.danger) { %> danger<% } %>" type="button"><% if (a.icon) { %><svg class="ico"><use href="#<%= a.icon %>"/></svg><% } %><%= a.label %></button><% } %><% }) -%>
-</div></details></td>
+        <td class="col-actions"><%- include("menu", {
+          id: `${actionsId}-${i + 1}`,
+          align: null, up: false, width: null, // explicit: EJS would otherwise inherit the page's own
+          kebab: true,
+          trigger: { class: "", icon: "i-kebab", label: t("table.rowActions", { name: row.name || t("table.row") }) },
+          // Mapped field by field, not spread: an Action and a menu Item are separate shapes.
+          items: row.actions.flatMap((a) => {
+            const item = { danger: a.danger, href: a.href, icon: a.icon, label: a.label };
+            return a.separatorBefore ? [{ sep: true }, item] : [item];
+          }),
+        }) %></td>
 <% } else { -%>
         <td class="col-actions"></td>
 <% } -%>

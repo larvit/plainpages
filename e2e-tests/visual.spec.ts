@@ -70,6 +70,35 @@ test("theme switch flips the palette with no JavaScript", async ({ page }) => {
   expect(dark).not.toBe(light);
 });
 
+// The menus are <button popovertarget> + [popover], so the browser dismisses them: the visitor no
+// longer has to click the trigger again to get rid of one. Driven through the language picker; the
+// profile menu is the same block. Anchoring is asserted too — without `position-anchor` the panel
+// silently detaches and lands in the middle of the viewport.
+test("a popover menu sits on its trigger and closes on an outside click or Esc — no JavaScript @engines", async ({ page }) => {
+  await page.goto("/dashboard");
+  const trigger = page.locator('button[aria-label="Language"]');
+  const panel = page.locator('button[aria-label="Language"] + .menu-pop');
+
+  await expect(panel).toBeHidden();
+  await trigger.click();
+  await expect(panel).toBeVisible();
+
+  // Anchored to the button that opened it: directly above (.up), right edges flush.
+  const t = (await trigger.boundingBox())!;
+  const p = (await panel.boundingBox())!;
+  expect(Math.abs(p.x + p.width - (t.x + t.width))).toBeLessThan(2);
+  expect(t.y - (p.y + p.height)).toBeGreaterThan(-1); // above the trigger, subpixel-tolerant
+  expect(t.y - (p.y + p.height)).toBeLessThan(12);
+
+  await page.getByRole("heading", { name: "Starter dashboard" }).click(); // anywhere else on the page
+  await expect(panel).toBeHidden();
+
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
 test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/dashboard");

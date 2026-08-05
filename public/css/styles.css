@@ -126,7 +126,7 @@ summary { list-style: none; cursor: pointer; }
   border-radius: 3px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .sidebar, .scrim, summary, .nav-item, .btn, .chip { transition: .15s ease; }
+  .sidebar, .scrim, summary, .nav-item, .btn, .chip, .profile, .kebab { transition: .15s ease; }
 }
 
 .sr-only {
@@ -475,19 +475,35 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   margin: 0; cursor: pointer; }
 .check:hover, .radio:hover { color: var(--text); }
 
-/* popover menu (column settings, kebab, etc.) — pure <details> */
-.menu { position: relative; display: inline-flex; }
-.menu > summary { display: inline-flex; }
-.menu > summary::after { content: none; }
+/* popover menu (language picker, profile, row kebab) — a <button popovertarget> and its [popover]
+   panel, wrapped so the pair is one element in any layout. The browser owns open/close, and the top
+   layer keeps the panel clear of a scrolling ancestor's overflow. `position-anchor: auto` binds it to
+   the button that opened it; a bare anchor() without it resolves to nothing in every engine. `color`
+   is set because the UA sheet gives [popover] a CanvasText of its own, which would ignore the theme. */
+.menu { display: inline-flex; }
 .menu-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  position: absolute; inset: auto; margin: 6px 0 0;
+  position-anchor: auto;
+  position-try-fallbacks: flip-block, flip-inline;
+  top: anchor(bottom); right: anchor(right);
   min-width: 210px; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border-2);
-  border-radius: var(--radius);
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(0,0,0,.16);
 }
-.menu-pop.left { right: auto; left: 0; }
-.menu-pop.up { top: auto; bottom: calc(100% + 6px); }
+.menu-pop.left { right: auto; left: anchor(left); }
+.menu-pop.up { top: auto; bottom: anchor(top); margin: 0 0 6px; }
+/* A browser too old for the Popover API leaves the trigger inert, so let each panel flow under its
+   trigger rather than stranding Sign out and the language picker behind a button that does nothing.
+   The wrapper turns block so the pair stacks instead of sitting side by side, and min-width goes —
+   it would otherwise push the sidebar and a 44px action cell far past their width. Cramped but
+   reachable, and unreachable by any test: a browser with both features cannot render this path.
+   Both are guarded — an engine with popover but no anchor positioning would otherwise leave the
+   panel absolutely positioned with every anchor() dropped, detached from its trigger. */
+@supports not (selector([popover]:popover-open) and (position-anchor: auto)) {
+  .menu { display: block; }
+  .menu-pop, .menu-pop.up { position: static; min-width: 0; margin: 6px 0 0; }
+}
 .menu-head { font-size: var(--fz-xs); text-transform: uppercase;
   letter-spacing: .05em; color: var(--text-faint); font-weight: 600;
   padding: 5px 8px; }
@@ -610,10 +626,13 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 
 /* row kebab */
 .col-actions { width: 44px; text-align: center; }
-.kebab summary { width: 26px; height: 26px; border-radius: var(--radius);
-  display: grid; place-items: center; color: var(--text-faint); margin: 0 auto; }
-.kebab summary:hover { background: var(--surface-2); color: var(--text); }
-.kebab[open] summary { background: var(--surface-2); color: var(--text); }
+.kebab { width: 26px; height: 26px; border-radius: var(--radius);
+  display: grid; place-items: center; color: var(--text-faint); margin: 0 auto;
+  background: transparent; border: 0; padding: 0; cursor: pointer; }
+.kebab:hover { background: var(--surface-2); color: var(--text); }
+/* Held open — a trigger's panel is its next sibling. Its own rule: :has() is non-forgiving, so an
+   engine that doesn't know :popover-open would drop the hover style along with it. */
+.kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
 
 /* ---------- 10. PAGINATION --------------------------------- */
 .pager {
