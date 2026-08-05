@@ -7,7 +7,7 @@ jobs:
   full-gate:
     runs-on: docker-host
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # ci.sh's docs-only check needs history; checkout defaults to depth 1
       - run: bash ci.sh

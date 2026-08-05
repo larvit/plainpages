@@ -8,7 +8,7 @@ jobs:
   prune-stale-images:
     runs-on: docker-host
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
       - name: Delete hash images that are neither release-tagged nor a branch head
         env:
           REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
