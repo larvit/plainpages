@@ -30,7 +30,7 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
 
   // Trigger: icon + text + aria-label, wired to the panel by id; popover carries align/up + width.
   // The panel is the trigger's next sibling inside the wrapper — the CSS open state reads that.
-  assert.match(html, /<span class="menu"><button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/button><div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
+  assert.match(html, /<div class="menu"><button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/button><div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
 
   // Item matrix: head, button-with-icon, link, separator, danger button.
   assert.match(html, /<div class="menu-head">Actions<\/div>/);
@@ -57,7 +57,7 @@ test("menu supports a raw/kebab trigger, escapes labels, and renders empty by de
   assert.match(flat(await render({ id: "esc-menu", trigger: { text: "<x>" }, items: [{ label: "<y>" }] })), /&lt;x&gt;<\/button>.*&lt;y&gt;/);
 
   // Only an id → a valid empty menu, never throws.
-  assert.equal(flat(await render({ id: "m" })), '<span class="menu"><button class="btn" type="button" popovertarget="m"></button><div id="m" class="menu-pop" popover></div></span>');
+  assert.equal(flat(await render({ id: "m" })), '<div class="menu"><button class="btn" type="button" popovertarget="m"></button><div id="m" class="menu-pop" popover></div></div>');
 });
 
 test("menu demands an id — a trigger wired to nothing is a dead button, so say so", async () => {

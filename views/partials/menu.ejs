@@ -26,7 +26,7 @@
   const popCls = "menu-pop" + (locals.align === "left" ? " left" : "") + (locals.up ? " up" : "");
   const width = locals.width;
 -%>
-<span class="menu"><button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= locals.id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></button><div id="<%= locals.id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
+<div class="menu"><button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= locals.id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></button><div id="<%= locals.id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
 <% items.forEach((it) => { -%>
 <% if (it.head != null) { -%>
   <div class="menu-head"><%= it.head %></div>
@@ -40,4 +40,4 @@
   <button class="menu-item<%= it.danger ? " danger" : "" %>" type="button"><% if (it.icon) { %><svg class="ico"><use href="#<%= it.icon %>"/></svg><% } %><%= it.label %></button>
 <% } -%>
 <% }) -%>
-</div></span>
+</div></div>

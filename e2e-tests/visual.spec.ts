@@ -87,7 +87,7 @@ test("a popover menu sits on its trigger and closes on an outside click or Esc â
   const t = (await trigger.boundingBox())!;
   const p = (await panel.boundingBox())!;
   expect(Math.abs(p.x + p.width - (t.x + t.width))).toBeLessThan(2);
-  expect(t.y - (p.y + p.height)).toBeGreaterThanOrEqual(0);
+  expect(t.y - (p.y + p.height)).toBeGreaterThan(-1); // above the trigger, subpixel-tolerant
   expect(t.y - (p.y + p.height)).toBeLessThan(12);
 
   await page.getByRole("heading", { name: "Starter dashboard" }).click(); // anywhere else on the page

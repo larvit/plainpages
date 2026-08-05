@@ -71,6 +71,7 @@
 <% if ((row.actions || []).length) { -%>
         <td class="col-actions"><%- include("menu", {
           id: `${actionsId}-${i + 1}`,
+          align: null, up: false, width: null, // explicit: EJS would otherwise inherit the page's own
           kebab: true,
           trigger: { class: "", icon: "i-kebab", label: t("table.rowActions", { name: row.name || t("table.row") }) },
           // Mapped field by field, not spread: an Action and a menu Item are separate shapes.

@@ -916,7 +916,7 @@ The core and all building blocks **work with zero JavaScript** — theme switchi
 are pure CSS + GET forms, and menus are the platform's own [popover
 API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API): a `<button popovertarget>`
 opens the panel and the browser dismisses it on a click outside or `Esc`; CSS anchor positioning
-places it. On a browser too old for either the trigger is inert, so each panel falls back to
+places it. On a browser too old for the popover API the trigger is inert, so each panel falls back to
 flowing inline underneath it — cramped inside a table cell, but nothing is unreachable. That path
 is deliberately untested: no browser that supports popovers can render it. On the [low-end, low-bandwidth targets](#overview)
 we care about this is usually *faster*: a round-trip returning a small, pre-rendered HTML

@@ -42,9 +42,10 @@ test("app shell renders sidebar, topbar and the content slot", async () => {
   // The profile trigger opens that panel — the browser dismisses it on a click outside or Esc.
   assert.match(html, /<button class="profile" type="button" popovertarget="profile-menu">/);
   assert.match(html, /<div id="profile-menu" class="menu-pop left up" popover/);
-  // …and Sign out is the panel's only control: nothing dead sits beside it. The panel spans from
-  // its id to the close of that one form; the trigger button is before it.
-  const profileMenu = html.slice(html.indexOf('id="profile-menu"'), html.indexOf("</form>"));
+  // …and Sign out is the panel's only control: nothing dead sits beside it. The window runs to the
+  // sidebar's end so a control added *after* the form is caught too (this render has no picker —
+  // ENGLISH_LOCALS ships one locale, so locale-switch emits nothing).
+  const profileMenu = html.slice(html.indexOf('id="profile-menu"'), html.indexOf("</aside>"));
   assert.deepEqual(profileMenu.match(/<button/g), ["<button"]);
 
   // Branding, document title, and the inlined icon sprite (so <use> resolves).

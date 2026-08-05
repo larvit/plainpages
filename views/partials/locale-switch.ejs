@@ -3,12 +3,14 @@
   so switching is a plain navigation — zero-JS, and the address bar always says which language the
   page is in. Renders nothing for a single-language deployment.
   Locals: localeSwitch (host-supplied: { current, href, label, tag }[]) · up? (open upward, default true)
-          id? (the menu's id; name a second picker on the same page)
+          localeMenuId? (the menu's id; name a second picker on the same page. Not `id` — EJS
+          merges page locals into every include, and `id` is the likeliest key in a plugin's data)
 -%>
 <% const choices = locals.localeSwitch || []; -%>
 <% if (choices.length > 1) { -%>
 <%- include("menu", {
-  id: locals.id || "locale-menu",
+  id: locals.localeMenuId || "locale-menu",
+  align: null, kebab: false, width: null, // explicit: EJS would otherwise inherit the page's own
   up: locals.up !== false,
   trigger: { class: "btn icon-btn", icon: "i-globe", label: t("locale.label") },
   items: [

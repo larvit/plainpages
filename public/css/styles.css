@@ -497,8 +497,10 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
    trigger rather than stranding Sign out and the language picker behind a button that does nothing.
    The wrapper turns block so the pair stacks instead of sitting side by side, and min-width goes —
    it would otherwise push the sidebar and a 44px action cell far past their width. Cramped but
-   reachable, and unreachable by any test: a browser that supports popover cannot render this path. */
-@supports not selector([popover]:popover-open) {
+   reachable, and unreachable by any test: a browser with both features cannot render this path.
+   Both are guarded — an engine with popover but no anchor positioning would otherwise leave the
+   panel absolutely positioned with every anchor() dropped, detached from its trigger. */
+@supports not (selector([popover]:popover-open) and (position-anchor: auto)) {
   .menu { display: block; }
   .menu-pop, .menu-pop.up { position: static; min-width: 0; margin: 6px 0 0; }
 }
@@ -627,8 +629,10 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .kebab { width: 26px; height: 26px; border-radius: var(--radius);
   display: grid; place-items: center; color: var(--text-faint); margin: 0 auto;
   background: transparent; border: 0; padding: 0; cursor: pointer; }
-/* hovered, or holding an open panel — a trigger's panel is its next sibling */
-.kebab:hover, .kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
+.kebab:hover { background: var(--surface-2); color: var(--text); }
+/* Held open — a trigger's panel is its next sibling. Its own rule: :has() is non-forgiving, so an
+   engine that doesn't know :popover-open would drop the hover style along with it. */
+.kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
 
 /* ---------- 10. PAGINATION --------------------------------- */
 .pager {

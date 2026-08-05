@@ -65,8 +65,10 @@ test("data-table renders sortable headers, row-select, typed cells, badges and k
 
   // Kebab row actions: a popover trigger and the panel it opens, named per row, then link item,
   // danger button, separator.
-  assert.match(html, /<td class="col-actions"><span class="menu"><button class="kebab" type="button" popovertarget="row-actions-1" aria-label="Row actions for Mara Delgado"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/button><div id="row-actions-1" class="menu-pop" popover>/);
+  assert.match(html, /<td class="col-actions"><div class="menu"><button class="kebab" type="button" popovertarget="row-actions-1" aria-label="Row actions for Mara Delgado"><svg class="ico ico-sm"><use href="#i-kebab"\s*\/?><\/svg><\/button><div id="row-actions-1" class="menu-pop" popover>/);
   assert.match(html, /<a class="menu-item" href="\/people\/1\/edit"><svg class="ico"><use href="#i-edit"\s*\/?><\/svg>Edit<\/a>/);
+  // actionsId renames the stem, so two tables can share a page without colliding.
+  assert.match(flat(await render({ ...config, actionsId: "people-actions" })), /popovertarget="people-actions-1"/);
   assert.match(html, /<div class="menu-sep"><\/div><button class="menu-item danger" type="button"><svg class="ico"><use href="#i-trash"\s*\/?><\/svg>Delete<\/button>/);
 });
 
