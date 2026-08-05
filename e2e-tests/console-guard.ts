@@ -5,8 +5,10 @@ import { expect, test as base, type BrowserContext, type Page } from "@playwrigh
 // console, so anything there is a defect (a broken sub-resource, a rejected attribute, an engine
 // refusing a feature) that no assertion looks for.
 //
-// One module-level buffer is enough: a Playwright worker runs one test at a time, so the reset at
-// setup and the assertion at teardown bracket exactly the test in between.
+// One module-level buffer is enough: a Playwright worker runs one test at a time. It is cleared at
+// teardown, not at setup, so what a `beforeAll` provoked — full-flow's whole login runs in one —
+// still lands on the first test rather than being wiped before it. The cost of the same choice: a
+// page that outlives its test (a serial describe's) can log late and fail the next test instead.
 const problems: string[] = [];
 const allowed: RegExp[] = [];
 
@@ -23,7 +25,9 @@ export function allowConsole(...patterns: RegExp[]): void {
 function watch(page: Page): void {
   page.on("console", (msg) => {
     const type = msg.type();
-    if (type === "error" || type === "warning") problems.push(`console.${type}: ${msg.text()}`);
+    // The origin is part of the record: a 404 reads the same whether it was the page or its
+    // stylesheet, and a failure nobody can locate is half a failure.
+    if (type === "error" || type === "warning") problems.push(`console.${type}: ${msg.text()} @ ${msg.location().url}`);
   });
   page.on("pageerror", (err) => problems.push(`pageerror: ${err.message}`));
 }
@@ -43,10 +47,10 @@ export function watchedPage(context: BrowserContext): Promise<Page> {
 export const test = base.extend<{ consoleGuard: void }>({
   context: async ({ context }, use) => { await use(watchContext(context)); },
   consoleGuard: [async ({}, use) => {
-    problems.length = 0;
-    allowed.length = 0;
     await use();
     const unexpected = problems.filter((p) => ![...EXPECTED, ...allowed].some((re) => re.test(p)));
+    problems.length = 0;
+    allowed.length = 0;
     expect(unexpected, "the browser logged nothing while this test ran").toEqual([]);
   }, { auto: true }],
 });

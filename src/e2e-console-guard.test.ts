@@ -15,6 +15,7 @@ test("every spec takes its `test` from the console guard, never straight from Pl
     const source = read(spec);
     assert.match(source, /^import \{[^}]*\btest\b[^}]*\} from "\.\/console-guard\.ts";$/m, `${spec} imports test from the guard`);
     assert.doesNotMatch(source, /^import \{(?![^}]*\btype\b)[^}]*\} from "@playwright\/test";$/m, `${spec} imports no value from @playwright/test`);
+    assert.doesNotMatch(source, /\.newPage\(/, `${spec} takes its page from the fixture or watchedPage(), never a raw newPage()`);
   }
 });
 
@@ -30,5 +31,5 @@ test("the Ory-free specs run in all three engines, so each engine's console is r
   for (const engine of ["firefox", "webkit"]) {
     assert.match(config, new RegExp(`name: "${engine}", testMatch: ORY_FREE`), `${engine} runs the Ory-free specs`);
   }
-  assert.match(config, /const ORY_FREE = \/\(visual\|language\)\\\.spec\\\.ts\$\//);
+  assert.match(config, /const ORY_FREE = \/\\\/\(visual\|language\)\\\.spec\\\.ts\$\//);
 });

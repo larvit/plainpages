@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // e2e-tests/compose.visual.yml. Parallel per the project's E2E principle; deterministic colorScheme/viewport
 // so the rendered design is stable across runs.
 
-const ORY_FREE = /(visual|language)\.spec\.ts$/;
+const ORY_FREE = /\/(visual|language)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: ".",

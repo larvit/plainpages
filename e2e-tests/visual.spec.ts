@@ -136,7 +136,7 @@ test("the public landing at / is ungated and links to sign in + register", async
 });
 
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
-  allowConsole(/status of 404/); // Chromium and WebKit log the status of the navigation under test
+  allowConsole(/status of 404 .*\/no-such-page$/); // the navigation under test, which Chromium and WebKit log — not a sub-resource of it
   const res = await page.goto("/no-such-page");
   expect(res?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();

@@ -221,8 +221,13 @@ them. Revisit only if the stated reason stops holding.
   narrow: one module-level allowance for the COOP header Chromium drops because the e2e stacks serve
   plain http over container hostnames (a deployment serves https, where it applies), and
   `allowConsole(re)` for a test whose own page provokes a message on purpose — the 404 spec, whose
-  navigation Chromium and WebKit log. `src/e2e-console-guard.test.ts` locks the wiring in the *unit*
-  gate, because a spec importing `test` straight from Playwright would run unwatched and green.
+  navigation Chromium and WebKit log. Each record carries the message's origin URL, so that allowance
+  can name the page under test and still see a sub-resource of it 404. `src/e2e-console-guard.test.ts`
+  locks the wiring in the *unit* gate: a spec importing `test` straight from Playwright — or minting a
+  page with a raw `newPage()` instead of `watchedPage()` — would run unwatched and green. The buffer
+  clears at teardown rather than setup so a `beforeAll` is watched too (full-flow runs a whole login in
+  one); the accepted cost is that a page outliving its test, as a serial describe's does, can log late
+  and fail the next test instead of its own. Verified by negative control in all three engines.
 - **The Ory-free specs run in all three engines; the Ory-backed ones stay on Chromium.**
   `visual.spec.ts` + `language.spec.ts` are side-effect-free, so three parallel runs don't collide,
   and a console message only appears in the engine that renders the page — the reason the per-test
