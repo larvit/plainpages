@@ -6,7 +6,7 @@
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
 import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { ADMIN_CLIENTS_BASE, ADMIN_EN, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_CLIENTS_BASE, ADMIN_EN, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -245,7 +245,7 @@ interface ClientsDeps { ctx: RequestContext; hydra: HydraAdmin; user: User; }
 
 function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
-    const user = requireAdmin(ctx);
+    const user = requirePermission(ctx, "oauth2-clients");
     const hydra = ctx.system?.hydra;
     if (!hydra) return unavailable(ctx, ctx.t("admin.capability.hydra"));
     return inner({ ctx, hydra, user });

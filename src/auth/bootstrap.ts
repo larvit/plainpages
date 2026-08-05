@@ -2,9 +2,9 @@
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
 //   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   3. grant it its permissions in Keto so menu/permission checks resolve out of the box — `admin` plus
-//      every discovered plugin's declared permission names, so a dropped-in plugin is usable by
-//      the demo admin with no host config edit (the host stays plugin-agnostic).
+//   3. grant it its permissions in Keto so menu/permission checks resolve out of the box — every
+//      discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so a dropped-in
+//      plugin is usable by the demo admin with no host config edit (the host stays plugin-agnostic).
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -28,13 +28,15 @@ export function permissionTuple(userId: string, permission: string) {
   return { namespace: "Permission", object: permission, relation: "granted", subject_id: `user:${userId}` };
 }
 
-// The permissions to grant the demo admin = the configured base (ADMIN_PERMISSIONS, default just `admin`)
+// The permissions to grant the demo admin = the configured base (ADMIN_PERMISSIONS, empty by default)
 // unioned with every discovered plugin's declared permission names (a route/nav `permission` is a
-// coarse permission — granted as a Keto `Permission:<token>#members` tuple). So the host names no plugin, yet a
-// dropped-in plugin's tokens are seeded out of the box. Deduped, order-stable, blanks dropped.
-export function seedPermissions(adminRolesEnv: string | undefined, declaredPermissions: string[]): string[] {
+// coarse permission — granted as a Keto `Permission:<name>#granted` tuple). So the host names no plugin, yet a
+// dropped-in plugin's permissions are seeded out of the box. Deduped, order-stable, blanks dropped.
+// The base is empty because permissions are `<resource>:<action>` and every one of them is owned by
+// the plugin that gates on it — a host-invented default would gate nothing.
+export function seedPermissions(adminPermissionsEnv: string | undefined, declaredPermissions: string[]): string[] {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
-  return [...new Set([...clean((adminRolesEnv ?? "admin").split(",")), ...clean(declaredPermissions)])];
+  return [...new Set([...clean((adminPermissionsEnv ?? "").split(",")), ...clean(declaredPermissions)])];
 }
 
 // --- JWKS safety net -----------------------------------------------------------------
@@ -143,7 +145,7 @@ async function main() {
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
 
-    // Seed `admin` (or ADMIN_PERMISSIONS) + every discovered plugin's declared permission names, so the
+    // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
     const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.name));
     const permissions = seedPermissions(env["ADMIN_PERMISSIONS"], declared);

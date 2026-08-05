@@ -11,36 +11,47 @@ import enUS from "./i18n/en-US.ts";
 // ctx.t, which reads this catalog in the visitor's locale first, then the host's.
 export const ADMIN_EN: Translate = englishTranslator(enUS);
 
-export const ADMIN_PERMISSION = "admin"; // the permission gating the whole admin section
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
 export const ADMIN_PERMISSIONS_BASE = "/admin/permissions";
 export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
-export type AdminScreen = "clients" | "groups" | "permissions" | "users";
+// One resource per screen — the `<resource>` half of every permission this plugin gates on.
+// `oauth2-clients` rather than `clients` because permission names are one global namespace.
+export type AdminResource = "groups" | "oauth2-clients" | "permissions" | "users";
 
-// The plugin's nav fragment: the gated "Admin" header + its four screens. The host composes it into
-// the one global menu, filters per user (the header's `permission` drops the whole subtree for a
-// non-admin), and current-marks the active item — so there is no `current`/`open` state here.
+// `<resource>:<action>` (README → Users, groups & permissions). Every screen reads on GET/HEAD and
+// mutates on POST, so the manifest's route table and the in-handler guard both derive the name here
+// rather than each spelling it out — they cannot drift into gating on different permissions.
+export function adminPermission(resource: AdminResource, method: string): string {
+  const verb = method.toUpperCase();
+  return `${resource}:${verb === "GET" || verb === "HEAD" ? "read" : "write"}`;
+}
+
+// The plugin's nav fragment: an ungated "Admin" header + its four screens, each gated on its own
+// read permission. The header carries no `permission` because a user may hold one screen's and not
+// another's; composeNav drops a header left with no visible children, so a user holding none of the
+// four never sees the section. The host current-marks the active item — no `current`/`open` here.
 export const ADMIN_NAV: NavNode = {
   children: [
-    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users" },
-    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups" },
-    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "admin.nav.permissions" },
-    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients" },
+    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users", permission: "users:read" },
+    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups", permission: "groups:read" },
+    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "admin.nav.permissions", permission: "permissions:read" },
+    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients", permission: "oauth2-clients:read" },
   ],
   icon: "i-shield",
   id: "admin",
   label: "admin.nav.section", // a key in this plugin's catalog; the host translates nav labels
-  permission: ADMIN_PERMISSION,
 };
 
-// The admin gate: a signed-in admin only. Each route already declares `permission: "admin"`, so the
-// host enforces this before the handler runs; this is defence-in-depth and what a direct unit test
-// relies on. Returns the (non-null) user for the handler to thread on. GuardError → /login or 403.
-export function requireAdmin(ctx: RequestContext): User {
+// The screen gate: a signed-in user holding this request's `<resource>:<action>`. Each route already
+// declares the same permission, so the host enforces it before the handler runs; this is
+// defence-in-depth and what a direct unit test relies on. Returns the (non-null) user for the
+// handler to thread on. GuardError → /login or 403.
+export function requirePermission(ctx: RequestContext, resource: AdminResource): User {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
-  if (!can(ctx, ADMIN_PERMISSION)) throw new GuardError(403, "admin permission required");
+  const permission = adminPermission(resource, ctx.req.method ?? "GET");
+  if (!can(ctx, permission)) throw new GuardError(403, `${permission} required`);
   return user;
 }
 

@@ -30,6 +30,13 @@ services:
       timeout: 4s
       retries: 30
 
+  # This stack mounts no plugins, so nothing declares a permission for the bootstrap to seed — and
+  # the suite asserts that Keto's grants reach the JWT claim. Name one explicitly so there is
+  # something to project.
+  bootstrap:
+    environment:
+      ADMIN_PERMISSIONS: users:read
+
   # Shorten the session→JWT TTL and expose a network-resolvable base_url (ory/kratos/e2e.yml),
   # merged after the base config.
   kratos:

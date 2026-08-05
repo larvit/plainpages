@@ -35,7 +35,8 @@ cp -r examples/plugins/admin plugins/admin
 docker compose restart web
 ```
 
-The seeded admin already holds the `admin` permission, so the **Admin** section now shows in the menu.
+The bootstrap grants the seeded admin every permission the installed plugins declare, so the
+**Admin** section now shows in the menu.
 See [`examples/plugins/admin/`](examples/plugins/admin/).
 
 **4. Add your first plugin.** The clone is bind-mounted into the container, so a new
@@ -70,6 +71,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [Overview](#overview)
   - [how it compares](#how-it-compares)
 - [Users, groups & permissions](#users-groups--permissions)
+  - [naming a permission](#naming-a-permission)
   - [a worked example](#a-worked-example)
   - [granting a permission](#granting-a-permission)
   - [fine-grained, per-row access](#fine-grained-per-row-access)
@@ -258,6 +260,28 @@ transitively, through nested groups).
 > **permission**. When you want the bundle, make a group and grant it several — groups nest, so a
 > group of groups works too.
 
+### Naming a permission
+
+**Every permission name is `<resource>:<action>`.** `scheduling:read`, `users:write`,
+`oauth2-clients:read`. Both halves are lowercase letters, digits, dashes and underscores; the admin
+plugin's create form refuses anything else, so the convention holds for whatever an operator adds
+later.
+
+- **`<resource>`** names the thing acted on, not the plugin that happens to own it — permission
+  names are one **global namespace**, so an operator grants `scheduling:read` once and every plugin
+  referencing it is gated consistently. Pick a name no other plugin would claim for something else:
+  `oauth2-clients`, not `clients`.
+- **`<action>`** names the operation. `read` and `write` cover most screens; use a more specific
+  verb when the operation really is distinct (`invoices:approve`).
+
+A bare word is the mistake this rule exists to stop. `admin` says *who someone is*, not *what they
+may do* — that is a role, and roles are **groups** here. Split it by resource and action, then
+bundle it back up with a group if you want one grant to hand out several:
+
+```
+Group:it-support ──> Permission:users:read, Permission:users:write, Permission:groups:read, …
+```
+
 ### A worked example
 
 Alice works support and leads scheduling; Bob works support; Carol administers the system.
@@ -272,7 +296,8 @@ Alice works support and leads scheduling; Bob works support; Carol administers t
                                          │
   alice ────────────>  Group:sched-leads ┴──>  Permission:scheduling:write
 
-  carol ───────────────────────────────────────────────>  Permission:admin
+  carol ────────────>  Group:it-support ─┬──>  Permission:users:read
+                                         └──>  Permission:users:write
 ```
 
 At login the host asks Keto which permissions the user holds, walking those arrows
@@ -282,11 +307,12 @@ JWT](#login-and-the-session-jwt)):
 ```
 alice → permissions: ["scheduling:read", "scheduling:write"]
 bob   → permissions: ["scheduling:read"]
-carol → permissions: ["admin"]
+carol → permissions: ["users:read", "users:write"]
 ```
 
-Note what Carol does *not* have. **Permissions do not nest, and there is no superuser** — `admin`
-is just another name, granting nothing except where a route gates on `admin` itself.
+Note what Carol does *not* have. **Permissions do not nest, and there is no superuser** — running
+the Users screen grants nothing on Groups, and nothing at all on `/scheduling`. `it-support` is the
+bundle; it is a **group**, not a permission.
 
 Against the reference plugins' actual routes:
 
@@ -296,11 +322,15 @@ Against the reference plugins' actual routes:
 | `GET /scheduling/shifts` | `scheduling:read` | ✅ | ✅ | 403 | → `/login` |
 | `GET /scheduling/shifts/new` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
 | `POST /scheduling/shifts` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
-| `GET /admin/users` | `admin` | 403 | 403 | ✅ | → `/login` |
+| `GET /admin/users` | `users:read` | 403 | 403 | ✅ | → `/login` |
+| `POST /admin/users` | `users:write` | 403 | 403 | ✅ | → `/login` |
+| `GET /admin/groups` | `groups:read` | 403 | 403 | 403 | → `/login` |
 
 Bob reaches the shifts list with no direct grant: he is in `support`, support's members are
 `staff`, and staff holds `scheduling:read` — two hops, resolved by Keto at his login. He is
 refused the new-shift form because `scheduling:write` hangs off `sched-leads`, which he is not in.
+Carol reads *and* writes users because `it-support` holds both halves, but the Groups screen is a
+different resource and she was never granted it.
 An anonymous visitor gets a **redirect**, not a 403, carrying `return_to` so signing in lands them
 on the page they asked for; a signed-in user who merely lacks the permission gets the 403 page,
 because there is nothing to sign in *as* that would help. The menu is filtered by the same
@@ -319,9 +349,8 @@ curl -X PUT http://keto:4467/admin/relation-tuples -H 'content-type: application
 }'
 ```
 
-Permissions are authored **only in Keto** — nothing else writes them. Their names are a shared
-global namespace on purpose, so an operator grants `scheduling:read` once and every plugin
-referencing it is gated consistently; namespace yours as `<id>:<action>`.
+Permissions are authored **only in Keto** — nothing else writes them, and a name exists only while
+some tuple carries it. Name yours [`<resource>:<action>`](#naming-a-permission).
 
 A change takes effect on the user's **next login or JWT re-mint** (~10 min) — see [Instant
 revoke](#instant-revoke-the-optional-denylist) when you need it sooner.
@@ -741,7 +770,7 @@ with `findConflicts` and resolves them **loudly — never last-write-wins**. `er
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
 | `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
-| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; namespace as `<id>:<action>` if unintended. |
+| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. |
 
 There is **no separate `basePath` rule**: the mount path is the derived `/<id>`, so its
 uniqueness follows from the id check. `permission` is the one intentional overlap, so it warns
@@ -1682,8 +1711,8 @@ The server drains in-flight requests on `SIGTERM`/`SIGINT` rather than cutting t
 mid-response, so container restarts are clean.
 
 The first-boot **bootstrap** is idempotent and runs on every `up` — it generates the JWT
-signing key if absent, creates the demo admin in Kratos, and grants it the `admin` permission plus
-every discovered plugin's declared permission names in Keto, so permission checks (and any
+signing key if absent, creates the demo admin in Kratos, and grants it every discovered plugin's
+declared permission names in Keto (plus any `ADMIN_PERMISSIONS`), so permission checks (and any
 dropped-in plugin) resolve out of the box. The web app waits for Kratos + Keto to be healthy
 *and* the bootstrap to finish before starting. **Change the demo admin before production.**
 

@@ -11,55 +11,72 @@ import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clie
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsRemoveMember } from "./admin-groups.ts";
 import { rolesAddMember, rolesCreate, rolesDelete, rolesDeleteConfirm, rolesDetail, rolesList, rolesNewForm, rolesRemoveMember } from "./admin-permissions.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
-import { ADMIN_NAV, ADMIN_PERMISSION } from "./admin-shared.ts";
+import { ADMIN_NAV, adminPermission, type AdminResource } from "./admin-shared.ts";
 
-// Every admin route is gated by the one `admin` permission — the host redirects an anonymous visitor
-// to /login, gives a signed-in non-admin the 403 page, and filters the nav the same way. Handlers are
-// thin and keyed on ctx.params (the host extracts :id / :name), the idiomatic per-route style.
-const r = (method: HttpMethod, path: string, handler: RouteHandler): Route => ({ handler, method, path, permission: ADMIN_PERMISSION });
+// One route factory per screen: `permission` is derived by `adminPermission`, so a GET gates on
+// `<resource>:read` and a POST on `<resource>:write` and the table below cannot drift from the guard
+// each handler runs. The host redirects an anonymous visitor to /login, gives a signed-in user
+// missing the permission the 403 page, and filters the nav the same way. Handlers are thin and keyed
+// on ctx.params (the host extracts :id / :name), the idiomatic per-route style.
+const on = (resource: AdminResource) => (method: HttpMethod, path: string, handler: RouteHandler): Route =>
+  ({ handler, method, path, permission: adminPermission(resource, method) });
+
+const users = on("users");
+const groups = on("groups");
+const permissions = on("permissions");
+const clients = on("oauth2-clients");
 
 export default definePlugin({
   apiVersion: "1.0.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 
-  permissions: [{ description: "Administer users, groups, permissions, and OAuth2 clients", name: ADMIN_PERMISSION }],
+  permissions: [
+    { description: "View users", name: "users:read" },
+    { description: "Create, edit and delete users", name: "users:write" },
+    { description: "View groups and their members", name: "groups:read" },
+    { description: "Create, delete and change the membership of groups", name: "groups:write" },
+    { description: "View permissions and who holds them", name: "permissions:read" },
+    { description: "Create, delete and grant permissions", name: "permissions:write" },
+    { description: "View OAuth2 clients", name: "oauth2-clients:read" },
+    { description: "Register and delete OAuth2 clients", name: "oauth2-clients:write" },
+  ],
 
   routes: [
     // Users
-    r("GET", "/users", usersList),
-    r("POST", "/users", usersCreate),
-    r("GET", "/users/new", usersNewForm),
-    r("GET", "/users/:id", usersEditForm),
-    r("POST", "/users/:id", usersUpdate),
-    r("POST", "/users/:id/state", usersState),
-    r("GET", "/users/:id/delete", usersDeleteConfirm),
-    r("POST", "/users/:id/delete", usersDelete),
-    r("POST", "/users/:id/recovery", usersRecovery),
+    users("GET", "/users", usersList),
+    users("POST", "/users", usersCreate),
+    users("GET", "/users/new", usersNewForm),
+    users("GET", "/users/:id", usersEditForm),
+    users("POST", "/users/:id", usersUpdate),
+    users("POST", "/users/:id/state", usersState),
+    users("GET", "/users/:id/delete", usersDeleteConfirm),
+    users("POST", "/users/:id/delete", usersDelete),
+    users("POST", "/users/:id/recovery", usersRecovery),
     // Groups
-    r("GET", "/groups", groupsList),
-    r("POST", "/groups", groupsCreate),
-    r("GET", "/groups/new", groupsNewForm),
-    r("GET", "/groups/:name", groupsDetail),
-    r("POST", "/groups/:name/members", groupsAddMember),
-    r("GET", "/groups/:name/delete", groupsDeleteConfirm),
-    r("POST", "/groups/:name/delete", groupsDelete),
-    r("POST", "/groups/:name/members/delete", groupsRemoveMember),
-    // Roles
-    r("GET", "/permissions", rolesList),
-    r("POST", "/permissions", rolesCreate),
-    r("GET", "/permissions/new", rolesNewForm),
-    r("GET", "/permissions/:name", rolesDetail),
-    r("POST", "/permissions/:name/members", rolesAddMember),
-    r("GET", "/permissions/:name/delete", rolesDeleteConfirm),
-    r("POST", "/permissions/:name/delete", rolesDelete),
-    r("POST", "/permissions/:name/members/delete", rolesRemoveMember),
+    groups("GET", "/groups", groupsList),
+    groups("POST", "/groups", groupsCreate),
+    groups("GET", "/groups/new", groupsNewForm),
+    groups("GET", "/groups/:name", groupsDetail),
+    groups("POST", "/groups/:name/members", groupsAddMember),
+    groups("GET", "/groups/:name/delete", groupsDeleteConfirm),
+    groups("POST", "/groups/:name/delete", groupsDelete),
+    groups("POST", "/groups/:name/members/delete", groupsRemoveMember),
+    // Permissions
+    permissions("GET", "/permissions", rolesList),
+    permissions("POST", "/permissions", rolesCreate),
+    permissions("GET", "/permissions/new", rolesNewForm),
+    permissions("GET", "/permissions/:name", rolesDetail),
+    permissions("POST", "/permissions/:name/members", rolesAddMember),
+    permissions("GET", "/permissions/:name/delete", rolesDeleteConfirm),
+    permissions("POST", "/permissions/:name/delete", rolesDelete),
+    permissions("POST", "/permissions/:name/members/delete", rolesRemoveMember),
     // OAuth2 clients
-    r("GET", "/clients", clientsList),
-    r("POST", "/clients", clientsCreate),
-    r("GET", "/clients/new", clientsNewForm),
-    r("GET", "/clients/:id", clientsDetail),
-    r("GET", "/clients/:id/delete", clientsDeleteConfirm),
-    r("POST", "/clients/:id/delete", clientsDelete),
+    clients("GET", "/clients", clientsList),
+    clients("POST", "/clients", clientsCreate),
+    clients("GET", "/clients/new", clientsNewForm),
+    clients("GET", "/clients/:id", clientsDetail),
+    clients("GET", "/clients/:id/delete", clientsDeleteConfirm),
+    clients("POST", "/clients/:id/delete", clientsDelete),
   ],
 });

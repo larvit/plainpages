@@ -5,7 +5,7 @@
 // — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
 
 import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -266,15 +266,16 @@ function readUserInput(form: URLSearchParams): UserInput {
   };
 }
 
-// Shared per-request deps for the Users screen, resolved by `withUser`: the gate (admin only) and
-// the Kratos capability (else a themed 503). Each route below is a thin handler over these.
+// Shared per-request deps for the Users screen, resolved by `withUser`: the gate (`users:read` on a
+// GET, `users:write` on a POST) and the Kratos capability (else a themed 503). Each route below is a
+// thin handler over these.
 interface UsersDeps { ctx: RequestContext; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
 
-// Resolve the shared deps, then run `inner`. The route's `permission: "admin"` already gated at the
-// host; `requireAdmin` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.
+// Resolve the shared deps, then run `inner`. The route's own `permission` already gated at the host;
+// `requirePermission` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.
 function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
-    const user = requireAdmin(ctx);
+    const user = requirePermission(ctx, "users");
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.kratos"));
     return inner({ ctx, kratosAdmin, revoke: ctx.system?.revoke, user });

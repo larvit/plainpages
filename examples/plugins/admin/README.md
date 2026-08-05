@@ -10,8 +10,8 @@ cp -r examples/plugins/admin plugins/admin
 docker compose restart web
 ```
 
-The seeded `admin@plainpages.local` already holds the `admin` permission, so the section appears in the
-menu and the screens work immediately.
+The bootstrap grants the seeded `admin@plainpages.local` every permission this plugin declares, so the
+section appears in the menu and the screens work immediately.
 
 Every string it renders comes from its own catalogs (`i18n/en-US.ts`, `i18n/sv-SE.ts`) — the nav
 labels included, which are catalog keys in `admin-shared.ts`. Each pure view-model builder takes an
@@ -33,17 +33,24 @@ stack**, so they use the privileged **`ctx.system`** surface the host exposes to
 `ctx.system` is populated only when the host wired those services (the dev stack wires Kratos + Keto,
 and Hydra when configured). Where a capability is absent the screen degrades to a themed 503 rather
 than crashing — see `admin-shared.ts`. Everything else is an ordinary plugin: folder-discovered,
-gated per route by `permission: "admin"`, rendering the core building blocks in `views/`.
+gated per route by its screen's `<resource>:<action>` permission, rendering the core building blocks
+in `views/`.
+
+Each screen is its own resource — `users`, `groups`, `permissions`, `oauth2-clients` — and each
+splits into `:read` and `:write`, so a helpdesk account can be given `users:read` alone. The nav is
+filtered by the same permissions: holding none of the four hides the Admin section entirely.
 
 ## Layout
 
-- `plugin.ts` — the manifest: the gated Admin nav fragment, the `admin` permission, and the
-  route table — one thin handler per method+path, all gated by `permission: "admin"`.
+- `plugin.ts` — the manifest: the Admin nav fragment, the eight permissions the plugin declares, and
+  the route table — one thin handler per method+path, gated via `adminPermission(resource, method)`
+  so a GET needs `:read` and a POST `:write`.
 - `admin-users.ts` · `admin-groups.ts` · `admin-permissions.ts` · `admin-clients.ts` — each a set of pure
   view-model builders (unit-tested in the matching `*.test.ts`) plus thin per-route handlers keyed on
   `ctx.params` (the host extracts `:id`/`:name`), sharing a small `withX` wrapper that resolves the
-  admin gate + the needed `ctx.system` clients once.
-- `admin-shared.ts` — the shared gate (`requireAdmin`), CSRF form reader (`guardedForm`), confirm
+  screen's permission gate + the needed `ctx.system` clients once.
+- `admin-shared.ts` — the permission naming (`adminPermission`), the shared gate
+  (`requirePermission`), CSRF form reader (`guardedForm`), confirm
   model, nav fragment, and the not-found / unavailable helpers.
 - `views/` — the screens' EJS, plus the admin-specific body partials under `views/partials/`. They
   `include()` the core building-block partials (shell, data-table, filter-bar, field, …).

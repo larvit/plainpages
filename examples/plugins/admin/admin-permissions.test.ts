@@ -11,7 +11,8 @@ import {
   buildPermissionFormModel,
   buildPermissionsListModel,
   expandToEffectiveUsers,
-  isValidRoleName,
+  isPermissionPathSegment,
+  isValidPermissionName,
   permissionGrantTuple,
 } from "./admin-permissions.ts";
 import type { ExpandTree, RelationTuple } from "#plugin-api";
@@ -22,13 +23,25 @@ const userTuple = (permission: string, n: number): RelationTuple =>
 const groupTuple = (permission: string, group: string): RelationTuple =>
   ({ namespace: "Permission", object: permission, relation: "granted", subject_set: { namespace: "Group", object: group, relation: "members" } });
 
-test("isValidRoleName + permissionGrantTuple map the form value to a Permission tuple over a user/group (else null)", () => {
-  for (const ok of ["admin", "editor", "team-a", "a1_b9"]) assert.equal(isValidRoleName(ok), true, ok);
-  for (const bad of ["", "Admin", "a b", "-bad", "a".repeat(65)]) assert.equal(isValidRoleName(bad), false, bad);
+test("isValidPermissionName requires <resource>:<action> so the convention holds for anything created here", () => {
+  for (const ok of ["users:read", "scheduling:write", "oauth2-clients:read", "team-a:a1_b9"]) assert.equal(isValidPermissionName(ok), true, ok);
+  // A bare word is what this rule exists to stop — "admin" says who you are, not what you may do.
+  for (const bad of ["admin", "", "Users:read", "users:", ":read", "users:read:extra", "a b:read", "-bad:read", `${"a".repeat(60)}:read`]) {
+    assert.equal(isValidPermissionName(bad), false, bad);
+  }
+});
 
-  assert.deepEqual(permissionGrantTuple("editor", `user:${uid(2)}`), { namespace: "Permission", object: "editor", relation: "granted", subject_id: `user:${uid(2)}` });
-  assert.deepEqual(permissionGrantTuple("editor", "group:eng"), { namespace: "Permission", object: "editor", relation: "granted", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
-  for (const bad of ["", "user:not-a-uuid", "group:Bad Name", "nope:x"]) assert.equal(permissionGrantTuple("editor", bad), null, bad);
+test("isPermissionPathSegment stays loose enough to address a permission that predates the rule", () => {
+  // Addressing is not creating: an "admin" tuple left in Keto must still open and delete, or it is
+  // stranded. It only has to be a safe URL/Keto object name.
+  for (const ok of ["admin", "users:read", "legacy_name"]) assert.equal(isPermissionPathSegment(ok), true, ok);
+  for (const bad of ["", "Admin", "a b", "-bad", "a/b", "a".repeat(65)]) assert.equal(isPermissionPathSegment(bad), false, bad);
+});
+
+test("permissionGrantTuple maps the form value to a Permission tuple over a user/group (else null)", () => {
+  assert.deepEqual(permissionGrantTuple("things:read", `user:${uid(2)}`), { namespace: "Permission", object: "things:read", relation: "granted", subject_id: `user:${uid(2)}` });
+  assert.deepEqual(permissionGrantTuple("things:read", "group:eng"), { namespace: "Permission", object: "things:read", relation: "granted", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
+  for (const bad of ["", "user:not-a-uuid", "group:Bad Name", "nope:x"]) assert.equal(permissionGrantTuple("things:read", bad), null, bad);
 });
 
 test("expandToEffectiveUsers flattens an expand tree → sorted distinct user ids, transitive through groups", () => {
@@ -87,7 +100,7 @@ test("buildPermissionFormModel: a create form with a required name field + membe
 });
 
 test("buildPermissionDetailModel: members → rows, add-options exclude current members, effective access listed, actions wired", () => {
-  const members = [memberView(userTuple("admin", 1), new Map([[uid(1), "ada@example.com"]])), memberView(groupTuple("admin", "eng"), new Map())];
+  const members = [memberView(userTuple("users:read", 1), new Map([[uid(1), "ada@example.com"]])), memberView(groupTuple("users:read", "eng"), new Map())];
   const candidates = [
     { label: "ada@example.com", value: `user:${uid(1)}` }, // already a member → excluded
     { label: "grace@example.com", value: `user:${uid(2)}` },
@@ -95,12 +108,14 @@ test("buildPermissionDetailModel: members → rows, add-options exclude current 
     { label: "ops (group)", value: "group:ops" },
   ];
   const effective = [{ label: "ada@example.com" }, { label: "grace@example.com" }]; // ada direct, grace via eng
-  const m = buildPermissionDetailModel({ candidates, effective, members, permission: { name: "admin" } });
-  assert.equal(m.title, "admin");
+  const m = buildPermissionDetailModel({ candidates, effective, members, permission: { name: "users:read" } });
+  assert.equal(m.title, "users:read");
   assert.equal(m.members.rows.length, 2);
-  assert.equal(m.members.action, "/admin/permissions/admin/members/delete");
-  assert.equal(m.add.action, "/admin/permissions/admin/members");
+  // Every permission name now carries a colon, so the percent-encoding in these action URLs is
+  // load-bearing: the host's router decodes the segment back to "users:read" for ctx.params.
+  assert.equal(m.members.action, "/admin/permissions/users%3Aread/members/delete");
+  assert.equal(m.add.action, "/admin/permissions/users%3Aread/members");
   assert.deepEqual(m.add.options.map((o) => o.value), [`user:${uid(2)}`, "group:ops"]);
   assert.deepEqual(m.effective.map((e) => e.label), ["ada@example.com", "grace@example.com"]);
-  assert.equal(m.delete.action, "/admin/permissions/admin/delete");
+  assert.equal(m.delete.action, "/admin/permissions/users%3Aread/delete");
 });

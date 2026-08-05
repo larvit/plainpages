@@ -7,7 +7,7 @@
 // each returning a RouteResult.
 
 import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -285,13 +285,14 @@ async function groupExists(keto: KetoClient, name: string): Promise<boolean> {
   return page.tuples.length > 0;
 }
 
-// Shared per-request deps for the Groups screen, resolved by `withGroups`: the gate + the Keto and
-// Kratos capabilities (else a themed 503). Each route below is a thin handler over these.
+// Shared per-request deps for the Groups screen, resolved by `withGroups`: the gate (`groups:read` on
+// a GET, `groups:write` on a POST) + the Keto and Kratos capabilities (else a themed 503). Each route
+// below is a thin handler over these.
 interface GroupsDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; user: User; }
 
 function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
-    const user = requireAdmin(ctx);
+    const user = requirePermission(ctx, "groups");
     const keto = ctx.system?.keto;
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!keto || !kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.keto"));

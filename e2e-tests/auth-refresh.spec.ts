@@ -83,7 +83,7 @@ test("an expired session JWT is silently re-minted while Kratos lives, then clea
   const claims1 = jwtClaims(jwt1);
   expect(claims1.email).toBe(ADMIN_EMAIL);
   expect(claims1.sub, "sub is the Kratos identity id").toBeTruthy();
-  expect(claims1.permissions, "permissions are projected from Keto").toContain("admin");
+  expect(claims1.permissions, "permissions are projected from Keto").toContain("users:read");
 
   // 2. Token timeout → refresh: once the 8s TTL lapses, the next request re-mints a fresh JWT.
   const jwt2Line = await awaitJwtSetCookie(session, jwt1);
@@ -91,7 +91,7 @@ test("an expired session JWT is silently re-minted while Kratos lives, then clea
   expect(jwt2, "a different token was minted").not.toBe(jwt1);
   const claims2 = jwtClaims(jwt2);
   expect(claims2.exp, "the new token expires later").toBeGreaterThan(claims1.exp);
-  expect(claims2.permissions, "re-mint re-reads permissions from Keto").toContain("admin");
+  expect(claims2.permissions, "re-mint re-reads permissions from Keto").toContain("users:read");
 
   // 3. Kill the Kratos session: now the lapsed token cannot refresh — the cookie is cleared.
   const revoke = await fetch(`${KRATOS_ADMIN}/admin/identities/${claims1.sub}/sessions`, { method: "DELETE" });

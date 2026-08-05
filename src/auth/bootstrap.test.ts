@@ -30,14 +30,15 @@ test("permissionTuple grants a permission to user:<id> in the Permission namespa
   });
 });
 
-test("seedPermissions unions ADMIN_PERMISSIONS (default 'admin') with the discovered plugins' declared permissions", () => {
-  // Clean clone: no ADMIN_PERMISSIONS, the scheduling plugin declares its two tokens → the demo admin
-  // gets exactly today's behaviour, but derived from discovery, not hardcoded in the host.
-  assert.deepEqual(seedPermissions(undefined, ["scheduling:read", "scheduling:write"]), ["admin", "scheduling:read", "scheduling:write"]);
-  assert.deepEqual(seedPermissions(undefined, []), ["admin"]); // no plugins → just the base admin permission
-  assert.deepEqual(seedPermissions("admin, ops ", ["inventory:read"]), ["admin", "ops", "inventory:read"]); // env trimmed + extended
-  assert.deepEqual(seedPermissions("admin,scheduling:read", ["scheduling:read"]), ["admin", "scheduling:read"]); // dedup, no double grant
-  assert.deepEqual(seedPermissions("admin,, ", [" scheduling:read ", ""]), ["admin", "scheduling:read"]); // blanks dropped, tokens trimmed (both sides)
+test("seedPermissions unions ADMIN_PERMISSIONS (empty by default) with the discovered plugins' declared permissions", () => {
+  // Clean clone: no ADMIN_PERMISSIONS, the scheduling plugin declares its two names → the demo admin
+  // holds exactly what the installed plugins gate on, derived from discovery, not hardcoded here.
+  assert.deepEqual(seedPermissions(undefined, ["scheduling:read", "scheduling:write"]), ["scheduling:read", "scheduling:write"]);
+  // No plugins → nothing to grant. A host-invented base would be a permission that gates nothing.
+  assert.deepEqual(seedPermissions(undefined, []), []);
+  assert.deepEqual(seedPermissions("ops:read, ops:write ", ["inventory:read"]), ["ops:read", "ops:write", "inventory:read"]); // env trimmed + extended
+  assert.deepEqual(seedPermissions("scheduling:read", ["scheduling:read"]), ["scheduling:read"]); // dedup, no double grant
+  assert.deepEqual(seedPermissions(",, ", [" scheduling:read ", ""]), ["scheduling:read"]); // blanks dropped, names trimmed (both sides)
 });
 
 test("seedAdmin on a fresh stack creates the identity and grants every permission (one tuple each)", async () => {

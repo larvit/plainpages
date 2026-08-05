@@ -1,5 +1,5 @@
 // Direct units for the admin plugin's shared nav + auth helpers. They're security-critical
-// (requireAdmin/guardedForm gate every admin write) and reused across all four screens, so pin the
+// (requirePermission/guardedForm gate every admin write) and reused across all four screens, so pin the
 // contract here in isolation; the HTTP routing/gate/CSRF is exercised end-to-end in src/http/app.test.ts.
 // Import only from the #plugin-api barrel — the same contract boundary the plugin code uses.
 import assert from "node:assert/strict";
@@ -7,9 +7,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { GuardError, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_NAV, ADMIN_PERMISSION, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, requireAdmin } from "./admin-shared.ts";
+import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, adminPermission, buildConfirmModel, guardedForm, requirePermission } from "./admin-shared.ts";
 
-const admin: User = { email: "ada@x.io", id: "u1", permissions: ["admin"] };
+const reader: User = { email: "ada@x.io", id: "u1", permissions: ["users:read"] };
+const writer: User = { email: "cy@x.io", id: "u3", permissions: ["users:read", "users:write"] };
 const member: User = { email: "bo@x.io", id: "u2", permissions: ["scheduling:read"] };
 const CHROME = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } } as PageChrome;
 
@@ -26,24 +27,42 @@ function fakeCtx(opts: { body?: string; method?: string; user?: User | null; ver
 
 // ---- nav fragment ----
 
-test("ADMIN_NAV: a gated Admin header over the four screens; no per-request current/open state", () => {
+test("ADMIN_NAV: an ungated Admin header whose four screens each gate on their own read permission", () => {
   assert.equal(ADMIN_NAV.id, "admin");
-  assert.equal(ADMIN_NAV.permission, ADMIN_PERMISSION); // gate on the header ⇒ composeNav drops the whole subtree for a non-admin
+  // No gate on the header: a user may hold one screen's permission and not another's. composeNav
+  // drops a header left with no visible children, so holding none of the four hides the section.
+  assert.equal(ADMIN_NAV.permission, undefined);
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/permissions", "/admin/clients"]);
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.permission), ["users:read", "groups:read", "permissions:read", "oauth2-clients:read"]);
   // Labels are catalog keys; the host translates them with this plugin's catalog when it composes
   // the menu, so what a visitor sees is the en-US (or sv-SE …) wording behind these keys.
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.label), ["admin.nav.users", "admin.nav.groups", "admin.nav.permissions", "admin.nav.clients"]);
   assert.deepEqual(ADMIN_NAV.children?.map((c) => ADMIN_EN(c.label)), ["Users", "Groups", "Permissions", "OAuth2 clients"]);
-  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined && c.permission === undefined)); // the header's gate covers the subtree
+  assert.ok(ADMIN_NAV.children?.every((c) => c.current === undefined));
+});
+
+// ---- permission naming ----
+
+test("adminPermission builds <resource>:<action> — read for GET/HEAD, write for every mutation", () => {
+  assert.equal(adminPermission("users", "GET"), "users:read");
+  assert.equal(adminPermission("users", "HEAD"), "users:read"); // a GET route also answers HEAD
+  assert.equal(adminPermission("users", "POST"), "users:write");
+  assert.equal(adminPermission("groups", "DELETE"), "groups:write"); // anything that isn't a read is a write
+  assert.equal(adminPermission("oauth2-clients", "get"), "oauth2-clients:read"); // method case is the caller's
 });
 
 // ---- auth gates ----
 
-test("requireAdmin: anonymous → 401→/login, signed-in non-admin → 403, admin → the user", () => {
-  assert.throws(() => requireAdmin(fakeCtx({ user: null })), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login?return_to=%2Fadmin%2Fusers"); // bounce remembers the page
-  assert.throws(() => requireAdmin(fakeCtx({ user: member })), (e: unknown) => e instanceof GuardError && e.status === 403);
-  assert.equal(requireAdmin(fakeCtx({ user: admin })), admin);
+test("requirePermission: anonymous → 401→/login, wrong permission → 403, and read never grants write", () => {
+  assert.throws(() => requirePermission(fakeCtx({ user: null }), "users"), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login?return_to=%2Fadmin%2Fusers"); // bounce remembers the page
+  assert.throws(() => requirePermission(fakeCtx({ user: member }), "users"), (e: unknown) => e instanceof GuardError && e.status === 403);
+  assert.equal(requirePermission(fakeCtx({ user: reader }), "users"), reader);
+  // The whole point of the split: users:read opens the list but not the create/delete POSTs.
+  assert.throws(() => requirePermission(fakeCtx({ method: "POST", user: reader }), "users"), (e: unknown) => e instanceof GuardError && e.status === 403);
+  assert.equal(requirePermission(fakeCtx({ method: "POST", user: writer }), "users"), writer);
+  // Resources don't leak into each other: a users holder is not a groups holder.
+  assert.throws(() => requirePermission(fakeCtx({ user: writer }), "groups"), (e: unknown) => e instanceof GuardError && e.status === 403);
 });
 
 test("guardedForm: valid double-submit → the parsed body, bad token → 403, non-POST → undefined", async () => {

@@ -871,11 +871,14 @@ async function adminHarness(t: TestContext, opts: AppOptions = {}) {
   const token = issueCsrfToken(ADMIN_CSRF);
   const nowSec = Math.floor(Date.now() / 1000);
   const cookie = (permissions: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, permissions, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
-  const get = (path: string, permissions: string[] = ["admin"]) => fetch(url + path, { headers: { cookie: cookie(permissions) }, redirect: "manual" });
+  const get = (path: string, permissions: string[] = ADMIN_ALL) => fetch(url + path, { headers: { cookie: cookie(permissions) }, redirect: "manual" });
   const post = (path: string, body: string) =>
-    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(["admin"]) }, method: "POST", redirect: "manual" });
+    fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(ADMIN_ALL) }, method: "POST", redirect: "manual" });
   return { get, post, token, url };
 }
+// What the plugin itself declares — the harness holds every screen's read and write, so a screen
+// test exercises the screen rather than the gate. assertAdminGate covers the refusals.
+const ADMIN_ALL = (adminManifest.permissions ?? []).map((p) => p.name);
 // Every admin route is gated: anonymous → /login, a signed-in non-admin → 403.
 async function assertAdminGate(url: string, get: (path: string, permissions?: string[]) => Promise<Response>, path: string) {
   const anon = await fetch(url + path, { redirect: "manual" });
@@ -1105,10 +1108,27 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
 
   await assertAdminGate(url, get, "/admin/users");
 
-  // Nav: the admin plugin's section composes into the one global menu for an admin, and is filtered
-  // out for a signed-in non-admin (the gate on the section header) — proving the drop-in nav fragment.
+  // Nav: the admin plugin's section composes into the one global menu, and each screen is filtered
+  // by its own read permission — proving the drop-in nav fragment. A user holding only users:read
+  // sees Users and nothing else; holding none of the four, composeNav drops the emptied header.
   assert.match(await (await get("/dashboard")).text(), /href="\/admin\/users"/);
+  const usersOnlyNav = await (await get("/dashboard", ["users:read"])).text();
+  assert.match(usersOnlyNav, /href="\/admin\/users"/);
+  assert.doesNotMatch(usersOnlyNav, /href="\/admin\/groups"/);
   assert.doesNotMatch(await (await get("/dashboard", ["scheduling:read"])).text(), /href="\/admin\/users"/);
+
+  // The read/write split: users:read opens the list but is refused on every mutation, and the
+  // resources don't leak — a users holder is not a groups holder.
+  assert.equal((await get("/admin/users", ["users:read"])).status, 200);
+  assert.equal((await get("/admin/groups", ["users:read", "users:write"])).status, 403);
+  const readOnlyPost = await fetch(url + "/admin/users", {
+    body: `_csrf=${token}&email=nope@example.com`,
+    headers: { "content-type": "application/x-www-form-urlencoded", cookie: `${SESSION_COOKIE}=${mintJwt({ email: "r@x", exp: Math.floor(Date.now() / 1000) + 600, permissions: ["users:read"], sub: "reader1" })}; ${CSRF_COOKIE}=${token}` },
+    method: "POST",
+    redirect: "manual",
+  });
+  assert.equal(readOnlyPost.status, 403);
+  assert.equal(store.some((i) => i.traits?.email === "nope@example.com"), false);
 
   // List: the admin sees the rows + the "add" link; the status filter narrows server-side.
   const listHtml = await (await get("/admin/users")).text();
@@ -1240,10 +1260,10 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
     { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
     { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
   ];
-  // grace is in the `eng` group; `editor` is an existing permission whose only direct member is ada.
+  // grace is in the `eng` group; `docs:write` is an existing permission whose only direct member is ada.
   const tuples: RelationTuple[] = [
     { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${grace}` },
-    { namespace: "Permission", object: "editor", relation: "granted", subject_id: `user:${ada}` },
+    { namespace: "Permission", object: "docs:write", relation: "granted", subject_id: `user:${ada}` },
   ];
   // Mirror Keto's expand shape: the subject rides on `tuple`, set nodes carry members as children.
   const expandSet = (set: SubjectSet): ExpandTree => ({
@@ -1262,59 +1282,68 @@ test("admin Roles screen: gate, list, create, assign user/group, effective acces
 
   // List: the existing permission shows + the "add" link.
   const listHtml = await (await get("/admin/permissions")).text();
-  assert.match(listHtml, /href="\/admin\/permissions\/editor"/);
+  assert.match(listHtml, /href="\/admin\/permissions\/docs%3Awrite"/);
   assert.match(listHtml, /href="\/admin\/permissions\/new"/);
 
   // Create: a valid post writes the first-member tuple and redirects to the detail.
   assert.match(await (await get("/admin/permissions/new")).text(), /Create permission/);
-  const created = await post("/admin/permissions", `_csrf=${token}&name=viewer&member=user:${ada}`);
+  const created = await post("/admin/permissions", `_csrf=${token}&name=docs%3Aread&member=user:${ada}`);
   assert.equal(created.status, 303);
-  assert.equal(created.headers.get("location"), "/admin/permissions/viewer");
-  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "viewer" && tp.subject_id === `user:${ada}`));
+  assert.equal(created.headers.get("location"), "/admin/permissions/docs%3Aread");
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:read" && tp.subject_id === `user:${ada}`));
   assert.equal(denylist.isRevoked(ada, 0), true); // assigning a permission to a user revokes their stale token so the grant lands now
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
   assert.equal((await post("/admin/permissions", `_csrf=${token}&name=Bad Name&member=user:${ada}`)).status, 400);
-  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=editor&member=user:${ada}`)).status, 400); // already exists
+  // A bare word has no <resource>:<action> shape — the rule the create form now enforces.
+  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=editor&member=user:${ada}`)).status, 400);
+  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=docs%3Awrite&member=user:${ada}`)).status, 400); // already exists
   assert.equal((await post("/admin/permissions", `name=x&member=user:${ada}`)).status, 403);
   assert.equal(tuples.length, before);
 
   // Detail: ada (direct) is in the effective-access list; grace (only reachable via a group) is not
   // yet — though grace appears elsewhere as an assignable candidate, so target the effective <li>.
   const effectiveLi = (email: string) => new RegExp(`<li><span class="cell-strong">${email.replace(".", "\\.")}`);
-  const detail = await (await get("/admin/permissions/editor")).text();
+  const detail = await (await get("/admin/permissions/docs%3Awrite")).text();
   assert.match(detail, effectiveLi("ada@example.com"));
   assert.doesNotMatch(detail, effectiveLi("grace@example.com"));
 
   // Assign the `eng` group to the permission → grace now holds it transitively (effective access via expand).
-  await post("/admin/permissions/editor/members", `_csrf=${token}&member=group:eng`);
-  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor" && tp.subject_set?.object === "eng"));
-  const withGroup = await (await get("/admin/permissions/editor")).text();
+  await post("/admin/permissions/docs%3Awrite/members", `_csrf=${token}&member=group:eng`);
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write" && tp.subject_set?.object === "eng"));
+  const withGroup = await (await get("/admin/permissions/docs%3Awrite")).text();
   assert.match(withGroup, effectiveLi("grace@example.com"));
 
   // Revoke the group membership.
-  await post("/admin/permissions/editor/members/delete", `_csrf=${token}&member=group:eng`);
-  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor" && tp.subject_set?.object === "eng"));
+  await post("/admin/permissions/docs%3Awrite/members/delete", `_csrf=${token}&member=group:eng`);
+  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write" && tp.subject_set?.object === "eng"));
 
   // Unassigning a *user* membership likewise revokes that user's live token, so the loss of access is immediate.
-  await post("/admin/permissions/editor/members", `_csrf=${token}&member=user:${grace}`);
-  await post("/admin/permissions/editor/members/delete", `_csrf=${token}&member=user:${grace}`);
+  await post("/admin/permissions/docs%3Awrite/members", `_csrf=${token}&member=user:${grace}`);
+  await post("/admin/permissions/docs%3Awrite/members/delete", `_csrf=${token}&member=user:${grace}`);
   assert.equal(denylist.isRevoked(grace, 0), true);
 
   // Delete the permission: a confirm step (GET) then the POST removes every member tuple, back to the list.
-  assert.match(await (await get("/admin/permissions/editor/delete")).text(), /Cancel/);
-  const del = await post("/admin/permissions/editor/delete", `_csrf=${token}`);
+  assert.match(await (await get("/admin/permissions/docs%3Awrite/delete")).text(), /Cancel/);
+  const del = await post("/admin/permissions/docs%3Awrite/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.equal(del.headers.get("location"), "/admin/permissions");
-  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "editor"));
+  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write"));
 
-  // Self-protection: the admin permission can't be deleted, nor can you revoke your own admin (sub admin1).
-  tuples.push({ namespace: "Permission", object: "admin", relation: "granted", subject_id: "user:admin1" });
-  assert.equal((await post("/admin/permissions/admin/delete", `_csrf=${token}`)).status, 400);
-  assert.ok(tuples.some((tp) => tp.object === "admin"));
-  assert.equal((await post("/admin/permissions/admin/members/delete", `_csrf=${token}&member=user:admin1`)).status, 400);
-  assert.ok(tuples.some((tp) => tp.object === "admin" && tp.subject_id === "user:admin1"));
+  // Self-protection: permissions:write can't be deleted — without it nobody could grant anything
+  // again — nor can you revoke your own direct grant of it (sub admin1).
+  tuples.push({ namespace: "Permission", object: "permissions:write", relation: "granted", subject_id: "user:admin1" });
+  assert.equal((await post("/admin/permissions/permissions%3Awrite/delete", `_csrf=${token}`)).status, 400);
+  assert.ok(tuples.some((tp) => tp.object === "permissions:write"));
+  assert.equal((await post("/admin/permissions/permissions%3Awrite/members/delete", `_csrf=${token}&member=user:admin1`)).status, 400);
+  assert.ok(tuples.some((tp) => tp.object === "permissions:write" && tp.subject_id === "user:admin1"));
+
+  // A permission written before the <resource>:<action> rule stays addressable, so it can be cleaned up.
+  tuples.push({ namespace: "Permission", object: "legacy", relation: "granted", subject_id: `user:${ada}` });
+  assert.equal((await get("/admin/permissions/legacy")).status, 200);
+  assert.equal((await post("/admin/permissions/legacy/delete", `_csrf=${token}`)).status, 303);
+  assert.ok(!tuples.some((tp) => tp.object === "legacy"));
 
   // An invalid permission name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/permissions/Bad%20Name")).status, 404);

@@ -93,6 +93,16 @@ them. Revisit only if the stated reason stops holding.
   gates on one operation, so it gates on a permission, and a bundle is just a group with several
   grants (groups nest). Ory's own "permission" (the `Resource` `permits`: view/edit/delete) is the
   separate per-row tier.
+- **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. Enforced
+  where names are minted (the admin plugin's create form, `isValidPermissionName`) rather than only
+  documented, so the convention survives an operator adding one by hand. A bare word names *who
+  someone is* — a role — and roles are groups here; the old catch-all `admin` permission was exactly
+  that mistake and was split into `users:`/`groups:`/`permissions:`/`oauth2-clients:` × `read`/`write`
+  2026-08-05. Two consequences worth keeping straight: `<resource>` is global, not plugin-scoped
+  (hence `oauth2-clients`, not `clients`), and *addressing* a permission stays looser than *creating*
+  one (`isPermissionPathSegment`) so a name written before the rule can still be opened and deleted
+  instead of stranding in Keto. `ADMIN_PERMISSIONS` therefore defaults to empty: every permission is
+  owned by the plugin that gates on it, and a host-invented default would gate nothing.
 - **Plainpages says "user" everywhere; Ory's word for it is "identity".** Kratos calls the record
   an identity, but Ory's own docs state it uses that term *interchangeably* with "users" and
   "accounts" — so this is house style, not a renamed concept, and "user" is the word readers

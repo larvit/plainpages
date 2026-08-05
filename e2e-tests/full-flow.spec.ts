@@ -102,8 +102,9 @@ test.describe.serial("authenticated admin journey", () => {
   });
 
   test("menu filters by permission: an admin sees the gated Admin section + the plugin", async () => {
-    // The signed-in admin holds admin + scheduling:read/write, so both gated sections are present
-    // in the menu (collapsed by default → assert they're in the DOM, not necessarily visible).
+    // The signed-in admin holds every permission the two mounted plugins declare (the bootstrap
+    // seeds exactly those), so both gated sections are present in the menu (collapsed by default →
+    // assert they're in the DOM, not necessarily visible).
     await page.goto("/dashboard");
     await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(1);
     await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(1);
@@ -146,7 +147,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page).toHaveURL(/\/admin\/groups(\?|\/|$)/);
     await expect(page.locator("main")).toContainText(group);
 
-    const permission = `e2e-permission-${suffix}`;
+    const permission = `e2e-${suffix}:read`; // permission names are <resource>:<action>; the form refuses a bare word
     await page.goto("/admin/permissions/new");
     await page.fill('input[name="name"]', permission);
     await page.locator('select[name="member"]').selectOption({ index: 1 });

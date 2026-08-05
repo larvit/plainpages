@@ -9,11 +9,10 @@
 // ctx.params) over a shared `withRoles` gate — admin-only, CSRF-guarded.
 
 import { type ExpandTree, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { ADMIN_EN, ADMIN_PERMISSION, ADMIN_PERMISSIONS_BASE, buildConfirmModel, guardedForm, notFound, requireAdmin, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, ADMIN_PERMISSIONS_BASE, adminPermission, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 import {
   type GroupView,
   groupsFromTuples,
-  isValidGroupName,
   memberCandidates,
   type MemberOption,
   type MemberView,
@@ -25,16 +24,33 @@ import type { FieldConfig } from "./admin-users.ts";
 
 const PERMISSION_NS = "Permission";
 const GRANTED = "granted";
+// The one irreversible move on this screen: delete this permission, or revoke your own grant of it,
+// and nobody can grant anything ever again. Guarded like the `admin` permission it replaces.
+const LOCKOUT_PERMISSION = adminPermission("permissions", "POST");
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];
 // Expand far past any sane group-nesting depth so the effective-access view never silently
 // under-reports the deepest members (Keto's own default is shallow).
 const EXPAND_MAX_DEPTH = 50;
 
-// A permission and a group share the URL-safe name rule and the user|group membership model.
+// A permission and a group share the user|group membership model, but not the name rule: a
+// permission is `<resource>:<action>` (README → Users, groups & permissions).
 export type PermissionView = GroupView;
-export const isValidRoleName = isValidGroupName;
 export const permissionsFromTuples = groupsFromTuples;
+
+const PERMISSION_NAME = /^[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*$/;
+const PERMISSION_SEGMENT = /^[a-z0-9][a-z0-9_:-]*$/;
+
+// Creating one enforces the convention, so it holds going forward.
+export function isValidPermissionName(name: string): boolean {
+  return name.length <= 64 && PERMISSION_NAME.test(name);
+}
+
+// Addressing one only has to recognise a name Keto can already hold: a permission written before
+// this rule — or by another tool — stays viewable and deletable instead of 404ing out of reach.
+export function isPermissionPathSegment(name: string): boolean {
+  return name.length <= 64 && PERMISSION_SEGMENT.test(name);
+}
 export interface EffectiveUser {
   label: string; // email (or the raw id when unresolved)
 }
@@ -266,7 +282,7 @@ interface RolesDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: Kratos
 
 function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandler {
   return async (ctx) => {
-    const user = requireAdmin(ctx);
+    const user = requirePermission(ctx, "permissions");
     const keto = ctx.system?.keto;
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!keto || !kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.keto"));
@@ -278,7 +294,7 @@ function withRoles(inner: (deps: RolesDeps) => Promise<RouteResult>): RouteHandl
 function withRoleName(inner: (deps: RolesDeps, name: string) => Promise<RouteResult>): RouteHandler {
   return withRoles((deps) => {
     const name = deps.ctx.params["name"] ?? "";
-    if (!isValidRoleName(name)) return Promise.resolve(notFound(deps.ctx));
+    if (!isPermissionPathSegment(name)) return Promise.resolve(notFound(deps.ctx));
     return inner(deps, name);
   });
 }
@@ -312,7 +328,7 @@ export const rolesCreate = withRoles(async (deps) => {
   const member = (form.get("member") ?? "").trim();
   const tuple = permissionGrantTuple(name, member);
   const reject = async (error: string): Promise<RouteResult> => ({ ...(await roleFormResult(deps, { error, values: { member, name } })), status: 400 });
-  if (!isValidRoleName(name)) return reject(ctx.t("admin.permissions.validation.name"));
+  if (!isValidPermissionName(name)) return reject(ctx.t("admin.permissions.validation.name"));
   if (!tuple) return reject(ctx.t("admin.permissions.validation.member"));
   if (await roleExists(keto, name)) return reject("A permission with that name already exists.");
   await keto.writeTuple(tuple);
@@ -337,9 +353,9 @@ export const rolesAddMember = withRoleName(async (deps, name) => {
   return { redirect: detailHref(name) };
 });
 
-// GET /admin/permissions/:name/delete — confirm, except the admin permission can't be deleted.
+// GET /admin/permissions/:name/delete — confirm, except the lockout permission can't be deleted.
 export const rolesDeleteConfirm = withRoleName((deps, name) => {
-  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.adminUndeletable"));
+  if (name === LOCKOUT_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.lockoutUndeletable"));
   const base = detailHref(name);
   const tt = deps.ctx.t;
   return Promise.resolve({ data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
@@ -350,24 +366,24 @@ export const rolesDeleteConfirm = withRoleName((deps, name) => {
 });
 
 // POST /admin/permissions/:name/delete — remove every member tuple (a whole-permission delete lags per the
-// documented instant-revoke tradeoff; the admin permission is protected).
+// documented instant-revoke tradeoff; the lockout permission is protected).
 export const rolesDelete = withRoleName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (name === ADMIN_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.adminUndeletable"));
+  if (name === LOCKOUT_PERMISSION) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.lockoutUndeletable"));
   await keto.deleteTuple({ namespace: PERMISSION_NS, object: name, relation: GRANTED });
   ctx.log.info("admin: permission deleted", { actor: user.id, permission: name });
   return { redirect: ADMIN_PERMISSIONS_BASE };
 });
 
 // POST /admin/permissions/:name/members/delete — unassign; a *user* unassign revokes their live tokens.
-// Self-protection: an admin can't revoke their own *direct* admin grant (a group-held admin isn't
-// covered — the robust "last effective admin" check is deferred).
+// Self-protection: you can't revoke your own *direct* grant of the lockout permission (a group-held
+// one isn't covered — the robust "last effective holder" check is deferred).
 export const rolesRemoveMember = withRoleName(async (deps, name) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   const member = (form.get("member") ?? "").trim();
-  if (name === ADMIN_PERMISSION && member === `user:${user.id}`) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.selfRevoke"));
+  if (name === LOCKOUT_PERMISSION && member === `user:${user.id}`) return permissionDetailResult(deps, name, deps.ctx.t("admin.permissions.error.selfRevoke"));
   const tuple = permissionGrantTuple(name, member);
   if (tuple) { await keto.deleteTuple(tuple); revokeUserMember(revoke, member); ctx.log.info("admin: permission unassigned", { actor: user.id, member, permission: name }); }
   return { redirect: detailHref(name) };

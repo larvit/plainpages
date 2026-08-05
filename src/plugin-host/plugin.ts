@@ -37,7 +37,9 @@ export interface Route {
 }
 
 // A Keto Permission this plugin gates on — declared for docs/seeding. Permission names are a shared
-// global namespace (so an operator grants them once in Keto); namespace as `<id>:<action>`.
+// global namespace (so an operator grants them once in Keto) and are always `<resource>:<action>` —
+// `scheduling:read`, `users:write`. A bare word names who someone is rather than what they may do,
+// which is a role, and roles are groups here (README → Users, groups & permissions).
 export interface PermissionDecl {
   description?: string;
   name: string;
