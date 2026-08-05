@@ -1110,7 +1110,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
 
   // Nav: the admin plugin's section composes into the one global menu, and each screen is filtered
   // by its own read permission — proving the drop-in nav fragment. A user holding only users:read
-  // sees Users and nothing else; holding none of the four, composeNav drops the emptied header.
+  // sees Users and nothing else; holding none of the three, composeNav drops the emptied header.
   assert.match(await (await get("/dashboard")).text(), /href="\/admin\/users"/);
   const usersOnlyNav = await (await get("/dashboard", ["users:read"])).text();
   assert.match(usersOnlyNav, /href="\/admin\/users"/);
@@ -1317,7 +1317,10 @@ test("admin screens render no write affordance for a read-only holder", async (t
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
   const keto = fakeKeto([{ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` }]);
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const { get } = await adminHarness(t, { keto, kratosAdmin });
+  // Hydra is wired so the clients screen renders for real — without it the page is a 503 and the
+  // "no Register button" assertion below would pass without proving anything.
+  const hydra = stubHydra({ listClients: async () => ({ clients: [{ client_id: "existing", client_name: "Reporting" }], nextPageToken: null }) });
+  const { get } = await adminHarness(t, { hydra, keto, kratosAdmin });
   const readOnly = ["users:read", "groups:read"];
 
   const list = await (await get("/admin/users", readOnly)).text();
@@ -1336,6 +1339,20 @@ test("admin screens render no write affordance for a read-only holder", async (t
   assert.doesNotMatch(group, /Add a member/);
   assert.doesNotMatch(group, /Delete group/);
   assert.doesNotMatch(group, /Save permissions/);
+
+  // The OAuth2-clients screen is held to the same rule (it was the one this test was written to catch).
+  const clientsRes = await get("/admin/clients", ["oauth2-clients:read"]);
+  assert.equal(clientsRes.status, 200); // a real render, not the capability-missing 503
+  const clients = await clientsRes.text();
+  assert.match(clients, /Reporting/); // the list is there — that's what :read buys
+  assert.doesNotMatch(clients, /href="\/admin\/clients\/new"/);
+
+  // A write-intent GET — a create form or a delete-confirm — refuses a reader outright rather than
+  // rendering a form whose submit would 403.
+  for (const path of ["/admin/users/new", "/admin/groups/new", `/admin/users/${ada}/delete`, "/admin/groups/eng/delete"]) {
+    assert.equal((await get(path, readOnly)).status, 403, path);
+  }
+  assert.equal((await get("/admin/clients/new", ["oauth2-clients:read"])).status, 403);
 
   // A writer sees the affordances the reader didn't.
   const writable = await (await get(`/admin/users/${ada}`, ["users:read", "users:write"])).text();

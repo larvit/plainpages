@@ -41,7 +41,7 @@ export interface RequestContext {
   // Every permission the installed plugins declare, deduped and sorted — the fixed list an admin
   // screen offers when granting one. Pairs with `permissions` below: this is what *exists*, that is
   // what *this user holds*. Empty when no installed plugin declares any.
-  declaredPermissions: PermissionDecl[];
+  declaredPermissions: readonly PermissionDecl[];
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   permissions: string[]; // user?.permissions ?? [] — coarse gate without a null-check
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
@@ -66,7 +66,7 @@ export interface BuildContextOptions {
   // ctx.chrome (a json/redirect handler, or the public "/" with a standalone home, pays nothing).
   // The host's factory is memoised, so the menu composes at most once per request across contexts.
   chrome?: () => PageChrome;
-  declaredPermissions?: PermissionDecl[];
+  declaredPermissions?: readonly PermissionDecl[];
   user?: User | null;
   locale?: string;
   localeHref?: (href: string) => string;

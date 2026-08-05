@@ -6,7 +6,7 @@
 
 import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -283,9 +283,9 @@ interface UsersDeps { ctx: RequestContext; keto: KetoClient | undefined; kratosA
 
 // Resolve the shared deps, then run `inner`. The route's own `permission` already gated at the host;
 // `requirePermission` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.
-function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandler {
+function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return async (ctx) => {
-    const user = requirePermission(ctx, "users");
+    const user = requirePermission(ctx, "users", action);
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.kratos"));
     return inner({ ctx, keto: ctx.system?.keto, kratosAdmin, revoke: ctx.system?.revoke, user });
@@ -294,13 +294,13 @@ function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandle
 
 // Same, plus the target identity from ctx.params.id (unknown id → themed 404). The router already
 // decoded the id and 404s malformed %-encoding, so no manual decode is needed here.
-function withTarget(inner: (deps: UsersDeps, identity: Identity, id: string) => Promise<RouteResult>): RouteHandler {
+function withTarget(inner: (deps: UsersDeps, identity: Identity, id: string) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return withUser(async (deps) => {
     const id = deps.ctx.params["id"] ?? "";
     const identity = await deps.kratosAdmin.getIdentity(id);
     if (!identity) return notFound(deps.ctx);
     return inner(deps, identity, id);
-  });
+  }, action);
 }
 
 const formResult = (ctx: RequestContext, extra: Parameters<typeof buildUserFormModel>[0]): RouteResult =>
@@ -326,7 +326,7 @@ export const usersCreate = withUser(async ({ ctx, kratosAdmin, user }) => {
 });
 
 // GET /admin/users/new — the empty create form.
-export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx, {})));
+export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx, {})), "write");
 
 // GET /admin/users/:id — the edit form, prefilled.
 export const usersEditForm = withTarget(async (deps, identity, id) => {
@@ -372,6 +372,7 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
   // remove the last `users:write` on the deployment, and the instant-revoke hook lands it on the very
   // next request. Recovery would be a curl against Keto — not something the operator persona can do.
   if (id === user.id && diff.revoke.length > 0) {
+    ctx.log.warn("admin: refused a self-revoke of permissions", { actor: user.id, refused: diff.revoke.join(",") });
     const permissions = await userPermissionPicker(deps, id, ctx.t("admin.grants.selfRevoke"));
     return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), identity, ...(permissions ? { permissions } : {}) }), status: 400 };
   }
@@ -384,12 +385,14 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
 });
 
 // POST /admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).
-export const usersUpdate = withTarget(async ({ ctx, kratosAdmin }, identity, id) => {
+export const usersUpdate = withTarget(async (deps, identity, id) => {
+  const { ctx, kratosAdmin } = deps;
   const input = readUserInput((await guardedForm(ctx))!);
   try {
     await kratosAdmin.updateIdentity(id, updateIdentityPayload(identity, input));
   } catch (err) {
-    if (err instanceof KratosError) return { ...formResult(ctx, { error: ctx.t("admin.users.error.save"), identity }), status: 400 };
+    // Re-render with the picker, or the permissions section vanishes off the page on a failed save.
+    if (err instanceof KratosError) return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), error: ctx.t("admin.users.error.save"), identity, ...(await pickerOrNothing(deps, id)) }), status: 400 };
     throw err;
   }
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
@@ -418,7 +421,7 @@ export const usersDeleteConfirm = withTarget((deps, identity, id) => {
     cancelHref: back, confirmAction: `${back}/delete`, confirmLabel: tt("admin.users.delete"),
     message: tt("admin.users.deleteMessage", { email: view.email }), title: tt("admin.users.delete"),
   }) }, view: "confirm" });
-});
+}, "write");
 
 // POST /admin/users/:id/delete — perform it; revoke the gone account's live tokens. Refuses self-delete.
 export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
@@ -431,11 +434,18 @@ export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user },
 });
 
 // POST /admin/users/:id/recovery — mint a one-time recovery code, shown on the edit page.
-export const usersRecovery = withTarget(async ({ ctx, kratosAdmin }, identity, id) => {
+export const usersRecovery = withTarget(async (deps, identity, id) => {
+  const { ctx, kratosAdmin } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
   const recovery = await kratosAdmin.createRecoveryCode(id);
-  return formResult(ctx, { identity, recovery });
+  return formResult(ctx, { canWrite: canWriteUsers(ctx), identity, recovery, ...(await pickerOrNothing(deps, id)) });
 });
+
+// The picker as a spreadable fragment, so a re-render never silently drops the section.
+async function pickerOrNothing(deps: UsersDeps, id: string): Promise<{ permissions?: PermissionPicker }> {
+  const permissions = await userPermissionPicker(deps, id);
+  return permissions ? { permissions } : {};
+}
 
 function createError(err: KratosError, t: Translate): string {
   return err.status === 409

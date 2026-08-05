@@ -57,9 +57,13 @@ export const ADMIN_NAV: NavNode = {
 // declares the same permission, so the host enforces it before the handler runs; this is
 // defence-in-depth and what a direct unit test relies on. Returns the (non-null) user for the
 // handler to thread on. GuardError → /login or 403.
-export function requirePermission(ctx: RequestContext, resource: AdminResource): User {
+// `action` defaults to the method's, and is passed explicitly by a *write-intent GET* — a create form
+// or a delete-confirm page, whose only purpose is to start a write. Those refuse a reader honestly
+// instead of rendering a form whose submit would 403; the route table declares the same override, so
+// the two still cannot disagree.
+export function requirePermission(ctx: RequestContext, resource: AdminResource, action?: AdminAction): User {
   const user = requireSession(ctx); // anonymous → GuardError → /login (return_to kept)
-  const permission = permissionName(resource, actionForMethod(ctx.req.method ?? "GET"));
+  const permission = permissionName(resource, action ?? actionForMethod(ctx.req.method ?? "GET"));
   if (!can(ctx, permission)) throw new GuardError(403, `${permission} required`);
   return user;
 }

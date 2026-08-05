@@ -8,7 +8,7 @@
 
 import { can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
-import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -298,9 +298,9 @@ async function groupExists(keto: KetoClient, name: string): Promise<boolean> {
 // below is a thin handler over these.
 interface GroupsDeps { ctx: RequestContext; keto: KetoClient; kratosAdmin: KratosAdmin; user: User; }
 
-function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>): RouteHandler {
+function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return async (ctx) => {
-    const user = requirePermission(ctx, "groups");
+    const user = requirePermission(ctx, "groups", action);
     const keto = ctx.system?.keto;
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!keto || !kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.keto"));
@@ -309,12 +309,12 @@ function withGroups(inner: (deps: GroupsDeps) => Promise<RouteResult>): RouteHan
 }
 
 // Same, plus the validated :name from ctx.params (an invalid group name → themed 404).
-function withGroupName(inner: (deps: GroupsDeps, name: string) => Promise<RouteResult>): RouteHandler {
+function withGroupName(inner: (deps: GroupsDeps, name: string) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return withGroups((deps) => {
     const name = deps.ctx.params["name"] ?? "";
     if (!isValidGroupName(name)) return Promise.resolve(notFound(deps.ctx));
     return inner(deps, name);
-  });
+  }, action);
 }
 
 const groupFormResult = async (deps: GroupsDeps, extra: { error?: string; values?: { member?: string; name?: string } }): Promise<RouteResult> => {
@@ -345,7 +345,7 @@ export const groupsCreate = withGroups(async (deps) => {
 });
 
 // GET /admin/groups/new — the create form.
-export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}));
+export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}), "write");
 
 // GET /admin/groups/:name — the detail + membership page.
 export const groupsDetail = withGroupName(async ({ ctx, keto, kratosAdmin }, name) => {
@@ -360,6 +360,7 @@ export const groupsDetail = withGroupName(async ({ ctx, keto, kratosAdmin }, nam
     effective, // a group nested in another group inherits its permissions too
     readOnly: !can(ctx, permissionName("groups", "write")),
     t: ctx.t,
+    transitive: true, // members inherit, so a change here lands at their next re-mint, not at once
   });
   return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ canWrite: !permissions.readOnly, candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t }) }, view: "group-detail" };
 });
@@ -395,7 +396,7 @@ export const groupsDeleteConfirm = withGroupName((deps, name) => {
     cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.groups.delete"),
     message: tt("admin.groups.deleteMessage", { name }), title: tt("admin.groups.delete"),
   }) }, view: "confirm" });
-});
+}, "write");
 
 // POST /admin/groups/:name/delete — remove every member tuple (the group ceases to exist).
 export const groupsDelete = withGroupName(async ({ ctx, keto, user }, name) => {

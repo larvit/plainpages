@@ -6,7 +6,8 @@
   const filters = include("partials/filter-bar", model.filterBar);
   const table = include("partials/data-table", model.table);
   const pager = include("partials/pagination", model.pagination);
-  const actions = '<a class="btn btn-primary" href="' + localeHref("/admin/clients/new") + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>' + t("admin.clients.registerClient") + '</a>';
+  // Only offer "Register client" to an oauth2-clients:write holder — a :read one would get the 403 page.
+  const actions = model.canWrite === false ? "" : '<a class="btn btn-primary" href="' + localeHref("/admin/clients/new") + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>' + t("admin.clients.registerClient") + '</a>';
 -%>
 <%- include("partials/shell", {
   actions,

@@ -42,5 +42,8 @@
 <% if (permissions.inheritedNote) { -%>
     <p class="cell-muted"><%= permissions.inheritedNote %></p>
 <% } -%>
+<% if (permissions.pending) { -%>
+    <p class="cell-muted"><%= permissions.pending %></p>
+<% } -%>
 <% } -%>
   </section>

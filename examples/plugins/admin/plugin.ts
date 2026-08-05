@@ -10,15 +10,18 @@ import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "#p
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsPermissions, groupsRemoveMember } from "./admin-groups.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersPermissions, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
-import { ADMIN_NAV, actionForMethod, type AdminResource, permissionName } from "./admin-shared.ts";
+import { ADMIN_NAV, actionForMethod, type AdminAction, type AdminResource, permissionName } from "./admin-shared.ts";
 
 // One route factory per screen: a GET gates on `<resource>:read` and a POST on `<resource>:write`,
 // derived through the same two helpers the in-handler guard uses, so the table below cannot drift
 // from it. The host redirects an anonymous visitor to /login, gives a signed-in user missing the
 // permission the 403 page, and filters the nav the same way. Handlers are thin and keyed on
 // ctx.params (the host extracts :id / :name), the idiomatic per-route style.
-const on = (resource: AdminResource) => (method: HttpMethod, path: string, handler: RouteHandler): Route =>
-  ({ handler, method, path, permission: permissionName(resource, actionForMethod(method)) });
+// `action` overrides the method's default for a *write-intent GET* — a create form or a
+// delete-confirm page, which exists only to start a write and so refuses a reader rather than
+// rendering a form whose submit would 403. The handler's own guard takes the same override.
+const on = (resource: AdminResource) => (method: HttpMethod, path: string, handler: RouteHandler, action?: AdminAction): Route =>
+  ({ handler, method, path, permission: permissionName(resource, action ?? actionForMethod(method)) });
 
 const users = on("users");
 const groups = on("groups");
@@ -42,30 +45,30 @@ export default definePlugin({
     // Users
     users("GET", "/users", usersList),
     users("POST", "/users", usersCreate),
-    users("GET", "/users/new", usersNewForm),
+    users("GET", "/users/new", usersNewForm, "write"),
     users("GET", "/users/:id", usersEditForm),
     users("POST", "/users/:id", usersUpdate),
     users("POST", "/users/:id/state", usersState),
-    users("GET", "/users/:id/delete", usersDeleteConfirm),
+    users("GET", "/users/:id/delete", usersDeleteConfirm, "write"),
     users("POST", "/users/:id/delete", usersDelete),
     users("POST", "/users/:id/recovery", usersRecovery),
     users("POST", "/users/:id/permissions", usersPermissions),
     // Groups
     groups("GET", "/groups", groupsList),
     groups("POST", "/groups", groupsCreate),
-    groups("GET", "/groups/new", groupsNewForm),
+    groups("GET", "/groups/new", groupsNewForm, "write"),
     groups("GET", "/groups/:name", groupsDetail),
     groups("POST", "/groups/:name/members", groupsAddMember),
-    groups("GET", "/groups/:name/delete", groupsDeleteConfirm),
+    groups("GET", "/groups/:name/delete", groupsDeleteConfirm, "write"),
     groups("POST", "/groups/:name/delete", groupsDelete),
     groups("POST", "/groups/:name/members/delete", groupsRemoveMember),
     groups("POST", "/groups/:name/permissions", groupsPermissions),
     // OAuth2 clients
     clients("GET", "/clients", clientsList),
     clients("POST", "/clients", clientsCreate),
-    clients("GET", "/clients/new", clientsNewForm),
+    clients("GET", "/clients/new", clientsNewForm, "write"),
     clients("GET", "/clients/:id", clientsDetail),
-    clients("GET", "/clients/:id/delete", clientsDeleteConfirm),
+    clients("GET", "/clients/:id/delete", clientsDeleteConfirm, "write"),
     clients("POST", "/clients/:id/delete", clientsDelete),
   ],
 });

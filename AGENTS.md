@@ -138,12 +138,20 @@ them. Revisit only if the stated reason stops holding.
   operator (a helpdesk account with `users:read`), and the host's 403 is the backstop, not the UX: the
   list/detail models carry `canWrite` and the views drop create/save/delete/add/remove, while the
   permission picker still renders — disabled — because *seeing* who holds what is the point of `:read`.
+  A *write-intent GET* — a create form or a delete-confirm page — is the exception to
+  `actionForMethod`: it gates on `:write` (declared in the route table and passed to the handler's
+  guard, so the two still agree), because a page whose only purpose is to start a write should refuse
+  a reader rather than render a form whose submit 403s.
   Two grant-specific guards go with it, both restoring behaviour the deleted Permissions screen had:
-  you cannot revoke your own grants (self-lockout would need a `curl` against Keto to undo, which the
-  operator persona can't do — same shape as the self-deactivate/self-delete guards), and a permission
-  held *through a group* renders ticked-but-disabled rather than unticked, because showing it unticked
-  stated the opposite of the truth and unticking it wrote nothing while looking like a successful
-  revoke. Raised by the architecture + product reviews 2026-08-05.
+  you cannot revoke your own **direct** grants on the Users screen (self-lockout would need a `curl`
+  against Keto to undo, which the operator persona can't do — same shape as the self-deactivate/
+  self-delete guards), and a permission held *through a group* renders ticked-but-disabled rather than
+  unticked, because showing it unticked stated the opposite of the truth and unticking it wrote
+  nothing while looking like a successful revoke. **Known gap, same scope the deleted screen had:**
+  the group paths are unguarded — unticking a permission on a group you belong to, removing yourself
+  from it, or deleting it can all still strip your own effective access. The robust "last effective
+  holder" check needs a reverse Keto query and is deferred. Raised by the architecture + product +
+  stability reviews 2026-08-05.
 - **`users:write` and `groups:write` are equivalent to full administrative access**, and the split
   does not change that: `groups:write` adds you to any group, including one holding every permission;
   `users:write` mints a recovery code for any account. The containment the split buys is real on the

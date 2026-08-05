@@ -37,7 +37,7 @@ export async function heldPermissions(keto: KetoClient, subject: GrantSubject): 
 // Every declared permission the subject effectively holds — direct grants *plus* anything reached
 // through a group, which is what actually lands in their JWT. One Keto check per declared name;
 // the catalog is small and this is an admin screen (login does the same walk).
-export async function effectivePermissions(keto: KetoClient, subject: GrantSubject, declared: PermissionDecl[]): Promise<string[]> {
+export async function effectivePermissions(keto: KetoClient, subject: GrantSubject, declared: readonly PermissionDecl[]): Promise<string[]> {
   const held = await Promise.all(declared.map((decl) => keto.check({ namespace: PERMISSION_NS, object: decl.name, relation: GRANTED, ...subject })));
   return declared.filter((_, i) => held[i]).map((decl) => decl.name);
 }
@@ -60,6 +60,9 @@ export interface PermissionPicker {
   hint: string;
   inheritedNote: string | undefined; // set when at least one choice is group-held, to explain the disabled row
   legend: string;
+  // Set for a group: its members hold these transitively, so a change reaches them at their next
+  // re-mint rather than at once. The user picker revokes live tokens, so it says nothing.
+  pending: string | undefined;
   readOnly: boolean; // the viewer holds :read but not :write — show the state, offer no save
   submit: string;
 }
@@ -69,11 +72,12 @@ export interface PermissionPicker {
 // (grantDiff). An inherited row is disabled, so it never posts and can never be diffed into a revoke.
 export function buildPermissionPicker(opts: {
   action: string;
-  declared: PermissionDecl[];
+  declared: readonly PermissionDecl[];
   direct: string[];
   effective?: string[]; // omit when the caller can't resolve group-held grants; then only direct shows
   readOnly?: boolean;
   t?: Translate;
+  transitive?: boolean; // a group: its members inherit, so the change lands at their next re-mint
 }): PermissionPicker {
   const t = opts.t ?? ((k: string) => k);
   const directSet = new Set(opts.direct);
@@ -92,6 +96,7 @@ export function buildPermissionPicker(opts: {
     hint: t("admin.grants.hint"),
     inheritedNote: choices.some((c) => c.inherited) ? t("admin.grants.inherited") : undefined,
     legend: t("admin.grants.legend"),
+    pending: opts.transitive === true ? t("admin.grants.pending") : undefined,
     readOnly: opts.readOnly === true,
     submit: t("admin.grants.save"),
   };
@@ -100,7 +105,7 @@ export function buildPermissionPicker(opts: {
 // What a submitted set changes. Pure so the diff is testable without Keto: only declared names are
 // considered, so a crafted POST cannot grant something no plugin gates on, and a held-but-undeclared
 // name (left over from an uninstalled plugin) is never silently revoked by an unrelated save.
-export function grantDiff(declared: PermissionDecl[], held: string[], wanted: string[]): { grant: string[]; revoke: string[] } {
+export function grantDiff(declared: readonly PermissionDecl[], held: string[], wanted: string[]): { grant: string[]; revoke: string[] } {
   const offered = new Set(declared.map((d) => d.name));
   const heldSet = new Set(held);
   const wantedSet = new Set(wanted.filter((name) => offered.has(name)));

@@ -51,8 +51,12 @@ test("every declared permission is <resource>:<action>, and reads and writes are
 });
 
 test("GET routes gate on read and mutations on write, so a reader can open a screen but not change it", () => {
+  // …except a write-intent GET — a create form or a delete-confirm page, which exists only to start a
+  // write. Those gate on `:write` so a reader is refused there rather than at the submit.
+  const writeIntent = (path: string): boolean => path.endsWith("/new") || path.endsWith("/delete");
   for (const route of routes) {
-    const action = route.method === "GET" ? "read" : "write";
+    const action = route.method === "GET" && !writeIntent(route.path) ? "read" : "write";
     assert.ok(route.permission?.endsWith(`:${action}`), `${route.method} ${route.path} → ${route.permission}`);
   }
+  assert.equal(routes.filter((r) => r.method === "GET" && writeIntent(r.path)).length, 6); // 2 per screen
 });

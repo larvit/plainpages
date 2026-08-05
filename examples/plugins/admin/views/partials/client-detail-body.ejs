@@ -31,8 +31,10 @@
       <dt><%= t("admin.clients.field.redirectUris") %></dt><dd><% if (c.redirectUris.length) { %><ul class="plain-list"><% c.redirectUris.forEach((u) => { %><li><%= u %></li><% }) %></ul><% } else { %>—<% } %></dd>
     </dl>
   </section>
+<% if (locals.canWrite !== false) { -%>
   <section class="form-card admin-actions" aria-label="<%= t("admin.clients.title") %>">
     <p class="field-hint"><%= t("admin.clients.rereg") %></p>
     <a class="btn btn-danger" href="<%= localeHref(del.action) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg><%= t("admin.clients.delete") %></a>
   </section>
+<% } -%>
 </div>

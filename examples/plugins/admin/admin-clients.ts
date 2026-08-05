@@ -5,8 +5,8 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). Below the builders are thin
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
-import { type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { ADMIN_CLIENTS_BASE, ADMIN_EN, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
+import { can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { ADMIN_CLIENTS_BASE, ADMIN_EN, type AdminAction, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -100,6 +100,7 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 }
 
 export function buildClientsListModel(opts: {
+  canWrite?: boolean;
   clients: OAuth2Client[];
   csrfToken?: string;
   t?: Translate;
@@ -119,6 +120,7 @@ export function buildClientsListModel(opts: {
 
   return {
     breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.nav.section") }, { label: t("admin.clients.title") }],
+    canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, t),
     pagination: listPagination(state, page, t),
     table: listTable(rows, t),
@@ -208,6 +210,7 @@ export function buildClientFormModel(opts: {
 }
 
 export function buildClientDetailModel(opts: {
+  canWrite?: boolean;
   client: ClientView;
   created?: boolean; // just registered → success banner + the one-time secret (if any)
   csrfToken?: string;
@@ -218,6 +221,7 @@ export function buildClientDetailModel(opts: {
   const base = detailHref(opts.client.id);
   return {
     breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.clients.title") }, { label: opts.client.name }],
+    canWrite: opts.canWrite !== false,
     client: opts.client,
     created: opts.created ?? false,
     csrfToken: opts.csrfToken ?? "",
@@ -243,9 +247,9 @@ function readClientInput(form: URLSearchParams): ClientInput {
 // Hydra capability (else a themed 503). Each route below is a thin handler over these.
 interface ClientsDeps { ctx: RequestContext; hydra: HydraAdmin; user: User; }
 
-function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>): RouteHandler {
+function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return async (ctx) => {
-    const user = requirePermission(ctx, "oauth2-clients");
+    const user = requirePermission(ctx, "oauth2-clients", action);
     const hydra = ctx.system?.hydra;
     if (!hydra) return unavailable(ctx, ctx.t("admin.capability.hydra"));
     return inner({ ctx, hydra, user });
@@ -253,24 +257,26 @@ function withClients(inner: (deps: ClientsDeps) => Promise<RouteResult>): RouteH
 }
 
 // Same, plus the target client from ctx.params.id (unknown → themed 404).
-function withClient(inner: (deps: ClientsDeps, client: OAuth2Client, id: string) => Promise<RouteResult>): RouteHandler {
+function withClient(inner: (deps: ClientsDeps, client: OAuth2Client, id: string) => Promise<RouteResult>, action?: AdminAction): RouteHandler {
   return withClients(async (deps) => {
     const id = deps.ctx.params["id"] ?? "";
     const client = await deps.hydra.getClient(id);
     if (!client) return notFound(deps.ctx);
     return inner(deps, client, id);
-  });
+  }, action);
 }
 
 const clientFormResult = (ctx: RequestContext, extra: { error?: string; values?: Partial<ClientInput> }): RouteResult =>
   ({ data: { chrome: ctx.chrome, model: buildClientFormModel({ csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-form" });
+const canWriteClients = (ctx: RequestContext): boolean => can(ctx, permissionName("oauth2-clients", "write"));
+
 const clientDetailResult = (ctx: RequestContext, client: OAuth2Client, extra: { created?: boolean; secret?: string } = {}): RouteResult =>
-  ({ data: { chrome: ctx.chrome, model: buildClientDetailModel({ client: toClientView(client), csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-detail" });
+  ({ data: { chrome: ctx.chrome, model: buildClientDetailModel({ canWrite: canWriteClients(ctx), client: toClientView(client), csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-detail" });
 
 // GET /admin/clients — the list.
 export const clientsList = withClients(async ({ ctx, hydra }) => {
   const { clients } = await hydra.listClients({ pageSize: LIST_FETCH_SIZE });
-  return { data: { chrome: ctx.chrome, model: buildClientsListModel({ clients, csrfToken: ctx.chrome.csrfToken, t: ctx.t, url: ctx.url }) }, view: "clients" };
+  return { data: { chrome: ctx.chrome, model: buildClientsListModel({ canWrite: canWriteClients(ctx), clients, csrfToken: ctx.chrome.csrfToken, t: ctx.t, url: ctx.url }) }, view: "clients" };
 });
 
 // POST /admin/clients — register; on success show the one-time secret directly (no PRG, Hydra never
@@ -291,7 +297,7 @@ export const clientsCreate = withClients(async ({ ctx, hydra, user }) => {
 });
 
 // GET /admin/clients/new — the register form.
-export const clientsNewForm = withClients(({ ctx }) => Promise.resolve(clientFormResult(ctx, {})));
+export const clientsNewForm = withClients(({ ctx }) => Promise.resolve(clientFormResult(ctx, {})), "write");
 
 // GET /admin/clients/:id — the detail (read-only; the secret is shown only once, at creation).
 export const clientsDetail = withClient((deps, client) => Promise.resolve(clientDetailResult(deps.ctx, client)));
@@ -306,7 +312,7 @@ export const clientsDeleteConfirm = withClient((deps, client, id) => {
     cancelHref: base, confirmAction: `${base}/delete`, confirmLabel: tt("admin.clients.delete"),
     message: tt("admin.clients.deleteMessage", { name }), title: tt("admin.clients.delete"),
   }) }, view: "confirm" });
-});
+}, "write");
 
 // POST /admin/clients/:id/delete — perform it.
 export const clientsDelete = withClient(async ({ ctx, hydra, user }, _client, id) => {
