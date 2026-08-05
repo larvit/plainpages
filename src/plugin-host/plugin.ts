@@ -54,6 +54,18 @@ export function isValidPermissionName(name: string): boolean {
   return name.length <= 64 && PERMISSION_NAME.test(name);
 }
 
+// Every permission the installed plugins declare, deduped by name and sorted — the fixed list the
+// admin screens offer when granting. Permissions are authored in code, never invented in the GUI, so
+// this *is* the catalog; a name in Keto that no plugin declares gates nothing and is not offered.
+// First declaration of a name wins its description (shared names are legitimate, findConflicts warns).
+export function declaredPermissions(plugins: Plugin[]): PermissionDecl[] {
+  const byName = new Map<string, PermissionDecl>();
+  for (const plugin of plugins) {
+    for (const decl of plugin.permissions ?? []) if (!byName.has(decl.name)) byName.set(decl.name, decl);
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // Optional hooks on system actions. Crash-isolation is a non-goal — a throwing hook fails loud.
 export interface PluginHooks {
   onBoot?: () => Promise<void> | void; // after discovery, before the server listens

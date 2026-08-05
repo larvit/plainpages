@@ -1,6 +1,6 @@
 # Admin — the system-administration plugin
 
-The Users / Groups / Permissions / OAuth2-clients screens for running Plainpages itself. These used to be
+The Users / Groups / OAuth2-clients screens for running Plainpages itself. These used to be
 built into the core; they now ship as a **drop-in example plugin** so a fresh clone has no admin GUI
 until you opt in. Copy this folder into `plugins/` (it keeps the id and mount path `admin`, so the
 screens live at `/admin/*`) and restart:
@@ -25,7 +25,7 @@ reference](../scheduling/README.md)). The admin screens instead administer **Pla
 stack**, so they use the privileged **`ctx.system`** surface the host exposes to a system plugin:
 
 - **`ctx.system.kratosAdmin`** — create/edit/deactivate/delete Kratos identities (Users).
-- **`ctx.system.keto`** — read/write the Keto relationship graph (Groups, Permissions).
+- **`ctx.system.keto`** — read/write the Keto relationship graph (group membership, permission grants).
 - **`ctx.system.hydra`** — register/list/delete Ory Hydra OAuth2 clients.
 - **`ctx.system.revoke(sub)`** — the optional instant-revoke hook: a deactivate/delete or a
   user's permission change kills that subject's live tokens at once instead of waiting out the JWT TTL.
@@ -36,16 +36,22 @@ than crashing — see `admin-shared.ts`. Everything else is an ordinary plugin: 
 gated per route by its screen's `<resource>:<action>` permission, rendering the core building blocks
 in `views/`.
 
-Each screen is its own resource — `users`, `groups`, `permissions`, `oauth2-clients` — and each
-splits into `:read` and `:write`, so a helpdesk account can be given `users:read` alone. The nav is
-filtered by the same permissions: holding none of the four hides the Admin section entirely.
+Each screen is its own resource — `users`, `groups`, `oauth2-clients` — and each splits into `:read`
+and `:write`, so a helpdesk account can be given `users:read` alone. The nav is filtered by the same
+permissions: holding none of the three hides the Admin section entirely.
+
+There is **no Permissions screen**. Permission names are declared in plugin code, not created in a
+GUI, so the host's catalog (`ctx.declaredPermissions`) is the fixed list — and holding one is a
+property of a user or a group, edited as a checkbox list on those two screens (`admin-grants.ts`).
 
 ## Layout
 
 - `plugin.ts` — the manifest: the Admin nav fragment, the eight permissions the plugin declares, and
   the route table — one thin handler per method+path, gated via `adminPermission(resource, method)`
   so a GET needs `:read` and a POST `:write`.
-- `admin-users.ts` · `admin-groups.ts` · `admin-permissions.ts` · `admin-clients.ts` — each a set of pure
+- `admin-grants.ts` — the permission picker and the grant diff, shared by the Users and Groups
+  screens: what a submitted checkbox set grants and revokes, against the host's declared catalog.
+- `admin-users.ts` · `admin-groups.ts` · `admin-clients.ts` — each a set of pure
   view-model builders (unit-tested in the matching `*.test.ts`) plus thin per-route handlers keyed on
   `ctx.params` (the host extracts `:id`/`:name`), sharing a small `withX` wrapper that resolves the
   screen's permission gate + the needed `ctx.system` clients once.

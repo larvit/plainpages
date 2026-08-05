@@ -15,7 +15,7 @@ import { CSRF_COOKIE, issueCsrfToken } from "../auth/csrf.ts";
 import { can, check, GuardError, requireSession } from "../auth/guards.ts";
 import { HydraError, type HydraAdmin, type OAuth2Client } from "../auth/hydra-admin.ts";
 import { staticJwks } from "../auth/jwks.ts";
-import type { ExpandTree, KetoClient, RelationTuple, SubjectSet } from "../auth/keto-client.ts";
+import type { KetoClient, RelationTuple, SubjectSet } from "../auth/keto-client.ts";
 import type { Identity, KratosAdmin } from "../auth/kratos-admin.ts";
 import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
@@ -1250,104 +1250,43 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   assert.equal((await get("/admin/groups/%ZZ")).status, 404);
 });
 
-// Built-in Roles admin screen: gate + list/create/assign/revoke/delete over HTTP
-// against a fake in-memory Keto whose `expand` mirrors Keto's transitive resolution, so the
-// effective-access view surfaces a user reachable only through a group.
-test("admin Roles screen: gate, list, create, assign user/group, effective access (expand), revoke, delete", async (t) => {
+// Granting permissions over HTTP, on the two screens that replaced the deleted Permissions screen.
+// The offered set is the host's catalog (ctx.declaredPermissions, from what the installed plugins
+// declare), so the checkboxes are a fixed list and the POST is the desired state.
+test("admin permission grants: the picker offers the declared catalog, and a save is the desired set", async (t) => {
   const ada = randomUUID();
-  const grace = randomUUID();
-  const identities: Identity[] = [
-    { id: ada, schema_id: "default", state: "active", traits: { email: "ada@example.com" } },
-    { id: grace, schema_id: "default", state: "active", traits: { email: "grace@example.com" } },
-  ];
-  // grace is in the `eng` group; `docs:write` is an existing permission whose only direct member is ada.
-  const tuples: RelationTuple[] = [
-    { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${grace}` },
-    { namespace: "Permission", object: "docs:write", relation: "granted", subject_id: `user:${ada}` },
-  ];
-  // Mirror Keto's expand shape: the subject rides on `tuple`, set nodes carry members as children.
-  const expandSet = (set: SubjectSet): ExpandTree => ({
-    children: tuples
-      .filter((tp) => tp.namespace === set.namespace && tp.object === set.object && tp.relation === set.relation)
-      .map((tp) => (tp.subject_id ? { tuple: { namespace: "", object: "", relation: "", subject_id: tp.subject_id }, type: "leaf" } : expandSet(tp.subject_set!))),
-    tuple: { namespace: "", object: "", relation: "", subject_set: set },
-    type: "union",
-  });
-  const keto = fakeKeto(tuples, { expand: async (set) => expandSet(set) });
-  const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const denylist = createDenylist(); // granting/revoking a *user's* permission revokes their live tokens (a group change is transitive → left to lag)
-  const { get, post, token, url } = await adminHarness(t, { denylist, keto, kratosAdmin });
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${ada}` }];
+  const keto = fakeKeto(tuples);
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const denylist = createDenylist();
+  const { get, post, token } = await adminHarness(t, { denylist, keto, kratosAdmin });
 
-  await assertAdminGate(url, get, "/admin/permissions");
+  // The user edit page renders one checkbox per declared permission, ticked where already held.
+  const edit = await (await get(`/admin/users/${ada}`)).text();
+  for (const name of ["users:read", "users:write", "groups:read", "groups:write", "oauth2-clients:read", "oauth2-clients:write"]) {
+    assert.match(edit, new RegExp(`value="${name.replace(":", ":")}"`), name);
+  }
+  assert.match(edit, /value="users:read"[^>]*checked/); // held → ticked
+  assert.doesNotMatch(edit, /value="groups:write"[^>]*checked/); // not held → unticked
 
-  // List: the existing permission shows + the "add" link.
-  const listHtml = await (await get("/admin/permissions")).text();
-  assert.match(listHtml, /href="\/admin\/permissions\/docs%3Awrite"/);
-  assert.match(listHtml, /href="\/admin\/permissions\/new"/);
+  // Save a new set: users:write is added, users:read is dropped — the POST is the whole truth.
+  const saved = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Awrite&permission=groups%3Aread`);
+  assert.equal(saved.status, 303);
+  assert.deepEqual(
+    tuples.filter((tp) => tp.subject_id === `user:${ada}`).map((tp) => tp.object).sort(),
+    ["groups:read", "users:write"],
+  );
+  assert.equal(denylist.isRevoked(ada, 0), true); // a change to your own grants revokes live tokens
 
-  // Create: a valid post writes the first-member tuple and redirects to the detail.
-  assert.match(await (await get("/admin/permissions/new")).text(), /Create permission/);
-  const created = await post("/admin/permissions", `_csrf=${token}&name=docs%3Aread&member=user:${ada}`);
-  assert.equal(created.status, 303);
-  assert.equal(created.headers.get("location"), "/admin/permissions/docs%3Aread");
-  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:read" && tp.subject_id === `user:${ada}`));
-  assert.equal(denylist.isRevoked(ada, 0), true); // assigning a permission to a user revokes their stale token so the grant lands now
+  // A crafted POST can't grant something no plugin declares.
+  await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Awrite&permission=superuser%3Aall`);
+  assert.ok(!tuples.some((tp) => tp.object === "superuser:all"));
 
-  // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
-  const before = tuples.length;
-  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=Bad Name&member=user:${ada}`)).status, 400);
-  // A bare word has no <resource>:<action> shape — the rule the create form now enforces.
-  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=editor&member=user:${ada}`)).status, 400);
-  assert.equal((await post("/admin/permissions", `_csrf=${token}&name=docs%3Awrite&member=user:${ada}`)).status, 400); // already exists
-  assert.equal((await post("/admin/permissions", `name=x&member=user:${ada}`)).status, 403);
-  assert.equal(tuples.length, before);
-
-  // Detail: ada (direct) is in the effective-access list; grace (only reachable via a group) is not
-  // yet — though grace appears elsewhere as an assignable candidate, so target the effective <li>.
-  const effectiveLi = (email: string) => new RegExp(`<li><span class="cell-strong">${email.replace(".", "\\.")}`);
-  const detail = await (await get("/admin/permissions/docs%3Awrite")).text();
-  assert.match(detail, effectiveLi("ada@example.com"));
-  assert.doesNotMatch(detail, effectiveLi("grace@example.com"));
-
-  // Assign the `eng` group to the permission → grace now holds it transitively (effective access via expand).
-  await post("/admin/permissions/docs%3Awrite/members", `_csrf=${token}&member=group:eng`);
-  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write" && tp.subject_set?.object === "eng"));
-  const withGroup = await (await get("/admin/permissions/docs%3Awrite")).text();
-  assert.match(withGroup, effectiveLi("grace@example.com"));
-
-  // Revoke the group membership.
-  await post("/admin/permissions/docs%3Awrite/members/delete", `_csrf=${token}&member=group:eng`);
-  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write" && tp.subject_set?.object === "eng"));
-
-  // Unassigning a *user* membership likewise revokes that user's live token, so the loss of access is immediate.
-  await post("/admin/permissions/docs%3Awrite/members", `_csrf=${token}&member=user:${grace}`);
-  await post("/admin/permissions/docs%3Awrite/members/delete", `_csrf=${token}&member=user:${grace}`);
-  assert.equal(denylist.isRevoked(grace, 0), true);
-
-  // Delete the permission: a confirm step (GET) then the POST removes every member tuple, back to the list.
-  assert.match(await (await get("/admin/permissions/docs%3Awrite/delete")).text(), /Cancel/);
-  const del = await post("/admin/permissions/docs%3Awrite/delete", `_csrf=${token}`);
-  assert.equal(del.status, 303);
-  assert.equal(del.headers.get("location"), "/admin/permissions");
-  assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.object === "docs:write"));
-
-  // Self-protection: permissions:write can't be deleted — without it nobody could grant anything
-  // again — nor can you revoke your own direct grant of it (sub admin1).
-  tuples.push({ namespace: "Permission", object: "permissions:write", relation: "granted", subject_id: "user:admin1" });
-  assert.equal((await post("/admin/permissions/permissions%3Awrite/delete", `_csrf=${token}`)).status, 400);
-  assert.ok(tuples.some((tp) => tp.object === "permissions:write"));
-  assert.equal((await post("/admin/permissions/permissions%3Awrite/members/delete", `_csrf=${token}&member=user:admin1`)).status, 400);
-  assert.ok(tuples.some((tp) => tp.object === "permissions:write" && tp.subject_id === "user:admin1"));
-
-  // A permission written before the <resource>:<action> rule stays addressable, so it can be cleaned up.
-  tuples.push({ namespace: "Permission", object: "legacy", relation: "granted", subject_id: `user:${ada}` });
-  assert.equal((await get("/admin/permissions/legacy")).status, 200);
-  assert.equal((await post("/admin/permissions/legacy/delete", `_csrf=${token}`)).status, 303);
-  assert.ok(!tuples.some((tp) => tp.object === "legacy"));
-
-  // An invalid permission name in the path → 404; malformed %-encoding doesn't 500.
-  assert.equal((await get("/admin/permissions/Bad%20Name")).status, 404);
-  assert.equal((await get("/admin/permissions/%ZZ")).status, 404);
+  // The same picker on a group writes the group's subject_set, which Keto resolves transitively.
+  tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
+  await post("/admin/groups/eng/permissions", `_csrf=${token}&permission=groups%3Aread`);
+  assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
 });
 
 // Built-in OAuth2 clients admin screen: gate + list/register/detail/delete over HTTP against an

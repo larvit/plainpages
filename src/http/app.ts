@@ -25,7 +25,7 @@ import type { KratosPublic } from "../auth/kratos-public.ts";
 import { createLogger, type Log, requestLogger, runWithLog } from "../logger.ts";
 import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
-import type { Plugin, RouteHandler, RouteResult } from "../plugin-host/plugin.ts";
+import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
@@ -99,6 +99,9 @@ export function createApp(options: AppOptions = {}): Server {
   const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
   const dashboardPlugin = plugins.find((p): p is Plugin & { dashboard: RouteHandler } => typeof p.dashboard === "function");
   // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
+  // The permission catalog is a property of the installed plugin set, so it is computed once at
+  // wiring rather than per request.
+  const permissionCatalog = declaredPermissions(plugins);
   const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
@@ -297,9 +300,9 @@ export function createApp(options: AppOptions = {}): Server {
       // base context (no route params yet); reused for the built-in routes. A plugin-owned render
       // (a landing slot, a hook short-circuit, a plugin route) gets `contextFor(id)` instead, so its
       // own catalog is what `ctx.t` reads.
-      const ctx = buildContext(req, res, { chrome, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const ctx = buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
       const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext =>
-        buildContext(req, res, { chrome, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
+        buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
       renderPage = viewsFor(ctx);
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.

@@ -26,6 +26,9 @@
       <button class="btn btn-primary" type="submit"><%= form.submitLabel %></button>
     </div>
   </form>
+<% if (edit && locals.permissions) { -%>
+<%- include("partials/permission-picker", { csrfToken: form.csrfToken, permissions: locals.permissions }) %>
+<% } -%>
 <% if (edit) { -%>
   <section class="form-card admin-actions" aria-label="<%= t("admin.users.actions") %>">
     <form method="post" action="<%= localeHref(edit.recoveryAction) %>"><input type="hidden" name="_csrf" value="<%= form.csrfToken %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-mail"/></svg><%= t("admin.users.recovery.generate") %></button></form>

@@ -13,12 +13,13 @@ export const ADMIN_EN: Translate = englishTranslator(enUS);
 
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
-export const ADMIN_PERMISSIONS_BASE = "/admin/permissions";
 export const ADMIN_CLIENTS_BASE = "/admin/clients";
 
 // One resource per screen — the `<resource>` half of every permission this plugin gates on.
 // `oauth2-clients` rather than `clients` because permission names are one global namespace.
-export type AdminResource = "groups" | "oauth2-clients" | "permissions" | "users";
+// There is no `permissions` resource: permissions are declared in plugin code, not created here, so
+// holding a grant is a property of a user or a group and is edited on those two screens.
+export type AdminResource = "groups" | "oauth2-clients" | "users";
 
 export type AdminAction = "read" | "write";
 
@@ -43,10 +44,9 @@ export function actionForMethod(method: string): AdminAction {
 // four never sees the section. The host current-marks the active item — no `current`/`open` here.
 export const ADMIN_NAV: NavNode = {
   children: [
-    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users", permission: "users:read" },
-    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups", permission: "groups:read" },
-    { href: ADMIN_PERMISSIONS_BASE, icon: "i-shield", id: "permissions", label: "admin.nav.permissions", permission: "permissions:read" },
-    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients", permission: "oauth2-clients:read" },
+    { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users", permission: permissionName("users", "read") },
+    { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups", permission: permissionName("groups", "read") },
+    { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients", permission: permissionName("oauth2-clients", "read") },
   ],
   icon: "i-shield",
   id: "admin",

@@ -136,7 +136,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 
-  test("groups + permissions CRUD: create one of each (writes go to Keto) and see them listed", async () => {
+  test("groups CRUD: create a group (writes go to Keto), see it listed, then grant it a permission", async () => {
     // A Keto set exists only while it has ≥1 member, so create needs a first member (the form
     // enforces it); pick the first option (a user) from the required picker.
     const group = `e2e-grp-${suffix}`;
@@ -147,13 +147,17 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page).toHaveURL(/\/admin\/groups(\?|\/|$)/);
     await expect(page.locator("main")).toContainText(group);
 
-    const permission = `e2e-${suffix}:read`; // permission names are <resource>:<action>; the form refuses a bare word
-    await page.goto("/admin/permissions/new");
-    await page.fill('input[name="name"]', permission);
-    await page.locator('select[name="member"]').selectOption({ index: 1 });
-    await page.locator('.form-card button[type="submit"]').click();
-    await expect(page).toHaveURL(/\/admin\/permissions(\?|\/|$)/);
-    await expect(page.locator("main")).toContainText(permission);
+    // Permissions are declared in plugin code, so the group's detail page offers them as a fixed
+    // checkbox list rather than a create form — there is no Permissions screen to visit.
+    await page.goto(`/admin/groups/${group}`);
+    const scheduling = page.locator('input[name="permission"][value="scheduling:read"]');
+    await expect(scheduling).toHaveCount(1); // declared by the reference plugin, so it's on offer
+    await expect(scheduling).not.toBeChecked();
+    await scheduling.check();
+    await page.locator('form:has(input[name="permission"]) button[type="submit"]').click();
+
+    await expect(page).toHaveURL(new RegExp(`/admin/groups/${group}`));
+    await expect(page.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
   });
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {

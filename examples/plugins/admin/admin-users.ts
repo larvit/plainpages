@@ -4,7 +4,8 @@
 // models; below them are thin per-route handlers (keyed on ctx.params) over a shared `withUser` gate
 // — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
 
-import { type Identity, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { applyGrants, buildPermissionPicker, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
@@ -219,6 +220,7 @@ export function buildUserFormModel(opts: {
   csrfToken?: string;
   error?: string;
   identity?: Identity | null;
+  permissions?: PermissionPicker; // editing only — a user that doesn't exist yet can hold nothing
   recovery?: RecoveryCode;
   t?: Translate;
   values?: Partial<UserInput>;
@@ -250,6 +252,7 @@ export function buildUserFormModel(opts: {
     } : undefined,
     error: opts.error,
     form: { action: idPath, cancelHref: ADMIN_USERS_BASE, csrfToken: opts.csrfToken ?? "", fields, submitLabel: editing ? t("admin.users.save") : t("admin.users.create") },
+    permissions: editing ? opts.permissions : undefined,
     recovery: opts.recovery,
     title: editing ? t("admin.users.edit") : t("admin.users.new"),
   };
@@ -269,7 +272,9 @@ function readUserInput(form: URLSearchParams): UserInput {
 // Shared per-request deps for the Users screen, resolved by `withUser`: the gate (`users:read` on a
 // GET, `users:write` on a POST) and the Kratos capability (else a themed 503). Each route below is a
 // thin handler over these.
-interface UsersDeps { ctx: RequestContext; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
+// `keto` is optional the way every other capability here is: without it the page still lists and
+// edits users, it just can't show the permission picker.
+interface UsersDeps { ctx: RequestContext; keto: KetoClient | undefined; kratosAdmin: KratosAdmin; revoke: ((sub: string) => void) | undefined; user: User; }
 
 // Resolve the shared deps, then run `inner`. The route's own `permission` already gated at the host;
 // `requirePermission` is defence-in-depth and yields the user. GuardError (auth/CSRF) → host maps it.
@@ -278,7 +283,7 @@ function withUser(inner: (deps: UsersDeps) => Promise<RouteResult>): RouteHandle
     const user = requirePermission(ctx, "users");
     const kratosAdmin = ctx.system?.kratosAdmin;
     if (!kratosAdmin) return unavailable(ctx, ctx.t("admin.capability.kratos"));
-    return inner({ ctx, kratosAdmin, revoke: ctx.system?.revoke, user });
+    return inner({ ctx, keto: ctx.system?.keto, kratosAdmin, revoke: ctx.system?.revoke, user });
   };
 }
 
@@ -319,7 +324,40 @@ export const usersCreate = withUser(async ({ ctx, kratosAdmin, user }) => {
 export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx, {})));
 
 // GET /admin/users/:id — the edit form, prefilled.
-export const usersEditForm = withTarget((deps, identity) => Promise.resolve(formResult(deps.ctx, { identity })));
+export const usersEditForm = withTarget(async (deps, identity, id) => {
+  const permissions = await userPermissionPicker(deps, id);
+  return formResult(deps.ctx, { identity, ...(permissions ? { permissions } : {}) });
+});
+
+// The checkbox list of declared permissions, ticked where this user holds one directly. Undefined
+// when Keto isn't wired — the rest of the edit page still works.
+async function userPermissionPicker(deps: UsersDeps, id: string): Promise<PermissionPicker | undefined> {
+  if (!deps.keto) return undefined;
+  const held = await heldPermissions(deps.keto, userSubject(id));
+  return buildPermissionPicker({
+    action: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}/permissions`,
+    declared: deps.ctx.declaredPermissions,
+    held,
+    t: deps.ctx.t,
+  });
+}
+
+// POST /admin/users/:id/permissions — the submitted checkboxes are the desired set; grant what's
+// newly ticked, revoke what's newly unticked. A change to a user's own grants revokes their live
+// tokens so it lands now rather than at the next re-mint.
+export const usersPermissions = withTarget(async (deps, _identity, id) => {
+  const { ctx, keto, revoke, user } = deps;
+  const form = (await guardedForm(ctx))!;
+  if (!keto) return unavailable(ctx, ctx.t("admin.capability.keto"));
+  const subject = userSubject(id);
+  const diff = grantDiff(ctx.declaredPermissions, await heldPermissions(keto, subject), form.getAll(PERMISSIONS_FIELD));
+  await applyGrants(keto, subject, diff);
+  if (diff.grant.length > 0 || diff.revoke.length > 0) {
+    revoke?.(id);
+    ctx.log.info("admin: user permissions changed", { actor: user.id, granted: diff.grant.join(","), revoked: diff.revoke.join(","), target: id });
+  }
+  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
+});
 
 // POST /admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).
 export const usersUpdate = withTarget(async ({ ctx, kratosAdmin }, identity, id) => {

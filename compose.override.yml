@@ -22,6 +22,15 @@ services:
       # Mount your own menu/branding override into the empty config/ dir (defaults apply otherwise):
       # - ./config:/app/config:ro   # your config/menu.ts — see examples/config/menu.ts for a template
 
+  # The seed grants what the installed plugins declare, so bootstrap must discover the same plugins
+  # as web. Only dev needs saying: the base file gives both services the image's baked plugins/, and
+  # it is the `.:/app` above — dev-only — that makes web diverge onto the host tree. Mirror it here
+  # rather than in the base file, where it would instead desynchronise them (and collide with the
+  # e2e stacks, which mount individual plugins *inside* this path).
+  bootstrap:
+    volumes:
+      - ./plugins:/app/plugins:ro
+
   # Mock backend ready for the reference plugin (examples/plugins/scheduling): plugins/ ships empty, so
   # the plugin is opt-in — `cp -r examples/plugins/scheduling plugins/scheduling`, restart, and this
   # backs it (SCHEDULING_UPSTREAM above points here). Stand-in for the customer's real service —

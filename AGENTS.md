@@ -99,8 +99,15 @@ them. Revisit only if the stated reason stops holding.
   × `read`/`write` 2026-08-05. **Enforced at discovery** (`isValidPermissionName` in
   `plugin-host/plugin.ts`, checked by `shapeError` over every route/nav `permission` and every
   declared name), fail-loud like every other manifest rule — not only in the admin GUI, which an
-  operator removes by not copying the example in. The admin plugin's create form calls the same host
-  function; there is one regex. Decisions around it:
+  operator removes by not copying the example in. Decisions around it:
+  - **Names are authored in plugin code; only grants live in Keto.** The host collects every
+    installed plugin's declarations into one catalog (`declaredPermissions` → `ctx.declaredPermissions`),
+    and that catalog *is* the fixed list the admin screens offer. So there is **no Permissions admin
+    screen**: nothing in a GUI invents a name, and holding one is a property of a user or a group,
+    edited as a checkbox list on those two screens. A tuple in Keto naming something no installed
+    plugin declares gates nothing and is not offered — and a save never revokes it, since the picker
+    only speaks for what it showed. Decided with the maintainer 2026-08-05, replacing the CRUD
+    Permissions screen.
   - `<resource>` is **global, not plugin-scoped** (hence `oauth2-clients`, not `clients`). Deliberate
     cross-plugin sharing is a goal, so the pre-2026-08-05 `<id>:<action>` guidance was wrong: users
     are the *host's*, not the admin plugin's. Cost: collision-freedom became a convention rather than
@@ -108,15 +115,21 @@ them. Revisit only if the stated reason stops holding.
   - **Declaring a permission stays optional.** Requiring every gated route to declare its permission
     would make `findConflicts` see all overlaps, but would then warn on exactly the legitimate
     sharing case above. Shape is enforced; declaration is not.
-  - ***Addressing* a permission is looser than *minting* one** (`isPermissionPathSegment`) so a name
-    written before the rule can still be opened and deleted instead of stranding in Keto. Both mint
-    points are guarded — the create form, and `rolesAddMember`, whose write would otherwise create a
-    permission under a hand-typed name.
+  - **There is no name-minting path in the GUI at all**, which is what makes the discovery check the
+    whole story: the only way a name comes into being is a plugin declaring it, and discovery refuses
+    a badly-shaped declaration at boot. An earlier revision of this branch enforced the rule in the
+    Permissions screen's create form instead and needed a second guard for the assign form, which
+    could also mint one — deleting the screen removed both.
   - `ADMIN_PERMISSIONS` **defaults to empty**: every permission is owned by the plugin that gates on
     it, and a host-invented default would gate nothing. This makes the seed a function of what
-    `bootstrap` discovers, so `bootstrap` bind-mounts `./plugins` like `web` does, and a plugin
-    dropped in after first boot needs `docker compose up -d` (which re-runs the one-shot), not
-    `restart web`. Valid while bootstrap is the only writer of grants.
+    `bootstrap` discovers, and a plugin dropped in after first boot therefore needs
+    `docker compose up -d` (which re-runs the one-shot), not `restart web`. The base file gives
+    `bootstrap` and `web` the same baked `plugins/`; only `compose.override.yml`'s dev-only `.:/app`
+    makes `web` diverge onto the host tree, so the matching `./plugins` mount for `bootstrap` lives
+    **there and only there** — in the base file it would desynchronise prod and collide with the e2e
+    stacks, which bind individual plugins *inside* `/app/plugins` (a nested mount into a read-only
+    parent is EROFS and the container never starts). Valid while bootstrap is the only writer of
+    grants.
   - **`actionForMethod` is plugin-local and must not migrate into `#plugin-api`.** Inside the admin
     example it buys one thing: the route table and the in-handler guard derive from one function, so
     29 routes × 2 gate sites cannot drift. As a general mechanism it would make authorization a

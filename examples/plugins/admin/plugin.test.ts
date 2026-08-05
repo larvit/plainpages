@@ -23,12 +23,29 @@ test("the manifest declares no permission it never gates on", () => {
   for (const name of declared) assert.ok(gated.has(name), `declared but unused: ${name}`);
 });
 
+// A nav permission is a plain string the host matches against the JWT claim: a typo ("user:read")
+// passes discovery's shape check and silently hides that menu item forever. Same silent-failure
+// class the route checks above close, so close it on the nav side too.
+test("every nav permission is one the manifest declares", () => {
+  const navPermissions: string[] = [];
+  const walk = (nodes: typeof manifest.nav): void => {
+    for (const node of nodes ?? []) {
+      if (node.permission != null) navPermissions.push(node.permission);
+      walk(node.children);
+    }
+  };
+  walk(manifest.nav);
+  assert.equal(navPermissions.length, 3);
+  for (const name of navPermissions) assert.ok(declared.includes(name), `nav gates on undeclared ${name}`);
+});
+
 test("every declared permission is <resource>:<action>, and reads and writes are split per resource", () => {
   for (const name of declared) assert.ok(isValidPermissionName(name), name); // the host's rule, not a copy of it
+  // Three screens × read/write. There is deliberately no `permissions:` pair: permissions are
+  // declared in plugin code, so holding one is edited on the user or group that holds it.
   assert.deepEqual([...declared].sort(), [
     "groups:read", "groups:write",
     "oauth2-clients:read", "oauth2-clients:write",
-    "permissions:read", "permissions:write",
     "users:read", "users:write",
   ]);
 });

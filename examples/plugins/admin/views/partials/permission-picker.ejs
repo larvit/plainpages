@@ -1,0 +1,26 @@
+<%#
+  The permission picker, shared by the user-edit and group-detail pages. A fieldset of checkboxes —
+  one per permission the installed plugins declare — ticked where this user/group already holds it.
+  The whole set posts back, so what is submitted IS the desired state (see admin-grants.ts).
+  Locals: csrfToken, permissions ({ action, choices, empty, field, legend, submit }).
+%>
+  <section class="form-card" aria-labelledby="permissions-h">
+    <h2 class="card-title" id="permissions-h"><%= permissions.legend %></h2>
+<% if (permissions.empty) { -%>
+    <p class="cell-muted"><%= permissions.empty %></p>
+<% } else { -%>
+    <form method="post" action="<%= localeHref(permissions.action) %>">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <fieldset class="check-list">
+        <legend class="sr-only"><%= permissions.legend %></legend>
+<% permissions.choices.forEach((c, i) => { -%>
+        <div class="check-row">
+          <input type="checkbox" id="perm-<%= i %>" name="<%= permissions.field %>" value="<%= c.name %>"<%= c.checked ? " checked" : "" %>>
+          <label for="perm-<%= i %>"><span class="cell-strong"><%= c.name %></span><% if (c.description) { %><span class="cell-muted"><%= c.description %></span><% } %></label>
+        </div>
+<% }) -%>
+      </fieldset>
+      <button class="btn btn-primary" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><%= permissions.submit %></button>
+    </form>
+<% } -%>
+  </section>

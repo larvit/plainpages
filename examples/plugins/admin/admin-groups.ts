@@ -7,6 +7,7 @@
 // each returning a RouteResult.
 
 import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
+import { applyGrants, buildPermissionPicker, grantDiff, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
 import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -229,6 +230,7 @@ export function buildGroupDetailModel(opts: {
   error?: string;
   group: { name: string };
   members: MemberView[];
+  permissions?: PermissionPicker;
   t?: Translate;
 }) {
   const t = opts.t ?? ADMIN_EN;
@@ -245,6 +247,7 @@ export function buildGroupDetailModel(opts: {
     error: opts.error,
     group: { name },
     members: { action: `${base}/members/delete`, rows: opts.members },
+    permissions: opts.permissions,
     title: name,
   };
 }
@@ -343,7 +346,27 @@ export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}));
 export const groupsDetail = withGroupName(async ({ ctx, keto, kratosAdmin }, name) => {
   const { emailById, options } = await memberCandidates(keto, kratosAdmin);
   const members = (await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS })).map((t) => memberView(t, emailById));
-  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, t: ctx.t }) }, view: "group-detail" };
+  const permissions = buildPermissionPicker({
+    action: `${detailHref(name)}/permissions`,
+    declared: ctx.declaredPermissions,
+    held: await heldPermissions(keto, groupSubject(name)),
+    t: ctx.t,
+  });
+  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t }) }, view: "group-detail" };
+});
+
+// POST /admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold
+// a group's permissions transitively, so the change reaches them at their next login or re-mint —
+// the documented instant-revoke tradeoff for anything held through a group.
+export const groupsPermissions = withGroupName(async ({ ctx, keto, user }, name) => {
+  const form = (await guardedForm(ctx))!;
+  const subject = groupSubject(name);
+  const diff = grantDiff(ctx.declaredPermissions, await heldPermissions(keto, subject), form.getAll(PERMISSIONS_FIELD));
+  await applyGrants(keto, subject, diff);
+  if (diff.grant.length > 0 || diff.revoke.length > 0) {
+    ctx.log.info("admin: group permissions changed", { actor: user.id, granted: diff.grant.join(","), group: name, revoked: diff.revoke.join(",") });
+  }
+  return { redirect: detailHref(name) };
 });
 
 // POST /admin/groups/:name/members — add a member (skip an invalid member or a self-nest).

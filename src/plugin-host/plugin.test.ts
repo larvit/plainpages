@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   checkApiVersion,
+  declaredPermissions,
   definePlugin,
   findConflicts,
   HOST_API_VERSION,
@@ -56,6 +57,18 @@ test("isValidPermissionName requires <resource>:<action> — a bare word names a
   for (const bad of ["admin", "", "Users:read", "users:", ":read", "users:read:extra", "a b:read", "-bad:read", "a/b:read", `${"a".repeat(60)}:read`]) {
     assert.ok(!isValidPermissionName(bad), bad);
   }
+});
+
+test("declaredPermissions is the catalog: every plugin's declarations, deduped by name and sorted", () => {
+  const a: Plugin = { apiVersion: "1.0.0", id: "a", permissions: [{ description: "Write things", name: "things:write" }, { description: "Read things", name: "things:read" }] };
+  const b: Plugin = { apiVersion: "1.0.0", id: "b", permissions: [{ description: "b's wording", name: "things:read" }, { name: "orders:read" }] };
+  const c: Plugin = { apiVersion: "1.0.0", id: "c" }; // declaring none is fine
+
+  const catalog = declaredPermissions([a, b, c]);
+  assert.deepEqual(catalog.map((p) => p.name), ["orders:read", "things:read", "things:write"]);
+  // A shared name is legitimate (findConflicts only warns); the first declaration wins its wording.
+  assert.equal(catalog.find((p) => p.name === "things:read")?.description, "Read things");
+  assert.deepEqual(declaredPermissions([]), []);
 });
 
 test("parseSemver follows the semver core, rejecting ranges, prefixes, leading zeros and missing parts", () => {

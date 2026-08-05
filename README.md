@@ -28,7 +28,7 @@ docker compose up -d        # http://localhost:3000, live-reloads on source chan
 **`admin@plainpages.local` / `admin`**.
 
 **3. Enable user & group admin (optional).** The core ships **no admin GUI** — the Users / Groups
-/ Permissions / OAuth2-clients screens are a drop-in plugin. Copy it in to mount them at `/admin/*`:
+/ OAuth2-clients screens are a drop-in plugin. Copy it in to mount them at `/admin/*`:
 
 ```bash
 cp -r examples/plugins/admin plugins/admin
@@ -266,9 +266,9 @@ transitively, through nested groups).
 ### Naming a permission
 
 **Every permission name is `<resource>:<action>`.** `scheduling:read`, `users:write`,
-`oauth2-clients:read`. Both halves are lowercase letters, digits, dashes and underscores; the admin
-plugin's create form refuses anything else, so the convention holds for whatever an operator adds
-later.
+`oauth2-clients:read`. Both halves are lowercase letters, digits, dashes and underscores, and the
+host refuses a plugin that breaks the rule at discovery — so it holds for every installed plugin,
+not just the ones you wrote.
 
 - **`<resource>`** names the thing acted on, not the plugin that happens to own it — permission
   names are one **global namespace**, so an operator grants `scheduling:read` once and every plugin
@@ -351,8 +351,8 @@ permissions, so nobody is shown a door they cannot open.
 
 ### Granting a permission
 
-Write the tuple. The admin plugin's **Groups** and **Permissions** screens do exactly this, or use
-Keto's write API directly:
+Write the tuple. The admin plugin's **Users** and **Groups** screens do exactly this — each offers
+the declared permissions as a checkbox list — or use Keto's write API directly:
 
 ```bash
 # everyone in sched-leads may write shifts
@@ -362,8 +362,12 @@ curl -X PUT http://keto:4467/admin/relation-tuples -H 'content-type: application
 }'
 ```
 
-Permissions are authored **only in Keto** — nothing else writes them, and a name exists only while
-some tuple carries it. Name yours [`<resource>:<action>`](#naming-a-permission).
+**A permission's name is authored in plugin code; only its *grants* live in Keto.** A plugin
+declares the permissions it gates on (`permissions:` in the manifest), and the host collects them
+into one catalog — `ctx.declaredPermissions` — which is exactly the fixed list the admin screens
+offer. Nothing in the GUI invents a name: granting is ticking a box against that list, and a tuple
+in Keto naming something no installed plugin declares gates nothing. Name yours
+[`<resource>:<action>`](#naming-a-permission).
 
 A change takes effect on the user's **next login or JWT re-mint** (~10 min) — see [Instant
 revoke](#instant-revoke-the-optional-denylist) when you need it sooner.
@@ -641,6 +645,7 @@ interface RequestContext {
   req: IncomingMessage;
   res: ServerResponse;
   permissions: string[];                   // user?.permissions ?? [] — coarse gate without a null-check
+  declaredPermissions: PermissionDecl[];   // every permission the installed plugins declare, deduped + sorted — what *exists*, vs `permissions` = what this user *holds*
   system?: SystemCapabilities;       // privileged Ory clients + instant-revoke, for a system plugin (see below); undefined unless the host wired them
   url: URL;
   verifyCsrf(submitted): boolean;    // gate a form POST against the request's signed CSRF cookie
@@ -708,7 +713,7 @@ interface SystemCapabilities {          // every field optional — present only
 Hydra configured, the [revocation denylist](#instant-revoke-the-optional-denylist) enabled). A system
 plugin treats every field as optional and **degrades when absent** — the host never fails a request
 over it. The built-in **admin plugin** ([`examples/plugins/admin/`](examples/plugins/admin/)) is the
-reference consumer: its Users screen uses `ctx.system.kratosAdmin`, Groups/Permissions use `ctx.system.keto`,
+reference consumer: its Users screen uses `ctx.system.kratosAdmin`, Groups and the permission pickers use `ctx.system.keto`,
 OAuth2 clients use `ctx.system.hydra`, and a deactivate/delete or user permission-change calls
 `ctx.system.revoke` so the change lands now instead of after the JWT TTL; where a capability is missing
 the screen renders a themed 503.
@@ -1911,13 +1916,13 @@ src/                  Node 24 + TypeScript app — strict tsc, no build step. *.
     list-query.ts     parseListQuery(): read a list URL → { q, filters, sort, page, pageSize }
     paginate.ts       paginate(total,page,pageSize): page model (counts, row window, ellipsis sequence) for pagination.ejs
 
-views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, language picker, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Permissions/Clients + confirm bodies)
+views/               Core EJS templates, all in the one app shell: home (public "/" landing), index (instructional /dashboard), auth (themed Kratos flows), oauth-consent (OAuth2 consent), error (flow-error sink → /error), 403/404/500/503 (503 = Ory-unreachable on sign-in), partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card, alert, landing/flow/consent bodies, menu/popover, theme switch, language picker, icon sprite). Domain screens live in plugins, not here — the admin plugin ships its own views/ (incl. its Users/Groups/Clients + permission-picker + confirm bodies)
 public/              Static assets under /public/ (css/styles.css + auth.css, favicon, robots.txt)
 config/              Drop-in mount point for the central menu override + branding (config/menu.ts). Ships empty (.gitkeep, git-ignored otherwise) — mount your own or copy the template from examples/config/; defaults apply when absent
 locales/             Drop-in mount point for extra (or replacement) language catalogs — a <locale>.ts here adds a language for the core, or replaces the shipped catalog for that tag wholesale; plugins/<id>/<locale>.ts does the same for an installed plugin. Ships empty (.gitkeep, git-ignored otherwise); see Languages
 ory/                 Ory service config (kratos/: identity schema, kratos.yml, oidc/ SSO claims mapper, tokenizer/ session→JWT claims mapper + dev signing JWKS; keto/: keto.yml + namespaces.keto.ts OPL — permission/group/resource; hydra/hydra.yml: OAuth2 issuer + login/consent URLs → /oauth2/*) + storage init (postgres/init/init.sql: one DB per service)
 plugins/             Drop-in plugin folders (scanned at /app/plugins; bind-mount or bake in). Ships empty (.gitkeep, git-ignored otherwise) — mount your own; the E2E suites bind-mount the example plugins onto /app/plugins/scheduling and /app/plugins/admin
-examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/Permissions/OAuth2-clients over Ory via ctx.system), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
+examples/            Copy-in reference material, mirroring the mount dirs: plugins/scheduling/ (the reference plugin — list/form over an upstream + permission-gated nav), plugins/admin/ (the system-admin plugin — Users/Groups/OAuth2-clients over Ory via ctx.system, permissions granted from the host's declared catalog), both copied into plugins/; and config/menu.ts (the menu/branding template copied into config/); shifts-upstream/ is the dev mock backend the scheduling plugin reads/writes (stand-in for your real service)
 e2e-tests/           Playwright E2E: visual.spec (design system, Ory-free) + auth-refresh.spec (token timeout/re-mint) + oauth-login.spec (OAuth2 login + consent) + full-flow.spec (browser UI: password/SSO login, menu-by-permission, admin CRUD, plugin page, logout) + devstack-login.spec (regression: login works from the banner's localhost URL and 127.0.0.1 is canonicalised, on the plain `docker compose up` topology); proxy.ts (same-origin gateway) + mock-oidc.ts (mock SSO provider) back full-flow. e2e-tests/Dockerfile + e2e-tests/compose.{visual,auth,oauth,full,devstack}.yml run them
 ci.sh                The full CI gate: typecheck → unit tests → every E2E suite, each on a fresh, always-torn-down stack (`bash ci.sh`)
 .gitea/workflows/    Gitea Actions: ci.yml — the full gate (ci.sh) on every branch push except main;

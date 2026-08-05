@@ -139,10 +139,6 @@ services:
       KRATOS_ADMIN_URL: http://kratos:4434
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
-      # The seed grants what the installed plugins declare, so bootstrap must see the same plugins/
-      # as web. Without this it discovers only the image's (empty) copy and the demo admin is seeded
-      # with nothing — a drop-in plugin's screens then 403 with nothing logged.
-      - ./plugins:/app/plugins:ro
     command: node src/auth/bootstrap.ts
     # Bounded retry: the seed is idempotent, so transient Ory blips recover — but a permanent
     # error must give up, not loop forever and hang `web` (gates on completion).
