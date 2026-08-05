@@ -64,7 +64,7 @@ const messages = {
   "admin.groups.column.name": "Group",
   "admin.groups.create": "Create group",
   "admin.groups.delete": "Delete group",
-  "admin.groups.deleteMessage": "Delete group {{name}}? This removes the group, its members, and the permissions it grants them.",
+  "admin.groups.deleteMessage": "Delete group {{name}}? This can't be undone.",
   "admin.groups.field.name": "Group name",
   "admin.groups.field.nameHint": "Lowercase letters, digits, dashes and underscores.",
   "admin.groups.filter": "Filter groups",

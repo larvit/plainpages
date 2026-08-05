@@ -64,7 +64,7 @@ const messages: AdminMessages = {
   "admin.groups.column.name": "Grupp",
   "admin.groups.create": "Skapa grupp",
   "admin.groups.delete": "Radera grupp",
-  "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det tar bort gruppen, dess medlemmar och de behörigheter den ger dem.",
+  "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det går inte att ångra.",
   "admin.groups.field.name": "Gruppnamn",
   "admin.groups.field.nameHint": "Små bokstäver, siffror, bindestreck och understreck.",
   "admin.groups.filter": "Filtrera grupper",
