@@ -2,6 +2,8 @@
 
 ## Unfinnished work
 
+- [ ] Add a way to configure plugins directly when installing. Most reasonable is an .env file in the plugin folder, I think, but I am open to suggestions.
+- [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Document permissions format so it is folled going forward: <resource>:<action>, for example scheduling:read. Permission "admin" does not match this, and needs to be users:read, users:write, groups:read, groups:write.
 - [ ] Permissions should be a list in code. Since no permissions exists in the database out of the box, but there are a fixed number of permissions in the plugins that the end consumer and user of plain pages can use, these permissions must surface to the UI somehow. The effects is that the permissions page should be deleted completely, and the users and groups pages should gain the functionality to add permissions to their things instead, provided the user have the right permissiosn to do so, of course. Run the product reviewer agent on this todo also.
 - [ ] The seeded admin@plainpages.local are assigned twice to the permission "admin", should only be one, right? (the "admin" permission name can be switched after previous todos have been done)
