@@ -2,6 +2,7 @@
 
 ## Unfinnished work
 
+- [ ] node_modules gets installed straight to the root folder with root permissions, it should at the very least be same owner as the one running the docker process, or built inside the docker image.
 - [ ] Add a way to configure plugins directly when installing. Most reasonable is an .env file in the plugin folder, I think, but I am open to suggestions.
 - [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Guard the group paths to self-lockout, or accept them explicitly. The self-revoke guard covers only your own *direct* grants on the Users screen; unticking a permission on a group you belong to, removing yourself from that group, or deleting it can all still strip your own effective access with no warning. Same scope the deleted Permissions screen had, and recorded in AGENTS.md as a known gap — the robust fix is a "last effective holder" check, which needs a reverse Keto query. Raised by the stability review 2026-08-05.
