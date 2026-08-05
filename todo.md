@@ -2,6 +2,7 @@
 
 ## Unfinnished work
 
+- [ ] Don't run tests when only markdown files in the root have changed.
 - [ ] In Playwright tests, check for warnings and errors in all browsers on all the steps. If they exist, that is a failure we need to fix.
 - [ ] In Playwright tests, try different resolutions and sizes, from BIG desktop down to tiny phone.
 - [ ] Record the browser floor Plainpages actually requires, and whether the fallback is the contract or a courtesy. The stylesheet already needs `:has()` (Dec 2023); the menus now need the popover API (Safari 17, Sep 2023) and CSS anchor positioning for placement (newer still, and unguarded — the `@supports` test covers popover only). An iPadOS 16 tablet — capped at Safari 16, and exactly the "tablet on a factory floor, old thin client at a reception desk" README → Overview sells the zero-JS stance on — therefore gets panels flowing inline rather than working menus. Either state a supported floor in the README or accept the fallback as the answer for those devices; nobody has rendered that path on real hardware. Raised by the architecture review 2026-08-05.
