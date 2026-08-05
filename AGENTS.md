@@ -134,6 +134,16 @@ them. Revisit only if the stated reason stops holding.
     example it buys one thing: the route table and the in-handler guard derive from one function, so
     29 routes × 2 gate sites cannot drift. As a general mechanism it would make authorization a
     function of the transport verb, and a route table must answer "what does this need?" on its own.
+- **A `:read`-only holder must never be shown a write affordance.** The split created a real read-only
+  operator (a helpdesk account with `users:read`), and the host's 403 is the backstop, not the UX: the
+  list/detail models carry `canWrite` and the views drop create/save/delete/add/remove, while the
+  permission picker still renders — disabled — because *seeing* who holds what is the point of `:read`.
+  Two grant-specific guards go with it, both restoring behaviour the deleted Permissions screen had:
+  you cannot revoke your own grants (self-lockout would need a `curl` against Keto to undo, which the
+  operator persona can't do — same shape as the self-deactivate/self-delete guards), and a permission
+  held *through a group* renders ticked-but-disabled rather than unticked, because showing it unticked
+  stated the opposite of the truth and unticking it wrote nothing while looking like a successful
+  revoke. Raised by the architecture + product reviews 2026-08-05.
 - **`users:write` and `groups:write` are equivalent to full administrative access**, and the split
   does not change that: `groups:write` adds you to any group, including one holding every permission;
   `users:write` mints a recovery code for any account. The containment the split buys is real on the

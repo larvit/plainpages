@@ -1,26 +1,46 @@
 <%#
   The permission picker, shared by the user-edit and group-detail pages. A fieldset of checkboxes —
-  one per permission the installed plugins declare — ticked where this user/group already holds it.
-  The whole set posts back, so what is submitted IS the desired state (see admin-grants.ts).
-  Locals: csrfToken, permissions ({ action, choices, empty, field, legend, submit }).
+  one per permission the installed plugins declare — ticked where this user/group holds it. The whole
+  set posts back, so what is submitted IS the desired set of *direct* grants (see admin-grants.ts).
+
+  Two rows never post, by design: an `inherited` one (the grant comes from a group, so it is changed
+  there) and every row when `readOnly` (the viewer holds :read but not :write). Neither can be diffed
+  into an accidental revoke, because grantDiff compares against the direct grants only.
+
+  Locals: csrfToken, permissions ({ action, choices, empty, error, field, hint, inheritedNote, legend, readOnly, submit }).
 %>
   <section class="form-card" aria-labelledby="permissions-h">
     <h2 class="card-title" id="permissions-h"><%= permissions.legend %></h2>
+<% if (permissions.error) { -%>
+<%- include("partials/alert", { text: permissions.error, tone: "neg" }) %>
+<% } -%>
 <% if (permissions.empty) { -%>
     <p class="cell-muted"><%= permissions.empty %></p>
 <% } else { -%>
+    <p class="cell-muted"><%= permissions.hint %></p>
+<% if (permissions.readOnly) { -%>
+    <fieldset class="check-group">
+      <legend class="sr-only"><%= permissions.legend %></legend>
+<% permissions.choices.forEach((c) => { -%>
+      <label class="check"><input type="checkbox"<%= c.checked ? " checked" : "" %> disabled><span><%= c.description || c.name %></span><span class="cell-muted"><%= c.name %></span></label>
+<% }) -%>
+    </fieldset>
+<% } else { -%>
     <form method="post" action="<%= localeHref(permissions.action) %>">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <fieldset class="check-list">
+      <fieldset class="check-group">
         <legend class="sr-only"><%= permissions.legend %></legend>
-<% permissions.choices.forEach((c, i) => { -%>
-        <div class="check-row">
-          <input type="checkbox" id="perm-<%= i %>" name="<%= permissions.field %>" value="<%= c.name %>"<%= c.checked ? " checked" : "" %>>
-          <label for="perm-<%= i %>"><span class="cell-strong"><%= c.name %></span><% if (c.description) { %><span class="cell-muted"><%= c.description %></span><% } %></label>
-        </div>
+<% permissions.choices.forEach((c) => { -%>
+        <label class="check"><input type="checkbox" name="<%= permissions.field %>" value="<%= c.name %>"<%= c.checked ? " checked" : "" %><%= c.inherited ? " disabled" : "" %>><span><%= c.description || c.name %></span><span class="cell-muted"><%= c.name %></span></label>
 <% }) -%>
       </fieldset>
-      <button class="btn btn-primary" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><%= permissions.submit %></button>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><%= permissions.submit %></button>
+      </div>
     </form>
+<% } -%>
+<% if (permissions.inheritedNote) { -%>
+    <p class="cell-muted"><%= permissions.inheritedNote %></p>
+<% } -%>
 <% } -%>
   </section>

@@ -6,9 +6,9 @@
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
-import { type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
-import { applyGrants, buildPermissionPicker, grantDiff, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
-import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
+import { can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "#plugin-api";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, groupSubject, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD } from "./admin-grants.ts";
+import { ADMIN_EN, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -111,6 +111,7 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 }
 
 export function buildGroupsListModel(opts: {
+  canWrite?: boolean;
   csrfToken?: string;
   groups: GroupView[];
   t?: Translate;
@@ -140,6 +141,7 @@ export function buildGroupsListModel(opts: {
 
   return {
     breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.nav.section") }, { label: t("admin.groups.title") }],
+    canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, t),
     pagination: listPagination(state, page, t),
     table: listTable(rows, state, sort, t),
@@ -225,6 +227,7 @@ export function buildGroupFormModel(opts: {
 }
 
 export function buildGroupDetailModel(opts: {
+  canWrite?: boolean; // false ⇒ a `groups:read` holder: show the members, offer no edit
   candidates: MemberOption[];
   csrfToken?: string;
   error?: string;
@@ -239,9 +242,11 @@ export function buildGroupDetailModel(opts: {
   const taken = new Set(opts.members.map((m) => m.subject));
   const self = `group:${name}`; // a group can't be a member of itself
   const options = opts.candidates.filter((c) => c.value !== self && !taken.has(c.value));
+  const canWrite = opts.canWrite !== false;
   return {
     add: { action: `${base}/members`, options },
     breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.groups.title") }, { label: name }],
+    canWrite, // the view drops add/remove/delete when false; the host already 403s those POSTs
     csrfToken: opts.csrfToken ?? "",
     delete: { action: `${base}/delete` },
     error: opts.error,
@@ -254,7 +259,7 @@ export function buildGroupDetailModel(opts: {
 
 // ---- request handler (imperative shell) ----
 
-// Drain every page of a relation-tuple query. (Reused by the Roles screen — same membership model.)
+// Drain every page of a relation-tuple query.
 export async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<RelationTuple[]> {
   const out: RelationTuple[] = [];
   let pageToken: string | undefined;
@@ -320,7 +325,7 @@ const groupFormResult = async (deps: GroupsDeps, extra: { error?: string; values
 // GET /admin/groups — the list.
 export const groupsList = withGroups(async ({ ctx, keto }) => {
   const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
-  return { data: { chrome: ctx.chrome, model: buildGroupsListModel({ csrfToken: ctx.chrome.csrfToken, groups, t: ctx.t, url: ctx.url }) }, view: "groups" };
+  return { data: { chrome: ctx.chrome, model: buildGroupsListModel({ canWrite: can(ctx, permissionName("groups", "write")), csrfToken: ctx.chrome.csrfToken, groups, t: ctx.t, url: ctx.url }) }, view: "groups" };
 });
 
 // POST /admin/groups — create (a group exists once it has ≥1 member, so this writes the first tuple).
@@ -346,13 +351,17 @@ export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}));
 export const groupsDetail = withGroupName(async ({ ctx, keto, kratosAdmin }, name) => {
   const { emailById, options } = await memberCandidates(keto, kratosAdmin);
   const members = (await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS })).map((t) => memberView(t, emailById));
+  const subject = groupSubject(name);
+  const [direct, effective] = await Promise.all([heldPermissions(keto, subject), effectivePermissions(keto, subject, ctx.declaredPermissions)]);
   const permissions = buildPermissionPicker({
     action: `${detailHref(name)}/permissions`,
     declared: ctx.declaredPermissions,
-    held: await heldPermissions(keto, groupSubject(name)),
+    direct,
+    effective, // a group nested in another group inherits its permissions too
+    readOnly: !can(ctx, permissionName("groups", "write")),
     t: ctx.t,
   });
-  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t }) }, view: "group-detail" };
+  return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ canWrite: !permissions.readOnly, candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t }) }, view: "group-detail" };
 });
 
 // POST /admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold

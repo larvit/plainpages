@@ -27,7 +27,7 @@ test("composeNav merges fragments, filters by permission, and emits clean render
 test("composeNav drops gated subtrees, empty headers, and (with no permissions) all gated nodes", () => {
   // A header the user can't reach takes its whole subtree, even visible children.
   const gatedHeader: NavNode[][] = [[
-    { id: "admin", label: "Admin", permission: "admin", children: [{ href: "/u", id: "u", label: "Users" }] },
+    { id: "admin", label: "Admin", permission: "users:read", children: [{ href: "/u", id: "u", label: "Users" }] },
     { id: "free", label: "Free", children: [{ href: "/d", id: "d", label: "Docs" }] },
   ]];
   assert.deepEqual(composeNav(gatedHeader, {}, []), [
@@ -36,8 +36,8 @@ test("composeNav drops gated subtrees, empty headers, and (with no permissions) 
 
   // A pure header whose children are all filtered is dropped; a header with an href survives as a leaf.
   const emptyHeader: NavNode[][] = [[
-    { id: "sec", label: "Section", children: [{ href: "/x", id: "x", label: "X", permission: "x" }] },
-    { href: "/hub", id: "hub", label: "Hub", children: [{ href: "/y", id: "y", label: "Y", permission: "y" }] },
+    { id: "sec", label: "Section", children: [{ href: "/x", id: "x", label: "X", permission: "x:read" }] },
+    { href: "/hub", id: "hub", label: "Hub", children: [{ href: "/y", id: "y", label: "Y", permission: "y:read" }] },
   ]];
   assert.deepEqual(composeNav(emptyHeader, {}, []), [{ href: "/hub", label: "Hub" }]);
 
@@ -66,7 +66,7 @@ test("composeNav applies the override: rename, group, order, hide (then filters)
     { href: "/a", id: "a", label: "Alpha" },
     { href: "/b", id: "b", label: "Beta" },
     { href: "/c", id: "c", label: "Gamma" },
-    { href: "/secret", id: "secret", label: "Secret", permission: "root" },
+    { href: "/secret", id: "secret", label: "Secret", permission: "secrets:read" },
   ]];
 
   const tree = composeNav(base, {
@@ -74,9 +74,9 @@ test("composeNav applies the override: rename, group, order, hide (then filters)
     groups: [{ icon: "i-box", id: "grp", label: "Group", open: true, children: ["b", "c"] }], // wrap b+c
     order: ["grp", "a"],                                     // grp before the lone a
     hide: ["c"],                                             // remove c from inside the group
-  }, ["root"]);
+  }, ["secrets:read"]);
 
-  // grp emitted (b only, c hidden), reordered before a; Secret kept now that permission "root" is present.
+  // grp emitted (b only, c hidden), reordered before a; Secret kept now that permission "secrets:read" is present.
   assert.deepEqual(tree, [
     { icon: "i-box", label: "Group", open: true, children: [{ href: "/b", label: "Beta" }] },
     { href: "/a", label: "First" },

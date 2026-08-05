@@ -7,7 +7,7 @@ screens live at `/admin/*`) and restart:
 
 ```bash
 cp -r examples/plugins/admin plugins/admin
-docker compose restart web
+docker compose up -d
 ```
 
 The bootstrap grants the seeded `admin@plainpages.local` every permission this plugin declares, so the
@@ -46,8 +46,8 @@ property of a user or a group, edited as a checkbox list on those two screens (`
 
 ## Layout
 
-- `plugin.ts` — the manifest: the Admin nav fragment, the eight permissions the plugin declares, and
-  the route table — one thin handler per method+path, gated via `adminPermission(resource, method)`
+- `plugin.ts` — the manifest: the Admin nav fragment, the six permissions the plugin declares, and
+  the route table — one thin handler per method+path, gated via `permissionName(resource, actionForMethod(method))`
   so a GET needs `:read` and a POST `:write`.
 - `admin-grants.ts` — the permission picker and the grant diff, shared by the Users and Groups
   screens: what a submitted checkbox set grants and revokes, against the host's declared catalog.
@@ -55,12 +55,12 @@ property of a user or a group, edited as a checkbox list on those two screens (`
   view-model builders (unit-tested in the matching `*.test.ts`) plus thin per-route handlers keyed on
   `ctx.params` (the host extracts `:id`/`:name`), sharing a small `withX` wrapper that resolves the
   screen's permission gate + the needed `ctx.system` clients once.
-- `admin-shared.ts` — the permission naming (`adminPermission`), the shared gate
+- `admin-shared.ts` — the permission naming (`permissionName` / `actionForMethod`), the shared gate
   (`requirePermission`), CSRF form reader (`guardedForm`), confirm
   model, nav fragment, and the not-found / unavailable helpers.
 - `views/` — the screens' EJS, plus the admin-specific body partials under `views/partials/`. They
   `include()` the core building-block partials (shell, data-table, filter-bar, field, …).
 
-The four screens hold **no state** — everything lives in Ory. Handlers are thin, so their builders
+The three screens hold **no state** — everything lives in Ory. Handlers are thin, so their builders
 unit-test as pure functions with no host; the HTTP routing/gate/CSRF is covered in
 `src/http/app.test.ts` (which mounts this plugin) and end-to-end in `e2e-tests/full-flow.spec.ts`.

@@ -126,7 +126,7 @@ or gated**, so the same foundation serves a purely public site, a fully locked-d
 tool, or the common middle: a public front with an authenticated area behind it. Its **sweet
 spot** is the **back-office and operational tooling** you'd otherwise hand-roll for the tenth
 time, but nothing ties it to internal-only use. The core itself ships **no domain screens at
-all** — even the screens for running the system (**users, groups, permissions**) are a **drop-in
+all** — even the screens for running the system (**users, groups, OAuth2 clients**) are a **drop-in
 plugin** you opt into ([`examples/plugins/admin/`](examples/plugins/admin/)). Everything is a plugin.
 
 **Who it's for.** Experienced developers building server-rendered web products — back-office
@@ -160,7 +160,7 @@ audience above, and three of them shape the design more than any feature request
 
 - **Included in the core:** themed sign-in / register / reset (Kratos-backed), the design
   system + app shell, the config-driven menu, sessions, and access control. No domain screens.
-- **Opt-in admin plugin:** the **users, groups, permissions, and OAuth2-clients** screens (users via
+- **Opt-in admin plugin:** the **users, groups, and OAuth2-clients** screens (users via
   Kratos, the relationship graph via Keto, OAuth2 clients via Hydra) ship as
   [`examples/plugins/admin/`](examples/plugins/admin/) — copy it into `plugins/` to get a GUI for
   user & group admin. It's an ordinary plugin, using the privileged
@@ -735,7 +735,7 @@ are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its luci
 subtree disappears with it. When the children need *different* permissions, leave the header ungated
 and gate each child: `composeNav` drops a header whose children all filtered out. That second form
 only works while the header carries **no `href`** — give it one and it survives the filter as an
-ungated leaf, visible to everyone. The admin example uses it (four screens, four permissions).
+ungated leaf, visible to everyone. The admin example uses it (three screens, six permissions).
 
 #### Public pages & menu items
 
@@ -1332,7 +1332,7 @@ deactivate the user, or use a direct user-permission change, for an instant effe
   is for. Reserve it for those; don't pay its tuple-sync cost for rules a service can already
   answer from its own data.
 
-The admin plugin's users / groups / permissions screens write authorization **only to Keto** — coarse
+The admin plugin's users / groups screens write authorization **only to Keto** — coarse
 permissions and fine-grained relationships alike.
 
 ### OAuth2 provider (Hydra)

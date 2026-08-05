@@ -20,7 +20,7 @@ export default defineMenu({
   // Operator override (rename → group → order → hide), keyed by node id.
   override: {
     // rename: { people: "Staff" },                                       // node id → new label (or a catalog key)
-    // groups: [{ id: "admin", label: "Admin", children: ["users", "permissions"] }],
+    // groups: [{ id: "admin", label: "Admin", children: ["users", "groups"] }],
     // order: ["people", "reports"],                                      // top-level order by id
     // hide: ["teams"],                                                    // remove nodes (any depth)
   },

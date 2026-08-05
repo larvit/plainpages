@@ -209,7 +209,7 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   collect(plugins, (plugin, push) => {
     for (const decl of plugin.permissions ?? []) push(decl.name);
   }).forEach((owners, name) => {
-    if (owners.length > 1) out.push({ kind: "permission", level: "warn", message: `permission "${name}" declared by ${uniq(owners).length} plugins; namespace as "<id>:<action>" unless shared on purpose`, plugins: uniq(owners) });
+    if (owners.length > 1) out.push({ kind: "permission", level: "warn", message: `permission "${name}" declared by ${uniq(owners).length} plugins; pick a more specific "<resource>" unless shared on purpose`, plugins: uniq(owners) });
   });
 
   return out;

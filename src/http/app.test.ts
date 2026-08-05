@@ -1289,6 +1289,60 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
 });
 
+// Revoking your own grants can remove the last users:write on the deployment, and the instant-revoke
+// hook lands it on the next request — recovery would be a curl against Keto. Guarded like
+// self-deactivate and self-delete are. (`admin1` is the harness's own sub.)
+test("admin permission grants: you can't revoke your own permissions, but you can still grant", async (t) => {
+  const identities: Identity[] = [{ id: "admin1", traits: { email: "you@example.com" } }];
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:write", relation: "granted", subject_id: "user:admin1" }];
+  const keto = fakeKeto(tuples);
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { post, token } = await adminHarness(t, { keto, kratosAdmin });
+
+  const refused = await post("/admin/users/admin1/permissions", `_csrf=${token}`); // every box cleared
+  assert.equal(refused.status, 400);
+  assert.match(await refused.text(), /lock yourself out/);
+  assert.ok(tuples.some((tp) => tp.object === "users:write" && tp.subject_id === "user:admin1"), "nothing was revoked");
+
+  // Granting yourself more is not a lockout, so it goes through.
+  const granted = await post("/admin/users/admin1/permissions", `_csrf=${token}&permission=users%3Awrite&permission=groups%3Aread`);
+  assert.equal(granted.status, 303);
+  assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === "user:admin1"));
+});
+
+// The read/write split is only honest if the UI models it: a users:read holder must not be shown
+// buttons that 403 on submit. The gate already refuses them (asserted above); this is the affordance.
+test("admin screens render no write affordance for a read-only holder", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const keto = fakeKeto([{ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` }]);
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { get } = await adminHarness(t, { keto, kratosAdmin });
+  const readOnly = ["users:read", "groups:read"];
+
+  const list = await (await get("/admin/users", readOnly)).text();
+  assert.doesNotMatch(list, /href="\/admin\/users\/new"/); // no "New user"
+  assert.match(list, /ada@example\.com/); // but the list itself is there — that's the point of :read
+
+  // (The shell's own sign-out is a POST form, so assert on the affordances by name, not on <form>.)
+  const detail = await (await get(`/admin/users/${ada}`, readOnly)).text();
+  assert.doesNotMatch(detail, /Save changes/);
+  assert.doesNotMatch(detail, /Generate recovery code/);
+  assert.doesNotMatch(detail, /Delete user/);
+  assert.doesNotMatch(detail, /Save permissions/);
+  assert.match(detail, /type="checkbox"[^>]*disabled/); // the permissions are shown, just not editable
+
+  const group = await (await get("/admin/groups/eng", readOnly)).text();
+  assert.doesNotMatch(group, /Add a member/);
+  assert.doesNotMatch(group, /Delete group/);
+  assert.doesNotMatch(group, /Save permissions/);
+
+  // A writer sees the affordances the reader didn't.
+  const writable = await (await get(`/admin/users/${ada}`, ["users:read", "users:write"])).text();
+  assert.match(writable, /Save changes/);
+  assert.match(writable, /Save permissions/);
+});
+
 // Built-in OAuth2 clients admin screen: gate + list/register/detail/delete over HTTP against an
 // in-memory Hydra. Registration shows the one-time client_secret on the post-create page (no PRG).
 test("admin OAuth2 clients screen: gate, list, register (one-time secret), detail, delete (CSRF-guarded)", async (t) => {

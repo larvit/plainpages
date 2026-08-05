@@ -1,5 +1,5 @@
 // Direct units for the admin plugin's shared nav + auth helpers. They're security-critical
-// (requirePermission/guardedForm gate every admin write) and reused across all four screens, so pin the
+// (requirePermission/guardedForm gate every admin write) and reused across all three screens, so pin the
 // contract here in isolation; the HTTP routing/gate/CSRF is exercised end-to-end in src/http/app.test.ts.
 // Import only from the #plugin-api barrel — the same contract boundary the plugin code uses.
 import assert from "node:assert/strict";
@@ -30,7 +30,7 @@ function fakeCtx(opts: { body?: string; method?: string; user?: User | null; ver
 test("ADMIN_NAV: an ungated Admin header whose three screens each gate on their own read permission", () => {
   assert.equal(ADMIN_NAV.id, "admin");
   // No gate on the header: a user may hold one screen's permission and not another's. composeNav
-  // drops a header left with no visible children, so holding none of the four hides the section.
+  // drops a header left with no visible children, so holding none of the three hides the section.
   // Both halves matter — give the header an `href` and it survives the filter as a visible leaf,
   // ungated, for anonymous visitors included.
   assert.equal(ADMIN_NAV.permission, undefined);

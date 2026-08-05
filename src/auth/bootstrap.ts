@@ -9,6 +9,7 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
+import { declaredPermissions, isValidPermissionName } from "../plugin-host/plugin.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
 import { createLogger, runWithLog, tracedFetch } from "../logger.ts";
 
@@ -34,9 +35,15 @@ export function permissionTuple(userId: string, permission: string) {
 // dropped-in plugin's permissions are seeded out of the box. Deduped, order-stable, blanks dropped.
 // The base is empty because permissions are `<resource>:<action>` and every one of them is owned by
 // the plugin that gates on it — a host-invented default would gate nothing.
-export function seedPermissions(adminPermissionsEnv: string | undefined, declaredPermissions: string[]): string[] {
+// ADMIN_PERMISSIONS is the one place an operator names a permission by hand, so it is held to the
+// same `<resource>:<action>` rule discovery applies to a manifest — fail loud rather than write a
+// tuple that gates nothing. A declared name has already passed that check at discovery.
+export function seedPermissions(adminPermissionsEnv: string | undefined, declaredNames: string[]): string[] {
   const clean = (xs: string[]): string[] => xs.map((r) => r.trim()).filter(Boolean);
-  return [...new Set([...clean((adminPermissionsEnv ?? "").split(",")), ...clean(declaredPermissions)])];
+  const configured = clean((adminPermissionsEnv ?? "").split(","));
+  const bad = configured.filter((name) => !isValidPermissionName(name));
+  if (bad.length > 0) throw new Error(`bootstrap: ADMIN_PERMISSIONS must be <resource>:<action> names, e.g. "things:read"; got ${bad.join(", ")}`);
+  return [...new Set([...configured, ...clean(declaredNames)])];
 }
 
 // --- JWKS safety net -----------------------------------------------------------------
@@ -147,7 +154,7 @@ async function main() {
 
     // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-    const declared = (await discoverPlugins()).flatMap((p) => (p.permissions ?? []).map((d) => d.name));
+    const declared = declaredPermissions(await discoverPlugins()).map((decl) => decl.name);
     const permissions = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
     const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
     const password = env["ADMIN_PASSWORD"] ?? "admin";

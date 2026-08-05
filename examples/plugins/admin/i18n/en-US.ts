@@ -48,9 +48,13 @@ const messages = {
   "admin.common.type": "Type",
   "admin.common.user": "User",
 
+  "admin.grants.hint": "Which permissions exist is set by the plugins installed on this system. Tick to grant, untick to revoke.",
+  "admin.grants.inherited": "Greyed-out permissions come from a group. Change them on that group.",
   "admin.grants.legend": "Permissions",
   "admin.grants.none": "No installed plugin declares a permission, so there is nothing to grant.",
+  "admin.grants.pending": "Members get this at their next sign-in (up to 10 minutes).",
   "admin.grants.save": "Save permissions",
+  "admin.grants.selfRevoke": "You can't revoke your own permissions — ask another administrator, so you can't lock yourself out.",
 
   "admin.groups.actions": "Group actions",
   "admin.groups.addMember": "Add a member",

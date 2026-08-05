@@ -41,6 +41,13 @@ test("seedPermissions unions ADMIN_PERMISSIONS (empty by default) with the disco
   assert.deepEqual(seedPermissions(",, ", [" scheduling:read ", ""]), ["scheduling:read"]); // blanks dropped, names trimmed (both sides)
 });
 
+test("seedPermissions refuses an ADMIN_PERMISSIONS name that isn't <resource>:<action>", () => {
+  // The operator's env is the one remaining hand-typed path; a manifest's names were checked at
+  // discovery. `admin` would otherwise write a tuple that gates nothing, with no error anywhere.
+  assert.throws(() => seedPermissions("admin", []), /ADMIN_PERMISSIONS.*<resource>:<action>.*admin/s);
+  assert.throws(() => seedPermissions("users:read,Bad Name", []), /Bad Name/);
+});
+
 test("seedAdmin on a fresh stack creates the identity and grants every permission (one tuple each)", async () => {
   const id = randomUUID();
   const calls: { method: string; url: string; body?: unknown }[] = [];

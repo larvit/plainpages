@@ -48,9 +48,13 @@ const messages: AdminMessages = {
   "admin.common.type": "Typ",
   "admin.common.user": "Användare",
 
+  "admin.grants.hint": "Vilka behörigheter som finns bestäms av de plugins som är installerade. Kryssa i för att tilldela, ur för att återkalla.",
+  "admin.grants.inherited": "Gråmarkerade behörigheter kommer från en grupp. Ändra dem på gruppen.",
   "admin.grants.legend": "Behörigheter",
   "admin.grants.none": "Ingen installerad plugin deklarerar någon behörighet, så det finns inget att tilldela.",
+  "admin.grants.pending": "Medlemmar får detta vid nästa inloggning (upp till 10 minuter).",
   "admin.grants.save": "Spara behörigheter",
+  "admin.grants.selfRevoke": "Du kan inte återkalla dina egna behörigheter — be en annan administratör, så att du inte låser ute dig själv.",
 
   "admin.groups.actions": "Gruppåtgärder",
   "admin.groups.addMember": "Lägg till en medlem",

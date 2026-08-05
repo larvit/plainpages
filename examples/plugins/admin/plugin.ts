@@ -1,4 +1,4 @@
-// Admin example plugin: the Users / Groups / Roles / OAuth2-clients screens for running the system.
+// Admin example plugin: the Users / Groups / OAuth2-clients screens for running the system.
 // These used to ship inside the core; they were extracted here so a fresh clone has no built-in admin
 // GUI. Copy this folder to plugins/admin (then restart) to enable it — see README → Quick start.
 //

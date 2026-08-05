@@ -24,7 +24,7 @@ const adminLike: Plugin = {
       { href: "/admin/users", id: "users", label: "Users" },
       { href: "/admin/groups", id: "groups", label: "Groups" },
     ],
-    icon: "i-shield", id: "admin", label: "Admin", permission: "admin",
+    icon: "i-shield", id: "admin", label: "Admin", permission: "users:read",
   }],
 };
 
@@ -58,7 +58,7 @@ test("a permission holder sees the Dashboard link + plugin nav; current path ope
 });
 
 test("a gated section (like the admin plugin) shows to a holder; a sub-path marks its base leaf current", () => {
-  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], user: { email: "a@b.c", id: "u1", permissions: ["admin"] } });
+  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], user: { email: "a@b.c", id: "u1", permissions: ["users:read"] } });
   const admin = chrome.nav.find((n) => n.label === "Admin")!;
   assert.ok(admin); // gated section visible to an admin
   assert.equal(admin.open, true); // ancestor of the current leaf opened

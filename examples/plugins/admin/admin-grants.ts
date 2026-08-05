@@ -22,8 +22,7 @@ export function grantTuple(permission: string, subject: GrantSubject): RelationT
 }
 
 // The permissions this subject holds *directly* — one Keto read filtered by the subject, not one per
-// declared name. A group's members hold them transitively; that expansion is Keto's job at login,
-// and this screen edits the direct edge only.
+// declared name. This is the edge the picker edits; `effectivePermissions` adds what a group confers.
 export async function heldPermissions(keto: KetoClient, subject: GrantSubject): Promise<string[]> {
   const held = new Set<string>();
   let pageToken: string | undefined;
@@ -35,9 +34,20 @@ export async function heldPermissions(keto: KetoClient, subject: GrantSubject): 
   return [...held].sort();
 }
 
+// Every declared permission the subject effectively holds — direct grants *plus* anything reached
+// through a group, which is what actually lands in their JWT. One Keto check per declared name;
+// the catalog is small and this is an admin screen (login does the same walk).
+export async function effectivePermissions(keto: KetoClient, subject: GrantSubject, declared: PermissionDecl[]): Promise<string[]> {
+  const held = await Promise.all(declared.map((decl) => keto.check({ namespace: PERMISSION_NS, object: decl.name, relation: GRANTED, ...subject })));
+  return declared.filter((_, i) => held[i]).map((decl) => decl.name);
+}
+
 export interface PermissionChoice {
-  checked: boolean;
+  checked: boolean; // held directly — the only state this form can change
   description: string;
+  // Effective through a group, not granted directly. Rendered ticked but disabled: the grant is real
+  // (it reaches the JWT), and it is removed by editing the group, not this subject.
+  inherited: boolean;
   name: string;
 }
 
@@ -45,27 +55,44 @@ export interface PermissionPicker {
   action: string;
   choices: PermissionChoice[];
   empty: string | undefined; // set when no plugin declares a permission — the picker has nothing to offer
+  error?: string; // a rejected save (e.g. the self-revoke guard), rendered above the list
   field: string;
+  hint: string;
+  inheritedNote: string | undefined; // set when at least one choice is group-held, to explain the disabled row
   legend: string;
+  readOnly: boolean; // the viewer holds :read but not :write — show the state, offer no save
   submit: string;
 }
 
-// The checkbox list: every declared permission, ticked where this subject already holds it. A fixed
-// list means the form is the whole truth — what it posts back *is* the desired set (applyGrants).
+// The checkbox list: every declared permission, ticked where this subject holds it. A fixed list
+// means the form is the whole truth — what it posts back *is* the desired set of *direct* grants
+// (grantDiff). An inherited row is disabled, so it never posts and can never be diffed into a revoke.
 export function buildPermissionPicker(opts: {
   action: string;
   declared: PermissionDecl[];
-  held: string[];
+  direct: string[];
+  effective?: string[]; // omit when the caller can't resolve group-held grants; then only direct shows
+  readOnly?: boolean;
   t?: Translate;
 }): PermissionPicker {
   const t = opts.t ?? ((k: string) => k);
-  const heldSet = new Set(opts.held);
+  const directSet = new Set(opts.direct);
+  const effectiveSet = new Set(opts.effective ?? opts.direct);
+  const choices = opts.declared.map((decl) => ({
+    checked: directSet.has(decl.name) || effectiveSet.has(decl.name),
+    description: decl.description ?? "",
+    inherited: !directSet.has(decl.name) && effectiveSet.has(decl.name),
+    name: decl.name,
+  }));
   return {
     action: opts.action,
-    choices: opts.declared.map((decl) => ({ checked: heldSet.has(decl.name), description: decl.description ?? "", name: decl.name })),
+    choices,
     empty: opts.declared.length === 0 ? t("admin.grants.none") : undefined,
     field: PERMISSIONS_FIELD,
+    hint: t("admin.grants.hint"),
+    inheritedNote: choices.some((c) => c.inherited) ? t("admin.grants.inherited") : undefined,
     legend: t("admin.grants.legend"),
+    readOnly: opts.readOnly === true,
     submit: t("admin.grants.save"),
   };
 }

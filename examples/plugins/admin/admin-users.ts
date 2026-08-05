@@ -4,9 +4,9 @@
 // models; below them are thin per-route handlers (keyed on ctx.params) over a shared `withUser` gate
 // — admin-only, CSRF-guarded, each returning a RouteResult (a view, or a redirect after a write — PRG).
 
-import { type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
-import { applyGrants, buildPermissionPicker, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, requirePermission, unavailable } from "./admin-shared.ts";
+import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
+import { ADMIN_EN, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -106,6 +106,7 @@ function listHref(state: ListState, overrides: Partial<ListState> = {}): string 
 }
 
 export function buildUsersListModel(opts: {
+  canWrite?: boolean;
   csrfToken?: string;
   identities: Identity[];
   t?: Translate;
@@ -135,6 +136,7 @@ export function buildUsersListModel(opts: {
 
   return {
     breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.nav.section") }, { label: t("admin.users.title") }],
+    canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, all.length, t),
     pagination: listPagination(state, page, t),
     table: listTable(rows, state, sort, t),
@@ -217,6 +219,7 @@ export interface FieldConfig {
 }
 
 export function buildUserFormModel(opts: {
+  canWrite?: boolean; // false ⇒ a `users:read` holder: show the state, render no write affordance
   csrfToken?: string;
   error?: string;
   identity?: Identity | null;
@@ -240,8 +243,10 @@ export function buildUserFormModel(opts: {
   ];
   if (!editing) fields.push({ autocomplete: "new-password", hint: t("admin.users.field.passwordHint"), icon: "i-lock", id: "password", label: t("admin.users.field.password"), name: "password", optional: true, type: "password" });
 
+  const canWrite = opts.canWrite !== false;
   return {
     breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: editing ? t("common.edit") : t("common.new") }],
+    canWrite, // the view drops every write affordance when false; the host already 403s the POSTs
     edit: editing ? {
       deleteAction: `${idPath}/delete`,
       id: view!.id,
@@ -304,7 +309,7 @@ const formResult = (ctx: RequestContext, extra: Parameters<typeof buildUserFormM
 // GET /admin/users — the filtered/sorted/paged list.
 export const usersList = withUser(async ({ ctx, kratosAdmin }) => {
   const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
-  return { data: { chrome: ctx.chrome, model: buildUsersListModel({ csrfToken: ctx.chrome.csrfToken, identities, t: ctx.t, url: ctx.url }) }, view: "users" };
+  return { data: { chrome: ctx.chrome, model: buildUsersListModel({ canWrite: canWriteUsers(ctx), csrfToken: ctx.chrome.csrfToken, identities, t: ctx.t, url: ctx.url }) }, view: "users" };
 });
 
 // POST /admin/users — create; a Kratos 4xx re-renders the form (400), keeping the input.
@@ -326,31 +331,50 @@ export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx
 // GET /admin/users/:id — the edit form, prefilled.
 export const usersEditForm = withTarget(async (deps, identity, id) => {
   const permissions = await userPermissionPicker(deps, id);
-  return formResult(deps.ctx, { identity, ...(permissions ? { permissions } : {}) });
+  return formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), identity, ...(permissions ? { permissions } : {}) });
 });
 
-// The checkbox list of declared permissions, ticked where this user holds one directly. Undefined
-// when Keto isn't wired — the rest of the edit page still works.
-async function userPermissionPicker(deps: UsersDeps, id: string): Promise<PermissionPicker | undefined> {
+const canWriteUsers = (ctx: RequestContext): boolean => can(ctx, permissionName("users", "write"));
+
+// The checkbox list of declared permissions: ticked where this user holds one, and disabled where
+// the grant comes from a group (real, but removed on that group). Undefined when Keto isn't wired —
+// the rest of the edit page still works.
+async function userPermissionPicker(deps: UsersDeps, id: string, error?: string): Promise<PermissionPicker | undefined> {
   if (!deps.keto) return undefined;
-  const held = await heldPermissions(deps.keto, userSubject(id));
-  return buildPermissionPicker({
-    action: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}/permissions`,
-    declared: deps.ctx.declaredPermissions,
-    held,
-    t: deps.ctx.t,
-  });
+  const subject = userSubject(id);
+  const [direct, effective] = await Promise.all([
+    heldPermissions(deps.keto, subject),
+    effectivePermissions(deps.keto, subject, deps.ctx.declaredPermissions),
+  ]);
+  return {
+    ...buildPermissionPicker({
+      action: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}/permissions`,
+      declared: deps.ctx.declaredPermissions,
+      direct,
+      effective,
+      readOnly: !canWriteUsers(deps.ctx),
+      t: deps.ctx.t,
+    }),
+    ...(error ? { error } : {}),
+  };
 }
 
-// POST /admin/users/:id/permissions — the submitted checkboxes are the desired set; grant what's
-// newly ticked, revoke what's newly unticked. A change to a user's own grants revokes their live
-// tokens so it lands now rather than at the next re-mint.
-export const usersPermissions = withTarget(async (deps, _identity, id) => {
+// POST /admin/users/:id/permissions — the submitted checkboxes are the desired set of *direct*
+// grants; grant what's newly ticked, revoke what's newly unticked. A change to a user's own grants
+// revokes their live tokens so it lands now rather than at the next re-mint.
+export const usersPermissions = withTarget(async (deps, identity, id) => {
   const { ctx, keto, revoke, user } = deps;
   const form = (await guardedForm(ctx))!;
   if (!keto) return unavailable(ctx, ctx.t("admin.capability.keto"));
   const subject = userSubject(id);
   const diff = grantDiff(ctx.declaredPermissions, await heldPermissions(keto, subject), form.getAll(PERMISSIONS_FIELD));
+  // Self-lockout guard, matching the self-deactivate/self-delete ones: revoking your own grants can
+  // remove the last `users:write` on the deployment, and the instant-revoke hook lands it on the very
+  // next request. Recovery would be a curl against Keto — not something the operator persona can do.
+  if (id === user.id && diff.revoke.length > 0) {
+    const permissions = await userPermissionPicker(deps, id, ctx.t("admin.grants.selfRevoke"));
+    return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), identity, ...(permissions ? { permissions } : {}) }), status: 400 };
+  }
   await applyGrants(keto, subject, diff);
   if (diff.grant.length > 0 || diff.revoke.length > 0) {
     revoke?.(id);

@@ -35,17 +35,38 @@ test("grantDiff ignores anything the plugins don't declare, in both directions",
 });
 
 test("buildPermissionPicker ticks what is held and carries each declaration's description", () => {
-  const picker = buildPermissionPicker({ action: "/admin/users/u1/permissions", declared, held: ["users:write"] });
+  const picker = buildPermissionPicker({ action: "/admin/users/u1/permissions", declared, direct: ["users:write"] });
   assert.equal(picker.action, "/admin/users/u1/permissions");
   assert.deepEqual(picker.choices.map((c) => c.name), ["users:read", "users:write", "groups:read"]);
   assert.deepEqual(picker.choices.map((c) => c.checked), [false, true, false]);
   assert.equal(picker.choices[0]?.description, "View users");
   assert.equal(picker.choices[2]?.description, ""); // a declaration may omit one
   assert.equal(picker.empty, undefined);
+  assert.equal(picker.readOnly, false);
+  assert.equal(picker.inheritedNote, undefined); // nothing is group-held here
+});
+
+// The failure this prevents: a permission held through a group used to render unticked, so the page
+// said "not held" about a grant that reaches the JWT — and unticking it wrote nothing, which read as
+// a successful revoke. Inherited rows are ticked, disabled, and never posted.
+test("buildPermissionPicker distinguishes a direct grant from one inherited through a group", () => {
+  const picker = buildPermissionPicker({ action: "/x", declared, direct: ["users:write"], effective: ["users:read", "users:write"] });
+  assert.deepEqual(picker.choices.map((c) => [c.name, c.checked, c.inherited]), [
+    ["users:read", true, true], // effective but not direct → shown as held, not editable here
+    ["users:write", true, false], // direct → editable
+    ["groups:read", false, false],
+  ]);
+  assert.ok(picker.inheritedNote, "the disabled row needs an explanation");
+});
+
+test("buildPermissionPicker in read-only mode still shows the state, and marks itself unwritable", () => {
+  const picker = buildPermissionPicker({ action: "/x", declared, direct: ["users:read"], readOnly: true });
+  assert.equal(picker.readOnly, true);
+  assert.deepEqual(picker.choices.map((c) => c.checked), [true, false, false]); // a reader still sees who holds what
 });
 
 test("buildPermissionPicker says so when no plugin declares a permission, rather than rendering an empty box", () => {
-  const picker = buildPermissionPicker({ action: "/x", declared: [], held: [] });
+  const picker = buildPermissionPicker({ action: "/x", declared: [], direct: [] });
   assert.deepEqual(picker.choices, []);
   assert.ok(picker.empty);
 });

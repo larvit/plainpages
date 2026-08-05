@@ -474,6 +474,14 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .check input, .radio input { width: 15px; height: 15px; accent-color: var(--accent);
   margin: 0; cursor: pointer; }
 .check:hover, .radio:hover { color: var(--text); }
+/* A stacked group of .check rows in a <fieldset> — the right element for related checkboxes, but the
+   UA gives it a groove border, so reset it like .filter-field and .menu-field do. A disabled row is
+   still readable: it states a fact (a permission held through a group) rather than offering an edit. */
+.check-group { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.check-group .check { align-items: baseline; }
+.check-group .check input:disabled { cursor: default; }
+.check-group .check:has(input:disabled) { opacity: .7; cursor: default; }
+.check-group .check .cell-muted { margin-left: auto; padding-left: 12px; font-size: var(--fz-xs); }
 
 /* popover menu (language picker, profile, row kebab) — a <button popovertarget> and its [popover]
    panel, wrapped so the pair is one element in any layout. The browser owns open/close, and the top

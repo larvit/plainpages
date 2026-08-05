@@ -21,13 +21,14 @@
 <% if (members.rows.length) { -%>
     <div class="table-wrap"><table class="table"><caption class="sr-only"><%= t("admin.groups.membersOf", { name: group.name }) %></caption><thead><tr><th scope="col"><%= t("admin.common.member") %></th><th scope="col"><%= t("admin.common.type") %></th><th class="col-actions" scope="col"><span class="sr-only"><%= t("table.actions") %></span></th></tr></thead><tbody>
 <% members.rows.forEach((m) => { -%>
-      <tr><th scope="row"><span class="cell-strong"><%= m.label %></span></th><td><span class="badge info"><span class="dot"></span><%= m.kind === "group" ? t("admin.common.group") : t("admin.common.user") %></span></td><td class="col-actions"><form method="post" action="<%= localeHref(members.action) %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="member" value="<%= m.subject %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><%= t("common.remove") %></button></form></td></tr>
+      <tr><th scope="row"><span class="cell-strong"><%= m.label %></span></th><td><span class="badge info"><span class="dot"></span><%= m.kind === "group" ? t("admin.common.group") : t("admin.common.user") %></span></td><td class="col-actions"><% if (locals.canWrite !== false) { %><form method="post" action="<%= localeHref(members.action) %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="member" value="<%= m.subject %>"><button class="btn" type="submit"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><%= t("common.remove") %></button></form><% } %></td></tr>
 <% }) -%>
     </tbody></table></div>
 <% } else { -%>
     <p class="cell-muted"><%= t("admin.groups.noMembers") %></p>
 <% } -%>
   </section>
+<% if (locals.canWrite !== false) { -%>
   <section class="form-card" aria-labelledby="add-h">
     <h2 class="card-title" id="add-h"><%= t("admin.groups.addMember") %></h2>
 <% if (add.options.length) { -%>
@@ -36,10 +37,13 @@
     <p class="cell-muted"><%= t("admin.groups.allMembers") %></p>
 <% } -%>
   </section>
+<% } -%>
 <% if (locals.permissions) { -%>
 <%- include("partials/permission-picker", { csrfToken: csrf, permissions: locals.permissions }) %>
 <% } -%>
+<% if (locals.canWrite !== false) { -%>
   <section class="form-card admin-actions" aria-label="<%= t("admin.groups.actions") %>">
     <a class="btn btn-danger" href="<%= localeHref(del.action) %>"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-trash"/></svg><%= t("admin.groups.delete") %></a>
   </section>
+<% } -%>
 </div>
