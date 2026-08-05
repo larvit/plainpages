@@ -8,7 +8,8 @@ import { readFileSync } from "node:fs";
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const workflow = read(".gitea/workflows/ci.yml");
-const gate = read("ci.sh");
+// Comments stripped: the flags below must be asserted against the code, not against prose naming them.
+const gate = read("ci.sh").split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
 const step = (needle: string) => {
 	const found = workflow.split("\n      - ").slice(1).filter((s) => s.includes(needle));
 	assert.equal(found.length, 1, `exactly one workflow step contains ${needle}`);
@@ -31,8 +32,5 @@ test("the commit-hash image is pushed even when the gate no-ops", () => {
 test("only *.md counts as docs; a dirty tree and a rename both count as changed", () => {
 	assert.ok(gate.includes("\\.md$"), "the non-docs match is a *.md suffix test");
 	assert.match(gate, /git status --porcelain --no-renames/, "uncommitted code can never be skipped over");
-	// Rename detection hides the source path: `git mv src/app.ts notes.md` reads as the .md alone
-	// under --name-only, and as a single `R src/app.ts -> notes.md` line under --porcelain — so
-	// without --no-renames a deleted source file looks like docs and skips the gate.
 	assert.match(gate, /git diff --name-only --no-renames/, "a rename must list both of its paths");
 });

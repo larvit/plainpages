@@ -1526,7 +1526,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
-| `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green; the release-tag job only runs when `AUTO_RELEASE` is set |
+| `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green; the release-tag job only runs when `AUTO_RELEASE` is `true` |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1607,11 +1607,14 @@ instead of tripping the anonymous 60-requests/hour limit.
 **Releases are paused.** Plainpages is pre-announcement: the repository carries **no tags**, and
 neither `release.yml` nor Docker Hub has a version to promote. Turn releasing back on by setting the
 Actions **variable** `AUTO_RELEASE` to `true` (that alone re-enables the job below), or cut a
-`vX.Y.Z` tag by hand.
+`vX.Y.Z` tag by hand **on `main`'s tip** — with nothing tagged, the nightly registry cleanup keeps
+only branch-head images, so an older commit's image is already gone and `release.yml` would fail
+loud with nothing to promote.
 
 **Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`, `needs:
-renovate`, gated on `AUTO_RELEASE` above) cuts **one** `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main`
-since the last tag (it targets `origin/main`, and **skips** when the tip isn't a Renovate commit —
+renovate`, gated on `AUTO_RELEASE` above) cuts **one** `vX.Y.Z` tag per run covering the
+renovate-bot commits merged to `main` since the last tag (it targets `origin/main`, and
+**skips** when the tip isn't a Renovate commit —
 a human owns that release — or when nothing new merged). Renovate stamps every commit with a
 `Release-Bump: <updateType>` trailer (`commitBody` in `renovate.json`), and
 [`auto-release/next-version.ts`](auto-release/next-version.ts) (unit-tested) turns the highest

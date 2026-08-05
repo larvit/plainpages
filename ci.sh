@@ -16,7 +16,8 @@ step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 # The working tree counts too — a dirty tree carrying real code must never skip. Anything
 # undeterminable (no git, no reachable main, no merge-base) falls through to the gate, never a skip.
 # --no-renames on both channels: rename detection names only the destination, so `git mv src/app.ts
-# notes.md` reads as a lone *.md and would skip the gate over a source file that is gone.
+# notes.md` reads as a lone *.md — under --porcelain as one `R src/app.ts -> notes.md` line still
+# ending in .md after cut -c4- — and the gate would skip over a source file that is gone.
 docs_only() {
 	local base changed
 	git rev-parse --git-dir >/dev/null 2>&1 || return 1

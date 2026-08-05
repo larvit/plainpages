@@ -168,6 +168,23 @@ them. Revisit only if the stated reason stops holding.
   workspace dir, so ci.sh's web-image build races another run's container creation on the
   `<project>-web` tag. Accepted for a single-maintainer cadence; serialize with a workflow
   `concurrency` group if it ever bites.
+- **The docs-only CI skip is `*.md` anywhere in the tree, not just the root.** No test, build step or
+  workflow reads a markdown file (`README-dockerhub.md` is pasted into Docker Hub by hand), so a
+  nested `examples/plugins/admin/README.md` edit is as safe to skip as `README.md`, and narrowing it
+  would spend the full gate on one. Both git channels in `ci.sh`'s `docs_only()` pass `--no-renames`:
+  rename detection names only the destination, so `git mv src/app.ts notes.md` otherwise read as docs
+  and skipped the gate over a source file that was gone. `src/ci-gate.test.ts` locks the flags as a
+  *text* guard — the test image (`node:24.19.0-alpine3.24`) ships neither `git` nor `bash`, so it
+  cannot exercise the function; behaviour was verified against a scratch repo across ten scenarios.
+  Revisit if a `.md` ever becomes load-bearing. Decided 2026-08-05.
+- **Plainpages is pre-announcement: no tags, no releases.** The repo carried tags up to `v0.2.2` from
+  the `auto-release` job; all of them — and the semver container tags — were deleted 2026-08-05, and
+  the job is gated behind the `AUTO_RELEASE` Actions variable (unset ⇒ skipped, the fail-safe
+  direction on every unknown-`vars` path). A version only communicates to consumers, and there are
+  none; same reasoning that freezes `HOST_API_VERSION` at 1.0.0. Note the coupling:
+  `registry-cleanup` keeps a hash image only while its commit is a branch head *or* release-tagged,
+  so with zero tags only branch heads survive the nightly prune — a hand-cut tag must sit on `main`'s
+  tip. Valid until the maintainer says Plainpages is ready to show people.
 - **A dropdown is a `<button popovertarget>` + `[popover]`, never a `<details>`.** The browser then
   owns open/close, which is the only zero-JS way to dismiss a menu by clicking outside it (the whole
   point), and the panel sits in the top layer so a row kebab is no longer clipped by `.table-wrap`'s
