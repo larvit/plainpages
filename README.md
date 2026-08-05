@@ -32,11 +32,13 @@ docker compose up -d        # http://localhost:3000, live-reloads on source chan
 
 ```bash
 cp -r examples/plugins/admin plugins/admin
-docker compose restart web
+docker compose up -d
 ```
 
 The bootstrap grants the seeded admin every permission the installed plugins declare, so the
-**Admin** section now shows in the menu.
+**Admin** section now shows in the menu. Use `up -d`, not `restart web`: the seed runs in the
+one-shot `bootstrap` service, and only `up` re-runs it to pick up the new plugin's permissions
+(it is idempotent, so re-running costs nothing).
 See [`examples/plugins/admin/`](examples/plugins/admin/).
 
 **4. Add your first plugin.** The clone is bind-mounted into the container, so a new
@@ -60,7 +62,8 @@ docker compose restart web
 
 Visit <http://localhost:3000/hello> — the page is mounted at `/hello` (the folder name
 is the plugin id *and* the mount path) and "Hello" is in the menu. That's the whole loop:
-**drop a folder in `plugins/`, restart, it's live.**
+**drop a folder in `plugins/`, restart, it's live.** A plugin that declares `permissions` needs
+`docker compose up -d` instead, so the seed re-runs and grants them (as in step 3).
 
 From here, render real pages against the app shell and fetch upstream data — see
 [Building plugins](#building-plugins) and the runnable reference in
