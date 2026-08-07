@@ -21,7 +21,7 @@ jobs:
             -e RENOVATE_PLATFORM=gitea \
             -e RENOVATE_REPOSITORIES=${{ github.repository }} \
             -e RENOVATE_TOKEN \
-            renovate/renovate:44.13.3
+            renovate/renovate:44.14.3
 
   # After the renovate job, cut ONE tag covering the renovate-bot commits merged to main since the
   # last tag (batch per run). Targets origin/main — the real post-merge tip; the checkout SHA is the
