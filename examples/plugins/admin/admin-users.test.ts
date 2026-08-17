@@ -2,7 +2,7 @@
 // routing/gate/CSRF + live Kratos calls are exercised over HTTP in src/http/app.test.ts.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Identity } from "#plugin-api";
+import type { Identity } from "@plainpages/plugin-api";
 import {
   buildUserFormModel,
   buildUsersListModel,

@@ -7,8 +7,7 @@
     "node": ">=24"
   },
   "imports": {
-    "#menu-config": "./src/ui/menu-config.ts",
-    "#plugin-api": "./src/plugin-host/plugin-api.ts"
+    "#menu-config": "./src/ui/menu-config.ts"
   },
   "scripts": {
     "start": "node src/server.ts",

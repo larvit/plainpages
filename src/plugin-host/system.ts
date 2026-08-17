@@ -1,6 +1,6 @@
 // System capabilities: privileged host services a first-party/system plugin (the built-in admin
 // screens are the reference consumer) needs but an ordinary domain plugin does not — the Ory admin
-// clients and the instant-revoke hook. Exposed on ctx.system and re-exported via #plugin-api.
+// clients and the instant-revoke hook. Exposed on ctx.system and re-exported via @plainpages/plugin-api.
 //
 // Every field is optional: it is present only when the host wired that dependency (Ory configured,
 // denylist enabled), and ctx.system itself is undefined when the host wired none. A plugin must

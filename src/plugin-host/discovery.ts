@@ -4,7 +4,7 @@
 // error-level conflict is collected into one boot-stopping Error; warn-level diagnostics
 // (older-minor apiVersion, shared permission name) log and load continues. Folder name = id.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
@@ -37,6 +37,8 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
     if (RESERVED_PLUGIN_IDS.has(id)) { fail(`"${id}" is a reserved id — it would shadow a built-in host route`); continue; }
     const file = join(dir, id, "plugin.ts");
     if (!existsSync(file)) { fail("no plugin.ts found"); continue; }
+    const packaging = packagingError(join(dir, id));
+    if (packaging) { fail(packaging); continue; }
 
     let mod: { default?: unknown };
     try {
@@ -78,12 +80,30 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
 }
 
 // Subfolders of plugins/, sorted for deterministic load order + stable conflict messages. Hidden
-// entries (.git, .DS_Store, …) and non-directories are skipped — only folders are plugins.
+// entries (.git, .DS_Store, …) and non-directories are skipped — only folders are plugins. So is
+// node_modules, which npm leaves here when a dependency install is pointed at plugins/ itself.
 function pluginFolders(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
     .map((e) => e.name)
     .sort();
+}
+
+// Without a `type`, which npm never writes, the plugin's own package.json leaves its folder
+// CommonJS: a .js helper breaks outright and every .ts costs a re-parse.
+function packagingError(folder: string): string | null {
+  const file = join(folder, "package.json");
+  if (!existsSync(file)) return null;
+
+  let manifest: { type?: unknown };
+  try {
+    manifest = JSON.parse(readFileSync(file, "utf8")) as { type?: unknown };
+  } catch (err) {
+    return `package.json is not valid JSON — ${messageOf(err)}`;
+  }
+  return manifest.type === "module"
+    ? null
+    : `package.json must set "type": "module" — npm writes no type, which leaves the folder CommonJS`;
 }
 
 function asManifest(value: unknown): PluginManifest | null {

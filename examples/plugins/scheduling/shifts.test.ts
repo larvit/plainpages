@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import test from "node:test";
-// Import only from the #plugin-api barrel — the same contract boundary shifts.ts uses (the host may
+// Import only from the @plainpages/plugin-api barrel — the same contract boundary shifts.ts uses (the host may
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
-import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "#plugin-api";
+import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 import {
   assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,

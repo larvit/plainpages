@@ -14,7 +14,7 @@ import {
   memberView,
   parseSubject,
 } from "./admin-groups.ts";
-import type { RelationTuple } from "#plugin-api";
+import type { RelationTuple } from "@plainpages/plugin-api";
 
 const uid = (n: number) => `01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b${String(n).padStart(2, "0")}`;
 const userTuple = (group: string, n: number): RelationTuple =>

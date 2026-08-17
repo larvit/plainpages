@@ -44,7 +44,7 @@ one-shot `bootstrap` service, and only `up` re-runs it. See
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
 
 ```ts
-import { definePlugin } from "#plugin-api";
+import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
   apiVersion: "1.0.0",
@@ -88,6 +88,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [conflict rules](#conflict-rules)
   - [hooks](#hooks)
   - [where they live & mounting](#where-plugins-live-and-how-to-mount-them)
+  - [dependencies](#plugin-dependencies)
   - [local dev & test](#local-dev--test-story)
 - [The menu system](#the-menu-system)
 - [Building blocks](#building-blocks)
@@ -312,6 +313,8 @@ plugins/things/          # the plugin folder — its name is the id AND the moun
     en-US.ts             #   the baseline; sv-SE.ts et al are written against its type
   handlers.ts            # your code, any names/layout — host never looks here; plugin.ts imports it
   service.ts             #   e.g. route handlers, upstream calls, domain helpers — design as you wish
+  package.json           # optional — only if you depend on npm packages (see Plugin dependencies)
+  node_modules/          #   yours, installed from your own lockfile
 ```
 
 **Only `plugin.ts` is required.** `views/`, `public/` and `i18n/` are fixed folder *names* the host
@@ -332,15 +335,15 @@ Installing a plugin is "drop the folder, restart"; removing one is "delete the f
 
 ### The manifest
 
-A plugin imports its host surface from one module — **`#plugin-api`**, a Node [subpath
-import](https://nodejs.org/api/packages.html#subpath-imports) mapped to `src/plugin-host/plugin-api.ts`
-in the root `package.json` (`definePlugin`, the manifest/handler types, `RequestContext`, the guards,
-and the body/CSRF/list-query helpers). That barrel **is** the contract boundary — never a relative
-`../../src/...` path; the host refactors everything behind it freely. Keep your plugin a plain folder
-with no `package.json` of its own, or `#plugin-api` resolves against that instead.
+A plugin imports its host surface from one module — **`@plainpages/plugin-api`** (`definePlugin`, the
+manifest/handler types, `RequestContext`, the guards, and the body/CSRF/list-query helpers). The host
+publishes it as a package, so it resolves from any depth and from a plugin folder that has a
+`package.json` of its own ([Plugin dependencies](#plugin-dependencies)). That barrel **is** the
+contract boundary — never a relative `../../src/...` path; the host refactors everything behind it
+freely.
 
 ```ts
-import { definePlugin } from "#plugin-api";
+import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
@@ -412,7 +415,7 @@ type RouteResult =
 
 ```ts
 // handlers.ts
-import { parseListQuery, type RequestContext } from "#plugin-api";
+import { parseListQuery, type RequestContext } from "@plainpages/plugin-api";
 
 export async function listThings(ctx: RequestContext) {
   const q = parseListQuery(ctx.url);
@@ -425,7 +428,7 @@ export async function listThings(ctx: RequestContext) {
   nested names like `"things/edit"` work, out-of-bounds names are refused. The template may
   `include()` the core building-block partials and its own. To load the plugin's own CSS, pass its
   `/public/<id>/x.css` href in the shell's `styles` slot — see the reference's `views/shifts.ejs`.
-- **Finer authorization than the route `permission`** uses the guards from `#plugin-api`:
+- **Finer authorization than the route `permission`** uses the guards from `@plainpages/plugin-api`:
   `requireSession(ctx)`, `can(ctx, permission)` (coarse JWT-claim check, zero I/O), and
   `check(keto, ctx, {namespace, object, relation})` (a live Keto check; anonymous ⇒ denied). Throw
   `new GuardError(403, …)` after a failed `can`/`check` to render the 403 page.
@@ -443,9 +446,9 @@ The host does not sandbox plugin output, so a handler **owns the safety of the d
 - **Text is auto-escaped; URLs are not scheme-checked.** A URL field — nav `href`, a table cell
   link, a menu item, a breadcrumb, `brand.logo` — is emitted as-is inside the attribute, so a
   `javascript:` or `data:` URL from upstream data becomes live XSS. Pass any URL you don't control
-  through **`safeUrl()`** from `#plugin-api`; it collapses anything but relative/`http(s):` to `"#"`:
+  through **`safeUrl()`** from `@plainpages/plugin-api`; it collapses anything but relative/`http(s):` to `"#"`:
   ```ts
-  import { safeUrl } from "#plugin-api";
+  import { safeUrl } from "@plainpages/plugin-api";
   return { view: "list", data: { rows: rows.map((r) => ({ ...r, href: safeUrl(r.href) })) } };
   ```
 
@@ -459,7 +462,7 @@ The host has two replaceable landing slots, and a plugin may own either or both:
 | `dashboard` | `/dashboard` | **signed-in session** (anonymous → `/login`, with `/dashboard` as `return_to`) | The built-in mock-data People list. |
 
 ```ts
-import { definePlugin } from "#plugin-api";
+import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
@@ -537,7 +540,7 @@ ones may be added within it. `req`/`res` are the raw Node escape hatch — prefe
 Most plugins fetch their own data from an upstream service they configure. A **system plugin** — one
 that administers *Plainpages' own* identity stack — needs the host's Ory admin clients and the
 instant-revoke hook instead. The host exposes those on **`ctx.system`**, and re-exports the client
-types + their error classes from `#plugin-api`:
+types + their error classes from `@plainpages/plugin-api`:
 
 ```ts
 interface SystemCapabilities {          // every field optional — present only when the host wired it
@@ -671,11 +674,47 @@ docker compose -f compose.yml -f compose.plugins.yml up -d
 A named volume works the same way (target `/app/plugins/<id>`). For a **baked** production image,
 keep the plugin in the build context and it is `COPY`'d in at build time.
 
-`#plugin-api` resolves against the *nearest* `package.json`, which at runtime must be the host's at
-`/app` — so a mounted `plugins/<id>/` must **not** contain a `package.json` of its own, or boot fails
-loud. A plugin kept in its own repo therefore mounts as just its subfolder, its `package.json` left
-outside the mount. To typecheck it there, typecheck it mounted under the host tree, or vendor a type
-stub of the barrel and map `#plugin-api` to that.
+A plugin kept in its own repo mounts whole, `package.json` and all — see below.
+
+### Plugin dependencies
+
+A plugin may depend on npm packages. It owns them completely: its `package.json`, its lockfile and
+its `node_modules` live in the plugin folder, and nothing about them reaches the host's — installing
+a plugin is still just getting its folder to `/app/plugins/<id>`.
+
+Write the manifest yourself — `"type": "module"` is required, and the host refuses a plugin without
+it, because that file (not the host's) is what tells Node how to parse everything beside it:
+
+```json
+{ "name": "things", "version": "0.0.0", "type": "module" }
+```
+
+Then install into the folder. `--save-exact` pins the version: the root `.npmrc` does not reach a
+`--prefix`, so without it npm writes a range.
+
+```bash
+# The uid keeps the files it writes yours rather than root's.
+docker compose run --rm --no-deps --user "$(id -u):$(id -g)" web \
+  npm install --prefix plugins/things --save-exact ms
+```
+
+A plugin in its own repo runs its own `npm ci` instead and mounts the result — `node_modules`
+included, since the plugin folder *is* the repo. A baked image needs no extra step: the plugin's
+`node_modules` is part of the build context and is `COPY`'d in with the rest of the folder.
+
+Two rules follow from how Node resolves:
+
+- **Never ship a copy of `@plainpages/plugin-api`.** The host publishes it into `/node_modules`,
+  above every plugin, and a plugin resolves it from there — nothing to declare, just import it. A
+  copy inside your own `node_modules` shadows it with a *second* instance of the host's contract,
+  and every `instanceof GuardError` a handler makes silently starts returning `false`. (A type stub
+  for standalone typechecking is fine — keep it out of what you mount.)
+- **Your dependencies are yours alone.** Two plugins depending on the same package each get their
+  own copy at their own version, so neither can break the other by upgrading.
+
+`npm run typecheck` covers `plugins/`, so a dependency shipping no types of its own needs its
+`@types/…` in your plugin's `devDependencies`. Typechecking a plugin repo standalone still needs the
+barrel's types on disk: typecheck it mounted under the host tree, or vendor a type stub.
 
 ### Local dev & test story
 
@@ -801,13 +840,13 @@ points the picker at this path when it answers GET, else the page the form was s
 **Writing a catalog.** `en-US.ts` exports the object and its type; every other locale is written
 against that type, so a missing or misspelled key is a type error before the app ever boots. For a
 language of your own: copy `src/i18n/locales/en-US.ts` into `locales/<tag>.ts`, type it
-`CoreMessages` (from `#plugin-api`), and translate. The `as PluralMessage` cast below is required —
+`CoreMessages` (from `@plainpages/plugin-api`), and translate. The `as PluralMessage` cast below is required —
 without it the inferred type pins the plural forms to English's two, and a locale that selects more
 (Polish, Arabic) becomes unwritable:
 
 ```ts
 // plugins/shop/i18n/en-US.ts
-import type { PluralMessage } from "#plugin-api";
+import type { PluralMessage } from "@plainpages/plugin-api";
 
 const messages = {
   "shop.title": "Shop",
@@ -836,7 +875,7 @@ render in `en-US`), never one the host doesn't have.
 return { data: { title: ctx.t("shop.title"), lead: ctx.t("shop.greeting", { name }) }, view: "shop" };
 
 // a pure view model built outside a request (its unit test) defaults to the plugin's own English:
-import { englishTranslator, type Translate } from "#plugin-api";
+import { englishTranslator, type Translate } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 const EN: Translate = englishTranslator(enUS); // your catalog, then the host's
 ```
@@ -1469,11 +1508,12 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
                      fetch-timeout)
   i18n/              catalog (parity rules) · locale (resolution) · translate · load · runtime ·
                      english · view-locals · locales/ (the core en-US + sv-SE catalogs)
-  plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `#plugin-api` barrel) · system.ts
+  plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `@plainpages/plugin-api` barrel) · system.ts
                      (ctx.system) · discovery · router · hooks · view-resolver
   ui/                chrome (the one global menu) · shell-context · dashboard · nav (composeNav) ·
                      menu-config (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
 
+plugin-api/          The `@plainpages/plugin-api` package — the author barrel, linked into /node_modules
 views/               Core EJS in the one app shell: home, index, auth, oauth-consent, error, 403/404/500/503,
                      and partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card,
                      alert, menu/popover, theme switch, language picker, icon sprite). Domain screens live
@@ -1498,7 +1538,8 @@ README-dockerhub.md  The Docker Hub repository description, pasted over by hand 
 - **New page in a plugin:** add a route + handler to the plugin manifest and a template in
   its `views/`.
 - **Static asset:** drop it in the plugin's `public/`; served at `/public/<plugin>/<path>`.
-- **New dependency:** deps live in the image, so update the manifest + lockfile and rebuild —
+- **New dependency in a plugin:** the plugin owns it — see [Plugin dependencies](#plugin-dependencies).
+- **New dependency in the core:** deps live in the image, so update the manifest + lockfile and rebuild —
   `--package-lock-only` writes nothing into the checkout, `--user` keeps the two files yours.
   Keep deps minimal — prefer the Node standard library, and an Ory REST call over an SDK.
 

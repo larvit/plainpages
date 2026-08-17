@@ -2,7 +2,7 @@
 // two screens render from it. The Keto writes and the HTTP round trip are covered in app.test.ts.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { PermissionDecl } from "#plugin-api";
+import type { PermissionDecl } from "@plainpages/plugin-api";
 import { buildPermissionPicker, grantDiff, grantTuple, groupSubject, userSubject } from "./admin-grants.ts";
 
 const declared: PermissionDecl[] = [

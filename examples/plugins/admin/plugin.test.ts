@@ -3,7 +3,7 @@
 // with nothing in the logs to explain it. Pin the two halves against each other here.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isValidPermissionName } from "#plugin-api";
+import { isValidPermissionName } from "@plainpages/plugin-api";
 import manifest from "./plugin.ts";
 
 const routes = manifest.routes ?? [];

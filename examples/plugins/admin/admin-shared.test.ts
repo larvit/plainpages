@@ -1,12 +1,12 @@
 // Direct units for the admin plugin's shared nav + auth helpers. They're security-critical
 // (requirePermission/guardedForm gate every admin write) and reused across all three screens, so pin the
 // contract here in isolation; the HTTP routing/gate/CSRF is exercised end-to-end in src/http/app.test.ts.
-// Import only from the #plugin-api barrel — the same contract boundary the plugin code uses.
+// Import only from the @plainpages/plugin-api barrel — the same contract boundary the plugin code uses.
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
-import { GuardError, isValidPermissionName, type Log, type PageChrome, type RequestContext, type User } from "#plugin-api";
+import { GuardError, isValidPermissionName, type Log, type PageChrome, type RequestContext, type User } from "@plainpages/plugin-api";
 import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, actionForMethod, buildConfirmModel, guardedForm, permissionName, requirePermission } from "./admin-shared.ts";
 
 const reader: User = { email: "ada@x.io", id: "u1", permissions: ["users:read"] };

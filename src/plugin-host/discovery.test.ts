@@ -57,6 +57,8 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
   { name: "a nav node gating on a bare word", files: { "barenav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", permission: "admin" }] };` }, match: /barenav.*admin.*<resource>:<action>/s },
   { name: "a declared permission that is a bare word", files: { "baredecl/plugin.ts": `export default { apiVersion: "1.0.0", permissions: [{ name: "admin" }] };` }, match: /baredecl.*admin.*<resource>:<action>/s },
+  { name: "a plugin package.json that forgets type: module", files: { "cjs/package.json": `{ "name": "cjs" }`, "cjs/plugin.ts": full("cjs") }, match: /cjs.*"type": "module"/s },
+  { name: "a plugin package.json that is not valid JSON", files: { "bent/package.json": `{`, "bent/plugin.ts": full("bent") }, match: /bent.*package\.json.*JSON/s },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
@@ -100,6 +102,24 @@ test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) 
   assert.equal(plugins.length, 1);
   assert.equal(typeof plugins[0]?.home, "function");
   assert.equal(typeof plugins[0]?.dashboard, "function");
+});
+
+// The barrel still resolves from a folder holding its own package.json because host deps sit at
+// /node_modules, above every plugin scope (README → Plugin dependencies).
+test("a plugin may carry its own package.json, node_modules and dependencies", async (t) => {
+  const dir = scaffold(t, {
+    "shop/package.json": `{ "name": "shop", "version": "0.0.0", "type": "module", "dependencies": { "price-tag": "1.0.0" } }`,
+    "shop/node_modules/price-tag/package.json": `{ "name": "price-tag", "version": "1.0.0", "type": "module", "exports": "./index.js" }`,
+    "shop/node_modules/price-tag/index.js": `export default (n) => \`\${n} kr\`;`,
+    "shop/plugin.ts": `import { definePlugin } from "@plainpages/plugin-api";\nimport price from "price-tag";\n` +
+      `export default definePlugin({ apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", handler: () => ({ html: price(20) }) }] });`,
+    "node_modules/hoisted/index.js": `export default 1;`,
+  });
+
+  const plugins = await discoverPlugins({ dir });
+
+  assert.deepEqual(plugins.map((p) => p.id), ["shop"]); // node_modules is not a plugin folder
+  assert.deepEqual(await plugins[0]?.routes?.[0]?.handler(null as never), { html: "20 kr" });
 });
 
 test("a shared permission name only warns — both plugins still load", async (t) => {

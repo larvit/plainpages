@@ -178,7 +178,7 @@ Everything domain-specific is a plugin folder — the compose above mounts `./pl
 into the app. Create `plugins/hello/plugin.ts`:
 
 ```ts
-import { definePlugin } from "#plugin-api";
+import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
   apiVersion: "1.0.0",

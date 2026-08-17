@@ -32,7 +32,7 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 - [ ] **MEDIUM→LOW — Add a list-page view-model helper in `src/ui/`.** Every list screen hand-rewrites the same ~40 lines bridging `parseListQuery`/`paginate` to the EJS partials; at minimum a `buildPaginationModel(page, hrefFor)` block.
 - [ ] **LOW→MEDIUM — Retire `src/ui/shell-context.ts`.** `ShellModel`/`buildShellContext` has one consumer left (dashboard) and duplicates `PageChrome` on almost every field. Fold the dashboard onto `ctx.chrome` + title/breadcrumbs; keep `shellUser` as the shared primitive.
 - [ ] **LOW — Fix stale doc references to removed `docs/plugin-contract.md`** in `views/index.ejs` (user-visible dashboard text; also links /scheduling as if pre-installed) and `examples/plugins/scheduling/views/shifts.ejs`.
-- [ ] **LOW — Decide (once) on a `ctx.system` facade.** `#plugin-api` exposes raw Ory client shapes, so an Ory client refactor is a major `apiVersion` bump. AGENTS.md accepts this; revisit only if external plugin authors appear.
+- [ ] **LOW — Decide (once) on a `ctx.system` facade.** `@plainpages/plugin-api` exposes raw Ory client shapes, so an Ory client refactor is a major `apiVersion` bump. AGENTS.md accepts this; revisit only if external plugin authors appear.
 - [ ] **LOW — README/AGENTS.md gaps:** state the intended lifetime/horizon explicitly, add a short domain glossary (host, manifest, chrome, nav fragment, permission token, system plugin, denylist…), and note the expected plugin-author population.
 
 ## Finnished work

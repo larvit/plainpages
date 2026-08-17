@@ -5,6 +5,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as api from "./plugin-api.ts";
 
+// A plugin with its own package.json reaches the barrel only as a package; a second copy landing
+// there would fail every `instanceof GuardError` a handler makes.
+test("the barrel resolves by package name to this same module", async () => {
+  const asPackage = await import("@plainpages/plugin-api");
+
+  assert.equal(asPackage.GuardError, api.GuardError);
+  assert.equal(asPackage.definePlugin, api.definePlugin);
+});
+
 test("plugin-api re-exports the stable author value surface", () => {
   for (const name of ["definePlugin", "can", "check", "GuardError", "requireSession", "parseListQuery", "readFormBody", "CSRF_FIELD", "tracedFetch", "Log", "safeUrl"]) {
     assert.ok(name in api && api[name as keyof typeof api] !== undefined, `missing export: ${name}`);

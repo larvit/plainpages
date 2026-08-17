@@ -6,7 +6,7 @@
 // what the installed plugins declare in code. Nothing here invents a name, which is why the old
 // Permissions screen is gone: a grant is a property of a user or a group, edited where they are.
 
-import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate } from "#plugin-api";
+import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate } from "@plainpages/plugin-api";
 
 const PERMISSION_NS = "Permission";
 const GRANTED = "granted";

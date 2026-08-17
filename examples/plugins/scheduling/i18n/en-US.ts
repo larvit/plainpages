@@ -2,7 +2,7 @@
 // looked up here first and fall back to the host's, so a plugin owns its words without prefixing
 // them, and `shifts.count` shows the plural form (host: README → Translating).
 
-import type { PluralMessage } from "#plugin-api";
+import type { PluralMessage } from "@plainpages/plugin-api";
 
 const messages = {
   "scheduling.field.assignee": "Assignee",

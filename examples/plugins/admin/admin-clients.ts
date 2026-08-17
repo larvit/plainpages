@@ -5,7 +5,7 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). Below the builders are thin
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
-import { can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import { ADMIN_CLIENTS_BASE, ADMIN_EN, type AdminAction, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 

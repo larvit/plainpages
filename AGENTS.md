@@ -67,20 +67,25 @@ Revisit only if the stated reason stops holding.
   with `server.ts`/`config.ts`/`logger.ts` and the topology-guard `*.test.ts` at the root; tests are
   co-located. Add a new module to the folder owning its concern. The core ships **no domain
   screens** — even the admin GUI is a drop-in plugin (`examples/plugins/admin/`).
-- **Plugins and config import the host only via package.json `imports`** — `#plugin-api` →
-  `src/plugin-host/plugin-api.ts`, `#menu-config` → `src/ui/menu-config.ts`, never a relative
-  `../../src/*` path. These two barrels are the whole contract surface; don't "fix" a `#`-import
-  back to a relative path. Two consequences:
-  - `#plugin-api` re-exports the Ory client types (`KratosAdmin`/`KetoClient`/`HydraAdmin` + their
+- **Plugins and config import the host only through a barrel** — `@plainpages/plugin-api` →
+  `plugin-api/index.ts` → `src/plugin-host/plugin-api.ts`, `#menu-config` → `src/ui/menu-config.ts`,
+  never a relative `../../src/*` path. These two barrels are the whole contract surface; don't "fix"
+  either back to a relative path. Three consequences:
+  - `@plainpages/plugin-api` re-exports the Ory client types (`KratosAdmin`/`KetoClient`/`HydraAdmin` + their
     DTOs and error classes), so those shapes are **contract-visible** — changing them needs a major
     `apiVersion` bump, not a free refactor.
-  - **A plugin/config folder must stay a plain folder — no `package.json` of its own**, which would
-    become its own scope and stop `#`-specifiers resolving. A plugin kept in its own repo therefore
-    typechecks against the barrel only when mounted under the host tree (or with a vendored stub).
+  - **The barrel is a package, not a `#`-import, so a plugin folder may carry its own
+    `package.json`** and depend on npm packages (README → Plugin dependencies). The Dockerfile links
+    it into `/node_modules`, above every plugin scope. Never let a copy reach a plugin's own
+    `node_modules`: two instances of the barrel break `instanceof` across the boundary, which
+    `plugin-api.test.ts` guards by asserting both paths reach one module.
+  - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
+    against that instead and boot fails loud. An operator's menu override has no use for
+    dependencies; if that changes, it needs the same package treatment.
 - **`examples/` mirrors the drop-in mount dirs** — `examples/plugins/<id>/` copies to
   `plugins/<id>/`, `examples/config/menu.ts` to `config/menu.ts`. Both mirrors are in
-  `tsconfig.include` and resolve the host via `#`-imports, so each typechecks in place *and* copies
-  across unchanged. Never commit real plugins/config into the root mount dirs — they ship empty.
+  `tsconfig.include` and resolve the host through the barrels, so each typechecks in place *and*
+  copies across unchanged. Never commit real plugins/config into the root mount dirs — they ship empty.
 - **`ctx.chrome` is lazily memoized — do not make it unconditional** or move it into the base request
   context. It protects the I/O-free hot path on the public, bot-hit landing (`/`).
 - **A plugin-owned render always runs on that plugin's context.** The landing slots (`home`,
@@ -123,7 +128,7 @@ Revisit only if the stated reason stops holding.
     with the e2e stacks, which bind individual plugins *inside* `/app/plugins` (a nested mount into a
     read-only parent is EROFS and the container never starts). Valid while bootstrap is the only
     writer of grants.
-  - **`actionForMethod` is plugin-local and must not migrate into `#plugin-api`.** Inside the admin
+  - **`actionForMethod` is plugin-local and must not migrate into `@plainpages/plugin-api`.** Inside the admin
     example it keeps the route table and the in-handler guard deriving from one function, so 29 routes
     × 2 gate sites cannot drift. Generalised, it would make authorization a function of the transport
     verb — a route table must answer "what does this need?" on its own.
@@ -205,7 +210,7 @@ Revisit only if the stated reason stops holding.
   profile menu (its trigger composes escaped user values and its one item is a CSRF POST form) — keep
   the two in step.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
-  is deliberately not re-exported from `#plugin-api`. The palette may narrow when the last reference
+  is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an
   unknown sprite id renders blank instead of failing loud (the `every icon <use> resolves` e2e test
   catches anything reaching the nav).

@@ -4,7 +4,7 @@
 // It is a *system* plugin: its handlers reach the host's Ory admin clients and the instant-revoke
 // hook via ctx.system. Where a capability is absent the screen degrades to a themed 503.
 
-import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "#plugin-api";
+import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "@plainpages/plugin-api";
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsPermissions, groupsRemoveMember } from "./admin-groups.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersPermissions, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";

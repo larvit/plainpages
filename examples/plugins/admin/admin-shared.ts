@@ -1,8 +1,8 @@
 // Shared plumbing for the admin example plugin: the section nav fragment, the screen gate, the
 // CSRF-guarded form reader, the destructive-confirm model builder, and small RouteResult helpers.
-// Everything imports the host only through the #plugin-api barrel.
+// Everything imports the host only through the @plainpages/plugin-api barrel.
 
-import { can, CSRF_FIELD, englishTranslator, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "#plugin-api";
+import { can, CSRF_FIELD, englishTranslator, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 
 // This plugin's English — its catalog, then the host's — for a view model built outside a request,

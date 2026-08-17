@@ -5,8 +5,8 @@
 // Handlers are factories bound to a ShiftsUpstream, and `fetch` is injectable, so they unit-test as
 // pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
-// One import from the host's #plugin-api barrel — the stable author surface (see README.md → Building plugins).
-import { can, CSRF_FIELD, englishTranslator, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "#plugin-api";
+// One import from the host's @plainpages/plugin-api barrel — the stable author surface (see README.md → Building plugins).
+import { can, CSRF_FIELD, englishTranslator, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 
 // The plugin's own English (its catalog, then the host's), for a view model built outside a request:

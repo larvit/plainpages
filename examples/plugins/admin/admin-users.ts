@@ -3,7 +3,7 @@
 // into building-block view models; below them are thin per-route handlers keyed on ctx.params, over
 // a shared `withUser` gate.
 
-import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "#plugin-api";
+import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 

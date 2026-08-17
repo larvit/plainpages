@@ -7,6 +7,10 @@ FROM node:24.19.0-alpine3.24
 COPY package.json package-lock.json .npmrc /deps/
 RUN cd /deps && npm ci && mv node_modules /node_modules && rm -rf /deps
 
+# The barrel as a package, so a plugin folder can own a package.json. Linked, not copied — it
+# re-exports source under /app.
+RUN mkdir -p /node_modules/@plainpages && ln -s /app/plugin-api /node_modules/@plainpages/plugin-api
+
 WORKDIR /app
 COPY . .
 
