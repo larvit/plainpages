@@ -60,6 +60,10 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "a plugin shipping its own copy of the barrel", files: { "shadow/node_modules/@plainpages/plugin-api/index.js": `export class GuardError extends Error {}`, "shadow/plugin.ts": full("shadow") }, match: /shadow.*@plainpages\/plugin-api/s },
   { name: "a plugin package.json that forgets type: module", files: { "cjs/package.json": `{ "name": "cjs" }`, "cjs/plugin.ts": full("cjs") }, match: /cjs.*"type": "module"/s },
   { name: "a plugin package.json that is not valid JSON", files: { "bent/package.json": `{`, "bent/plugin.ts": full("bent") }, match: /bent.*package\.json.*JSON/s },
+  { name: "a plugin package.json holding null", files: { "nul/package.json": `null`, "nul/plugin.ts": full("nul") }, match: /nul.*"type": "module"/s },
+  // Written by the documented install command with one path segment dropped — and it would silently
+  // make every plugin below it part of its scope.
+  { name: "a package.json in the scan root itself", files: { "package.json": `{ "name": "oops" }`, "ok/plugin.ts": full("ok") }, match: /plugins\/package\.json must not exist/ },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
@@ -105,8 +109,8 @@ test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) 
   assert.equal(typeof plugins[0]?.dashboard, "function");
 });
 
-// The barrel still resolves from a folder holding its own package.json because host deps sit at
-// /node_modules, above every plugin scope (README → Plugin dependencies).
+// Host deps sit at /node_modules, above every plugin scope, so the barrel resolves from a folder
+// that has its own package.json (README → Plugin dependencies).
 test("a plugin may carry its own package.json, node_modules and dependencies", async (t) => {
   const dir = scaffold(t, {
     "shop/package.json": `{ "name": "shop", "version": "0.0.0", "type": "module", "dependencies": { "price-tag": "1.0.0" } }`,

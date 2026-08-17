@@ -27,6 +27,10 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
   const errors: string[] = [];
   const plugins: Plugin[] = [];
 
+  if (existsSync(join(dir, "package.json"))) {
+    errors.push(`plugins/package.json must not exist — it becomes the package scope for every plugin below it; install into plugins/<id>, not plugins/`);
+  }
+
   for (const id of pluginFolders(dir)) {
     const fail = (msg: string): void => void errors.push(`plugins/${id}: ${msg}`);
 
@@ -89,9 +93,8 @@ function pluginFolders(dir: string): string[] {
     .sort();
 }
 
-// The two ways a plugin's own packaging breaks it. A barrel copy resolves before the host's, and its
-// GuardError matches no `instanceof` here — the sign-in redirect silently becomes a 500. Without a
-// `type`, which npm never writes, the folder is left CommonJS: a .js helper breaks, every .ts re-parses.
+// A barrel copy resolves before the host's, so its GuardError matches no `instanceof` here and a
+// sign-in redirect becomes a 500. A typeless folder re-parses every file it loads, and warns on each.
 function packagingError(folder: string): string | null {
   if (existsSync(join(folder, "node_modules", "@plainpages", "plugin-api"))) {
     return "ships its own copy of @plainpages/plugin-api — remove it; the host provides the one instance";
@@ -100,15 +103,15 @@ function packagingError(folder: string): string | null {
   const file = join(folder, "package.json");
   if (!existsSync(file)) return null;
 
-  let manifest: { type?: unknown };
+  let manifest: { type?: unknown } | null;
   try {
-    manifest = JSON.parse(readFileSync(file, "utf8")) as { type?: unknown };
+    manifest = JSON.parse(readFileSync(file, "utf8")) as { type?: unknown } | null;
   } catch (err) {
-    return `package.json is not valid JSON — ${messageOf(err)}`;
+    return `package.json could not be read as JSON — ${messageOf(err)}`;
   }
-  return manifest.type === "module"
+  return manifest?.type === "module"
     ? null
-    : `package.json must set "type": "module" — npm writes no type, which leaves the folder CommonJS`;
+    : `package.json must set "type": "module" — npm writes no type, and Node then re-parses every file in the folder`;
 }
 
 function asManifest(value: unknown): PluginManifest | null {

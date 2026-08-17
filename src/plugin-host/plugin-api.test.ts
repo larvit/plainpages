@@ -5,8 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as api from "./plugin-api.ts";
 
-// A plugin with its own package.json reaches the barrel only as a package; a second copy landing
-// there would fail every `instanceof GuardError` a handler makes.
+// Both specifiers must reach one module instance; the Dockerfile symlink is what makes them.
 test("the barrel resolves by package name to this same module", async () => {
   const asPackage = await import("@plainpages/plugin-api");
 

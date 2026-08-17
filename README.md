@@ -707,13 +707,10 @@ A plugin in its own repo runs its own `npm ci` instead and mounts the result —
 included, since the plugin folder *is* the repo. A baked image needs no extra step: the plugin's
 `node_modules` is part of the build context and is `COPY`'d in with the rest of the folder.
 
-Two rules follow from how Node resolves:
-
 - **Never ship a copy of `@plainpages/plugin-api`.** The host publishes it into `/node_modules`,
   above every plugin, and a plugin resolves it from there — nothing to declare, just import it. A
   copy inside your own `node_modules` would shadow it with a *second* instance of the host's
-  contract, turning a sign-in redirect into a 500, so discovery refuses one at boot. (A type stub for
-  standalone typechecking is fine — keep it out of what you mount.)
+  contract, turning a sign-in redirect into a 500, so discovery refuses one at boot.
 - **The host never upgrades or dedupes your dependencies.** Two plugins depending on the same package
   each get their own copy at their own version, so neither can break the other by upgrading — and
   keeping yours current, and audited, is yours to own. Renovate here watches the host's manifests
@@ -723,7 +720,9 @@ Two rules follow from how Node resolves:
 
 `npm run typecheck` covers `plugins/`, so a dependency shipping no types of its own needs its
 `@types/…` in your plugin's `devDependencies`. Typechecking a plugin repo standalone still needs the
-barrel's types on disk: typecheck it mounted under the host tree, or vendor a type stub.
+barrel's types on disk: typecheck it mounted under the host tree, or vendor a type stub **outside
+`node_modules`** and point tsconfig `paths` at it — a stub inside is the shadowing copy discovery
+refuses, and it would travel with the folder you mount.
 
 ### Local dev & test story
 
