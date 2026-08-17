@@ -89,9 +89,14 @@ function pluginFolders(dir: string): string[] {
     .sort();
 }
 
-// Without a `type`, which npm never writes, the plugin's own package.json leaves its folder
-// CommonJS: a .js helper breaks outright and every .ts costs a re-parse.
+// The two ways a plugin's own packaging breaks it. A barrel copy resolves before the host's, and its
+// GuardError matches no `instanceof` here — the sign-in redirect silently becomes a 500. Without a
+// `type`, which npm never writes, the folder is left CommonJS: a .js helper breaks, every .ts re-parses.
 function packagingError(folder: string): string | null {
+  if (existsSync(join(folder, "node_modules", "@plainpages", "plugin-api"))) {
+    return "ships its own copy of @plainpages/plugin-api — remove it; the host provides the one instance";
+  }
+
   const file = join(folder, "package.json");
   if (!existsSync(file)) return null;
 

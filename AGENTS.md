@@ -328,6 +328,17 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   and emitted markup are author-visible. Know the hole that leaves — discovery fails loud on a bad
   `apiVersion`, but `include("menu", { open: true })` silently ignores a dropped option. Promotion
   must cover the partial vocabulary too.
+- **The frozen surface also includes the packaging promises** (README → Plugin dependencies): the
+  barrel is ambient at `/node_modules` with nothing for a plugin to declare, `"type": "module"` is
+  mandatory, and the host neither upgrades nor dedupes a plugin's dependencies. Same hole as the
+  partials — move the publish point, rename the package or start hoisting and every installed plugin
+  breaks with no version signal. Note the promise is deliberately *not* "your deps are yours alone":
+  build-time dedupe for baked images stays open, module-instance sharing stays unpromised.
+- **Publishing `@plainpages/plugin-api` to a registry is deferred, not rejected.** Today it is
+  `private` and shaped as a shim — `index.ts` re-exports `../src/…`, so `npm pack` would ship a
+  broken tree. The trigger is the same as the freeze's: the first external plugin, which is also the
+  first author who cannot typecheck against a mounted host tree. Whoever does it must first make the
+  artifact self-contained (types-only `.d.ts`, or move the barrel into `plugin-api/`).
 - A plugin's `apiVersion` is a **hand-written literal** semver — the host version it was built
   against — bumped by hand on rebuild, **never** the host's `HOST_API_VERSION` constant. Importing
   the constant makes every plugin always equal the host, so `checkApiVersion` can never fire.

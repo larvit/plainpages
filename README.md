@@ -689,13 +689,18 @@ it, because that file (not the host's) is what tells Node how to parse everythin
 { "name": "things", "version": "0.0.0", "type": "module" }
 ```
 
-Then install into the folder. `--save-exact` pins the version: the root `.npmrc` does not reach a
-`--prefix`, so without it npm writes a range.
+Add a `plugins/things/.npmrc` too. The root one does not reach a `--prefix`, so without it npm writes
+ranges rather than the exact pins this project keeps everywhere:
+
+```ini
+save-exact=true
+```
+
+Then install into the folder:
 
 ```bash
 # The uid keeps the files it writes yours rather than root's.
-docker compose run --rm --no-deps --user "$(id -u):$(id -g)" web \
-  npm install --prefix plugins/things --save-exact ms
+docker compose run --rm --no-deps --user "$(id -u):$(id -g)" web npm install --prefix plugins/things ms
 ```
 
 A plugin in its own repo runs its own `npm ci` instead and mounts the result — `node_modules`
@@ -706,11 +711,15 @@ Two rules follow from how Node resolves:
 
 - **Never ship a copy of `@plainpages/plugin-api`.** The host publishes it into `/node_modules`,
   above every plugin, and a plugin resolves it from there — nothing to declare, just import it. A
-  copy inside your own `node_modules` shadows it with a *second* instance of the host's contract,
-  and every `instanceof GuardError` a handler makes silently starts returning `false`. (A type stub
-  for standalone typechecking is fine — keep it out of what you mount.)
-- **Your dependencies are yours alone.** Two plugins depending on the same package each get their
-  own copy at their own version, so neither can break the other by upgrading.
+  copy inside your own `node_modules` would shadow it with a *second* instance of the host's
+  contract, turning a sign-in redirect into a 500, so discovery refuses one at boot. (A type stub for
+  standalone typechecking is fine — keep it out of what you mount.)
+- **The host never upgrades or dedupes your dependencies.** Two plugins depending on the same package
+  each get their own copy at their own version, so neither can break the other by upgrading — and
+  keeping yours current, and audited, is yours to own. Renovate here watches the host's manifests
+  only.
+- **Depend on packages that ship JavaScript.** Node refuses to strip types under `node_modules`, so a
+  dependency whose entry is `.ts` fails at import with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
 
 `npm run typecheck` covers `plugins/`, so a dependency shipping no types of its own needs its
 `@types/…` in your plugin's `devDependencies`. Typechecking a plugin repo standalone still needs the
@@ -1137,6 +1146,11 @@ obey `SECURE_COOKIES`; the Kratos one takes its flags from Kratos' own config.
 
 **Offboarding is not instant by default** — a revoked permission or deactivated identity lands
 within one token TTL, unless the [denylist](#instant-revoke-the-optional-denylist) is on.
+
+**A plugin, and every package it depends on, runs with the host's full privileges** — in the process
+holding the JWT signing key and `ctx.system`'s Ory admin clients, on the network that reaches the
+unauthenticated Ory ports. Install only what you trust, and let the plugin's own lockfile
+([Plugin dependencies](#plugin-dependencies)) pin the tree you audited.
 
 Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true`, `SECURE_COOKIES=true`, and replacing
 **every** committed dev secret ([what you must supply](#what-you-must-supply-the-only-manual-prep)).

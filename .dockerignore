@@ -1,5 +1,6 @@
 .git
-# Load-bearing: a stray copy would bake in at /app/node_modules and shadow /node_modules.
+# Load-bearing both ways: a stray copy would bake in at /app/node_modules and shadow /node_modules,
+# and matching only the root one is what lets a baked plugin keep its own deps. Never `**/node_modules`.
 node_modules
 npm-debug.log
 *.log

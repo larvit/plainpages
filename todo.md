@@ -3,6 +3,7 @@
 ## Unfinnished work
 
 - [ ] Add a way to configure plugins directly when installing. Most reasonable is an .env file in the plugin folder, I think, but I am open to suggestions.
+- [ ] Decide Renovate's reach over plugin dependencies before the first example plugin takes one. `renovate.json` extends `config:recommended`, whose `:ignoreModulesAndTests` ignores `**/examples/**`, so an example plugin's `package.json` would get no update PRs and nobody would notice. Either narrow the ignorePath or state that plugin deps are the plugin owner's to update (README → Plugin dependencies already says so for external plugins). Raised by the architecture review 2026-08-17.
 - [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Guard the group paths against self-lockout, or accept them explicitly. The self-revoke guard covers only your own *direct* grants on the Users screen; unticking a permission on a group you belong to, removing yourself from that group, or deleting it can all still strip your own effective access with no warning. Recorded in AGENTS.md as a known gap — the robust fix is a "last effective holder" check, which needs a reverse Keto query.
 - [ ] The permission picker has no concurrency baseline, so two operators editing the same user/group silently discard each other's change. Sketch: post the rendered set as a hidden baseline; if it no longer matches Keto, re-render with "this changed while you had the page open" rather than applying.
@@ -33,7 +34,7 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 - [ ] **LOW→MEDIUM — Retire `src/ui/shell-context.ts`.** `ShellModel`/`buildShellContext` has one consumer left (dashboard) and duplicates `PageChrome` on almost every field. Fold the dashboard onto `ctx.chrome` + title/breadcrumbs; keep `shellUser` as the shared primitive.
 - [ ] **LOW — Fix stale doc references to removed `docs/plugin-contract.md`** in `views/index.ejs` (user-visible dashboard text; also links /scheduling as if pre-installed) and `examples/plugins/scheduling/views/shifts.ejs`.
 - [ ] **LOW — Decide (once) on a `ctx.system` facade.** `@plainpages/plugin-api` exposes raw Ory client shapes, so an Ory client refactor is a major `apiVersion` bump. AGENTS.md accepts this; revisit only if external plugin authors appear.
-- [ ] **LOW — README/AGENTS.md gaps:** state the intended lifetime/horizon explicitly, add a short domain glossary (host, manifest, chrome, nav fragment, permission token, system plugin, denylist…), and note the expected plugin-author population.
+- [ ] **LOW — README/AGENTS.md gaps:** state the intended lifetime/horizon explicitly, add a short domain glossary (host, manifest, chrome, nav fragment, permission token, system plugin, denylist…), and note the expected plugin-author population and plugin count — per-plugin dependency isolation prices N dependency trees on disk and in RSS, and that number is what says whether the trade needs revisiting (build-time dedupe for baked images stays open).
 
 ## Finnished work
 
