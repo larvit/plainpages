@@ -40,7 +40,7 @@ services:
   # init/init.sql creates one database per service. Dev defaults below; supply
   # POSTGRES_USER/PASSWORD via env in production.
   postgres:
-    image: postgres:18.4-alpine3.23
+    image: postgres:18.6-alpine3.23
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ory}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ory}
