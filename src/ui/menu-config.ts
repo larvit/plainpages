@@ -50,6 +50,14 @@ export async function loadMenuConfig(options: LoadMenuOptions = {}): Promise<Men
   const file = options.file ?? MENU_CONFIG_FILE;
   if (!existsSync(file)) return DEFAULT_MENU; // clean clone: no central override
 
+  // Guarded before the import: Node's own ERR_PACKAGE_IMPORT_NOT_DEFINED names neither cause nor remedy.
+  const dir = dirname(file);
+  for (const stray of ["node_modules", "package.json"]) {
+    if (existsSync(join(dir, stray))) {
+      throw new Error(`config/${stray} must not exist — it makes config/ its own package scope, so the #menu-config import in config/menu.ts no longer resolves; delete config/{node_modules,package.json,package-lock.json} and keep config/ a plain dir`);
+    }
+  }
+
   let mod: { default?: unknown };
   try {
     mod = await import(pathToFileURL(file).href);

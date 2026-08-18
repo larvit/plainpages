@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { DEFAULT_MENU, loadMenuConfig } from "./menu-config.ts";
 
 // Write a throwaway menu.ts (a plain object — defineMenu is identity) and clean it up after.
-function scaffold(t: TestContext, source: string): string {
+function scaffold(t: TestContext, source: string, strays: string[] = []): string {
   const dir = mkdtempSync(join(tmpdir(), "pp-menu-"));
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const file = join(dir, "menu.ts");
   writeFileSync(file, source);
+  for (const stray of strays) {
+    if (stray.endsWith(".json")) writeFileSync(join(dir, stray), "{}");
+    else mkdirSync(join(dir, stray), { recursive: true });
+  }
   return file;
 }
 
@@ -36,4 +40,15 @@ test("loadMenuConfig fails loud on a malformed config", async (t) => {
   await assert.rejects(loadMenuConfig({ file: scaffold(t, `export default [];`) }), /config object/);
   await assert.rejects(loadMenuConfig({ file: scaffold(t, `export default { branding: { theme: "neon" } };`) }), /theme/);
   await assert.rejects(loadMenuConfig({ file: scaffold(t, `export default { override: { hide: "teams" } };`) }), /hide.*array/s);
+});
+
+test("loadMenuConfig refuses a stray package.json or node_modules beside the config", async (t) => {
+  const valid = `export default { branding: { name: "Acme Ops" } };`;
+
+  for (const stray of ["node_modules", "package.json"]) {
+    await assert.rejects(
+      loadMenuConfig({ file: scaffold(t, valid, [stray]) }),
+      new RegExp(`config/${stray.replace(".", "\\.")} must not exist.*delete`, "s"),
+    );
+  }
 });

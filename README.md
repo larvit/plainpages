@@ -759,8 +759,7 @@ The menu is **driven entirely by config** and assembled from two sources:
    in or bind-mounting your own dir onto `/app/config` (a commented example sits in
    `compose.override.yml`). The file imports its typed builder from **`#menu-config`** (the
    subpath import mapped to `src/ui/menu-config.ts`), so it resolves wherever it's mounted
-   (keep the mounted `config/` a plain dir — no `package.json` of its own — or `#menu-config`
-   resolves against that instead and boot fails loud):
+   (keep the mounted `config/` a plain dir — no `package.json` of its own):
    ```ts
    import { defineMenu } from "#menu-config";
    export default defineMenu({ branding: { name: "Acme Ops" }, override: { hide: ["teams"] } });
