@@ -5,7 +5,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { ensureJwks, firstRunBanner, identityPayload, permissionTuple, seedAdmin, seedPermissions } from "./bootstrap.ts";
+import { differentServer, ensureJwks, firstRunBanner, identityPayload, permissionTuple, provisionPluginStorage, seedAdmin, seedPermissions } from "./bootstrap.ts";
+import { createLogger } from "../logger.ts";
+import type { Plugin } from "../plugin-host/plugin.ts";
+import type { ProvisionOptions, ProvisionResult } from "../plugin-host/storage-provisioning.ts";
 
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), {
@@ -150,4 +153,63 @@ test("ensureJwks generates a key only when the file is absent", () => {
 
   assert.equal(ensureJwks(path, { exists: () => true, write }), false);
   assert.equal(writes.length, 1); // present → nothing written
+});
+
+// --- Plugin storage provisioning -----------------------------------------------------
+// The provisioner is injected, so the branch decisions are testable without a Postgres.
+
+const SILENT = createLogger({ level: "none" });
+const storagePlugin = (id: string): Plugin => ({ apiVersion: "1.0.0", id, storage: true });
+const EMPTY: ProvisionResult = { orphans: [], provisioned: [] };
+
+function recordingProvisioner(result: ProvisionResult = EMPTY) {
+  const calls: ProvisionOptions[] = [];
+  return { calls, provision: async (options: ProvisionOptions) => { calls.push(options); return result; } };
+}
+
+test("provisioning is skipped entirely when nothing declares storage and none is configured", async () => {
+  const { calls, provision } = recordingProvisioner();
+  await provisionPluginStorage({}, [{ apiVersion: "1.0.0", id: "plain" }], SILENT, provision);
+  assert.deepEqual(calls, []); // no connection attempted, so an unconfigured stack still boots
+});
+
+// Uninstalling the last storage plugin is exactly when a left-behind database needs naming.
+test("provisioning still runs with nothing to provision, so orphans are reported", async () => {
+  const { calls, provision } = recordingProvisioner({ orphans: ["plugin_gone"], provisioned: [] });
+  await provisionPluginStorage({ PLUGIN_DB_ADMIN_URL: "postgres://ory:ory@db:5432/ory" }, [], SILENT, provision);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0]?.pluginIds, []);
+});
+
+test("a plugin declaring storage without a provisioning DSN fails loud, naming the plugin", async () => {
+  const { calls, provision } = recordingProvisioner();
+  await assert.rejects(
+    provisionPluginStorage({}, [storagePlugin("things")], SILENT, provision),
+    /PLUGIN_DB_ADMIN_URL.*things/s,
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("the connection limit and derived secret reach the provisioner", async () => {
+  const { calls, provision } = recordingProvisioner();
+  const env = { PLUGIN_DB_ADMIN_URL: "postgres://ory:ory@db:5432/ory", PLUGIN_DB_CONNECTION_LIMIT: "25", PLUGIN_DB_SECRET: "real" };
+  await provisionPluginStorage(env, [storagePlugin("things")], SILENT, provision);
+  assert.equal(calls[0]?.connectionLimit, 25);
+  assert.equal(calls[0]?.secret, "real");
+  assert.deepEqual(calls[0]?.pluginIds, ["things"]);
+});
+
+// bootstrap creates the role on one server; web tells the plugin to connect to another. Left
+// unchecked it surfaces inside a plugin as "password authentication failed", naming neither.
+test("provisioning refuses when the two storage URLs name different servers", async () => {
+  const { calls, provision } = recordingProvisioner();
+  const env = { PLUGIN_DB_ADMIN_URL: "postgres://ory:ory@db-a:5432/ory", PLUGIN_DB_URL: "postgres://db-b:5432" };
+  await assert.rejects(provisionPluginStorage(env, [storagePlugin("things")], SILENT, provision), /one server.*db-a:5432 vs db-b:5432/s);
+  assert.deepEqual(calls, []);
+});
+
+test("the same server spelled with an implicit port still agrees", () => {
+  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", "postgres://db"), null); // 5432 is the default
+  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", undefined), null); // web's own boot error to raise
+  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", "postgres://db:6543"), "db:5432 vs db:6543");
 });

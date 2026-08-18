@@ -798,7 +798,9 @@ creates any role, so no database is ever given a password derivable from a const
 
 **Only `bootstrap` holds provisioning credentials.** It alone gets `PLUGIN_DB_ADMIN_URL`, an account
 with `CREATEDB` and `CREATEROLE` (superuser works but is more than it needs; the dev stack simply
-reuses Ory's). `web` gets `PLUGIN_DB_URL`, which names the server and must carry no credentials —
+reuses Ory's). Keep using the same account: Postgres gives a `CREATEROLE` account admin rights only
+over the roles it created itself, so if you swap it for a fresh one, grant that one `ADMIN OPTION` on
+the existing `plugin_*` roles first, or the next boot cannot re-apply their passwords. `web` gets `PLUGIN_DB_URL`, which names the server and must carry no credentials —
 supply one with a username or password and boot fails, rather than leaving a privileged password in
 the process that runs plugin code. Set both, plus `PLUGIN_DB_SECRET`
 ([Configuration](#configuration)); the dev stack sets them for you.

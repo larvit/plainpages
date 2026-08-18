@@ -35,6 +35,7 @@ services:
     # Provisions the plugin databases web connects to above, as the dev superuser.
     environment:
       PLUGIN_DB_ADMIN_URL: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory
+      PLUGIN_DB_URL: postgres://postgres:5432 # must match web's above
       REQUIRE_SECURE_SECRETS: "false" # dev derives from the throwaway, as web does
     volumes:
       - .:/app

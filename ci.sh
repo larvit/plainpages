@@ -69,11 +69,19 @@ step "Plugin storage (real Postgres)"
 # --wait, because initdb on a cold volume outlasts the suite's connect timeout.
 storage_rc=0
 storage_proj=plainpages-storage
-docker compose -p "$storage_proj" up -d --wait postgres >/dev/null
-storage_out=$(docker compose -p "$storage_proj" run --rm --no-deps \
-	-e PLUGIN_DB_ADMIN_URL=postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory \
-	web node --test src/plugin-host/storage.test.ts 2>&1) || storage_rc=$?
-docker compose -p "$storage_proj" down -v >/dev/null 2>&1 || true
+storage_files=(-p "$storage_proj" -f compose.yml) # no override merge, like the e2e suites below
+storage_dsn="postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory"
+storage_out=""
+docker compose "${storage_files[@]}" up -d --wait postgres >/dev/null || storage_rc=$?
+# `if`, not `&&`: a false `&&` returns non-zero, which under `set -e` would exit before teardown.
+if [ "$storage_rc" -eq 0 ]; then
+	# --build like the e2e suites: this stack mounts no source, so without it the step would test
+	# whatever `web` image that project last baked.
+	storage_out=$(docker compose "${storage_files[@]}" run --build --rm --no-deps \
+		-e "PLUGIN_DB_ADMIN_URL=$storage_dsn" \
+		web node --test src/plugin-host/storage.test.ts 2>&1) || storage_rc=$?
+fi
+docker compose "${storage_files[@]}" down -v >/dev/null 2>&1 || true # also covers a failed `up`
 echo "$storage_out" | grep -E '^. (tests|pass|fail|skipped) ' || true
 [ "$storage_rc" -eq 0 ] || { echo "$storage_out"; echo "plugin storage integration tests failed (exit $storage_rc)"; exit "$storage_rc"; }
 # A skip here exits 0 and proves nothing — the same trap the unit floor above guards against.

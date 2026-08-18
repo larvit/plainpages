@@ -9,7 +9,7 @@ import {
   buildCredentials,
   derivePassword,
   isValidStoragePluginId,
-  MAX_STORAGE_PLUGIN_ID,
+  MAX_STORAGE_PLUGIN_ID_LENGTH,
   orphanNames,
   provisionSql,
   quoteIdentifier,
@@ -26,9 +26,9 @@ test("the database and the role share one plugin_-prefixed name", () => {
 });
 
 test("a storage plugin's id must leave the identifier under Postgres' 63 bytes", () => {
-  assert.equal(MAX_STORAGE_PLUGIN_ID, 56); // 63 - "plugin_"
-  assert.ok(isValidStoragePluginId("a".repeat(MAX_STORAGE_PLUGIN_ID)));
-  assert.ok(!isValidStoragePluginId("a".repeat(MAX_STORAGE_PLUGIN_ID + 1)));
+  assert.equal(MAX_STORAGE_PLUGIN_ID_LENGTH, 56); // 63 - "plugin_"
+  assert.ok(isValidStoragePluginId("a".repeat(MAX_STORAGE_PLUGIN_ID_LENGTH)));
+  assert.ok(!isValidStoragePluginId("a".repeat(MAX_STORAGE_PLUGIN_ID_LENGTH + 1)));
 });
 
 test("the password is derived, so the same one is reachable without storing it", () => {
@@ -63,7 +63,9 @@ test("quoting doubles an embedded quote", () => {
   assert.equal(quoteLiteral("we'ird"), "'we''ird'");
 });
 
-const ATTRIBUTES = "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 10";
+// No NOSUPERUSER: naming it in an ALTER is superuser-only, so re-asserting it would break every
+// boot after the first under the least-privilege account the README recommends.
+const ATTRIBUTES = "LOGIN NOCREATEDB NOCREATEROLE CONNECTION LIMIT 10";
 
 test("only the plugins that asked for storage are provisioned", () => {
   assert.deepEqual(
@@ -100,10 +102,12 @@ test("re-provisioning re-asserts every attribute and creates nothing twice", () 
   ]);
 });
 
-// The limit is interpolated unquoted, so a non-integer would corrupt the statement text.
-test("a non-integer connection limit is refused, not interpolated", () => {
-  const plan = { connectionLimit: 1.5, databaseExists: false, name: "plugin_things", password: "pw", roleExists: false };
-  assert.throws(() => provisionSql(plan), /connectionLimit must be an integer/);
+// The limit is interpolated unquoted, and Postgres reads a negative one as "unlimited".
+test("a connection limit that is not a positive integer is refused, not interpolated", () => {
+  const plan = { databaseExists: false, name: "plugin_things", password: "pw", roleExists: false };
+  for (const connectionLimit of [1.5, 0, -1, Number.NaN]) {
+    assert.throws(() => provisionSql({ ...plan, connectionLimit }), /positive integer/, `for ${connectionLimit}`);
+  }
 });
 
 // --- Integration: the statements above, against a real Postgres -----------------------
@@ -130,11 +134,22 @@ async function queryAs(url: string, statement: string): Promise<unknown> {
   }
 }
 
+// Drops what a previous run may have left behind: `finally` does not survive a SIGKILL or a
+// cancelled CI job, and the leftovers would otherwise fail every later run on the same server.
+async function dropStorage(admin: postgres.Sql, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    const name = quoteIdentifier(storageName(id));
+    await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await admin.unsafe(`DROP ROLE IF EXISTS ${name}`);
+  }
+}
+
 test("provisions a database its plugin can use and a peer plugin cannot reach", integration, async () => {
   const ids = ["storage-itest-a", "storage-itest-b"];
   const base = baseUrlOf(ADMIN_URL);
   const admin = postgres(ADMIN_URL, { connect_timeout: 10, max: 1, onnotice: () => {} });
   try {
+    await dropStorage(admin, ids);
     await provisionStorage({ adminUrl: ADMIN_URL, connectionLimit: 10, pluginIds: ids, secret: SECRET });
 
     const owner = buildCredentials(base, "storage-itest-a", SECRET);
@@ -163,12 +178,11 @@ test("provisions a database its plugin can use and a peer plugin cannot reach", 
     const uninstalled = await provisionStorage({ adminUrl: ADMIN_URL, connectionLimit: 10, pluginIds: [], secret: "a-rotated-secret" });
     for (const id of ids) assert.ok(uninstalled.orphans.includes(storageName(id)), `${id}'s database is reported`);
   } finally {
-    for (const id of ids) {
-      const name = quoteIdentifier(storageName(id));
-      await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-      await admin.unsafe(`DROP ROLE IF EXISTS ${name}`);
+    try {
+      await dropStorage(admin, ids);
+    } finally {
+      await admin.end({ timeout: 5 }); // its own finally, or a failed DROP leaks the connection
     }
-    await admin.end();
   }
 });
 
@@ -179,22 +193,30 @@ test("provisions through a CREATEDB + CREATEROLE account, without superuser", in
   const provisioner = "storage-itest-provisioner";
   const admin = postgres(ADMIN_URL, { connect_timeout: 10, max: 1, onnotice: () => {} });
   try {
+    // The fresh provisioner below holds no ADMIN option on a role an earlier run left behind, so a
+    // leftover would fail the ALTER branch rather than the code being wrong.
+    await dropStorage(admin, [pluginId]);
     await admin.unsafe(`DROP ROLE IF EXISTS ${quoteIdentifier(provisioner)}`);
     await admin.unsafe(`CREATE ROLE ${quoteIdentifier(provisioner)} LOGIN CREATEDB CREATEROLE PASSWORD 'itest-provisioner'`);
     const asProvisioner = new URL(ADMIN_URL);
     asProvisioner.username = provisioner;
     asProvisioner.password = "itest-provisioner";
-    await provisionStorage({ adminUrl: asProvisioner.href, connectionLimit: 10, pluginIds: [pluginId], secret: SECRET });
+    const provision = () => provisionStorage({ adminUrl: asProvisioner.href, connectionLimit: 10, pluginIds: [pluginId], secret: SECRET });
+    await provision();
+    // Twice: the second run takes the ALTER branch, where naming a superuser-only attribute would
+    // fail — i.e. every redeploy after the one that worked.
+    await provision();
 
     const owner = buildCredentials(baseUrlOf(ADMIN_URL), pluginId, SECRET);
     await queryAs(owner.url, "CREATE TABLE IF NOT EXISTS notes (body text)");
     const rows = (await queryAs(owner.url, "SELECT 1 AS ok")) as { ok: number }[];
     assert.deepEqual(rows.map((row) => row.ok), [1]); // the plugin owns and can use what it was given
   } finally {
-    const name = quoteIdentifier(storageName(pluginId));
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin.unsafe(`DROP ROLE IF EXISTS ${name}`);
-    await admin.unsafe(`DROP ROLE IF EXISTS ${quoteIdentifier(provisioner)}`);
-    await admin.end();
+    try {
+      await dropStorage(admin, [pluginId]);
+      await admin.unsafe(`DROP ROLE IF EXISTS ${quoteIdentifier(provisioner)}`);
+    } finally {
+      await admin.end({ timeout: 5 });
+    }
   }
 });

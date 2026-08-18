@@ -18,10 +18,6 @@ import { createLogger, runWithLog, tracedFetch, type Log } from "../logger.ts";
 
 type Env = Record<string, string | undefined>;
 
-// Kept closed to PUBLIC on every boot, not just on a fresh volume — a plugin role would otherwise
-// reach the auth plane's catalogs and connection slots (ory/postgres/init/init.sql seeds the same).
-const ORY_DATABASES = ["hydra", "keto", "kratos"];
-
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
 
 export function identityPayload(email: string, password: string) {
@@ -169,17 +165,20 @@ async function main() {
 // A database and login role for each plugin that asked for one. It happens here because bootstrap
 // holds the stack's only provisioning credentials — web derives the same password and connects as
 // the plugin's own role.
-async function provisionPluginStorage(env: Env, plugins: Plugin[], log: Log): Promise<void> {
+export async function provisionPluginStorage(env: Env, plugins: Plugin[], log: Log, provision = provisionStorage): Promise<void> {
   const ids = storagePluginIds(plugins);
   const adminUrl = env["PLUGIN_DB_ADMIN_URL"];
   // Still connect with nothing to provision, as long as storage is configured: uninstalling the
   // last storage plugin is exactly when an orphaned database needs naming.
   if (ids.length === 0 && !adminUrl) return;
   if (!adminUrl) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL must be set — these plugins declare storage: ${ids.join(", ")}`);
-  const result = await provisionStorage({
+  // Provisioned here, connected to from web: a different server means the role exists in one place
+  // and is looked for in another, surfacing as "password authentication failed" inside a plugin.
+  const serverMismatch = differentServer(adminUrl, env["PLUGIN_DB_URL"]);
+  if (serverMismatch) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL and PLUGIN_DB_URL must name one server (${serverMismatch})`);
+  const result = await provision({
     adminUrl,
     connectionLimit: resolvePluginDbConnectionLimit(env),
-    lockdownDatabases: ORY_DATABASES,
     pluginIds: ids,
     secret: resolvePluginDbSecret(env),
   });
@@ -187,6 +186,24 @@ async function provisionPluginStorage(env: Env, plugins: Plugin[], log: Log): Pr
   // Never dropped, so an uninstalled plugin's data outlives it — say so, or nobody can find it.
   if (result.orphans.length > 0) {
     log.warn("plugin databases no installed plugin claims", { databases: result.orphans.join(", ") });
+  }
+}
+
+// Describes the disagreement, or null when they agree (or when web's URL is unset — that is web's
+// own boot error to raise, naming the plugin that wanted storage).
+export function differentServer(adminUrl: string, webUrl: string | undefined): string | null {
+  if (!webUrl) return null;
+  const [admin, web] = [safeHostPort(adminUrl), safeHostPort(webUrl)];
+  if (admin === null || web === null || admin === web) return null; // a malformed URL fails in config.ts
+  return `${admin} vs ${web}`;
+}
+
+function safeHostPort(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}:${parsed.port || "5432"}`;
+  } catch {
+    return null;
   }
 }
 

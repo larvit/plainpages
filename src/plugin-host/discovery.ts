@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
-import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID } from "./storage.ts";
+import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID_LENGTH } from "./storage.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -70,7 +70,7 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
     // The folder name becomes a Postgres identifier, which truncates past 63 bytes — two long ids
     // would then share one database. Only checked for a plugin that asked for storage.
     if (manifest.storage === true && !isValidStoragePluginId(id)) {
-      fail(`declares storage, so its folder name must be at most ${MAX_STORAGE_PLUGIN_ID} characters`);
+      fail(`declares storage, so its folder name must be at most ${MAX_STORAGE_PLUGIN_ID_LENGTH} characters`);
       continue;
     }
 

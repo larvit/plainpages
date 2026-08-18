@@ -9,9 +9,8 @@ import type { Plugin } from "./plugin.ts";
 export const NAME_PREFIX = "plugin_";
 
 // Postgres truncates an identifier at 63 bytes, which would silently collide two long ids.
-export const MAX_STORAGE_PLUGIN_ID = 63 - NAME_PREFIX.length;
+export const MAX_STORAGE_PLUGIN_ID_LENGTH = 63 - NAME_PREFIX.length;
 
-// `url` pre-assembles the other fields as a DSN, which most drivers take directly.
 export interface StorageCredentials {
   database: string;
   host: string;
@@ -26,7 +25,7 @@ export function storageName(pluginId: string): string {
 }
 
 export function isValidStoragePluginId(pluginId: string): boolean {
-  return pluginId.length <= MAX_STORAGE_PLUGIN_ID;
+  return Buffer.byteLength(pluginId) <= MAX_STORAGE_PLUGIN_ID_LENGTH; // Postgres counts bytes, not characters
 }
 
 export function storagePluginIds(plugins: Plugin[]): string[] {
@@ -34,6 +33,7 @@ export function storagePluginIds(plugins: Plugin[]): string[] {
 }
 
 // Derived, never stored — which is what keeps the host free of state it would have to persist.
+// Whoever holds the secret holds every plugin's database.
 export function derivePassword(secret: string, pluginId: string): string {
   return createHmac("sha256", secret).update(pluginId).digest("base64url");
 }
@@ -58,8 +58,6 @@ export function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-// A database this host provisioned once and no installed plugin claims any more. Nothing drops it,
-// so naming it is the only way an operator finds it again.
 export function orphanNames(existing: string[], provisioned: string[]): string[] {
   return existing.filter((name) => name.startsWith(NAME_PREFIX) && !provisioned.includes(name)).sort();
 }
@@ -72,16 +70,16 @@ export interface ProvisionPlan {
   roleExists: boolean;
 }
 
-// One plugin's full plan, in order. Both role branches state the same attributes, so every boot
-// re-asserts them: a privilege granted by hand out of band does not survive silently.
 export function provisionSql(plan: ProvisionPlan): string[] {
-  if (!Number.isSafeInteger(plan.connectionLimit)) {
-    throw new Error(`storage: connectionLimit must be an integer, got ${plan.connectionLimit}`); // interpolated unquoted
+  // Interpolated unquoted, and Postgres reads a negative limit as "unlimited" — the opposite of the point.
+  if (!Number.isSafeInteger(plan.connectionLimit) || plan.connectionLimit < 1) {
+    throw new Error(`storage: connectionLimit must be a positive integer, got ${plan.connectionLimit}`);
   }
   const identifier = quoteIdentifier(plan.name);
-  // NOSUPERUSER/NOCREATEDB/NOCREATEROLE: a plugin owns its own database and nothing beyond it.
-  // The limit bounds one plugin's pools so they cannot starve Ory, which shares this server.
-  const attributes = `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT ${plan.connectionLimit} PASSWORD ${quoteLiteral(plan.password)}`;
+  // No NOSUPERUSER: only a superuser may name SUPERUSER in an ALTER, so re-asserting it would fail
+  // every boot after the first under the CREATEDB+CREATEROLE account the README recommends. CREATE
+  // defaults to NOSUPERUSER and a non-superuser cannot grant it, so nothing is given up.
+  const attributes = `LOGIN NOCREATEDB NOCREATEROLE CONNECTION LIMIT ${plan.connectionLimit} PASSWORD ${quoteLiteral(plan.password)}`;
   return [
     plan.roleExists ? `ALTER ROLE ${identifier} WITH ${attributes}` : `CREATE ROLE ${identifier} ${attributes}`,
     // CREATE DATABASE ... OWNER needs SET ROLE on the owner, and PG16+ gives a CREATEROLE account
