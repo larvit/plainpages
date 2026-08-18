@@ -63,8 +63,6 @@ test("quoting doubles an embedded quote", () => {
   assert.equal(quoteLiteral("we'ird"), "'we''ird'");
 });
 
-// No NOSUPERUSER: naming it in an ALTER is superuser-only, so re-asserting it would break every
-// boot after the first under the least-privilege account the README recommends.
 const ATTRIBUTES = "LOGIN NOCREATEDB NOCREATEROLE CONNECTION LIMIT 10";
 
 test("only the plugins that asked for storage are provisioned", () => {

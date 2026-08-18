@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { differentServer, ensureJwks, firstRunBanner, identityPayload, permissionTuple, provisionPluginStorage, seedAdmin, seedPermissions } from "./bootstrap.ts";
+import { ensureJwks, firstRunBanner, identityPayload, permissionTuple, provisionPluginStorage, seedAdmin, seedPermissions, serverMismatch } from "./bootstrap.ts";
 import { createLogger } from "../logger.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import type { ProvisionOptions, ProvisionResult } from "../plugin-host/storage-provisioning.ts";
@@ -200,16 +200,17 @@ test("the connection limit and derived secret reach the provisioner", async () =
 });
 
 // bootstrap creates the role on one server; web tells the plugin to connect to another. Left
-// unchecked it surfaces inside a plugin as "password authentication failed", naming neither.
-test("provisioning refuses when the two storage URLs name different servers", async () => {
+// unsaid it surfaces inside a plugin as "password authentication failed", naming neither. Warned
+// rather than refused: web reaching a pooler bootstrap cannot provision through is legitimate.
+test("a storage URL mismatch is reported, and provisioning still runs", async () => {
   const { calls, provision } = recordingProvisioner();
   const env = { PLUGIN_DB_ADMIN_URL: "postgres://ory:ory@db-a:5432/ory", PLUGIN_DB_URL: "postgres://db-b:5432" };
-  await assert.rejects(provisionPluginStorage(env, [storagePlugin("things")], SILENT, provision), /one server.*db-a:5432 vs db-b:5432/s);
-  assert.deepEqual(calls, []);
+  await provisionPluginStorage(env, [storagePlugin("things")], SILENT, provision);
+  assert.equal(calls.length, 1);
 });
 
 test("the same server spelled with an implicit port still agrees", () => {
-  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", "postgres://db"), null); // 5432 is the default
-  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", undefined), null); // web's own boot error to raise
-  assert.equal(differentServer("postgres://ory:ory@db:5432/ory", "postgres://db:6543"), "db:5432 vs db:6543");
+  assert.equal(serverMismatch("postgres://ory:ory@db:5432/ory", "postgres://db"), null); // 5432 is the default
+  assert.equal(serverMismatch("postgres://ory:ory@db:5432/ory", undefined), null); // web's own boot error to raise
+  assert.equal(serverMismatch("postgres://ory:ory@db:5432/ory", "postgres://db:6543"), "db:5432 vs db:6543");
 });

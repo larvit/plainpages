@@ -86,6 +86,9 @@ test("the provisioning superuser DSN reaches bootstrap only, never web", () => {
   const boot = compose.slice(compose.indexOf("\n  bootstrap:"));
   const overrideWeb = override.slice(override.indexOf("\n  web:"), override.indexOf("\n  bootstrap:"));
   assert.match(boot, /PLUGIN_DB_ADMIN_URL:/, "bootstrap is given the superuser DSN");
+  // Reordering the override's services would empty this slice, and every doesNotMatch below would
+  // then pass against "".
+  assert.ok(overrideWeb.includes("PLUGIN_DB_URL"), "sliced the dev override's web block");
   for (const [name, block] of [["base", webBlock], ["dev override", overrideWeb]] as const)
     assert.doesNotMatch(block, /PLUGIN_DB_ADMIN_URL/, `${name} web never sees it`);
   assert.match(webBlock, /PLUGIN_DB_URL:\s*\$\{PLUGIN_DB_URL/, "base wires web's base URL from env");

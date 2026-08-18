@@ -31,9 +31,9 @@ test("init SQL gives each Ory service its own database, and leaves plugin databa
   }
 });
 
-// AGENTS.md records that the driver runs the provisioning DDL in bootstrap "and nothing else".
-// discovery.ts once imported a validator from the module that held it, quietly putting the driver in
-// web's graph — the claim outlived the fact, which is what this catches.
+// AGENTS.md records that the driver runs the provisioning DDL in bootstrap and nothing else. A
+// single value imported from the wrong module puts it in web's graph without changing behaviour,
+// so nothing but this would notice.
 test("the Postgres driver reaches bootstrap only, never web's import graph", () => {
   const files = sourceFiles();
   assert.ok(files.length > 40, "walks the source tree");

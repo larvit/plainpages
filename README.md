@@ -781,11 +781,12 @@ What the host does guarantee:
   boundary: plugins share the `web` process, so a plugin that goes looking can reach another's
   credentials. Install plugins you trust ([Security model](#security-model)).
 - **Provisioning is idempotent and runs every boot**, so a plugin dropped in later is picked up by
-  the next `docker compose up -d` — the same rule as permission seeding. Role attributes are
-  re-applied each time, so a privilege granted by hand out of band does not quietly persist.
+  the next `docker compose up -d` — the same rule as permission seeding. Each boot re-applies the
+  role's password, connection limit, and `NOCREATEDB`/`NOCREATEROLE`.
 - **Your data is never dropped.** Removing a plugin folder leaves its database untouched; deleting it
   is a deliberate act by an operator. Each boot logs any `plugin_*` database no installed plugin
-  claims, so what you left behind stays findable.
+  claims, so what you left behind stays findable — read that list before dropping anything, since a
+  second Plainpages stack sharing this server will have its databases named there too.
 
 **Passwords are derived, never stored** — each is `HMAC-SHA256(PLUGIN_DB_SECRET, <plugin id>)`, so
 `bootstrap` and `web` compute the same value independently and nothing has to be written down.

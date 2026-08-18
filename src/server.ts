@@ -61,6 +61,10 @@ const storageCredentials = new Map<string, StorageCredentials>();
 if (pluginDbUrl !== undefined) {
   for (const id of declaresStorage) storageCredentials.set(id, buildCredentials(pluginDbUrl, id, config.pluginDbSecret));
 }
+// onBoot is the only way credentials are handed over, so without one the database is provisioned
+// and unreachable. A warning, not a refusal — the plugin still works, it just cannot store anything.
+const unreachable = plugins.filter((plugin) => plugin.storage && !plugin.hooks?.onBoot).map((plugin) => plugin.id);
+if (unreachable.length > 0) log.warn("plugins declare storage but have no onBoot to receive it", { plugins: unreachable.join(", ") });
 
 // plugin onBoot — after discovery, before listen; a throw aborts boot.
 await runBootHooks(plugins, (plugin) => {

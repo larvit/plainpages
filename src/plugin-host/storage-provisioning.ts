@@ -17,7 +17,9 @@ export interface ProvisionResult {
 }
 
 export async function provisionStorage(options: ProvisionOptions): Promise<ProvisionResult> {
-  const sql = postgres(options.adminUrl, { connect_timeout: 10, max: 1, onnotice: () => {} });
+  // Notices are left to surface: a REVOKE the account cannot perform only *warns*, and silencing
+  // that would mean reporting a locked-down database that is still open to PUBLIC.
+  const sql = postgres(options.adminUrl, { connect_timeout: 10, max: 1 });
   try {
     const provisioned: string[] = [];
     for (const pluginId of options.pluginIds) {

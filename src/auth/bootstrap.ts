@@ -146,7 +146,7 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
 // --- CLI (the bootstrap container entrypoint) ----------------------------------------
 
 async function main() {
-  const env = process.env;
+  const env = { ...process.env }; // snapshot: the storage credentials leave process.env before discovery
   // Structured like the web app so prod logs stay uniform; honour LOG_FORMAT/SERVICE_NAME.
   const log = createLogger({
     format: env["LOG_FORMAT"] === "json" ? "json" : "text",
@@ -155,6 +155,10 @@ async function main() {
   // runWithLog makes `log` ambient so seedAdmin's tracedFetch traces the Kratos/Keto seed calls.
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
+    // Discovery imports every plugin module — and its dependencies — into *this* process, which holds
+    // the credential that may CREATE DATABASE/ROLE. Same move as server.ts, on the stronger secret.
+    delete process.env["PLUGIN_DB_ADMIN_URL"];
+    delete process.env["PLUGIN_DB_SECRET"];
     const plugins = await discoverPlugins();
     await provisionPluginStorage(env, plugins, log);
     await seedAdminAndPermissions(env, plugins, log);
@@ -172,10 +176,11 @@ export async function provisionPluginStorage(env: Env, plugins: Plugin[], log: L
   // last storage plugin is exactly when an orphaned database needs naming.
   if (ids.length === 0 && !adminUrl) return;
   if (!adminUrl) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL must be set — these plugins declare storage: ${ids.join(", ")}`);
-  // Provisioned here, connected to from web: a different server means the role exists in one place
-  // and is looked for in another, surfacing as "password authentication failed" inside a plugin.
-  const serverMismatch = differentServer(adminUrl, env["PLUGIN_DB_URL"]);
-  if (serverMismatch) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL and PLUGIN_DB_URL must name one server (${serverMismatch})`);
+  // Provisioned here, connected to from web: a different server means the role is created in one
+  // place and looked for in another, surfacing inside a plugin as "password authentication failed".
+  // Warned, not refused — web reaching a pooler that cannot run CREATE DATABASE is a legitimate split.
+  const mismatch = serverMismatch(adminUrl, env["PLUGIN_DB_URL"]);
+  if (mismatch) log.warn("PLUGIN_DB_ADMIN_URL and PLUGIN_DB_URL name different servers", { servers: mismatch });
   const result = await provision({
     adminUrl,
     connectionLimit: resolvePluginDbConnectionLimit(env),
@@ -191,7 +196,7 @@ export async function provisionPluginStorage(env: Env, plugins: Plugin[], log: L
 
 // Describes the disagreement, or null when they agree (or when web's URL is unset — that is web's
 // own boot error to raise, naming the plugin that wanted storage).
-export function differentServer(adminUrl: string, webUrl: string | undefined): string | null {
+export function serverMismatch(adminUrl: string, webUrl: string | undefined): string | null {
   if (!webUrl) return null;
   const [admin, web] = [safeHostPort(adminUrl), safeHostPort(webUrl)];
   if (admin === null || web === null || admin === web) return null; // a malformed URL fails in config.ts

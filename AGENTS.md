@@ -84,8 +84,8 @@ Revisit only if the stated reason stops holding.
   - **Plugin storage hands over credentials, not a client** (README → Plugin storage). The host takes
   `postgres` to run the provisioning DDL, and `storage-provisioning.ts` is the only module importing
   it — `storage.ts` beside it stays pure so `web` never loads a driver (`src/postgres.test.ts` guards
-  both halves; the claim silently went false once already). It is never re-exported through the
-  barrel, so no driver shape enters the contract. Three properties hold the design together, so
+  both halves, because one value imported from the wrong module breaks it invisibly). It is never
+  re-exported through the barrel, so no driver shape enters the contract. Three properties hold the design together, so
   don't trade one away in isolation: passwords are `HMAC-SHA256(PLUGIN_DB_SECRET, id)` rather than
   stored, which is what keeps the host stateless — whoever holds that secret holds every plugin
   database, so it ranks with the DB password itself; the provisioning DSN reaches `bootstrap` only
@@ -101,13 +101,12 @@ Revisit only if the stated reason stops holding.
   after `loadConfig`, which is before discovery imports any plugin module — the ordering is the whole
   point, so move it earlier if anything, **never later**. **Valid while plugins are
   operator-installed code, not third-party uploads.**
-- **`ory/postgres/init/init.sql` is the only home for the Ory databases' ACL.** Re-asserting the
-  `REVOKE CONNECT` from `bootstrap` each boot was tried and removed: `REVOKE` only *warns* when the
-  caller doesn't own the database, so under the least-privilege provisioning account the README
-  recommends it reported success while changing nothing — and it hard-failed whenever
-  `PLUGIN_DB_ADMIN_URL` named a server with no `kratos`. A volume created before that file gained the
-  revokes keeps the default grant; `docker compose down -v` is the dev remedy. **Valid while
-  pre-release, with no deployed volumes to migrate.**
+- **`ory/postgres/init/init.sql` is the only home for the Ory databases' ACL** — don't re-assert the
+  `REVOKE CONNECT` from `bootstrap`. `REVOKE` only *warns* when the caller doesn't own the database,
+  so under the least-privilege provisioning account the README recommends it would report success
+  while changing nothing, and it hard-fails whenever `PLUGIN_DB_ADMIN_URL` names a server with no
+  `kratos`. A volume created before that file gained the revokes keeps the default grant;
+  `docker compose down -v` is the dev remedy. **Valid while pre-release, with no deployed volumes.**
 - **`bootstrap.ts` stays under `src/auth/`** even though it now provisions plugin databases as well
   as seeding Ory. It is the one-shot service's entrypoint, not an auth module; moving it to
   `src/bootstrap.ts` would edit `compose.yml`, five e2e compose files and `src/compose.test.ts` for a

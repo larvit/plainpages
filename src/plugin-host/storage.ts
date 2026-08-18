@@ -76,9 +76,7 @@ export function provisionSql(plan: ProvisionPlan): string[] {
     throw new Error(`storage: connectionLimit must be a positive integer, got ${plan.connectionLimit}`);
   }
   const identifier = quoteIdentifier(plan.name);
-  // No NOSUPERUSER: only a superuser may name SUPERUSER in an ALTER, so re-asserting it would fail
-  // every boot after the first under the CREATEDB+CREATEROLE account the README recommends. CREATE
-  // defaults to NOSUPERUSER and a non-superuser cannot grant it, so nothing is given up.
+  // No NOSUPERUSER: naming SUPERUSER in an ALTER is superuser-only, and CREATE defaults to it anyway.
   const attributes = `LOGIN NOCREATEDB NOCREATEROLE CONNECTION LIMIT ${plan.connectionLimit} PASSWORD ${quoteLiteral(plan.password)}`;
   return [
     plan.roleExists ? `ALTER ROLE ${identifier} WITH ${attributes}` : `CREATE ROLE ${identifier} ${attributes}`,
