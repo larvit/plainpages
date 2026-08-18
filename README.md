@@ -737,7 +737,7 @@ A plugin that needs to keep data sets `storage: true`. The host then provisions 
 
 ```ts
 import postgres from "postgres";              // your dependency, not the host's
-import { definePlugin, type StorageCredentials } from "@plainpages/plugin-api";
+import { definePlugin } from "@plainpages/plugin-api";
 
 let sql: ReturnType<typeof postgres>;
 
@@ -745,47 +745,63 @@ export default definePlugin({
   apiVersion: "1.0.0",
   storage: true,
   hooks: {
-    onBoot: async (host) => {
-      if (!host.storage) throw new Error("things: storage was not provisioned");
-      sql = postgres(host.storage.url);
-      await sql`CREATE TABLE IF NOT EXISTS things (id uuid PRIMARY KEY, name text NOT NULL)`;
+    onBoot: async (boot) => {
+      if (!boot.storage) throw new Error("things: storage was not provisioned");
+      sql = postgres(boot.storage.url);
+      // Every web instance runs onBoot, and concurrent CREATE TABLE IF NOT EXISTS is an error in
+      // Postgres — the lock is released when the transaction ends.
+      await sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(hashtext('things:schema'))`;
+        await tx`CREATE TABLE IF NOT EXISTS things (id uuid PRIMARY KEY, name text NOT NULL)`;
+      });
     },
   },
 });
 ```
 
-`host.storage` is a `StorageCredentials` — `database`, `host`, `password`, `port`, `user`, and `url`,
-the same values pre-assembled as a DSN, which most clients take directly.
+`boot.storage` is a `StorageCredentials` — `database`, `host`, `password`, `port`, `user`, and `url`,
+the same values pre-assembled as a DSN, which most clients take directly. It is typed optional, so
+the guard above is expected of every storage plugin rather than a sign something is wrong.
 
 **Credentials, not a client.** The host has no opinion on how you reach Postgres: depend on
 `postgres`, `pg`, a query builder or an ORM ([Plugin dependencies](#plugin-dependencies)). No driver
-is part of the contract, so upgrading yours is yours alone to time.
+is part of the contract, so upgrading yours is yours alone to time. The flip side is that pool sizing
+is yours too — keep yours under `PLUGIN_DB_CONNECTION_LIMIT` (default 10), the per-role ceiling the
+host sets so one plugin cannot exhaust the Postgres this stack shares with Ory.
 
-**The schema is yours.** The host creates the database empty and never reads or writes inside it.
-Create your tables in `onBoot`: it runs before the server listens, so a failure aborts boot instead
-of surfacing later as a broken page.
+**The schema is yours, migrations included.** The host creates the database empty, never reads or
+writes inside it, and ships no migration machinery — evolving your tables compatibly (expand, then
+contract, so a rolled-back version still runs) is yours to own. Create your tables in `onBoot`: it
+runs before the server listens, so a failure aborts boot instead of surfacing later as a broken page.
 
 What the host does guarantee:
 
-- **One database and one role per plugin.** `CONNECT` is revoked from `PUBLIC`, so another installed
-  plugin's role cannot reach your database.
+- **One database and one role per plugin**, with `CONNECT` revoked from `PUBLIC`. This bounds
+  *accidents* — a wrong database name, a mistyped DSN, a stray query — and it is not a security
+  boundary: plugins share the `web` process, so a plugin that goes looking can reach another's
+  credentials. Install plugins you trust ([Security model](#security-model)).
 - **Provisioning is idempotent and runs every boot**, so a plugin dropped in later is picked up by
-  the next `docker compose up -d` — the same rule as permission seeding.
+  the next `docker compose up -d` — the same rule as permission seeding. Role attributes are
+  re-applied each time, so a privilege granted by hand out of band does not quietly persist.
 - **Your data is never dropped.** Removing a plugin folder leaves its database untouched; deleting it
-  is a deliberate act by an operator.
+  is a deliberate act by an operator. Each boot logs any `plugin_*` database no installed plugin
+  claims, so what you left behind stays findable.
 
 **Passwords are derived, never stored** — each is `HMAC-SHA256(PLUGIN_DB_SECRET, <plugin id>)`, so
 `bootstrap` and `web` compute the same value independently and nothing has to be written down.
 Rotate every plugin's password by changing `PLUGIN_DB_SECRET` and running `docker compose up -d`,
-which re-applies each role's password and leaves the data alone. Under `REQUIRE_SECURE_SECRETS` a
-missing, empty or throwaway secret is refused — in `bootstrap` before it creates any role, so no
-database is ever given a password derivable from a constant in this repo.
+which re-applies each role's password and leaves the data alone — restart every `web` instance as
+part of it, since one still holding the old secret can open no new connections. Treat the secret as
+you would a database password: whoever holds it holds every plugin database. Under
+`REQUIRE_SECURE_SECRETS` a missing, empty or throwaway secret is refused — in `bootstrap` before it
+creates any role, so no database is ever given a password derivable from a constant in this repo.
 
-**Only `bootstrap` holds superuser credentials.** It alone gets `PLUGIN_DB_ADMIN_URL`, the DSN that
-may `CREATE DATABASE`/`CREATE ROLE`. `web` gets `PLUGIN_DB_URL`, which names the server and carries
-no credentials — so plugin code, which runs inside `web`, cannot read a superuser password out of its
-own environment. Set both, plus `PLUGIN_DB_SECRET` ([Configuration](#configuration)); the dev stack
-sets them for you.
+**Only `bootstrap` holds provisioning credentials.** It alone gets `PLUGIN_DB_ADMIN_URL`, an account
+with `CREATEDB` and `CREATEROLE` (superuser works but is more than it needs; the dev stack simply
+reuses Ory's). `web` gets `PLUGIN_DB_URL`, which names the server and must carry no credentials —
+supply one with a username or password and boot fails, rather than leaving a privileged password in
+the process that runs plugin code. Set both, plus `PLUGIN_DB_SECRET`
+([Configuration](#configuration)); the dev stack sets them for you.
 
 Storage stays off until `PLUGIN_DB_URL` is set, and a plugin declaring it while that is unset
 **aborts boot** naming itself — rather than serving pages without its data. One naming limit: a
@@ -1023,6 +1039,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `PLUGIN_DB_URL` | _unset_ (dev: `postgres://postgres:5432`) | credential-free Postgres base URL for [plugin storage](#plugin-storage); unset ⇒ storage off, and a plugin declaring it aborts boot |
 | `PLUGIN_DB_ADMIN_URL` | _unset_ (dev: the bundled superuser) | the DSN that provisions each plugin's database and role — read by the one-shot `bootstrap` service **only**, never by `web` |
 | `PLUGIN_DB_SECRET` | dev throwaway | derives each plugin's database password; `REQUIRE_SECURE_SECRETS` enforces it in `web` once `PLUGIN_DB_URL` is set, and in `bootstrap` whenever a plugin declares storage |
+| `PLUGIN_DB_CONNECTION_LIMIT` | `10` | per-role Postgres connection ceiling, so one plugin's pools cannot exhaust the server Ory shares; read by `bootstrap` when provisioning |
 
 ### Canonical host (one public URL)
 
@@ -1445,6 +1462,11 @@ the one-shot bootstrap) — and mounts no source. Secrets come from the environm
 running insecure. Before going live, supply the production secrets and any SSO credentials — the
 **only** manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)).
 
+**Back up the `pgdata` volume.** Once a plugin declares [storage](#plugin-storage), Postgres holds
+business data that exists nowhere else, alongside Ory's identities — the stack stops being
+reproducible from the image and config alone. Snapshot the volume, or `pg_dump` each database on a
+schedule, and rehearse the restore.
+
 Every response carries security headers (`src/http/security-headers.ts`): a strict
 `Content-Security-Policy` (the core is zero-JS — `script-src 'self'`, no inline scripts),
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` + `frame-ancestors 'none'`,
@@ -1595,7 +1617,8 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   i18n/              catalog (parity rules) · locale (resolution) · translate · load · runtime ·
                      english · view-locals · locales/ (the core en-US + sv-SE catalogs)
   plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `@plainpages/plugin-api` barrel) · system.ts
-                     (ctx.system) · discovery · router · hooks · view-resolver
+                     (ctx.system) · discovery · router · hooks · view-resolver · storage (the rules) ·
+                     storage-provisioning (the DDL; bootstrap-only, holds the driver)
   ui/                chrome (the one global menu) · shell-context · dashboard · nav (composeNav) ·
                      menu-config (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
 

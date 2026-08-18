@@ -13,7 +13,7 @@ import { createKratosAdmin } from "./auth/kratos-admin.ts";
 import { createKratosPublic } from "./auth/kratos-public.ts";
 import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./ui/menu-config.ts";
-import { buildCredentials } from "./plugin-host/storage.ts";
+import { buildCredentials, storagePluginIds, type StorageCredentials } from "./plugin-host/storage.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
@@ -48,15 +48,25 @@ log.info("locales loaded", { locales: i18n.available.join(", ") });
 // A plugin's database credentials are derived, never stored — so the only thing that can be missing
 // is the server itself. Refuse at boot rather than at that plugin's first query, hours later.
 const pluginDbUrl = config.pluginDbUrl;
-const declaresStorage = plugins.filter((plugin) => plugin.storage).map((plugin) => plugin.id);
+const declaresStorage = storagePluginIds(plugins);
 if (declaresStorage.length > 0 && pluginDbUrl === undefined) {
   throw new Error(`config: PLUGIN_DB_URL must be set — these plugins declare storage: ${declaresStorage.join(", ")}`);
 }
 
+// Derive every plugin's credentials first, then drop the secret: onBoot is the window in which
+// plugin code could read it out of the environment and derive a *peer's* password. Order matters —
+// deleting after the hooks would protect nothing. Defence in depth, not a boundary (AGENTS.md).
+const storageCredentials = new Map<string, StorageCredentials>();
+if (pluginDbUrl !== undefined) {
+  for (const id of declaresStorage) storageCredentials.set(id, buildCredentials(pluginDbUrl, id, config.pluginDbSecret));
+}
+delete process.env["PLUGIN_DB_SECRET"];
+
 // plugin onBoot — after discovery, before listen; a throw aborts boot.
-await runBootHooks(plugins, (plugin) =>
-  plugin.storage && pluginDbUrl !== undefined ? { storage: buildCredentials(pluginDbUrl, plugin.id, config.pluginDbSecret) } : {},
-);
+await runBootHooks(plugins, (plugin) => {
+  const storage = storageCredentials.get(plugin.id);
+  return storage ? { storage } : {};
+});
 
 const server = createApp({
   // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless

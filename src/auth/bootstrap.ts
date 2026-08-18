@@ -8,12 +8,15 @@
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolvePluginDbSecret } from "../config.ts";
+import { resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
-import { declaredPermissions, isValidPermissionName } from "../plugin-host/plugin.ts";
-import { provisionStorage } from "../plugin-host/storage.ts";
+import { declaredPermissions, isValidPermissionName, type Plugin } from "../plugin-host/plugin.ts";
+import { provisionStorage } from "../plugin-host/storage-provisioning.ts";
+import { storagePluginIds } from "../plugin-host/storage.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
-import { createLogger, runWithLog, tracedFetch } from "../logger.ts";
+import { createLogger, runWithLog, tracedFetch, type Log } from "../logger.ts";
+
+type Env = Record<string, string | undefined>;
 
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
 
@@ -152,42 +155,57 @@ async function main() {
   // runWithLog makes `log` ambient so seedAdmin's tracedFetch traces the Kratos/Keto seed calls.
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
-
     const plugins = await discoverPlugins();
-
-    // A database and login role for each plugin that asked for one. It happens here because
-    // bootstrap holds the stack's only superuser credentials — web derives the same password from
-    // PLUGIN_DB_SECRET and connects as the plugin's own role, never as a superuser.
-    const storagePlugins = plugins.filter((plugin) => plugin.storage).map((plugin) => plugin.id);
-    if (storagePlugins.length > 0) {
-      const adminUrl = env["PLUGIN_DB_ADMIN_URL"];
-      if (!adminUrl) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL must be set — these plugins declare storage: ${storagePlugins.join(", ")}`);
-      const provisioned = await provisionStorage({ adminUrl, pluginIds: storagePlugins, secret: resolvePluginDbSecret(env) });
-      log.info("plugin storage provisioned", { databases: provisioned.join(", ") });
-    }
-
-    // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
-    // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-    const declared = declaredPermissions(plugins).map((decl) => decl.name);
-    const { ignored, permissions } = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
-    if (ignored.length > 0) {
-      log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });
-    }
-    const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
-    const password = env["ADMIN_PASSWORD"] ?? "admin";
-    const result = await seedAdmin({
-      email,
-      fetchImpl: tracedFetch,
-      ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
-      kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
-      password,
-      permissions,
-    });
-    log.info("admin seeded", { created: result.created, id: result.id, permissions: result.permissions.join(", ") });
-    // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
-    console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
+    await provisionPluginStorage(env, plugins, log);
+    await seedAdminAndPermissions(env, plugins, log);
   });
   await log.end(); // flush any pending OTLP spans/logs before the one-shot exits
+}
+
+// A database and login role for each plugin that asked for one. It happens here because bootstrap
+// holds the stack's only provisioning credentials — web derives the same password and connects as
+// the plugin's own role.
+async function provisionPluginStorage(env: Env, plugins: Plugin[], log: Log): Promise<void> {
+  const ids = storagePluginIds(plugins);
+  const adminUrl = env["PLUGIN_DB_ADMIN_URL"];
+  // Still connect with nothing to provision, as long as storage is configured: uninstalling the
+  // last storage plugin is exactly when an orphaned database needs naming.
+  if (ids.length === 0 && !adminUrl) return;
+  if (!adminUrl) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL must be set — these plugins declare storage: ${ids.join(", ")}`);
+  const result = await provisionStorage({
+    adminUrl,
+    connectionLimit: resolvePluginDbConnectionLimit(env),
+    pluginIds: ids,
+    secret: resolvePluginDbSecret(env),
+  });
+  if (result.provisioned.length > 0) log.info("plugin storage provisioned", { databases: result.provisioned.join(", ") });
+  // Never dropped, so an uninstalled plugin's data outlives it — say so, or nobody can find it.
+  if (result.orphans.length > 0) {
+    log.warn("plugin databases no installed plugin claims", { databases: result.orphans.join(", ") });
+  }
+}
+
+// Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
+// shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
+async function seedAdminAndPermissions(env: Env, plugins: Plugin[], log: Log): Promise<void> {
+  const declared = declaredPermissions(plugins).map((decl) => decl.name);
+  const { ignored, permissions } = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
+  if (ignored.length > 0) {
+    log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });
+  }
+  const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
+  const password = env["ADMIN_PASSWORD"] ?? "admin";
+  const result = await seedAdmin({
+    email,
+    fetchImpl: tracedFetch,
+    ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
+    kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
+    password,
+    permissions,
+  });
+  log.info("admin seeded", { created: result.created, id: result.id, permissions: result.permissions.join(", ") });
+  // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
+  console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

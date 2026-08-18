@@ -1,12 +1,12 @@
-// Per-plugin Postgres storage (README → Plugin storage). Only bootstrap provisions, because only it
-// is given superuser credentials; web derives the same passwords and never sees them.
+// Per-plugin Postgres storage: the naming, credential and DDL rules (README → Plugin storage).
+// Pure — the connecting half lives in storage-provisioning.ts, so `web` never loads a driver.
 
 import { createHmac } from "node:crypto";
-import postgres from "postgres";
+import type { Plugin } from "./plugin.ts";
 
 // Database and role share one name, so reconnecting needs nothing looked up. The prefix also keeps
 // a plugin id from ever naming an Ory database.
-const NAME_PREFIX = "plugin_";
+export const NAME_PREFIX = "plugin_";
 
 // Postgres truncates an identifier at 63 bytes, which would silently collide two long ids.
 export const MAX_STORAGE_PLUGIN_ID = 63 - NAME_PREFIX.length;
@@ -27,6 +27,10 @@ export function storageName(pluginId: string): string {
 
 export function isValidStoragePluginId(pluginId: string): boolean {
   return pluginId.length <= MAX_STORAGE_PLUGIN_ID;
+}
+
+export function storagePluginIds(plugins: Plugin[]): string[] {
+  return plugins.filter((plugin) => plugin.storage).map((plugin) => plugin.id);
 }
 
 // Derived, never stored — which is what keeps the host free of state it would have to persist.
@@ -54,51 +58,28 @@ export function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-export interface ProvisionState {
+export interface ProvisionPlan {
+  connectionLimit: number;
   databaseExists: boolean;
+  name: string;
+  password: string;
   roleExists: boolean;
 }
 
-// One plugin's full plan, in order. The password is re-set on every run so rotating the secret needs
-// no separate step, and PUBLIC loses CONNECT so no other plugin's role can reach this database.
-export function provisionSql(name: string, password: string, state: ProvisionState): string[] {
-  const identifier = quoteIdentifier(name);
-  const secret = quoteLiteral(password);
+// One plugin's full plan, in order. Both role branches state the same attributes, so every boot
+// re-asserts them: a privilege granted by hand out of band does not survive silently.
+export function provisionSql(plan: ProvisionPlan): string[] {
+  if (!Number.isSafeInteger(plan.connectionLimit)) {
+    throw new Error(`storage: connectionLimit must be an integer, got ${plan.connectionLimit}`); // interpolated unquoted
+  }
+  const identifier = quoteIdentifier(plan.name);
+  // NOSUPERUSER/NOCREATEDB/NOCREATEROLE: a plugin owns its own database and nothing beyond it.
+  // The limit bounds one plugin's pools so they cannot starve Ory, which shares this server.
+  const attributes = `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT ${plan.connectionLimit} PASSWORD ${quoteLiteral(plan.password)}`;
   return [
-    state.roleExists
-      ? `ALTER ROLE ${identifier} WITH LOGIN PASSWORD ${secret}`
-      : `CREATE ROLE ${identifier} LOGIN PASSWORD ${secret}`,
-    ...(state.databaseExists ? [] : [`CREATE DATABASE ${identifier} OWNER ${identifier}`]),
+    plan.roleExists ? `ALTER ROLE ${identifier} WITH ${attributes}` : `CREATE ROLE ${identifier} ${attributes}`,
+    ...(plan.databaseExists ? [] : [`CREATE DATABASE ${identifier} OWNER ${identifier}`]),
     `REVOKE ALL ON DATABASE ${identifier} FROM PUBLIC`,
     `GRANT ALL PRIVILEGES ON DATABASE ${identifier} TO ${identifier}`,
   ];
-}
-
-export interface ProvisionOptions {
-  adminUrl: string; // superuser DSN — the rights to create a database and a role
-  pluginIds: string[];
-  secret: string;
-}
-
-// Idempotent, and it drops nothing: an uninstalled plugin keeps its data until an operator removes
-// it deliberately.
-export async function provisionStorage(options: ProvisionOptions): Promise<string[]> {
-  const sql = postgres(options.adminUrl, { connect_timeout: 10, max: 1, onnotice: () => {} });
-  try {
-    const names: string[] = [];
-    for (const pluginId of options.pluginIds) {
-      const name = storageName(pluginId);
-      const [role] = await sql`SELECT 1 FROM pg_roles WHERE rolname = ${name}`;
-      const [database] = await sql`SELECT 1 FROM pg_database WHERE datname = ${name}`;
-      const plan = provisionSql(name, derivePassword(options.secret, pluginId), {
-        databaseExists: database !== undefined,
-        roleExists: role !== undefined,
-      });
-      for (const statement of plan) await sql.unsafe(statement); // provisionSql quotes what it interpolates
-      names.push(name);
-    }
-    return names;
-  } finally {
-    await sql.end();
-  }
 }

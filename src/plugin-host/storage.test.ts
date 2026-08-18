@@ -4,16 +4,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import postgres from "postgres";
+import { provisionStorage } from "./storage-provisioning.ts";
 import {
   buildCredentials,
   derivePassword,
   isValidStoragePluginId,
   MAX_STORAGE_PLUGIN_ID,
   provisionSql,
-  provisionStorage,
   quoteIdentifier,
   quoteLiteral,
   storageName,
+  storagePluginIds,
 } from "./storage.ts";
 
 const SECRET = "a-test-secret";
@@ -61,21 +62,40 @@ test("quoting doubles an embedded quote", () => {
   assert.equal(quoteLiteral("we'ird"), "'we''ird'");
 });
 
+const ATTRIBUTES = "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 10";
+
+test("only the plugins that asked for storage are provisioned", () => {
+  assert.deepEqual(
+    storagePluginIds([{ apiVersion: "1.0.0", id: "a", storage: true }, { apiVersion: "1.0.0", id: "b" }, { apiVersion: "1.0.0", id: "c", storage: true }]),
+    ["a", "c"],
+  );
+});
+
 test("provisioning creates the role and the database when neither exists", () => {
-  assert.deepEqual(provisionSql("plugin_things", "pw", { databaseExists: false, roleExists: false }), [
-    `CREATE ROLE "plugin_things" LOGIN PASSWORD 'pw'`,
+  const plan = { connectionLimit: 10, databaseExists: false, name: "plugin_things", password: "pw", roleExists: false };
+  assert.deepEqual(provisionSql(plan), [
+    `CREATE ROLE "plugin_things" ${ATTRIBUTES} PASSWORD 'pw'`,
     `CREATE DATABASE "plugin_things" OWNER "plugin_things"`,
     `REVOKE ALL ON DATABASE "plugin_things" FROM PUBLIC`,
     `GRANT ALL PRIVILEGES ON DATABASE "plugin_things" TO "plugin_things"`,
   ]);
 });
 
-test("re-provisioning re-sets the password and creates nothing twice", () => {
-  assert.deepEqual(provisionSql("plugin_things", "rotated", { databaseExists: true, roleExists: true }), [
-    `ALTER ROLE "plugin_things" WITH LOGIN PASSWORD 'rotated'`,
+// Re-asserting the attributes, not just the password, is what makes "idempotent" mean the role
+// cannot drift — a CREATEDB granted by hand out of band is taken back on the next boot.
+test("re-provisioning re-asserts every attribute and creates nothing twice", () => {
+  const plan = { connectionLimit: 10, databaseExists: true, name: "plugin_things", password: "rotated", roleExists: true };
+  assert.deepEqual(provisionSql(plan), [
+    `ALTER ROLE "plugin_things" WITH ${ATTRIBUTES} PASSWORD 'rotated'`,
     `REVOKE ALL ON DATABASE "plugin_things" FROM PUBLIC`,
     `GRANT ALL PRIVILEGES ON DATABASE "plugin_things" TO "plugin_things"`,
   ]);
+});
+
+// The limit is interpolated unquoted, so a non-integer would corrupt the statement text.
+test("a non-integer connection limit is refused, not interpolated", () => {
+  const plan = { connectionLimit: 1.5, databaseExists: false, name: "plugin_things", password: "pw", roleExists: false };
+  assert.throws(() => provisionSql(plan), /connectionLimit must be an integer/);
 });
 
 // --- Integration: the statements above, against a real Postgres -----------------------
@@ -107,7 +127,7 @@ test("provisions a database its plugin can use and a peer plugin cannot reach", 
   const base = baseUrlOf(ADMIN_URL);
   const admin = postgres(ADMIN_URL, { connect_timeout: 10, max: 1, onnotice: () => {} });
   try {
-    await provisionStorage({ adminUrl: ADMIN_URL, pluginIds: ids, secret: SECRET });
+    await provisionStorage({ adminUrl: ADMIN_URL, connectionLimit: 10, pluginIds: ids, secret: SECRET });
 
     const owner = buildCredentials(base, "storage-itest-a", SECRET);
     await queryAs(owner.url, "CREATE TABLE IF NOT EXISTS notes (body text)");
@@ -121,11 +141,19 @@ test("provisions a database its plugin can use and a peer plugin cannot reach", 
     await assert.rejects(queryAs(peer.href, "SELECT 1"), /permission denied|not permitted/i);
 
     // Re-running is idempotent, and a rotated secret lands on the existing role.
-    await provisionStorage({ adminUrl: ADMIN_URL, pluginIds: ids, secret: "a-rotated-secret" });
+    const rerun = await provisionStorage({ adminUrl: ADMIN_URL, connectionLimit: 10, pluginIds: ids, secret: "a-rotated-secret" });
+    // Scoped to this test's own ids: another plugin's database on the same server is not this
+    // test's business, and asserting otherwise would make the suite order-dependent.
+    for (const id of ids) assert.ok(!rerun.orphans.includes(storageName(id)), `${id} is still installed`);
     const rotated = buildCredentials(base, "storage-itest-a", "a-rotated-secret");
     const kept = (await queryAs(rotated.url, "SELECT body FROM notes")) as { body: string }[];
     assert.deepEqual(kept.map((row) => row.body), ["persisted"]); // rotating the secret keeps the data
     await assert.rejects(queryAs(owner.url, "SELECT 1"), /password authentication failed/i);
+
+    // Uninstalling drops nothing, so what is left behind must be named — including when the LAST
+    // storage plugin goes and there is nothing left to provision.
+    const uninstalled = await provisionStorage({ adminUrl: ADMIN_URL, connectionLimit: 10, pluginIds: [], secret: "a-rotated-secret" });
+    for (const id of ids) assert.ok(uninstalled.orphans.includes(storageName(id)), `${id}'s database is reported`);
   } finally {
     for (const id of ids) {
       const name = quoteIdentifier(storageName(id));

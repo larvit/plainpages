@@ -39,7 +39,7 @@ branch, create a PR and merge it when the CI/CD turns green.
 2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`,
    `postgres`). Prefer the Node standard library; justify any new dependency; do not add frameworks.
    The **host is stateless — it owns no schema and stores nothing of its own**; a plugin may own a
-   Postgres database, which the host provisions and never reads or writes. Auth/identity/OAuth are
+   Postgres database, which the host provisions but never reads or writes inside. Auth/identity/OAuth are
    **Ory sidecar services** reached over their REST APIs with built-in `fetch` — no SDK. New
    capabilities ship as **plugin folders** under `plugins/` that get their data from an upstream
    service or their own database, not as core code.
@@ -82,15 +82,28 @@ Revisit only if the stated reason stops holding.
     `node_modules`: two instances of the barrel break `instanceof` across the boundary, which
     `plugin-api.test.ts` guards by asserting both paths reach one module.
   - **Plugin storage hands over credentials, not a client** (README → Plugin storage). The host takes
-  `postgres` to run the provisioning DDL in `bootstrap` and nothing else: it is never re-exported
-  through the barrel, so no driver shape enters the contract and a plugin depends on whichever client
-  it likes. Three properties hold the design together, so don't trade one away in isolation:
-  passwords are `HMAC-SHA256(PLUGIN_DB_SECRET, id)` rather than stored, which is what keeps the host
-  stateless; the superuser DSN reaches `bootstrap` only, because plugin code runs inside `web` and
-  can read that process' environment (`src/compose.test.ts` guards the split); and provisioning
-  never drops anything, so uninstalling a plugin cannot destroy data. Because the host's copy sits in
-  the ambient `/node_modules`, a plugin can `import "postgres"` without declaring it — that is
-  incidental, not a packaging promise, and a plugin must still depend on its own driver.
+  `postgres` to run the provisioning DDL, and `storage-provisioning.ts` is the only module importing
+  it — `storage.ts` beside it stays pure so `web` never loads a driver (`src/postgres.test.ts` guards
+  both halves; the claim silently went false once already). It is never re-exported through the
+  barrel, so no driver shape enters the contract. Three properties hold the design together, so
+  don't trade one away in isolation: passwords are `HMAC-SHA256(PLUGIN_DB_SECRET, id)` rather than
+  stored, which is what keeps the host stateless — whoever holds that secret holds every plugin
+  database, so it ranks with the DB password itself; the provisioning DSN reaches `bootstrap` only
+  (`src/compose.test.ts` guards the split); and provisioning never drops anything, so uninstalling a
+  plugin cannot destroy data — boot logs the orphans instead. Because the host's copy sits in the
+  ambient `/node_modules`, a plugin can `import "postgres"` without declaring it — incidental, not a
+  packaging promise, and a plugin must still depend on its own driver.
+- **The trust boundary is the `web` process, not the plugin.** Per-plugin databases and roles bound
+  *accidents*, not hostile plugins: `PLUGIN_DB_SECRET` is in `web`'s environment during `onBoot`, and
+  a plugin already holds `ctx.system`'s Ory admin clients — so cross-plugin DB isolation is
+  containment, and README says so rather than implying a sandbox. Consistent with priority #7
+  (crash-isolation is a non-goal). `server.ts` still derives every credential *before* the boot hooks
+  and then deletes the secret from `process.env` — defence in depth, and the ordering is the whole
+  point, so don't move it. **Valid while plugins are operator-installed code, not third-party uploads.**
+- **`BootContext.storage` keeps all six credential fields, and there is no `onShutdown` hook.** While
+  `HOST_API_VERSION` is frozen both are free to revisit; after the freeze, adding is compatible and
+  removing is not, so the shape errs small elsewhere. Pools handed to a plugin are reaped on process
+  exit — revisit if a plugin ever needs an orderly drain. **Valid while the freeze holds.**
 - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
     against that instead and boot fails loud. An operator's menu override has no use for
     dependencies; if that changes, it needs the same package treatment.

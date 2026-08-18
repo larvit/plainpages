@@ -17,6 +17,24 @@ export function resolvePluginDbSecret(env: Env, enforce?: boolean): string {
   return readSecret(env, "PLUGIN_DB_SECRET", DEV_PLUGIN_DB_SECRET, enforce ?? readBool(env, "REQUIRE_SECURE_SECRETS", false));
 }
 
+// Only bootstrap provisions, so only bootstrap reads this; env still gets read in one place.
+export function resolvePluginDbConnectionLimit(env: Env): number {
+  return readPosInt(env, "PLUGIN_DB_CONNECTION_LIMIT", 10);
+}
+
+// PLUGIN_DB_URL is web's, and web must never hold credentials that outrank a plugin's own role.
+// Pasting the admin DSN here would otherwise work — buildCredentials overwrites the userinfo — and
+// leave a superuser password in the environment plugin code can read.
+function readCredentiallessUrl(env: Env, key: string): string | undefined {
+  const value = readOptionalUrl(env, key);
+  if (value === undefined) return undefined;
+  const url = new URL(value);
+  if (url.username || url.password) {
+    throw new Error(`config: ${key} must carry no username or password — each plugin connects as its own role`);
+  }
+  return value;
+}
+
 export interface Config {
   appUrl: string | undefined; // canonical public URL; set ⇒ off-host visitors are redirected here. Unset ⇒ no redirect (explicit toggle)
   cacheTemplates: boolean;
@@ -168,7 +186,7 @@ export function loadConfig(env: Env = process.env): Config {
     // out of web's environment. Unset ⇒ storage is off and a plugin declaring it fails loud at boot,
     // which is also why the secret is only enforced once a URL is configured.
     pluginDbSecret: resolvePluginDbSecret(env, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
-    pluginDbUrl: readOptionalUrl(env, "PLUGIN_DB_URL"),
+    pluginDbUrl: readCredentiallessUrl(env, "PLUGIN_DB_URL"),
     port: readPort(env),
     // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m
