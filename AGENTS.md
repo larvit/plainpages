@@ -82,6 +82,11 @@ Revisit only if the stated reason stops holding.
   - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
     against that instead and boot fails loud. An operator's menu override has no use for
     dependencies; if that changes, it needs the same package treatment.
+- **A plugin `package.json` without `"type": "module"` is refused, not warned.** Allowing it costs a
+  warning and a re-parse per file, not a break — Node detects module syntax, so even a `.js` helper
+  loads — and an operator on a read-only third-party mount cannot apply the remedy. Refused anyway
+  because the direction is safe: refuse→warn relaxes freely, warn→refuse breaks installed plugins.
+  **Valid while nothing is installed in the wild.**
 - **`examples/` mirrors the drop-in mount dirs** — `examples/plugins/<id>/` copies to
   `plugins/<id>/`, `examples/config/menu.ts` to `config/menu.ts`. Both mirrors are in
   `tsconfig.include` and resolve the host through the barrels, so each typechecks in place *and*

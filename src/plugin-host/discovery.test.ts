@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -125,6 +125,23 @@ test("a plugin may carry its own package.json, node_modules and dependencies", a
 
   assert.deepEqual(plugins.map((p) => p.id), ["shop"]); // node_modules is not a plugin folder
   assert.deepEqual(await plugins[0]?.routes?.[0]?.handler(null as never), { html: "20 kr" });
+});
+
+test("a plugin folder may be a symlink — a plugin kept in its own repo", async (t) => {
+  const ownRepo = scaffold(t, { "my-plugin/plugin.ts": full("my-plugin") });
+  const dir = scaffold(t, {});
+  symlinkSync(join(ownRepo, "my-plugin"), join(dir, "linked"));
+
+  const plugins = await discoverPlugins({ dir });
+
+  assert.deepEqual(plugins.map((p) => p.id), ["linked"]); // the link name is the id, not the target's
+});
+
+test("a dangling plugin symlink fails loud rather than vanishing", async (t) => {
+  const dir = scaffold(t, {});
+  symlinkSync(join(dir, "gone"), join(dir, "broken"));
+
+  await assert.rejects(discoverPlugins({ dir }), /broken.*plugin\.ts/s);
 });
 
 test("a shared permission name only warns — both plugins still load", async (t) => {

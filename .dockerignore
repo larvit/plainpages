@@ -6,6 +6,10 @@ npm-debug.log
 *.log
 .DS_Store
 
+# A plugin author's pin setting, per README → Plugin dependencies. Nothing reads it at runtime, and
+# an .npmrc is where a private-registry token would sit — never bake one into a shipped image.
+plugins/**/.npmrc
+
 e2e-tests/artifacts
 # Orchestration, not test code — keep them out of the runner image (COPY e2e-tests/ ./)
 e2e-tests/Dockerfile

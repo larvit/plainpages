@@ -84,11 +84,11 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
 }
 
 // Subfolders of plugins/, sorted for deterministic load order + stable conflict messages. Hidden
-// entries (.git, .DS_Store, …) and non-directories are skipped — only folders are plugins. So is
-// node_modules, which npm leaves here when a dependency install is pointed at plugins/ itself.
+// entries, plain files and node_modules are skipped; a symlink counts, so a plugin kept in its own
+// repo joins the tree with `ln -s`, and a dangling one trips "no plugin.ts found" rather than vanishing.
 function pluginFolders(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
+    .filter((e) => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith(".") && e.name !== "node_modules")
     .map((e) => e.name)
     .sort();
 }
