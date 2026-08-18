@@ -31,8 +31,8 @@ export interface RequestContext {
   // on off-site URLs. The host already does this for the chrome and its own redirects; a plugin
   // wraps the hrefs it builds itself.
   localeHref(href: string): string;
-  // Every installed locale, sorted. With `localeLabel` (from the barrel) it is what a plugin needs
-  // to build its own language picker; the host's own picker is already in the shell.
+  // Every installed locale, sorted. With `localeLabel` (from @plainpages/plugin-api) it is what a
+  // plugin needs to build its own language picker; the host's own picker is already in the shell.
   locales: string[];
   // Request-scoped logger: structured, in the request's trace. `log.info/warn/error(...)` to
   // log; `log.fetch(url)` for an upstream call (a client span continuing the trace). Correlates by

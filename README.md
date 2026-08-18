@@ -709,8 +709,8 @@ included, since the plugin folder *is* the repo. A baked image needs no extra st
 
 - **Never ship a copy of `@plainpages/plugin-api`.** The host publishes it into `/node_modules`,
   above every plugin, and a plugin resolves it from there — nothing to declare, just import it. A
-  copy inside your own `node_modules` would shadow it with a *second* instance of the host's
-  contract, turning a sign-in redirect into a 500, so discovery refuses one at boot.
+  copy inside your plugin's own `node_modules` would shadow it with a *second* instance of the host's
+  contract, turning a sign-in redirect into a 500, so discovery refuses one there at boot.
 - **The host never upgrades or dedupes your dependencies.** Two plugins depending on the same package
   each get their own copy at their own version, so neither can break the other by upgrading — and
   keeping yours current, and audited, is yours to own. Renovate here watches the host's manifests

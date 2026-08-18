@@ -27,8 +27,12 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
   const errors: string[] = [];
   const plugins: Plugin[] = [];
 
-  if (existsSync(join(dir, "package.json"))) {
-    errors.push(`plugins/package.json must not exist — it becomes the package scope for every plugin below it; install into plugins/<id>, not plugins/`);
+  // `npm install --prefix plugins` instead of `--prefix plugins/<id>`: the package.json becomes the
+  // scope for every plugin below it, and the node_modules outranks the host's own — barrel included.
+  for (const stray of ["node_modules", "package.json"]) {
+    if (existsSync(join(dir, stray))) {
+      errors.push(`plugins/${stray} must not exist — it sits above every plugin and shadows the host's own; delete plugins/{node_modules,package.json,package-lock.json} and install into plugins/<id>`);
+    }
   }
 
   for (const id of pluginFolders(dir)) {
@@ -83,9 +87,8 @@ export async function discoverPlugins(options: DiscoverOptions = {}): Promise<Pl
   return plugins;
 }
 
-// Subfolders of plugins/, sorted for deterministic load order + stable conflict messages. Hidden
-// entries, plain files and node_modules are skipped; a symlink counts, so a plugin kept in its own
-// repo joins the tree with `ln -s`, and a dangling one trips "no plugin.ts found" rather than vanishing.
+// Sorted for deterministic load order + stable conflict messages. A symlink counts as a folder, and
+// one whose target the container cannot see trips "no plugin.ts found" rather than vanishing.
 function pluginFolders(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .filter((e) => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith(".") && e.name !== "node_modules")
@@ -94,7 +97,7 @@ function pluginFolders(dir: string): string[] {
 }
 
 // A barrel copy resolves before the host's, so its GuardError matches no `instanceof` here and a
-// sign-in redirect becomes a 500. A typeless folder re-parses every file it loads, and warns on each.
+// sign-in redirect becomes a 500.
 function packagingError(folder: string): string | null {
   if (existsSync(join(folder, "node_modules", "@plainpages", "plugin-api"))) {
     return "ships its own copy of @plainpages/plugin-api — remove it; the host provides the one instance";

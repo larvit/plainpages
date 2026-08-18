@@ -61,9 +61,9 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "a plugin package.json that forgets type: module", files: { "cjs/package.json": `{ "name": "cjs" }`, "cjs/plugin.ts": full("cjs") }, match: /cjs.*"type": "module"/s },
   { name: "a plugin package.json that is not valid JSON", files: { "bent/package.json": `{`, "bent/plugin.ts": full("bent") }, match: /bent.*package\.json.*JSON/s },
   { name: "a plugin package.json holding null", files: { "nul/package.json": `null`, "nul/plugin.ts": full("nul") }, match: /nul.*"type": "module"/s },
-  // Written by the documented install command with one path segment dropped — and it would silently
-  // make every plugin below it part of its scope.
+  // `npm install --prefix plugins` — the documented command with one path segment dropped.
   { name: "a package.json in the scan root itself", files: { "package.json": `{ "name": "oops" }`, "ok/plugin.ts": full("ok") }, match: /plugins\/package\.json must not exist/ },
+  { name: "a node_modules in the scan root itself", files: { "node_modules/@plainpages/plugin-api/index.js": `export class GuardError extends Error {}`, "ok/plugin.ts": full("ok") }, match: /plugins\/node_modules must not exist/ },
   { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
   { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
@@ -118,16 +118,15 @@ test("a plugin may carry its own package.json, node_modules and dependencies", a
     "shop/node_modules/price-tag/index.js": `export default (n) => \`\${n} kr\`;`,
     "shop/plugin.ts": `import { definePlugin } from "@plainpages/plugin-api";\nimport price from "price-tag";\n` +
       `export default definePlugin({ apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", handler: () => ({ html: price(20) }) }] });`,
-    "node_modules/hoisted/index.js": `export default 1;`,
   });
 
   const plugins = await discoverPlugins({ dir });
 
-  assert.deepEqual(plugins.map((p) => p.id), ["shop"]); // node_modules is not a plugin folder
+  assert.deepEqual(plugins.map((p) => p.id), ["shop"]);
   assert.deepEqual(await plugins[0]?.routes?.[0]?.handler(null as never), { html: "20 kr" });
 });
 
-test("a plugin folder may be a symlink — a plugin kept in its own repo", async (t) => {
+test("a plugin folder may be a symlink", async (t) => {
   const ownRepo = scaffold(t, { "my-plugin/plugin.ts": full("my-plugin") });
   const dir = scaffold(t, {});
   symlinkSync(join(ownRepo, "my-plugin"), join(dir, "linked"));
