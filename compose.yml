@@ -153,6 +153,7 @@ services:
       # `storage` fails the seed loudly. The secret must match web's; both derive the same passwords.
       PLUGIN_DB_ADMIN_URL: ${PLUGIN_DB_ADMIN_URL:-}
       PLUGIN_DB_SECRET: ${PLUGIN_DB_SECRET:-}
+      REQUIRE_SECURE_SECRETS: "true" # refuse the throwaway secret here too, before any role is created
     volumes:
       - ./ory/kratos/tokenizer:/etc/config/kratos/tokenizer
     command: node src/auth/bootstrap.ts

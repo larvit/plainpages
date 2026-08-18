@@ -777,7 +777,9 @@ What the host does guarantee:
 **Passwords are derived, never stored** — each is `HMAC-SHA256(PLUGIN_DB_SECRET, <plugin id>)`, so
 `bootstrap` and `web` compute the same value independently and nothing has to be written down.
 Rotate every plugin's password by changing `PLUGIN_DB_SECRET` and running `docker compose up -d`,
-which re-applies each role's password and leaves the data alone.
+which re-applies each role's password and leaves the data alone. Under `REQUIRE_SECURE_SECRETS` a
+missing, empty or throwaway secret is refused — in `bootstrap` before it creates any role, so no
+database is ever given a password derivable from a constant in this repo.
 
 **Only `bootstrap` holds superuser credentials.** It alone gets `PLUGIN_DB_ADMIN_URL`, the DSN that
 may `CREATE DATABASE`/`CREATE ROLE`. `web` gets `PLUGIN_DB_URL`, which names the server and carries
@@ -1020,7 +1022,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
 | `PLUGIN_DB_URL` | _unset_ (dev: `postgres://postgres:5432`) | credential-free Postgres base URL for [plugin storage](#plugin-storage); unset ⇒ storage off, and a plugin declaring it aborts boot |
 | `PLUGIN_DB_ADMIN_URL` | _unset_ (dev: the bundled superuser) | the DSN that provisions each plugin's database and role — read by the one-shot `bootstrap` service **only**, never by `web` |
-| `PLUGIN_DB_SECRET` | dev throwaway | derives each plugin's database password; enforced by `REQUIRE_SECURE_SECRETS` once `PLUGIN_DB_URL` is set |
+| `PLUGIN_DB_SECRET` | dev throwaway | derives each plugin's database password; `REQUIRE_SECURE_SECRETS` enforces it in `web` once `PLUGIN_DB_URL` is set, and in `bootstrap` whenever a plugin declares storage |
 
 ### Canonical host (one public URL)
 

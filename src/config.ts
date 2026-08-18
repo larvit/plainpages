@@ -8,11 +8,13 @@ export type LogLevel = (typeof LOG_LEVELS)[number];
 
 const DEV_PLUGIN_DB_SECRET = "dev-insecure-plugin-db-secret";
 
-// bootstrap resolves the plugin-storage secret through this, web through loadConfig — and the two
-// must agree exactly or web connects with a password the role was never given. Compose passes an
-// unset variable through as "", so empty means throwaway here as it does in readSecret.
-export function resolvePluginDbSecret(env: Env): string {
-  return env["PLUGIN_DB_SECRET"] || DEV_PLUGIN_DB_SECRET;
+// The one resolution both processes use — they must agree exactly, or web connects with a password
+// the role was never given. Compose passes an unset variable through as "", so empty means unset.
+// `enforce` says whether storage is actually in play: web once PLUGIN_DB_URL is configured,
+// bootstrap once a plugin declares storage. Enforced, the throwaway is refused — bootstrap is what
+// writes these passwords into Postgres, so it must refuse *before* creating a role with one.
+export function resolvePluginDbSecret(env: Env, enforce?: boolean): string {
+  return readSecret(env, "PLUGIN_DB_SECRET", DEV_PLUGIN_DB_SECRET, enforce ?? readBool(env, "REQUIRE_SECURE_SECRETS", false));
 }
 
 export interface Config {
@@ -165,7 +167,7 @@ export function loadConfig(env: Env = process.env): Config {
     // credentials: the superuser DSN that provisions stays in bootstrap, so a plugin cannot read it
     // out of web's environment. Unset ⇒ storage is off and a plugin declaring it fails loud at boot,
     // which is also why the secret is only enforced once a URL is configured.
-    pluginDbSecret: readSecret(env, "PLUGIN_DB_SECRET", DEV_PLUGIN_DB_SECRET, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
+    pluginDbSecret: resolvePluginDbSecret(env, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
     pluginDbUrl: readOptionalUrl(env, "PLUGIN_DB_URL"),
     port: readPort(env),
     // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission

@@ -19,6 +19,17 @@ test("web and bootstrap resolve the same plugin storage secret", () => {
   assert.match(resolvePluginDbSecret({ PLUGIN_DB_SECRET: "" }), /dev-insecure/); // empty is unset, not a secret
 });
 
+// bootstrap writes these passwords into Postgres, so it must refuse the publicly-known throwaway
+// before creating a role with one — not leave web to notice afterwards.
+test("bootstrap refuses a missing, empty or throwaway plugin storage secret when hardened", () => {
+  const hardened = { REQUIRE_SECURE_SECRETS: "true" };
+  for (const secret of [undefined, "", "dev-insecure-plugin-db-secret"]) {
+    const env = secret === undefined ? hardened : { ...hardened, PLUGIN_DB_SECRET: secret };
+    assert.throws(() => resolvePluginDbSecret(env), /PLUGIN_DB_SECRET/, `for ${JSON.stringify(secret)}`);
+  }
+  assert.equal(resolvePluginDbSecret({ ...hardened, PLUGIN_DB_SECRET: "a-real-secret" }), "a-real-secret");
+});
+
 test("loads dev defaults when the environment is empty", () => {
   const c = loadConfig({});
   assert.equal(c.port, 3000);
