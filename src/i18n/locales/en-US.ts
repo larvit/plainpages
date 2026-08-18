@@ -9,6 +9,7 @@ const messages = {
   "auth.continue": "Continue",
   // Kratos labels its own form fields; these translate the ones the built-in identity schema uses,
   // keyed on the input name. A deployment's extra traits keep Kratos' label until a plugin covers them.
+  "auth.field.code.hint": "Digits only — no spaces.",
   "auth.field.email": "Email",
   "auth.field.identifier": "Email",
   "auth.field.password": "Password",

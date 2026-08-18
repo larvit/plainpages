@@ -11,6 +11,7 @@ import type { Flow, FlowType, UiNode } from "./kratos-public.ts";
 export interface FlowField {
   autocomplete?: string;
   error?: { text: string };
+  hint?: string; // muted helper text under the input
   icon?: string; // Lucide sprite id for the input
   id: string;
   inputmode?: string; // virtual-keyboard hint (e.g. "numeric" for the OTP code)
@@ -139,7 +140,7 @@ function toField(node: UiNode, name: string, type: string, t: Translate): FlowFi
     ...(autocomplete ? { autocomplete } : {}),
     ...(errorMsg ? { error: { text: kratosText(t, errorMsg.text, idKey(errorMsg.id)) } } : {}),
     ...(icon ? { icon } : {}),
-    ...(isCode ? { inputmode: "numeric", pattern: "[0-9]*" } : {}),
+    ...(isCode ? { hint: t("auth.field.code.hint"), inputmode: "numeric", pattern: "[0-9]*" } : {}),
     ...(node.attributes["required"] === true ? { required: true } : {}),
     ...(value ? { value } : {}),
   };

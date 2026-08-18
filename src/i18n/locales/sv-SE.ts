@@ -2,6 +2,7 @@ import type { CoreMessages } from "./en-US.ts";
 
 const messages: CoreMessages = {
   "auth.continue": "Fortsätt",
+  "auth.field.code.hint": "Endast siffror — inga mellanslag.",
   "auth.field.email": "E-postadress",
   "auth.field.identifier": "E-postadress",
   "auth.field.password": "Lösenord",

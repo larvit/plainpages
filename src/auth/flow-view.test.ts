@@ -113,6 +113,7 @@ test("the code field guards a pasted space: one-time-code autofill + numeric inp
   );
   assert.deepEqual(view.fields.find((f) => f.name === "code"), {
     autocomplete: "one-time-code", // Kratos sends none for the OTP node — enable OS/email autofill
+    hint: "Digits only — no spaces.", // the pattern refusal alone reads as a bare "match the requested format"
     icon: "i-shield",
     id: "field-code",
     inputmode: "numeric",
