@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { loadConfig } from "./config.ts";
+import { loadConfig, resolvePluginDbSecret } from "./config.ts";
 
 // Explicit secure-secret enforcement (no environment sniffing): secrets are the only
 // thing a hardened deploy must supply.
@@ -8,6 +8,16 @@ const secureEnv = {
   CSRF_SECRET: "real-csrf-secret",
   REQUIRE_SECURE_SECRETS: "true",
 };
+
+// web reads the secret through loadConfig and bootstrap through resolvePluginDbSecret; the two
+// deriving different passwords is invisible until a plugin's connection is refused at boot. Compose
+// passes an unset variable through as "", which is the case that actually drifted.
+test("web and bootstrap resolve the same plugin storage secret", () => {
+  for (const env of [{}, { PLUGIN_DB_SECRET: "" }, { PLUGIN_DB_SECRET: "a-real-secret" }]) {
+    assert.equal(loadConfig(env).pluginDbSecret, resolvePluginDbSecret(env), `for ${JSON.stringify(env)}`);
+  }
+  assert.match(resolvePluginDbSecret({ PLUGIN_DB_SECRET: "" }), /dev-insecure/); // empty is unset, not a secret
+});
 
 test("loads dev defaults when the environment is empty", () => {
   const c = loadConfig({});

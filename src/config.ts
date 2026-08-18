@@ -6,6 +6,15 @@
 export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly", "none"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
+const DEV_PLUGIN_DB_SECRET = "dev-insecure-plugin-db-secret";
+
+// bootstrap resolves the plugin-storage secret through this, web through loadConfig — and the two
+// must agree exactly or web connects with a password the role was never given. Compose passes an
+// unset variable through as "", so empty means throwaway here as it does in readSecret.
+export function resolvePluginDbSecret(env: Env): string {
+  return env["PLUGIN_DB_SECRET"] || DEV_PLUGIN_DB_SECRET;
+}
+
 export interface Config {
   appUrl: string | undefined; // canonical public URL; set ⇒ off-host visitors are redirected here. Unset ⇒ no redirect (explicit toggle)
   cacheTemplates: boolean;
@@ -24,6 +33,8 @@ export interface Config {
   oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
   otlpEndpoint: string | undefined; // OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
   otlpProtocol: "http/json" | "http/protobuf"; // OTLP wire format (protobuf for json-averse collectors)
+  pluginDbSecret: string; // derives each plugin's database password (src/plugin-host/storage.ts)
+  pluginDbUrl: string | undefined; // credential-free Postgres base URL; unset ⇒ plugin storage is off
   port: number;
   revocationDenylist: boolean; // enable the optional instant permission/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
@@ -150,6 +161,12 @@ export function loadConfig(env: Env = process.env): Config {
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
     otlpEndpoint: readOptionalUrl(env, "OTLP_ENDPOINT"),
     otlpProtocol: readEnum(env, "OTLP_PROTOCOL", ["http/json", "http/protobuf"] as const, "http/json"),
+    // Per-plugin storage. PLUGIN_DB_URL carries the server and its connection parameters but no
+    // credentials: the superuser DSN that provisions stays in bootstrap, so a plugin cannot read it
+    // out of web's environment. Unset ⇒ storage is off and a plugin declaring it fails loud at boot,
+    // which is also why the secret is only enforced once a URL is configured.
+    pluginDbSecret: readSecret(env, "PLUGIN_DB_SECRET", DEV_PLUGIN_DB_SECRET, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
+    pluginDbUrl: readOptionalUrl(env, "PLUGIN_DB_URL"),
     port: readPort(env),
     // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m

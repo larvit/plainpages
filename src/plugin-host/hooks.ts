@@ -4,11 +4,15 @@
 // entirely when no plugin declares the hook, so the no-hooks hot path stays free.
 
 import type { RequestContext } from "../http/context.ts";
-import type { Plugin, RouteResult } from "./plugin.ts";
+import type { BootContext, Plugin, RouteResult } from "./plugin.ts";
 
-// After discovery, before the server listens. A throw aborts boot.
-export async function runBootHooks(plugins: Plugin[]): Promise<void> {
-  for (const plugin of plugins) await plugin.hooks?.onBoot?.();
+// After discovery, before the server listens. A throw aborts boot. Each hook gets a context built
+// for its own plugin, so one plugin is never handed another's storage credentials.
+export async function runBootHooks(plugins: Plugin[], bootContextFor: (plugin: Plugin) => BootContext): Promise<void> {
+  for (const plugin of plugins) {
+    const onBoot = plugin.hooks?.onBoot;
+    if (onBoot) await onBoot(bootContextFor(plugin));
+  }
 }
 
 // Before route matching. The first hook to return a RouteResult short-circuits the request — its

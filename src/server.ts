@@ -13,6 +13,7 @@ import { createKratosAdmin } from "./auth/kratos-admin.ts";
 import { createKratosPublic } from "./auth/kratos-public.ts";
 import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./ui/menu-config.ts";
+import { buildCredentials } from "./plugin-host/storage.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
@@ -44,7 +45,18 @@ log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => 
 const i18n = createI18n(await loadI18n({ logger: log, pluginIds: plugins.map((p) => p.id) }));
 log.info("locales loaded", { locales: i18n.available.join(", ") });
 
-await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
+// A plugin's database credentials are derived, never stored — so the only thing that can be missing
+// is the server itself. Refuse at boot rather than at that plugin's first query, hours later.
+const pluginDbUrl = config.pluginDbUrl;
+const declaresStorage = plugins.filter((plugin) => plugin.storage).map((plugin) => plugin.id);
+if (declaresStorage.length > 0 && pluginDbUrl === undefined) {
+  throw new Error(`config: PLUGIN_DB_URL must be set — these plugins declare storage: ${declaresStorage.join(", ")}`);
+}
+
+// plugin onBoot — after discovery, before listen; a throw aborts boot.
+await runBootHooks(plugins, (plugin) =>
+  plugin.storage && pluginDbUrl !== undefined ? { storage: buildCredentials(pluginDbUrl, plugin.id, config.pluginDbSecret) } : {},
+);
 
 const server = createApp({
   // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless

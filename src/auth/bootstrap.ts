@@ -8,8 +8,10 @@
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { resolvePluginDbSecret } from "../config.ts";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
 import { declaredPermissions, isValidPermissionName } from "../plugin-host/plugin.ts";
+import { provisionStorage } from "../plugin-host/storage.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
 import { createLogger, runWithLog, tracedFetch } from "../logger.ts";
 
@@ -151,9 +153,22 @@ async function main() {
   await runWithLog(log, async () => {
     if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
 
+    const plugins = await discoverPlugins();
+
+    // A database and login role for each plugin that asked for one. It happens here because
+    // bootstrap holds the stack's only superuser credentials — web derives the same password from
+    // PLUGIN_DB_SECRET and connects as the plugin's own role, never as a superuser.
+    const storagePlugins = plugins.filter((plugin) => plugin.storage).map((plugin) => plugin.id);
+    if (storagePlugins.length > 0) {
+      const adminUrl = env["PLUGIN_DB_ADMIN_URL"];
+      if (!adminUrl) throw new Error(`bootstrap: PLUGIN_DB_ADMIN_URL must be set — these plugins declare storage: ${storagePlugins.join(", ")}`);
+      const provisioned = await provisionStorage({ adminUrl, pluginIds: storagePlugins, secret: resolvePluginDbSecret(env) });
+      log.info("plugin storage provisioned", { databases: provisioned.join(", ") });
+    }
+
     // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
     // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-    const declared = declaredPermissions(await discoverPlugins()).map((decl) => decl.name);
+    const declared = declaredPermissions(plugins).map((decl) => decl.name);
     const { ignored, permissions } = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
     if (ignored.length > 0) {
       log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });

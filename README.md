@@ -89,6 +89,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [hooks](#hooks)
   - [where they live & mounting](#where-plugins-live-and-how-to-mount-them)
   - [dependencies](#plugin-dependencies)
+  - [storage](#plugin-storage)
   - [local dev & test](#local-dev--test-story)
 - [The menu system](#the-menu-system)
 - [Building blocks](#building-blocks)
@@ -106,7 +107,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [security model](#security-model)
 - [Email](#email)
 - [Architecture](#architecture)
-  - [Stateless](#stateless)
+  - [Stateless core](#stateless-core)
 - [Testing](#testing)
   - [end-to-end](#end-to-end-playwright)
   - [the full gate](#the-full-gate-one-command)
@@ -380,6 +381,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
+| `storage` | no | `true` ⇒ the host provisions a Postgres database and login role for this plugin and hands the credentials to `onBoot`. See [Plugin storage](#plugin-storage). |
 
 A plugin may be routes-only, nav-only, or hooks-only — every collection field is optional.
 
@@ -432,8 +434,8 @@ export async function listThings(ctx: RequestContext) {
   `requireSession(ctx)`, `can(ctx, permission)` (coarse JWT-claim check, zero I/O), and
   `check(keto, ctx, {namespace, object, relation})` (a live Keto check; anonymous ⇒ denied). Throw
   `new GuardError(403, …)` after a failed `can`/`check` to render the 403 page.
-- The handler **fetches its own data** from upstream; plugins hold no state (see
-  [Stateless](#stateless)).
+- The handler **fetches its own data** — from upstream, or from the plugin's own
+  [storage](#plugin-storage); the host holds none of it (see [Stateless core](#stateless-core)).
 - Default status: `200` for `view`/`html`/`json`, `303` for `redirect`.
 
 #### Escaping & the trust boundary
@@ -632,9 +634,12 @@ Optional, for reacting to system actions. A plugin's `hooks` may implement:
 
 | Hook | When | May |
 | --- | --- | --- |
-| `onBoot()` | after discovery, before the server listens | warm caches, validate upstream config |
+| `onBoot(host)` | after discovery, before the server listens | warm caches, validate upstream config, open a [storage](#plugin-storage) connection |
 | `onRequest(ctx)` | before route matching | inspect, or **short-circuit** by returning a `RouteResult` |
 | `onResponse(ctx, result)` | after the handler | observe/log; cannot change the response |
+
+`onBoot`'s `host` is a `BootContext`, carrying `storage` for a plugin that declared it. A hook
+written without a parameter stays valid.
 
 Hooks run in **discovery order** (plugins sorted by id). `onRequest` fires on every request that
 reaches routing (static assets bypass it); the **first** hook to return a `RouteResult` short-circuits
@@ -653,7 +658,7 @@ getting its folder there.
 bind-mounts the whole tree (`compose.override.yml`: `.:/app`), so a restart picks it up.
 
 **2. A plugin kept in its own repo, or added to a prebuilt image.** Bind-mount the plugin
-folder onto `/app/plugins/<id>` with a small compose override. Plugins are stateless, so
+folder onto `/app/plugins/<id>` with a small compose override. A plugin folder is code, not data —
 mount it read-only:
 
 ```yaml
@@ -723,6 +728,67 @@ included, since the plugin folder *is* the repo. A baked image needs no extra st
 barrel's types on disk: typecheck it mounted under the host tree, or vendor a type stub **outside
 `node_modules`** and point tsconfig `paths` at it — a stub inside is the shadowing copy discovery
 refuses, and it would travel with the folder you mount.
+
+### Plugin storage
+
+A plugin that needs to keep data sets `storage: true`. The host then provisions a Postgres
+**database and login role of its own** — both named `plugin_<id>` — and hands the credentials to
+`onBoot`:
+
+```ts
+import postgres from "postgres";              // your dependency, not the host's
+import { definePlugin, type StorageCredentials } from "@plainpages/plugin-api";
+
+let sql: ReturnType<typeof postgres>;
+
+export default definePlugin({
+  apiVersion: "1.0.0",
+  storage: true,
+  hooks: {
+    onBoot: async (host) => {
+      if (!host.storage) throw new Error("things: storage was not provisioned");
+      sql = postgres(host.storage.url);
+      await sql`CREATE TABLE IF NOT EXISTS things (id uuid PRIMARY KEY, name text NOT NULL)`;
+    },
+  },
+});
+```
+
+`host.storage` is a `StorageCredentials` — `database`, `host`, `password`, `port`, `user`, and `url`,
+the same values pre-assembled as a DSN, which most clients take directly.
+
+**Credentials, not a client.** The host has no opinion on how you reach Postgres: depend on
+`postgres`, `pg`, a query builder or an ORM ([Plugin dependencies](#plugin-dependencies)). No driver
+is part of the contract, so upgrading yours is yours alone to time.
+
+**The schema is yours.** The host creates the database empty and never reads or writes inside it.
+Create your tables in `onBoot`: it runs before the server listens, so a failure aborts boot instead
+of surfacing later as a broken page.
+
+What the host does guarantee:
+
+- **One database and one role per plugin.** `CONNECT` is revoked from `PUBLIC`, so another installed
+  plugin's role cannot reach your database.
+- **Provisioning is idempotent and runs every boot**, so a plugin dropped in later is picked up by
+  the next `docker compose up -d` — the same rule as permission seeding.
+- **Your data is never dropped.** Removing a plugin folder leaves its database untouched; deleting it
+  is a deliberate act by an operator.
+
+**Passwords are derived, never stored** — each is `HMAC-SHA256(PLUGIN_DB_SECRET, <plugin id>)`, so
+`bootstrap` and `web` compute the same value independently and nothing has to be written down.
+Rotate every plugin's password by changing `PLUGIN_DB_SECRET` and running `docker compose up -d`,
+which re-applies each role's password and leaves the data alone.
+
+**Only `bootstrap` holds superuser credentials.** It alone gets `PLUGIN_DB_ADMIN_URL`, the DSN that
+may `CREATE DATABASE`/`CREATE ROLE`. `web` gets `PLUGIN_DB_URL`, which names the server and carries
+no credentials — so plugin code, which runs inside `web`, cannot read a superuser password out of its
+own environment. Set both, plus `PLUGIN_DB_SECRET` ([Configuration](#configuration)); the dev stack
+sets them for you.
+
+Storage stays off until `PLUGIN_DB_URL` is set, and a plugin declaring it while that is unset
+**aborts boot** naming itself — rather than serving pages without its data. One naming limit: a
+storage plugin's folder may be at most **56 characters**, so `plugin_<id>` fits Postgres' 63-byte
+identifier.
 
 ### Local dev & test story
 
@@ -936,7 +1002,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `PORT` | `3000` | web listen port |
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
-| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` must be supplied and differ from the dev throwaway |
+| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` — and `PLUGIN_DB_SECRET` once storage is configured — must be supplied and differ from the dev throwaway |
 | `LOG_LEVEL` | `info` | min severity logged: `error`/`warn`/`info`/`verbose`/`debug`/`silly`/`none` |
 | `LOG_FORMAT` | `text` | log line format: `text` (human-readable, dev) or `json` (structured, prod) |
 | `SERVICE_NAME` | `plainpages` | OTLP `service.name` on every log + span — brand it as your own deployment |
@@ -952,6 +1018,9 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `REVOCATION_DENYLIST` | `false` | when `true`, enable the optional [instant permission/session revoke denylist](#instant-revoke-the-optional-denylist) |
 | `REVOCATION_TTL_SEC` | `900` | how long a revoke entry lives; keep ≥ tokenizer TTL (10m) + clock skew |
 | `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
+| `PLUGIN_DB_URL` | _unset_ (dev: `postgres://postgres:5432`) | credential-free Postgres base URL for [plugin storage](#plugin-storage); unset ⇒ storage off, and a plugin declaring it aborts boot |
+| `PLUGIN_DB_ADMIN_URL` | _unset_ (dev: the bundled superuser) | the DSN that provisions each plugin's database and role — read by the one-shot `bootstrap` service **only**, never by `web` |
+| `PLUGIN_DB_SECRET` | dev throwaway | derives each plugin's database password; enforced by `REQUIRE_SECURE_SECRETS` once `PLUGIN_DB_URL` is set |
 
 ### Canonical host (one public URL)
 
@@ -1082,8 +1151,8 @@ records that subject as revoked-now; the hot path then rejects every token for i
 the revoke and forces a re-mint — which re-reads permissions from Keto, or clears a dead session. A
 fresh re-login passes, so a downgrade lands immediately without locking the account.
 
-It is an in-memory, auto-evicting map — no database, so it stays inside the stateless model — and
-the check is pure CPU, keeping Keto off the hot path. Entries self-evict after `REVOCATION_TTL_SEC`
+It is an in-memory, auto-evicting map — host-owned state would break the [stateless
+core](#stateless-core) — and the check is pure CPU, keeping Keto off the hot path. Entries self-evict after `REVOCATION_TTL_SEC`
 (default 900s ≥ the 10m token TTL + skew). Two bounds: it is instant only on the **single instance**
 that handled the revoke (elsewhere the guarantee falls back to the token TTL — back it with a shared
 store for hard multi-instance revoke), and a **group** membership change is transitive across many
@@ -1198,18 +1267,21 @@ of it over their **REST APIs using Node's built-in `fetch`** — no SDK dependen
 In **dev** the host-facing Ory ports are published — Kratos public `4433` and Hydra public `4444`;
 prod keeps them internal.
 
-Runtime deps stay tiny and pinned: **`ejs`**, **`lucide-static`**, and **`@larvit/log`**. Auth,
-sessions, SSO and OAuth2 add *services*, not npm packages.
+Runtime deps stay tiny and pinned: **`ejs`**, **`lucide-static`**, **`@larvit/log`**, and
+**`postgres`** — the last one has no sub-dependencies of its own and is used in a single module, to
+provision [plugin storage](#plugin-storage) at boot. Auth, sessions, SSO and OAuth2 add *services*,
+not npm packages.
 
-### Stateless
+### Stateless core
 
-Plainpages holds **no state of its own**. The only database in the stack is **Postgres**, used by
-Ory; the `web` app never connects to it.
+The host holds **no state of its own**: it owns no schema and keeps nothing between requests. The
+stack's **Postgres** backs Ory, and gives every plugin that asks for one a database of its own
+([Plugin storage](#plugin-storage)) — which the host provisions but never reads or writes.
 
-A plugin reads and writes state by **calling an upstream service** from its route handler — a REST
-API, an ERP, a plant historian, the customer's own backend — and renders the response with the
-building blocks. That keeps `web` trivially scalable and crash-safe: any instance can serve any
-request, because the session lives in Kratos and the data lives upstream.
+So a plugin gets its data one of two ways: by **calling an upstream service** from its route handler
+— a REST API, an ERP, a plant historian, the customer's own backend — or from **its own database**.
+Either keeps `web` trivially scalable and crash-safe: any instance can serve any request, because the
+session lives in Kratos and the data lives outside the process.
 
 ## Testing
 

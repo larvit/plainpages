@@ -3,6 +3,9 @@
 ## Unfinnished work
 
 - [ ] Add a way to configure plugins directly when installing. **Decided: the manifest declares it, not an `.env`** — a declared schema is validatable at boot, so a missing or mistyped setting fails loud and named the way a stray `package.json` now does, and the picker/docs can be generated from the declaration. Open: where the operator *supplies* the values (env var per key, a `config/` file, or both), and whether a secret may be declared at all.
+- [ ] A provisioned plugin database is invisible and unremovable. Nothing lists what exists, so an operator cannot see that `plugin_<id>` is there, nor that its plugin is gone — and uninstalling never drops it (deliberately, so data survives), leaving orphans with no supported way to clean them. Same shape as the uninstalled-plugin grant gap above. Sketch: a read-only "provisioned, but no installed plugin claims it" list plus a documented drop procedure.
+- [ ] Decide who owns the connection ceiling for plugin storage. Each storage plugin opens its own pool against one Postgres, whose default `max_connections` is 100, and nothing warns as plugins are added. Either state a per-plugin pool ceiling in README → Plugin storage or record that the plugin owns it.
+- [ ] E2E that a plugin's data actually survives a restart. `storage.test.ts` proves provisioning against a real Postgres (opt-in via `PLUGIN_DB_ADMIN_URL`), but no Playwright flow writes through a plugin page and reads it back after `docker compose restart web`.
 - [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Guard the group paths against self-lockout, or accept them explicitly. The self-revoke guard covers only your own *direct* grants on the Users screen; unticking a permission on a group you belong to, removing yourself from that group, or deleting it can all still strip your own effective access with no warning. Recorded in AGENTS.md as a known gap — the robust fix is a "last effective holder" check, which needs a reverse Keto query.
 - [ ] The permission picker has no concurrency baseline, so two operators editing the same user/group silently discard each other's change. Sketch: post the rendered set as a hidden baseline; if it no longer matches Keto, re-render with "this changed while you had the page open" rather than applying.
@@ -36,6 +39,7 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 
 ## Finnished work
 
+- [x] Give a plugin persistent storage: `storage: true` provisions a Postgres database + login role named `plugin_<id>`, credentials arrive on `onBoot`, passwords are derived from `PLUGIN_DB_SECRET` rather than stored.
 - [x] Refuse a stray `package.json`/`node_modules` in `config/` by name, as plugin folders already are.
 - [x] Let Renovate reach the example plugins' manifests (`ignorePaths` overrides `config:recommended`).
 - [x] The seeded admin is granted each permission once — `seedPermissions` dedupes and the grant PUT is idempotent.

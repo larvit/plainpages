@@ -36,11 +36,13 @@ branch, create a PR and merge it when the CI/CD turns green.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the solution that is easiest to understand, smallest, and most readable.
-2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`).
-   Prefer the Node standard library; justify any new dependency; do not add frameworks. The app is
-   **stateless — no database**. Auth/identity/OAuth are **Ory sidecar services** reached over their
-   REST APIs with built-in `fetch` — no SDK. New capabilities ship as **plugin folders** under
-   `plugins/` that fetch their data from upstream services, not as core code.
+2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`,
+   `postgres`). Prefer the Node standard library; justify any new dependency; do not add frameworks.
+   The **host is stateless — it owns no schema and stores nothing of its own**; a plugin may own a
+   Postgres database, which the host provisions and never reads or writes. Auth/identity/OAuth are
+   **Ory sidecar services** reached over their REST APIs with built-in `fetch` — no SDK. New
+   capabilities ship as **plugin folders** under `plugins/` that get their data from an upstream
+   service or their own database, not as core code.
 3. **Strict TypeScript** — `tsconfig.json` is strict (incl. `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way. Prefer exact types;
    limit nullable and multi-option types.
@@ -79,7 +81,17 @@ Revisit only if the stated reason stops holding.
     it into `/node_modules`, above every plugin scope. Never let a copy reach a plugin's own
     `node_modules`: two instances of the barrel break `instanceof` across the boundary, which
     `plugin-api.test.ts` guards by asserting both paths reach one module.
-  - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
+  - **Plugin storage hands over credentials, not a client** (README → Plugin storage). The host takes
+  `postgres` to run the provisioning DDL in `bootstrap` and nothing else: it is never re-exported
+  through the barrel, so no driver shape enters the contract and a plugin depends on whichever client
+  it likes. Three properties hold the design together, so don't trade one away in isolation:
+  passwords are `HMAC-SHA256(PLUGIN_DB_SECRET, id)` rather than stored, which is what keeps the host
+  stateless; the superuser DSN reaches `bootstrap` only, because plugin code runs inside `web` and
+  can read that process' environment (`src/compose.test.ts` guards the split); and provisioning
+  never drops anything, so uninstalling a plugin cannot destroy data. Because the host's copy sits in
+  the ambient `/node_modules`, a plugin can `import "postgres"` without declaring it — that is
+  incidental, not a packaging promise, and a plugin must still depend on its own driver.
+- **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
     against that instead and boot fails loud. An operator's menu override has no use for
     dependencies; if that changes, it needs the same package treatment.
 - **A plugin `package.json` without `"type": "module"` is refused, not warned.** Allowing it costs a

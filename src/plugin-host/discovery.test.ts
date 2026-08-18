@@ -27,13 +27,19 @@ test("a missing plugins/ dir means zero plugins, not an error (clean clone)", as
 });
 
 test("discovers each folder's manifest, sorted, id derived from the folder name", async (t) => {
-  const dir = scaffold(t, { "beta/plugin.ts": full("beta"), "alpha/plugin.ts": full("alpha") });
+  const dir = scaffold(t, {
+    "beta/plugin.ts": full("beta"),
+    "alpha/plugin.ts": full("alpha"),
+    "gamma/plugin.ts": `export default { apiVersion: "1.0.0", storage: true };`,
+  });
   const plugins = await discoverPlugins({ dir });
 
-  assert.deepEqual(plugins.map((p) => p.id), ["alpha", "beta"]); // deterministic order
+  assert.deepEqual(plugins.map((p) => p.id), ["alpha", "beta", "gamma"]); // deterministic order
   assert.equal(plugins[0]?.apiVersion, "1.0.0");
   assert.equal(plugins[0]?.nav?.[0]?.label, "alpha");
   assert.equal(typeof plugins[0]?.routes?.[0]?.handler, "function"); // handlers survive import
+  assert.equal(plugins[0]?.storage, undefined); // storage is opt-in, never assumed
+  assert.equal(plugins[2]?.storage, true);
 });
 
 // Every per-plugin problem and every error-level conflict aborts boot with a message naming it.
@@ -48,6 +54,9 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "non-array routes", files: { "weird/plugin.ts": `export default { apiVersion: "1.0.0", routes: "nope" };` }, match: /weird.*routes.*array/s },
   { name: "non-function home", files: { "weirdhome/plugin.ts": `export default { apiVersion: "1.0.0", home: "nope" };` }, match: /weirdhome.*home.*function/s },
   { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
+  { name: "non-boolean storage", files: { "weirdstore/plugin.ts": `export default { apiVersion: "1.0.0", storage: "postgres://db" };` }, match: /weirdstore.*storage.*boolean/s },
+  // The folder name becomes a Postgres identifier, which truncates past 63 bytes.
+  { name: "a storage plugin whose folder name overflows a Postgres identifier", files: { [`${"a".repeat(57)}/plugin.ts`]: `export default { apiVersion: "1.0.0", storage: true };` }, match: /storage.*56 characters/s },
   { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
   { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },

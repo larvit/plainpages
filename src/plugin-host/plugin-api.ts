@@ -5,7 +5,10 @@
 // a plugin should import from here, never reach into deeper modules. See README.md → Building plugins.
 
 export { definePlugin, isValidPermissionName } from "./plugin.ts";
-export type { HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
+export type { BootContext, HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
+// A plugin's own database, handed to onBoot when the manifest sets `storage`. Credentials, not a
+// client — the plugin depends on whichever driver it prefers (README → Plugin storage).
+export type { StorageCredentials } from "./storage.ts";
 export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";

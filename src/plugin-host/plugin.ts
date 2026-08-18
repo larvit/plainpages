@@ -6,6 +6,7 @@
 
 import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
+import type { StorageCredentials } from "./storage.ts";
 
 // Bump major on a breaking manifest/handler change, minor on an additive one.
 export const HOST_API_VERSION = "1.0.0";
@@ -60,9 +61,14 @@ export function declaredPermissions(plugins: Plugin[]): PermissionDecl[] {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// What onBoot receives. A hook declaring no parameter stays valid, so this may grow additively.
+export interface BootContext {
+  storage?: StorageCredentials; // this plugin's own database; present iff the manifest declared `storage`
+}
+
 // Optional hooks on system actions. Crash-isolation is a non-goal — a throwing hook fails loud.
 export interface PluginHooks {
-  onBoot?: () => Promise<void> | void; // after discovery, before the server listens
+  onBoot?: (host: BootContext) => Promise<void> | void; // after discovery, before the server listens
   onRequest?: (ctx: RequestContext) => Promise<RouteResult | void> | RouteResult | void; // may short-circuit
   onResponse?: (ctx: RequestContext, result: RouteResult | null) => Promise<void> | void;
 }
@@ -80,6 +86,9 @@ export interface PluginManifest {
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
   routes?: Route[];
+  // Ask for a Postgres database of this plugin's own; its credentials arrive on onBoot's BootContext.
+  // The host provisions and locks it down but owns no schema inside it, and never drops it.
+  storage?: boolean;
 }
 
 // A discovered plugin: the manifest plus the `id` the host read from the folder name. Mounted
