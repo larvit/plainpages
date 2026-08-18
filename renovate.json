@@ -1,6 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "description": "ignorePaths overrides config:recommended's :ignoreModulesAndTests, which ignores **/examples/** — an example plugin's dependencies get update PRs like any other manifest here",
+  "ignorePaths": ["**/node_modules/**"],
   "automerge": true,
   "commitBody": "Release-Bump: {{{updateType}}}",
   "packageRules": [
