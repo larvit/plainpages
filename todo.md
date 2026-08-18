@@ -2,16 +2,13 @@
 
 ## Unfinnished work
 
-- [ ] Add a way to configure plugins directly when installing. Most reasonable is an .env file in the plugin folder, I think, but I am open to suggestions.
-- [ ] Give `config/` the same named refusal plugin folders now get for a stray `package.json`. It already fails loud, but as `ERR_PACKAGE_IMPORT_NOT_DEFINED` wrapped in a `config/menu.ts failed to import`, naming neither the cause nor the remedy — and now that a plugin folder may legitimately hold a `package.json`, the asymmetry between the two drop-in dirs lives only in prose.
-- [ ] Decide Renovate's reach over plugin dependencies before the first example plugin takes one. `renovate.json` extends `config:recommended`, whose `:ignoreModulesAndTests` ignores `**/examples/**`, so an example plugin's `package.json` would get no update PRs and nobody would notice. Either narrow the ignorePath or state that plugin deps are the plugin owner's to update (README → Plugin dependencies already says so for external plugins).
+- [ ] Add a way to configure plugins directly when installing. **Decided: the manifest declares it, not an `.env`** — a declared schema is validatable at boot, so a missing or mistyped setting fails loud and named the way a stray `package.json` now does, and the picker/docs can be generated from the declaration. Open: where the operator *supplies* the values (env var per key, a `config/` file, or both), and whether a secret may be declared at all.
 - [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Guard the group paths against self-lockout, or accept them explicitly. The self-revoke guard covers only your own *direct* grants on the Users screen; unticking a permission on a group you belong to, removing yourself from that group, or deleting it can all still strip your own effective access with no warning. Recorded in AGENTS.md as a known gap — the robust fix is a "last effective holder" check, which needs a reverse Keto query.
 - [ ] The permission picker has no concurrency baseline, so two operators editing the same user/group silently discard each other's change. Sketch: post the rendered set as a hidden baseline; if it no longer matches Keto, re-render with "this changed while you had the page open" rather than applying.
 - [ ] A grant whose plugin was uninstalled is invisible and unremovable in the GUI. `grantDiff` deliberately never revokes an undeclared name, but nothing *shows* it either — so it can't be audited or cleaned, and reinstalling that plugin silently reactivates access nobody remembers granting. Sketch: a read-only "held, but no installed plugin offers this" list with a remove action.
 - [ ] A plugin may gate a route on a permission it never declares — declaring stays optional on purpose. The cost is a dead end: the picker is built from declarations only, so that route is ungrantable from the GUI with no boot error and a permanent 403 as the operator's only clue. Sketch: a discovery *warning* (not an error) naming the gated-but-undeclared permission.
 - [ ] Saving permissions gives no confirmation, and a partial failure is silent. `applyGrants` loops writes then deletes with no transaction, so a Keto error midway leaves a half-applied set behind the generic error page; and a successful save is indistinguishable from "nothing changed". The `alert alert-pos` pattern the recovery-code banner uses is already available.
-- [ ] The seeded admin@plainpages.local is assigned twice to the same permission; should only be once.
 - [ ] In Playwright tests, try different resolutions and sizes, from BIG desktop down to tiny phone.
 - [ ] Decide whether `e2e-tests/` should be typechecked. It is outside `tsconfig.include`, so the gate never checks its most logic-bearing file (`console-guard.ts`). Including it needs the DOM lib and `@playwright/test` present wherever `npm run typecheck` runs, which today is the `web` image that installs neither.
 - [ ] Decide whether Playwright's `workers` should be pinned. Unset, it sizes the pool from `os.cpus()`, which reports the host's cores regardless of a container CPU quota — and with `retries: 0` a starved runner turns a slow test straight into a red gate. Fine on the current act_runner; revisit if CI ever runs constrained.
@@ -39,6 +36,9 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 
 ## Finnished work
 
+- [x] Refuse a stray `package.json`/`node_modules` in `config/` by name, as plugin folders already are.
+- [x] Let Renovate reach the example plugins' manifests (`ignorePaths` overrides `config:recommended`).
+- [x] The seeded admin is granted each permission once — `seedPermissions` dedupes and the grant PUT is idempotent.
 - [x] Run the E2E runner as the invoking user so its artifacts aren't root-owned.
 - [x] Install node_modules above `WORKDIR /app` so no mount leaves a root-owned dir in the checkout.
 - [x] Enforce `<resource>:<action>` permission names at discovery; split `admin` per screen.
