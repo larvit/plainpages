@@ -16,6 +16,10 @@ import { loadMenuConfig } from "./ui/menu-config.ts";
 import { buildCredentials, storagePluginIds, type StorageCredentials } from "./plugin-host/storage.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
+// The storage secret is in `config` now, so drop it from the environment before ANY plugin code
+// runs: a plugin module's top level evaluates during discovery, long before onBoot. Defence in
+// depth, not a boundary (AGENTS.md) — and only ever move this line earlier, never later.
+delete process.env["PLUGIN_DB_SECRET"];
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
 // per request for access logging + a trace span (src/http/app.ts); console-only otherwise.
 const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
@@ -53,14 +57,10 @@ if (declaresStorage.length > 0 && pluginDbUrl === undefined) {
   throw new Error(`config: PLUGIN_DB_URL must be set — these plugins declare storage: ${declaresStorage.join(", ")}`);
 }
 
-// Derive every plugin's credentials first, then drop the secret: onBoot is the window in which
-// plugin code could read it out of the environment and derive a *peer's* password. Order matters —
-// deleting after the hooks would protect nothing. Defence in depth, not a boundary (AGENTS.md).
 const storageCredentials = new Map<string, StorageCredentials>();
 if (pluginDbUrl !== undefined) {
   for (const id of declaresStorage) storageCredentials.set(id, buildCredentials(pluginDbUrl, id, config.pluginDbSecret));
 }
-delete process.env["PLUGIN_DB_SECRET"];
 
 // plugin onBoot — after discovery, before listen; a throw aborts boot.
 await runBootHooks(plugins, (plugin) => {

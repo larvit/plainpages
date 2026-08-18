@@ -10,6 +10,7 @@ import {
   derivePassword,
   isValidStoragePluginId,
   MAX_STORAGE_PLUGIN_ID,
+  orphanNames,
   provisionSql,
   quoteIdentifier,
   quoteLiteral,
@@ -71,10 +72,17 @@ test("only the plugins that asked for storage are provisioned", () => {
   );
 });
 
+test("an orphan is a plugin_ database no installed plugin claims", () => {
+  const existing = ["plugin_gone", "plugin_here", "kratos", "ory"];
+  assert.deepEqual(orphanNames(existing, ["plugin_here"]), ["plugin_gone"]); // Ory's are not ours to report
+  assert.deepEqual(orphanNames(existing, ["plugin_here", "plugin_gone"]), []);
+});
+
 test("provisioning creates the role and the database when neither exists", () => {
   const plan = { connectionLimit: 10, databaseExists: false, name: "plugin_things", password: "pw", roleExists: false };
   assert.deepEqual(provisionSql(plan), [
     `CREATE ROLE "plugin_things" ${ATTRIBUTES} PASSWORD 'pw'`,
+    `GRANT "plugin_things" TO CURRENT_USER`, // else a CREATEROLE (non-superuser) account cannot own it
     `CREATE DATABASE "plugin_things" OWNER "plugin_things"`,
     `REVOKE ALL ON DATABASE "plugin_things" FROM PUBLIC`,
     `GRANT ALL PRIVILEGES ON DATABASE "plugin_things" TO "plugin_things"`,
@@ -160,6 +168,33 @@ test("provisions a database its plugin can use and a peer plugin cannot reach", 
       await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
       await admin.unsafe(`DROP ROLE IF EXISTS ${name}`);
     }
+    await admin.end();
+  }
+});
+
+// README tells an operator CREATEDB + CREATEROLE is enough and superuser is more than it needs.
+// That is a promise about their production credentials, so prove it rather than assert it.
+test("provisions through a CREATEDB + CREATEROLE account, without superuser", integration, async () => {
+  const pluginId = "storage-itest-lowpriv";
+  const provisioner = "storage-itest-provisioner";
+  const admin = postgres(ADMIN_URL, { connect_timeout: 10, max: 1, onnotice: () => {} });
+  try {
+    await admin.unsafe(`DROP ROLE IF EXISTS ${quoteIdentifier(provisioner)}`);
+    await admin.unsafe(`CREATE ROLE ${quoteIdentifier(provisioner)} LOGIN CREATEDB CREATEROLE PASSWORD 'itest-provisioner'`);
+    const asProvisioner = new URL(ADMIN_URL);
+    asProvisioner.username = provisioner;
+    asProvisioner.password = "itest-provisioner";
+    await provisionStorage({ adminUrl: asProvisioner.href, connectionLimit: 10, pluginIds: [pluginId], secret: SECRET });
+
+    const owner = buildCredentials(baseUrlOf(ADMIN_URL), pluginId, SECRET);
+    await queryAs(owner.url, "CREATE TABLE IF NOT EXISTS notes (body text)");
+    const rows = (await queryAs(owner.url, "SELECT 1 AS ok")) as { ok: number }[];
+    assert.deepEqual(rows.map((row) => row.ok), [1]); // the plugin owns and can use what it was given
+  } finally {
+    const name = quoteIdentifier(storageName(pluginId));
+    await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await admin.unsafe(`DROP ROLE IF EXISTS ${name}`);
+    await admin.unsafe(`DROP ROLE IF EXISTS ${quoteIdentifier(provisioner)}`);
     await admin.end();
   }
 });

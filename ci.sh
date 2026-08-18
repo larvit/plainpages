@@ -64,13 +64,20 @@ count=$(echo "$units" | grep -oE 'tests [0-9]+' | grep -oE '[0-9]+' | head -1 ||
 # test skips there — and it is the only thing proving the DDL actually grants what it claims, rather
 # than that the SQL text is the text we wrote. `node --test` counts a skip, so the floor won't catch it.
 step "Plugin storage (real Postgres)"
+# Own project name, like every E2E suite below: the default project is the DEV stack, so a bare
+# `down -v` here would delete the operator's pgdata — Ory identities and every plugin database.
+# --wait, because initdb on a cold volume outlasts the suite's connect timeout.
 storage_rc=0
-docker compose up -d postgres >/dev/null
-docker compose run --rm --no-deps \
+storage_proj=plainpages-storage
+docker compose -p "$storage_proj" up -d --wait postgres >/dev/null
+storage_out=$(docker compose -p "$storage_proj" run --rm --no-deps \
 	-e PLUGIN_DB_ADMIN_URL=postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory \
-	web node --test src/plugin-host/storage.test.ts || storage_rc=$?
-docker compose down -v >/dev/null 2>&1 || true
-[ "$storage_rc" -eq 0 ] || { echo "plugin storage integration tests failed (exit $storage_rc)"; exit "$storage_rc"; }
+	web node --test src/plugin-host/storage.test.ts 2>&1) || storage_rc=$?
+docker compose -p "$storage_proj" down -v >/dev/null 2>&1 || true
+echo "$storage_out" | grep -E '^. (tests|pass|fail|skipped) ' || true
+[ "$storage_rc" -eq 0 ] || { echo "$storage_out"; echo "plugin storage integration tests failed (exit $storage_rc)"; exit "$storage_rc"; }
+# A skip here exits 0 and proves nothing — the same trap the unit floor above guards against.
+echo "$storage_out" | grep -qE '^. skipped 0$' || { echo "storage integration test skipped — PLUGIN_DB_ADMIN_URL not wired through"; exit 1; }
 
 # Run one E2E suite against its OWN named stack, then always tear it down (even on failure). The
 # per-suite project name keeps a flaky teardown from leaking containers/volumes into the next suite.

@@ -18,6 +18,10 @@ import { createLogger, runWithLog, tracedFetch, type Log } from "../logger.ts";
 
 type Env = Record<string, string | undefined>;
 
+// Kept closed to PUBLIC on every boot, not just on a fresh volume — a plugin role would otherwise
+// reach the auth plane's catalogs and connection slots (ory/postgres/init/init.sql seeds the same).
+const ORY_DATABASES = ["hydra", "keto", "kratos"];
+
 // --- Pure payload builders (the Kratos/Keto request contracts) -----------------------
 
 export function identityPayload(email: string, password: string) {
@@ -175,6 +179,7 @@ async function provisionPluginStorage(env: Env, plugins: Plugin[], log: Log): Pr
   const result = await provisionStorage({
     adminUrl,
     connectionLimit: resolvePluginDbConnectionLimit(env),
+    lockdownDatabases: ORY_DATABASES,
     pluginIds: ids,
     secret: resolvePluginDbSecret(env),
   });

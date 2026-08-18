@@ -2,11 +2,14 @@
 // alone — the only process holding superuser credentials, which is why the driver stops here.
 
 import postgres from "postgres";
-import { derivePassword, NAME_PREFIX, provisionSql, storageName } from "./storage.ts";
+import { derivePassword, NAME_PREFIX, orphanNames, provisionSql, quoteIdentifier, storageName } from "./storage.ts";
 
 export interface ProvisionOptions {
   adminUrl: string; // needs CREATEDB + CREATEROLE, not superuser
   connectionLimit: number;
+  // Databases to keep closed to PUBLIC on every run. init.sql seeds this for the Ory databases, but
+  // it runs once on an empty data dir — an existing volume would keep the default grant forever.
+  lockdownDatabases?: string[];
   pluginIds: string[];
   secret: string;
 }
@@ -36,9 +39,11 @@ export async function provisionStorage(options: ProvisionOptions): Promise<Provi
       for (const statement of plan) await sql.unsafe(statement); // provisionSql quotes what it interpolates
       provisioned.push(name);
     }
+    for (const database of options.lockdownDatabases ?? []) {
+      await sql.unsafe(`REVOKE CONNECT ON DATABASE ${quoteIdentifier(database)} FROM PUBLIC`);
+    }
     const existing = await sql<{ datname: string }[]>`SELECT datname FROM pg_database WHERE starts_with(datname, ${NAME_PREFIX})`;
-    const orphans = existing.map((row) => row.datname).filter((name) => !provisioned.includes(name)).sort();
-    return { orphans, provisioned };
+    return { orphans: orphanNames(existing.map((row) => row.datname), provisioned), provisioned };
   } finally {
     await sql.end();
   }

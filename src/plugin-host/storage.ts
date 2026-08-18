@@ -58,6 +58,12 @@ export function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
+// A database this host provisioned once and no installed plugin claims any more. Nothing drops it,
+// so naming it is the only way an operator finds it again.
+export function orphanNames(existing: string[], provisioned: string[]): string[] {
+  return existing.filter((name) => name.startsWith(NAME_PREFIX) && !provisioned.includes(name)).sort();
+}
+
 export interface ProvisionPlan {
   connectionLimit: number;
   databaseExists: boolean;
@@ -78,7 +84,10 @@ export function provisionSql(plan: ProvisionPlan): string[] {
   const attributes = `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT ${plan.connectionLimit} PASSWORD ${quoteLiteral(plan.password)}`;
   return [
     plan.roleExists ? `ALTER ROLE ${identifier} WITH ${attributes}` : `CREATE ROLE ${identifier} ${attributes}`,
-    ...(plan.databaseExists ? [] : [`CREATE DATABASE ${identifier} OWNER ${identifier}`]),
+    // CREATE DATABASE ... OWNER needs SET ROLE on the owner, and PG16+ gives a CREATEROLE account
+    // ADMIN but *not* SET on the roles it creates — so it grants itself membership first. A
+    // superuser could skip this; issuing it anyway is what keeps a least-privilege account working.
+    ...(plan.databaseExists ? [] : [`GRANT ${identifier} TO CURRENT_USER`, `CREATE DATABASE ${identifier} OWNER ${identifier}`]),
     `REVOKE ALL ON DATABASE ${identifier} FROM PUBLIC`,
     `GRANT ALL PRIVILEGES ON DATABASE ${identifier} TO ${identifier}`,
   ];
