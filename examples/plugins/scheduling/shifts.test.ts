@@ -51,7 +51,7 @@ test("the manifest's onBoot hook validates SCHEDULING_UPSTREAM (the binding, not
   try {
     const manifest = (await import("./plugin.ts")).default;
     assert.equal(typeof manifest.hooks?.onBoot, "function");
-    assert.throws(() => manifest.hooks!.onBoot!(), /SCHEDULING_UPSTREAM/); // bad upstream → boot fails loud
+    assert.throws(() => manifest.hooks!.onBoot!({}), /SCHEDULING_UPSTREAM/); // bad upstream → boot fails loud
   } finally {
     if (prev === undefined) delete process.env["SCHEDULING_UPSTREAM"];
     else process.env["SCHEDULING_UPSTREAM"] = prev;

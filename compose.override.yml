@@ -1,5 +1,9 @@
 # Development overrides, merged automatically by `docker compose up`.
 # Mounts the source for live editing and restarts on change via `node --watch`.
+
+# web connects with it and bootstrap provisions against it, so the two must agree — one home.
+x-plugin-db-url: &plugin-db-url postgres://postgres:5432
+
 services:
   web:
     command: node --watch src/server.ts
@@ -13,6 +17,9 @@ services:
       CACHE_TEMPLATES: "false"
       LOG_FORMAT: "text" # human-readable logs in dev (base sets json for prod log pipelines)
       LOG_LEVEL: "debug" # verbose by default while developing (base defaults to info)
+      # Point plugin storage at the bundled Postgres, so a dropped-in plugin declaring `storage`
+      # works with no further config; the secret falls back to the dev throwaway (config.ts).
+      PLUGIN_DB_URL: *plugin-db-url
       REQUIRE_SECURE_SECRETS: "false"
       SECURE_COOKIES: "false" # dev serves http — Secure cookies wouldn't be sent
       SCHEDULING_UPSTREAM: "http://shifts-upstream:4000" # backs the reference plugin once you copy it into plugins/
@@ -29,6 +36,11 @@ services:
   # It belongs here and not in the base file, where it would desynchronise prod and collide with the
   # e2e stacks, which bind individual plugins *inside* /app/plugins.
   bootstrap:
+    # Provisions the plugin databases web connects to above, as the dev superuser.
+    environment:
+      PLUGIN_DB_ADMIN_URL: postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory
+      PLUGIN_DB_URL: *plugin-db-url
+      REQUIRE_SECURE_SECRETS: "false" # dev derives from the throwaway, as web does
     volumes:
       - .:/app
 

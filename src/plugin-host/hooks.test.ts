@@ -12,14 +12,17 @@ function plugin(id: string, hooks: PluginHooks): Plugin {
 
 test("runBootHooks runs each onBoot in order, skips plugins without one, and a throw aborts", async () => {
   const calls: string[] = [];
+  const scoped: string[] = []; // each hook is handed a context built for its own plugin
+  const bootContextFor = (built: Plugin) => { scoped.push(built.id); return {}; };
   await runBootHooks([
     plugin("a", { onBoot: () => void calls.push("a") }),
     plugin("b", {}), // no onBoot → skipped
     plugin("c", { onBoot: async () => void calls.push("c") }),
-  ]);
+  ], bootContextFor);
   assert.deepEqual(calls, ["a", "c"]);
+  assert.deepEqual(scoped, ["a", "c"]); // and built only for the plugins that have one
 
-  await assert.rejects(runBootHooks([plugin("x", { onBoot: () => { throw new Error("boom"); } })]), /boom/);
+  await assert.rejects(runBootHooks([plugin("x", { onBoot: () => { throw new Error("boom"); } })], () => ({})), /boom/);
 });
 
 test("runRequestHooks short-circuits on the first RouteResult (with its plugin); later hooks skipped", async () => {

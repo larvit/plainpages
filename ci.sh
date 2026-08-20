@@ -60,6 +60,33 @@ echo "$units" | grep -E '^. (tests|pass|fail) ' || true
 count=$(echo "$units" | grep -oE 'tests [0-9]+' | grep -oE '[0-9]+' | head -1 || true)
 [ "${count:-0}" -ge 50 ] || { echo "only ${count:-0} unit tests ran — test glob broken?"; exit 1; }
 
+# Plugin storage against a real Postgres. The step above runs --no-deps, so this suite's integration
+# test skips there — and it is the only thing proving the DDL actually grants what it claims, rather
+# than that the SQL text is the text we wrote. `node --test` counts a skip, so the floor won't catch it.
+step "Plugin storage (real Postgres)"
+# Own project name, like every E2E suite below: the default project is the DEV stack, so a bare
+# `down -v` here would delete the operator's pgdata — Ory identities and every plugin database.
+# --wait, because initdb on a cold volume outlasts the suite's connect timeout.
+storage_rc=0
+storage_proj=plainpages-storage
+storage_files=(-p "$storage_proj" -f compose.yml) # no override merge, like the e2e suites below
+storage_dsn="postgres://${POSTGRES_USER:-ory}:${POSTGRES_PASSWORD:-ory}@postgres:5432/ory"
+storage_out=""
+docker compose "${storage_files[@]}" up -d --wait postgres >/dev/null || storage_rc=$?
+# `if`, not `&&`: a false `&&` returns non-zero, which under `set -e` would exit before teardown.
+if [ "$storage_rc" -eq 0 ]; then
+	# --build like the e2e suites: this stack mounts no source, so without it the step would test
+	# whatever `web` image that project last baked.
+	storage_out=$(docker compose "${storage_files[@]}" run --build --rm --no-deps \
+		-e "PLUGIN_DB_ADMIN_URL=$storage_dsn" \
+		web node --test src/plugin-host/storage.test.ts 2>&1) || storage_rc=$?
+fi
+docker compose "${storage_files[@]}" down -v >/dev/null 2>&1 || true # also covers a failed `up`
+echo "$storage_out" | grep -E '^. (tests|pass|fail|skipped) ' || true
+[ "$storage_rc" -eq 0 ] || { echo "$storage_out"; echo "plugin storage integration tests failed (exit $storage_rc)"; exit "$storage_rc"; }
+# A skip here exits 0 and proves nothing — the same trap the unit floor above guards against.
+echo "$storage_out" | grep -qE '^. skipped 0$' || { echo "storage integration test skipped — PLUGIN_DB_ADMIN_URL not wired through"; exit 1; }
+
 # Run one E2E suite against its OWN named stack, then always tear it down (even on failure). The
 # per-suite project name keeps a flaky teardown from leaking containers/volumes into the next suite.
 # --user: the runner writes screenshots + the report into the checkout, so they must belong to

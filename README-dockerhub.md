@@ -2,7 +2,8 @@
 
 A self-hostable foundation for server-rendered web apps — public or gated pages from a
 zero-JS design system, with a config-driven menu and auth/permissions (Ory) baked in.
-Every domain feature is a drop-in plugin folder; the app is stateless, no build step.
+Every domain feature is a drop-in plugin folder, with a Postgres database of its own if it wants
+one; the host itself is stateless, and there is no build step.
 
 **Source, docs & issues: <https://gitea.larvit.se/larvit/plainpages>**
 ([GitHub mirror](https://github.com/larvit/plainpages))

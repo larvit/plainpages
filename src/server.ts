@@ -13,8 +13,13 @@ import { createKratosAdmin } from "./auth/kratos-admin.ts";
 import { createKratosPublic } from "./auth/kratos-public.ts";
 import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./ui/menu-config.ts";
+import { buildCredentials, storagePluginIds, type StorageCredentials } from "./plugin-host/storage.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
+// The storage secret is in `config` now, so drop it from the environment before ANY plugin code
+// runs: a plugin module's top level evaluates during discovery, long before onBoot. Defence in
+// depth, not a boundary (AGENTS.md) — and only ever move this line earlier, never later.
+delete process.env["PLUGIN_DB_SECRET"];
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
 // per request for access logging + a trace span (src/http/app.ts); console-only otherwise.
 const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
@@ -44,7 +49,28 @@ log.info("plugins discovered", { count: plugins.length, ids: plugins.map((p) => 
 const i18n = createI18n(await loadI18n({ logger: log, pluginIds: plugins.map((p) => p.id) }));
 log.info("locales loaded", { locales: i18n.available.join(", ") });
 
-await runBootHooks(plugins); // plugin onBoot — after discovery, before listen; a throw aborts boot
+// A plugin's database credentials are derived, never stored — so the only thing that can be missing
+// is the server itself. Refuse at boot rather than at that plugin's first query, hours later.
+const pluginDbUrl = config.pluginDbUrl;
+const declaresStorage = storagePluginIds(plugins);
+if (declaresStorage.length > 0 && pluginDbUrl === undefined) {
+  throw new Error(`config: PLUGIN_DB_URL must be set — these plugins declare storage: ${declaresStorage.join(", ")}`);
+}
+
+const storageCredentials = new Map<string, StorageCredentials>();
+if (pluginDbUrl !== undefined) {
+  for (const id of declaresStorage) storageCredentials.set(id, buildCredentials(pluginDbUrl, id, config.pluginDbSecret));
+}
+// onBoot is the only way credentials are handed over, so without one the database is provisioned
+// and unreachable. A warning, not a refusal — the plugin still works, it just cannot store anything.
+const unreachable = plugins.filter((plugin) => plugin.storage && !plugin.hooks?.onBoot).map((plugin) => plugin.id);
+if (unreachable.length > 0) log.warn("plugins declare storage but have no onBoot to receive it", { plugins: unreachable.join(", ") });
+
+// plugin onBoot — after discovery, before listen; a throw aborts boot.
+await runBootHooks(plugins, (plugin) => {
+  const storage = storageCredentials.get(plugin.id);
+  return storage ? { storage } : {};
+});
 
 const server = createApp({
   // Canonical-host redirect target (off-host GET/HEAD visitors are sent here). Opt-in: omitted unless

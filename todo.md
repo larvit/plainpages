@@ -36,6 +36,7 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 
 ## Finnished work
 
+- [x] Give a plugin persistent storage: `storage: true` provisions a Postgres database + login role named `plugin_<id>`, credentials arrive on `onBoot`, passwords are derived from `PLUGIN_DB_SECRET` rather than stored.
 - [x] Refuse a stray `package.json`/`node_modules` in `config/` by name, as plugin folders already are.
 - [x] Let Renovate reach the example plugins' manifests (`ignorePaths` overrides `config:recommended`).
 - [x] The seeded admin is granted each permission once — `seedPermissions` dedupes and the grant PUT is idempotent.

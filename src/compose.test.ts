@@ -44,10 +44,11 @@ test("long-running Ory services declare readiness healthchecks", () => {
       `${svc} probes :${port}/health/ready`);
 });
 
-test("web waits for kratos, keto and hydra to be healthy before starting", () => {
+test("web waits for kratos, keto, hydra and postgres to be healthy before starting", () => {
   assert.match(webBlock, /depends_on:/, "web declares dependencies");
-  // hydra: the OAuth2 login/consent handler talks to its admin API.
-  for (const svc of ["kratos", "keto", "hydra"])
+  // hydra: the OAuth2 login/consent handler talks to its admin API. postgres: a plugin declaring
+  // `storage` opens its connection in onBoot, before the server listens.
+  for (const svc of ["kratos", "keto", "hydra", "postgres"])
     assert.match(webBlock, new RegExp(`${svc}:\\s*\\n\\s*condition:\\s*service_healthy`),
       `web waits for ${svc} healthy`);
 });
@@ -76,6 +77,21 @@ test("prod base supplies the app secret via env and mounts no source; dev overri
   assert.match(override, /LOG_FORMAT:\s*"text"/, "dev logs human-readable text");
   // Postgres credentials are env-supplied (dev default), never a baked-in literal.
   assert.match(compose, /POSTGRES_PASSWORD:\s*\$\{POSTGRES_PASSWORD\b/, "postgres password via env");
+});
+
+test("the provisioning superuser DSN reaches bootstrap only, never web", () => {
+  // web runs plugin code, which can read its own environment — so the credentials that may CREATE
+  // DATABASE/ROLE must never be there. web gets the credential-free base URL and derives each
+  // plugin's own password from the shared secret instead.
+  const boot = compose.slice(compose.indexOf("\n  bootstrap:"));
+  const overrideWeb = override.slice(override.indexOf("\n  web:"), override.indexOf("\n  bootstrap:"));
+  assert.match(boot, /PLUGIN_DB_ADMIN_URL:/, "bootstrap is given the superuser DSN");
+  // Reordering the override's services would empty this slice, and every doesNotMatch below would
+  // then pass against "".
+  assert.ok(overrideWeb.includes("PLUGIN_DB_URL"), "sliced the dev override's web block");
+  for (const [name, block] of [["base", webBlock], ["dev override", overrideWeb]] as const)
+    assert.doesNotMatch(block, /PLUGIN_DB_ADMIN_URL/, `${name} web never sees it`);
+  assert.match(webBlock, /PLUGIN_DB_URL:\s*\$\{PLUGIN_DB_URL/, "base wires web's base URL from env");
 });
 
 test("a one-shot bootstrap seeds the stack before web starts", () => {

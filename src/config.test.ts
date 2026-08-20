@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { loadConfig } from "./config.ts";
+import { loadConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "./config.ts";
 
 // Explicit secure-secret enforcement (no environment sniffing): secrets are the only
 // thing a hardened deploy must supply.
@@ -8,6 +8,43 @@ const secureEnv = {
   CSRF_SECRET: "real-csrf-secret",
   REQUIRE_SECURE_SECRETS: "true",
 };
+
+// web reads the secret through loadConfig and bootstrap through resolvePluginDbSecret; the two
+// deriving different passwords is invisible until a plugin's connection is refused at boot. Compose
+// passes an unset variable through as "", which is the case that actually drifted.
+test("web and bootstrap resolve the same plugin storage secret", () => {
+  for (const env of [{}, { PLUGIN_DB_SECRET: "" }, { PLUGIN_DB_SECRET: "a-real-secret" }]) {
+    assert.equal(loadConfig(env).pluginDbSecret, resolvePluginDbSecret(env), `for ${JSON.stringify(env)}`);
+  }
+  assert.match(resolvePluginDbSecret({ PLUGIN_DB_SECRET: "" }), /dev-insecure/); // empty is unset, not a secret
+});
+
+// bootstrap writes these passwords into Postgres, so it must refuse the publicly-known throwaway
+// before creating a role with one — not leave web to notice afterwards.
+test("bootstrap refuses a missing, empty or throwaway plugin storage secret when hardened", () => {
+  const hardened = { REQUIRE_SECURE_SECRETS: "true" };
+  for (const secret of [undefined, "", "dev-insecure-plugin-db-secret"]) {
+    const env = secret === undefined ? hardened : { ...hardened, PLUGIN_DB_SECRET: secret };
+    assert.throws(() => resolvePluginDbSecret(env), /PLUGIN_DB_SECRET/, `for ${JSON.stringify(secret)}`);
+  }
+  assert.equal(resolvePluginDbSecret({ ...hardened, PLUGIN_DB_SECRET: "a-real-secret" }), "a-real-secret");
+});
+
+// buildCredentials overwrites the userinfo, so a pasted admin DSN would *work* — and leave a
+// privileged password in the process that runs plugin code. Refusing it is the whole guard.
+test("PLUGIN_DB_URL carrying credentials is refused, not silently overwritten", () => {
+  assert.throws(() => loadConfig({ PLUGIN_DB_URL: "postgres://root:hunter2@db:5432/ory" }), /no username or password/);
+  assert.throws(() => loadConfig({ PLUGIN_DB_URL: "postgres://root@db:5432" }), /no username or password/);
+  assert.equal(loadConfig({ PLUGIN_DB_URL: "postgres://db:5432" }).pluginDbUrl, "postgres://db:5432");
+  assert.equal(loadConfig({}).pluginDbUrl, undefined); // unset ⇒ storage off
+});
+
+test("the per-role connection ceiling defaults to 10 and rejects nonsense", () => {
+  assert.equal(resolvePluginDbConnectionLimit({}), 10);
+  assert.equal(resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "25" }), 25);
+  assert.throws(() => resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "0" }), /positive integer/);
+  assert.throws(() => resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "ten" }), /positive integer/);
+});
 
 test("loads dev defaults when the environment is empty", () => {
   const c = loadConfig({});

@@ -6,6 +6,35 @@
 export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly", "none"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
+const DEV_PLUGIN_DB_SECRET = "dev-insecure-plugin-db-secret";
+
+// The one resolution both processes use — they must agree exactly, or web connects with a password
+// the role was never given. Compose passes an unset variable through as "", so empty means unset.
+// `enforce` says whether storage is actually in play: web once PLUGIN_DB_URL is configured,
+// bootstrap once a plugin declares storage. Enforced, the throwaway is refused — bootstrap is what
+// writes these passwords into Postgres, so it must refuse *before* creating a role with one.
+export function resolvePluginDbSecret(env: Env, enforce?: boolean): string {
+  return readSecret(env, "PLUGIN_DB_SECRET", DEV_PLUGIN_DB_SECRET, enforce ?? readBool(env, "REQUIRE_SECURE_SECRETS", false));
+}
+
+// Only bootstrap provisions, so only bootstrap reads this; env still gets read in one place.
+export function resolvePluginDbConnectionLimit(env: Env): number {
+  return readPosInt(env, "PLUGIN_DB_CONNECTION_LIMIT", 10);
+}
+
+// PLUGIN_DB_URL is web's, and web must never hold credentials that outrank a plugin's own role.
+// Pasting the admin DSN here would otherwise work — buildCredentials overwrites the userinfo — and
+// leave a superuser password in the environment plugin code can read.
+function readCredentiallessUrl(env: Env, key: string): string | undefined {
+  const value = readOptionalUrl(env, key);
+  if (value === undefined) return undefined;
+  const url = new URL(value);
+  if (url.username || url.password) {
+    throw new Error(`config: ${key} must carry no username or password — each plugin connects as its own role`);
+  }
+  return value;
+}
+
 export interface Config {
   appUrl: string | undefined; // canonical public URL; set ⇒ off-host visitors are redirected here. Unset ⇒ no redirect (explicit toggle)
   cacheTemplates: boolean;
@@ -24,6 +53,8 @@ export interface Config {
   oryTimeoutSec: number; // per-call timeout for outbound Kratos/Keto/Hydra fetches (bounds a hung Ory)
   otlpEndpoint: string | undefined; // OTLP/HTTP collector base URI; unset ⇒ console-only (no export)
   otlpProtocol: "http/json" | "http/protobuf"; // OTLP wire format (protobuf for json-averse collectors)
+  pluginDbSecret: string; // derives each plugin's database password (src/plugin-host/storage.ts)
+  pluginDbUrl: string | undefined; // credential-free Postgres base URL; unset ⇒ plugin storage is off
   port: number;
   revocationDenylist: boolean; // enable the optional instant permission/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
@@ -150,6 +181,12 @@ export function loadConfig(env: Env = process.env): Config {
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
     otlpEndpoint: readOptionalUrl(env, "OTLP_ENDPOINT"),
     otlpProtocol: readEnum(env, "OTLP_PROTOCOL", ["http/json", "http/protobuf"] as const, "http/json"),
+    // Per-plugin storage. PLUGIN_DB_URL carries the server and its connection parameters but no
+    // credentials: the superuser DSN that provisions stays in bootstrap, so a plugin cannot read it
+    // out of web's environment. Unset ⇒ storage is off and a plugin declaring it fails loud at boot,
+    // which is also why the secret is only enforced once a URL is configured.
+    pluginDbSecret: resolvePluginDbSecret(env, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
+    pluginDbUrl: readCredentiallessUrl(env, "PLUGIN_DB_URL"),
     port: readPort(env),
     // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m

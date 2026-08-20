@@ -36,11 +36,13 @@ branch, create a PR and merge it when the CI/CD turns green.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the solution that is easiest to understand, smallest, and most readable.
-2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`).
-   Prefer the Node standard library; justify any new dependency; do not add frameworks. The app is
-   **stateless — no database**. Auth/identity/OAuth are **Ory sidecar services** reached over their
-   REST APIs with built-in `fetch` — no SDK. New capabilities ship as **plugin folders** under
-   `plugins/` that fetch their data from upstream services, not as core code.
+2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`,
+   `postgres`). Prefer the Node standard library; justify any new dependency; do not add frameworks.
+   The **host is stateless — it owns no schema and stores nothing of its own**; a plugin may own a
+   Postgres database, which the host provisions but never reads or writes inside. Auth/identity/OAuth are
+   **Ory sidecar services** reached over their REST APIs with built-in `fetch` — no SDK. New
+   capabilities ship as **plugin folders** under `plugins/` that get their data from an upstream
+   service or their own database, not as core code.
 3. **Strict TypeScript** — `tsconfig.json` is strict (incl. `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`, `verbatimModuleSyntax`). Keep it that way. Prefer exact types;
    limit nullable and multi-option types.
@@ -79,7 +81,41 @@ Revisit only if the stated reason stops holding.
     it into `/node_modules`, above every plugin scope. Never let a copy reach a plugin's own
     `node_modules`: two instances of the barrel break `instanceof` across the boundary, which
     `plugin-api.test.ts` guards by asserting both paths reach one module.
-  - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
+  - **Plugin storage hands over credentials, not a client** (README → Plugin storage). The host takes
+  `postgres` to run the provisioning DDL, and `storage-provisioning.ts` is the only module importing
+  it — `storage.ts` beside it stays pure so `web` never loads a driver (`src/postgres.test.ts` guards
+  both halves, because one value imported from the wrong module breaks it invisibly). It is never
+  re-exported through the barrel, so no driver shape enters the contract. Three properties hold the design together, so
+  don't trade one away in isolation: passwords are `HMAC-SHA256(PLUGIN_DB_SECRET, id)` rather than
+  stored, which is what keeps the host stateless — whoever holds that secret holds every plugin
+  database, so it ranks with the DB password itself; the provisioning DSN reaches `bootstrap` only
+  (`src/compose.test.ts` guards the split); and provisioning never drops anything, so uninstalling a
+  plugin cannot destroy data — boot logs the orphans instead. Because the host's copy sits in the
+  ambient `/node_modules`, a plugin can `import "postgres"` without declaring it — incidental, not a
+  packaging promise, and a plugin must still depend on its own driver.
+- **The trust boundary is the `web` process, not the plugin.** Per-plugin databases and roles bound
+  *accidents*, not hostile plugins: `PLUGIN_DB_SECRET` is in `web`'s environment during `onBoot`, and
+  a plugin already holds `ctx.system`'s Ory admin clients — so cross-plugin DB isolation is
+  containment, and README says so rather than implying a sandbox. Consistent with priority #7
+  (crash-isolation is a non-goal). `server.ts` still deletes the secret from `process.env` right
+  after `loadConfig`, which is before discovery imports any plugin module — the ordering is the whole
+  point, so move it earlier if anything, **never later**. **Valid while plugins are
+  operator-installed code, not third-party uploads.**
+- **`ory/postgres/init/init.sql` is the only home for the Ory databases' ACL** — don't re-assert the
+  `REVOKE CONNECT` from `bootstrap`. `REVOKE` only *warns* when the caller doesn't own the database,
+  so under the least-privilege provisioning account the README recommends it would report success
+  while changing nothing, and it hard-fails whenever `PLUGIN_DB_ADMIN_URL` names a server with no
+  `kratos`. A volume created before that file gained the revokes keeps the default grant;
+  `docker compose down -v` is the dev remedy. **Valid while pre-release, with no deployed volumes.**
+- **`bootstrap.ts` stays under `src/auth/`** even though it now provisions plugin databases as well
+  as seeding Ory. It is the one-shot service's entrypoint, not an auth module; moving it to
+  `src/bootstrap.ts` would edit `compose.yml`, five e2e compose files and `src/compose.test.ts` for a
+  rename. Reconsider when a third seeding concern lands.
+- **`BootContext.storage` keeps all six credential fields, and there is no `onShutdown` hook.** While
+  `HOST_API_VERSION` is frozen both are free to revisit; after the freeze, adding is compatible and
+  removing is not, so the shape errs small elsewhere. Pools handed to a plugin are reaped on process
+  exit — revisit if a plugin ever needs an orderly drain. **Valid while the freeze holds.**
+- **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
     against that instead and boot fails loud. An operator's menu override has no use for
     dependencies; if that changes, it needs the same package treatment.
 - **A plugin `package.json` without `"type": "module"` is refused, not warned.** Allowing it costs a
