@@ -26,7 +26,8 @@ jobs:
   # After the renovate job, cut ONE tag covering the renovate-bot commits merged to main since the
   # last tag (batch per run). Targets origin/main — the real post-merge tip; the checkout SHA is the
   # trigger-time tip and lags the merges this run made. Skips when main's tip isn't a Renovate commit
-  # (a human owns that release) or nothing new merged. ff-only merges keep the renovate commit's
+  # (a human owns that release), nothing new merged, or nothing that merged carried a `Release-Bump:`
+  # trailer — a release nobody can observe is noise. ff-only merges keep the renovate commit's
   # authorship on the tip, so the author checks are reliable. Level = highest `Release-Bump:` trailer;
   # pre-1.0 shifts down (auto-release/next-version.ts). Tag-only — release.yml promotes the
   # already-built image; pushed with renovate-bot's PAT so release.yml fires (the built-in token won't).
@@ -54,6 +55,9 @@ jobs:
           fi
           BUMPS=$(git log "${LATEST}..origin/main" --author='renovate@larvit.se' \
                   --format='%(trailers:key=Release-Bump,valueonly)' | { grep -vx '' || true; })
+          if [ -z "$BUMPS" ]; then
+            echo "Renovate commits since ${LATEST}, but none carry Release-Bump — nothing reached a running Plainpages; skipping"; exit 0
+          fi
           NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
                  node auto-release/next-version.ts "$LATEST" $BUMPS)
           echo "Releasing $LATEST -> $NEXT"

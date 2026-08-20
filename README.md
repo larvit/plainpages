@@ -1419,7 +1419,8 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 
 **Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`) cuts **one**
 `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main` since the last tag, and
-**skips** when the tip isn't a Renovate commit or nothing new merged. Renovate stamps a
+**skips** when the tip isn't a Renovate commit, nothing new merged, or nothing that merged carried a
+trailer — a dependency update that cannot reach the app releases nothing. Renovate stamps a
 `Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the root
 `package.json`'s runtime dependencies, the image base, and `compose.yml`'s services — and
 [`auto-release/next-version.ts`](auto-release/next-version.ts) turns the highest one into the next
