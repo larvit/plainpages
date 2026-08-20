@@ -22,7 +22,7 @@ so there is nothing to clone. In an empty directory, save this as `compose.yml`:
 ```yaml
 services:
   web:
-    image: larvit/plainpages:0.1.0
+    image: larvit/plainpages:{{VERSION}}
     ports:
       - "3000:3000"
     environment:
@@ -41,7 +41,7 @@ services:
 
   # One-shot, idempotent seed: signing key if absent + the admin@plainpages.local / admin user.
   bootstrap:
-    image: larvit/plainpages:0.1.0
+    image: larvit/plainpages:{{VERSION}}
     command: node src/auth/bootstrap.ts
     depends_on:
       kratos:
@@ -143,7 +143,7 @@ volumes:
 Extract the Ory config the image ships, then start:
 
 ```bash
-docker run --rm larvit/plainpages:0.1.0 tar -cf - ory | tar -xf -
+docker run --rm larvit/plainpages:{{VERSION}} tar -cf - ory | tar -xf -
 mkdir -p plugins
 docker compose up -d
 ```
@@ -182,7 +182,7 @@ into the app. Create `plugins/hello/plugin.ts`:
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "1.0.0",
+  apiVersion: "0.1.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },

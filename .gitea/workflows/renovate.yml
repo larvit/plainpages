@@ -60,6 +60,11 @@ jobs:
           fi
           NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
                  node auto-release/next-version.ts "$LATEST" $BUMPS)
+          # Read the constant off origin/main, not the checkout, which lags the merges this run made.
+          git show origin/main:src/plugin-host/plugin.ts > plugin-at-main.ts
+          docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+                 node release-tooling/contract-version.ts "$NEXT" plugin-at-main.ts
+          rm -f plugin-at-main.ts
           echo "Releasing $LATEST -> $NEXT"
           git tag "$NEXT" origin/main
           git push "https://renovate-bot:${RENOVATE_TOKEN}@gitea.larvit.se/${REPO}.git" "$NEXT"

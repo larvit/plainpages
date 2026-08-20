@@ -8,6 +8,14 @@ jobs:
     runs-on: docker-host
     steps:
       - uses: actions/checkout@v7.0.1
+      # Before anything is published: the contract version IS the release version, so a tag that
+      # disagrees would ship a host misreporting itself to every plugin's compatibility check.
+      - name: Refuse a tag that disagrees with HOST_API_VERSION
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+            node release-tooling/contract-version.ts "$GIT_TAG" src/plugin-host/plugin.ts
       - name: Promote the commit-hash image to semver + latest
         env:
           GIT_TAG: ${{ github.ref_name }}
@@ -41,6 +49,17 @@ jobs:
             docker tag "$REPO:$COMMIT" "$DOCKERHUB_REPO:$TAG"
             docker push "$DOCKERHUB_REPO:$TAG"
           done
+      - name: Publish the Docker Hub overview
+        env:
+          DOCKERHUB_REPO: ${{ github.repository }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            -e DOCKERHUB_REPO -e DOCKERHUB_TOKEN -e DOCKERHUB_USER \
+            node:24.19.0-alpine3.24 \
+            node release-tooling/dockerhub-overview.ts "${GIT_TAG#v}"
       - name: Log out of the registries
         if: always()
         run: |

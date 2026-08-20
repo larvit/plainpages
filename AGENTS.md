@@ -352,9 +352,13 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   trailer, so a dependency added anywhere else never escalates the release version and nothing fails to
   say so. A new manifest, compose file, custom manager or dep type is a decision: can it reach a
   running Plainpages? If yes it needs a rule; if no, record nothing and let it ride the next patch.
-- **`HOST_API_VERSION` is a live promise as of the v0.1.0 release** (the app's version and the
-  contract's move independently). Bump it with every contract change, per the table in README →
-  Contract versioning: major on a breaking one, minor on an additive one. **The contract surface
+- **`HOST_API_VERSION` *is* the release version — one number, not two.** Its `major.minor` must equal
+  the release tag's, and both release paths refuse a tag that disagrees
+  (`release-tooling/contract-version.ts`). The patch digit may lag on purpose: `checkApiVersion`
+  ignores patch, and auto-release cuts patch releases with no commit to bump a constant in. So a
+  dependency update big enough to force a **minor** is plugin-visible by definition — `auto-release`
+  stops rather than tagging, and the fix is to bump `HOST_API_VERSION` to that `X.Y.0` in a PR, merge
+  it, then tag. Never bump it to "catch up" with a patch release. **The contract surface
   includes `views/partials/*.ejs`** — the view resolver makes every core partial an `include()` root
   for a plugin's views, so their option names and emitted markup are author-visible. Know the hole
   that leaves: discovery fails loud on a bad `apiVersion`, but `include("menu", { open: true })`

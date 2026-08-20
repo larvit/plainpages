@@ -20,7 +20,7 @@ import { AUTH_FLOWS } from "../auth/flow-view.ts";
 // HOST_API_VERSION would always equal the host and defeat the check. No `id`/`basePath` — the
 // host derives both from the plugin's folder name.
 const scheduling: PluginManifest = definePlugin({
-  apiVersion: "1.0.0",
+  apiVersion: "0.1.0",
   hooks: { onBoot: () => {} },
   nav: [{
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],
@@ -80,7 +80,7 @@ test("parseSemver follows the semver core, rejecting ranges, prefixes, leading z
 });
 
 test("checkApiVersion: semver compat — equal/patch ok, older minor warns, newer-minor/major-mismatch/malformed refuse", () => {
-  assert.equal(checkApiVersion(HOST_API_VERSION).level, "ok"); // "1.0.0" vs "1.0.0"
+  assert.equal(checkApiVersion(HOST_API_VERSION).level, "ok"); // the host always accepts its own version
   assert.equal(checkApiVersion("1.0.5", "1.0.0").level, "ok"); // patch never affects compatibility
   assert.equal(checkApiVersion("1.0.0", "1.2.0").level, "warn"); // older minor still runs (additive), nudge to update
   assert.equal(checkApiVersion("1.3.0", "1.2.0").level, "refuse"); // needs features a newer host has

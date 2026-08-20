@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { discoverPlugins } from "./discovery.ts";
+import { HOST_API_VERSION } from "./plugin.ts";
 
 // Write a throwaway plugins/ tree of `relpath → source` and clean it up after the test. Fixtures
 // default-export plain objects — definePlugin is identity, so a literal is an equivalent manifest.
@@ -19,7 +20,7 @@ function scaffold(t: TestContext, files: Record<string, string>): string {
 }
 
 const full = (id: string): string =>
-  `export default { apiVersion: "1.0.0", nav: [{ id: "${id}:root", label: "${id}" }], ` +
+  `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "${id}:root", label: "${id}" }], ` +
   `routes: [{ method: "GET", path: "/", handler: () => ({ html: "${id}" }) }] };`;
 
 test("a missing plugins/ dir means zero plugins, not an error (clean clone)", async () => {
@@ -30,12 +31,12 @@ test("discovers each folder's manifest, sorted, id derived from the folder name"
   const dir = scaffold(t, {
     "beta/plugin.ts": full("beta"),
     "alpha/plugin.ts": full("alpha"),
-    "gamma/plugin.ts": `export default { apiVersion: "1.0.0", storage: true };`,
+    "gamma/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", storage: true };`,
   });
   const plugins = await discoverPlugins({ dir });
 
   assert.deepEqual(plugins.map((p) => p.id), ["alpha", "beta", "gamma"]); // deterministic order
-  assert.equal(plugins[0]?.apiVersion, "1.0.0");
+  assert.equal(plugins[0]?.apiVersion, HOST_API_VERSION);
   assert.equal(plugins[0]?.nav?.[0]?.label, "alpha");
   assert.equal(typeof plugins[0]?.routes?.[0]?.handler, "function"); // handlers survive import
   assert.equal(plugins[0]?.storage, undefined); // storage is opt-in, never assumed
@@ -51,21 +52,21 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "no default export", files: { "named-only/plugin.ts": "export const x = 1;" }, match: /named-only.*default/s },
   { name: "import throws", files: { "explodes/plugin.ts": "throw new Error('boom');" }, match: /explodes.*boom/s },
   { name: "incompatible apiVersion", files: { "future/plugin.ts": `export default { apiVersion: "2.0.0" };` }, match: /future.*apiVersion/s },
-  { name: "non-array routes", files: { "weird/plugin.ts": `export default { apiVersion: "1.0.0", routes: "nope" };` }, match: /weird.*routes.*array/s },
-  { name: "non-function home", files: { "weirdhome/plugin.ts": `export default { apiVersion: "1.0.0", home: "nope" };` }, match: /weirdhome.*home.*function/s },
-  { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
-  { name: "non-boolean storage", files: { "weirdstore/plugin.ts": `export default { apiVersion: "1.0.0", storage: "postgres://db" };` }, match: /weirdstore.*storage.*boolean/s },
+  { name: "non-array routes", files: { "weird/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: "nope" };` }, match: /weird.*routes.*array/s },
+  { name: "non-function home", files: { "weirdhome/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", home: "nope" };` }, match: /weirdhome.*home.*function/s },
+  { name: "non-function dashboard", files: { "weirddash/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", dashboard: "nope" };` }, match: /weirddash.*dashboard.*function/s },
+  { name: "non-boolean storage", files: { "weirdstore/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", storage: "postgres://db" };` }, match: /weirdstore.*storage.*boolean/s },
   // The folder name becomes a Postgres identifier, which truncates past 63 bytes.
-  { name: "a storage plugin whose folder name overflows a Postgres identifier", files: { [`${"a".repeat(57)}/plugin.ts`]: `export default { apiVersion: "1.0.0", storage: true };` }, match: /storage.*56 characters/s },
+  { name: "a storage plugin whose folder name overflows a Postgres identifier", files: { [`${"a".repeat(57)}/plugin.ts`]: `export default { apiVersion: "${HOST_API_VERSION}", storage: true };` }, match: /storage.*56 characters/s },
   { name: "reserved dashboard id shadows the gated dashboard", files: { "dashboard/plugin.ts": full("dashboard") }, match: /dashboard.*reserved/s },
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
-  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", public: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
-  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", public: true, permission: "x:read" }] };` }, match: /contranav.*public.*permission/s },
+  { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", public: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
+  { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", public: true, permission: "x:read" }] };` }, match: /contranav.*public.*permission/s },
   // A permission name is <resource>:<action> wherever the manifest mentions one. Enforced here, not
   // only in the admin GUI, so it holds for a plugin installed without that GUI.
-  { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
-  { name: "a nav node gating on a bare word", files: { "barenav/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ id: "n", label: "N", permission: "admin" }] };` }, match: /barenav.*admin.*<resource>:<action>/s },
-  { name: "a declared permission that is a bare word", files: { "baredecl/plugin.ts": `export default { apiVersion: "1.0.0", permissions: [{ name: "admin" }] };` }, match: /baredecl.*admin.*<resource>:<action>/s },
+  { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
+  { name: "a nav node gating on a bare word", files: { "barenav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", permission: "admin" }] };` }, match: /barenav.*admin.*<resource>:<action>/s },
+  { name: "a declared permission that is a bare word", files: { "baredecl/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", permissions: [{ name: "admin" }] };` }, match: /baredecl.*admin.*<resource>:<action>/s },
   { name: "a plugin shipping its own copy of the barrel", files: { "shadow/node_modules/@plainpages/plugin-api/index.js": `export class GuardError extends Error {}`, "shadow/plugin.ts": full("shadow") }, match: /shadow.*@plainpages\/plugin-api/s },
   { name: "a plugin package.json that forgets type: module", files: { "cjs/package.json": `{ "name": "cjs" }`, "cjs/plugin.ts": full("cjs") }, match: /cjs.*"type": "module"/s },
   { name: "a plugin package.json that is not valid JSON", files: { "bent/package.json": `{`, "bent/plugin.ts": full("bent") }, match: /bent.*package\.json.*JSON/s },
@@ -73,8 +74,8 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   // `npm install --prefix plugins` — the documented command with one path segment dropped.
   { name: "a package.json in the scan root itself", files: { "package.json": `{ "name": "oops" }`, "ok/plugin.ts": full("ok") }, match: /plugins\/package\.json must not exist/ },
   { name: "a node_modules in the scan root itself", files: { "node_modules/@plainpages/plugin-api/index.js": `export class GuardError extends Error {}`, "ok/plugin.ts": full("ok") }, match: /plugins\/node_modules must not exist/ },
-  { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ html: "b" }) };` }, match: /home/ },
-  { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "1.0.0", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
+  { name: "two plugins claim the public home", files: { "a/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", home: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", home: () => ({ html: "b" }) };` }, match: /home/ },
+  { name: "two plugins claim the gated dashboard", files: { "a/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", dashboard: () => ({ html: "a" }) };`, "b/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", dashboard: () => ({ html: "b" }) };` }, match: /dashboard/ },
 ];
 
 for (const c of badCases) {
@@ -87,7 +88,7 @@ for (const c of badCases) {
 // upgrade, not the author of the manifest — so the message has to carry the remedy, not just the
 // rule. A pre-existing `plugins/admin` gating on the old `admin` permission is exactly this case.
 test("a discovery failure tells the operator their plugins/ copy may just be out of date", async (t) => {
-  const dir = scaffold(t, { "admin/plugin.ts": `export default { apiVersion: "1.0.0", routes: [{ method: "GET", path: "/users", permission: "admin", handler: () => ({ html: "x" }) }] };` });
+  const dir = scaffold(t, { "admin/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/users", permission: "admin", handler: () => ({ html: "x" }) }] };` });
   await assert.rejects(discoverPlugins({ dir }), (err: Error) => {
     assert.match(err.message, /gates on "admin"/); // what is wrong
     assert.match(err.message, /re-copy it/); // …and what to do about it
@@ -96,7 +97,7 @@ test("a discovery failure tells the operator their plugins/ copy may just be out
 });
 
 test("a route + nav node may be marked public and load fine", async (t) => {
-  const dir = scaffold(t, { "pub/plugin.ts": `export default { apiVersion: "1.0.0", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };` });
+  const dir = scaffold(t, { "pub/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };` });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);
   assert.equal(plugins[0]?.routes?.[0]?.public, true);
@@ -111,7 +112,7 @@ test("`admin` is not reserved — the admin screens ship as a drop-in plugin mou
 });
 
 test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers", async (t) => {
-  const dir = scaffold(t, { "portal/plugin.ts": `export default { apiVersion: "1.0.0", home: () => ({ view: "home" }), dashboard: () => ({ view: "dash" }) };` });
+  const dir = scaffold(t, { "portal/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", home: () => ({ view: "home" }), dashboard: () => ({ view: "dash" }) };` });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);
   assert.equal(typeof plugins[0]?.home, "function");
@@ -126,7 +127,7 @@ test("a plugin may carry its own package.json, node_modules and dependencies", a
     "shop/node_modules/price-tag/package.json": `{ "name": "price-tag", "version": "1.0.0", "type": "module", "exports": "./index.js" }`,
     "shop/node_modules/price-tag/index.js": `export default (n) => \`\${n} kr\`;`,
     "shop/plugin.ts": `import { definePlugin } from "@plainpages/plugin-api";\nimport price from "price-tag";\n` +
-      `export default definePlugin({ apiVersion: "1.0.0", routes: [{ method: "GET", path: "/", handler: () => ({ html: price(20) }) }] });`,
+      `export default definePlugin({ apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", handler: () => ({ html: price(20) }) }] });`,
   });
 
   const plugins = await discoverPlugins({ dir });
@@ -153,7 +154,7 @@ test("a dangling plugin symlink fails loud rather than vanishing", async (t) => 
 });
 
 test("a shared permission name only warns — both plugins still load", async (t) => {
-  const shared = `export default { apiVersion: "1.0.0", permissions: [{ name: "shared:read" }] };`;
+  const shared = `export default { apiVersion: "${HOST_API_VERSION}", permissions: [{ name: "shared:read" }] };`;
   const dir = scaffold(t, { "x/plugin.ts": shared, "y/plugin.ts": shared });
   const warnings: string[] = [];
   const plugins = await discoverPlugins({ dir, logger: { warn: (m) => warnings.push(String(m)) } });
