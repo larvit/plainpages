@@ -1375,7 +1375,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | `release.yml` | push of a `vX.Y.Z` tag | re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`; sync those tags to Docker Hub |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags (pruning deleted ones) to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
-| `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green; the release-tag job only runs when `AUTO_RELEASE` is `true` |
+| `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green, then cut a release tag for what merged |
 
 `main` is not re-tested on push — its commits are meant to arrive already green from a
 gated branch, so the status check to gate a merge on is `CI / full-gate (push)`.
@@ -1417,15 +1417,9 @@ images, and the Playwright runner + its browser image — and every bump keeps t
 exact. Each PR runs the normal gate on its `renovate/*` branch and automerges once
 `CI / full-gate (push)` is green; only a red gate needs a human.
 
-**Releases are paused.** Plainpages is pre-announcement: the repository carries **no tags**, so
-neither `release.yml` nor Docker Hub has a version to promote. Turn releasing back on by setting the
-Actions variable `AUTO_RELEASE` to `true`, or cut a `vX.Y.Z` tag by hand **on `main`'s tip** — with
-nothing tagged the nightly cleanup keeps only branch-head images, so an older commit's image is
-already gone and `release.yml` would fail loud.
-
-**Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`, gated on
-`AUTO_RELEASE`) cuts **one** `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main`
-since the last tag, and **skips** when the tip isn't a Renovate commit or nothing new merged.
+**Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`) cuts **one**
+`vX.Y.Z` tag per run covering the renovate-bot commits merged to `main` since the last tag, and
+**skips** when the tip isn't a Renovate commit or nothing new merged.
 Renovate stamps each commit with a `Release-Bump: <updateType>` trailer and
 [`auto-release/next-version.ts`](auto-release/next-version.ts) turns the highest one into the next
 version — pre-1.0 it never auto-crosses into `1.0.0`. It is **tag-only**: the tag hands off to
@@ -1502,9 +1496,9 @@ docker compose up -d --build
 ```
 
 Do the same for any other folder you copied out of `examples/`. A plugin you wrote yourself needs the
-manifest change the error names. Once [`HOST_API_VERSION`](#contract-versioning) starts moving a
-stale plugin will be refused by **version** instead; it is frozen at `1.0.0` until the first external
-plugin exists, so for now the error names the rule it tripped.
+manifest change the error names. A host contract change big enough to move
+[`HOST_API_VERSION`](#contract-versioning) shows up earlier and more precisely — discovery refuses the
+plugin by **version** before any rule gets a chance to trip.
 
 Two paths in the checkout are load-bearing and must stay clear of root-owned leftovers:
 `node_modules/` must not exist (deps live at `/node_modules`, and anything at `/app/node_modules`

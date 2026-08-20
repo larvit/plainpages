@@ -30,12 +30,9 @@ jobs:
   # authorship on the tip, so the author checks are reliable. Level = highest `Release-Bump:` trailer;
   # pre-1.0 shifts down (auto-release/next-version.ts). Tag-only — release.yml promotes the
   # already-built image; pushed with renovate-bot's PAT so release.yml fires (the built-in token won't).
-  # Off until the Actions variable AUTO_RELEASE is set to 'true': Plainpages is pre-announcement and
-  # deliberately carries no tags, so an automated bump would only invent a version nobody consumes.
   auto-release:
     runs-on: docker-host
     needs: renovate
-    if: vars.AUTO_RELEASE == 'true'
     steps:
       - uses: actions/checkout@v7.0.1
         with:

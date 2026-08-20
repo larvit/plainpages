@@ -105,16 +105,15 @@ Revisit only if the stated reason stops holding.
   `REVOKE CONNECT` from `bootstrap`. `REVOKE` only *warns* when the caller doesn't own the database,
   so under the least-privilege provisioning account the README recommends it would report success
   while changing nothing, and it hard-fails whenever `PLUGIN_DB_ADMIN_URL` names a server with no
-  `kratos`. A volume created before that file gained the revokes keeps the default grant;
-  `docker compose down -v` is the dev remedy. **Valid while pre-release, with no deployed volumes.**
+  `kratos`. It runs only on **first init**, so a revoke added to it later never reaches a volume that
+  already exists — `docker compose down -v` is the dev remedy, a deployed install needs a migration.
 - **`bootstrap.ts` stays under `src/auth/`** even though it now provisions plugin databases as well
   as seeding Ory. It is the one-shot service's entrypoint, not an auth module; moving it to
   `src/bootstrap.ts` would edit `compose.yml`, five e2e compose files and `src/compose.test.ts` for a
   rename. Reconsider when a third seeding concern lands.
-- **`BootContext.storage` keeps all six credential fields, and there is no `onShutdown` hook.** While
-  `HOST_API_VERSION` is frozen both are free to revisit; after the freeze, adding is compatible and
-  removing is not, so the shape errs small elsewhere. Pools handed to a plugin are reaped on process
-  exit — revisit if a plugin ever needs an orderly drain. **Valid while the freeze holds.**
+- **`BootContext.storage` keeps all six credential fields, and there is no `onShutdown` hook.** Adding
+  to the context costs a minor bump and removing one a major, so the shape errs small elsewhere. Pools
+  handed to a plugin are reaped on process exit — revisit if a plugin ever needs an orderly drain.
 - **`config/` is still a plain dir — no `package.json` of its own**, or `#menu-config` resolves
     against that instead and boot fails loud. An operator's menu override has no use for
     dependencies; if that changes, it needs the same package treatment.
@@ -300,19 +299,6 @@ Revisit only if the stated reason stops holding.
   file between login and logout. Same class: concurrent runs share the workspace dir, so ci.sh's
   web-image build races another run's container creation on the `<project>-web` tag. Accepted for a
   single-maintainer cadence; serialize with a workflow `concurrency` group if it ever bites.
-- **Plainpages is pre-announcement: no tags, no releases.** `auto-release` is gated behind the
-  `AUTO_RELEASE` Actions variable (unset ⇒ skipped, the fail-safe direction on every unknown-`vars`
-  path) — a version only communicates to consumers and there are none. Two couplings:
-  `registry-cleanup` keeps a hash image only while its commit is a branch head *or* release-tagged, so
-  with zero tags a hand-cut tag must sit on `main`'s tip; and `mirror.yml` pushes tags with `--prune`
-  (its `fetch-tags: true` is load-bearing), so a tag or Release created on GitHub is swept away and
-  releases are cut on Gitea only. Valid until the maintainer says Plainpages is ready to show people.
-- **A stricter manifest rule breaks already-copied plugins**, and while `HOST_API_VERSION` is frozen
-  the failure names a symptom rather than the cause — `checkApiVersion` would refuse a stale plugin by
-  *version*, but only once the freeze lifts. Until then a stricter rule ships with a README →
-  Upgrading entry and a re-copy hint in the discovery error. Fail-loud stays right either way: the
-  alternative is a route gating on a name nobody can be granted, i.e. a permanent silent 403.
-  **Valid while `HOST_API_VERSION` stays frozen.**
 
 ## Docker only — no host tooling
 
@@ -361,15 +347,15 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
 - Pin all dependencies and Docker images to exact, human-readable **semantic versions** — never
   ranges (`^`, `~`) and never digests. npm deps via `.npmrc` (`save-exact=true`) + `npm ci`; images
   by tag.
-- **`HOST_API_VERSION` is frozen at 1.0.0 until the first external install**, even for additive
-  contract changes. With no third-party plugin in the wild a bump can only produce noise. The
-  promotion trigger is the first external plugin — from then on follow the versioning table in
-  README → Contract versioning. **The frozen surface includes `views/partials/*.ejs`**: the view
-  resolver makes every core partial an `include()` root for a plugin's views, so their option names
-  and emitted markup are author-visible. Know the hole that leaves — discovery fails loud on a bad
-  `apiVersion`, but `include("menu", { open: true })` silently ignores a dropped option. Promotion
-  must cover the partial vocabulary too.
-- **The frozen surface also includes the packaging promises** (README → Plugin dependencies): the
+- **`HOST_API_VERSION` is a live promise as of the v0.1.0 release** (the app's version and the
+  contract's move independently). Bump it with every contract change, per the table in README →
+  Contract versioning: major on a breaking one, minor on an additive one. **The contract surface
+  includes `views/partials/*.ejs`** — the view resolver makes every core partial an `include()` root
+  for a plugin's views, so their option names and emitted markup are author-visible. Know the hole
+  that leaves: discovery fails loud on a bad `apiVersion`, but `include("menu", { open: true })`
+  silently ignores a dropped option, so the partial vocabulary is a surface the version check cannot
+  police for you.
+- **The contract surface also includes the packaging promises** (README → Plugin dependencies): the
   barrel is ambient at `/node_modules` with nothing for a plugin to declare, `"type": "module"` is
   mandatory, and the host neither upgrades nor dedupes a plugin's dependencies. Same hole as the
   partials — move the publish point, rename the package or start hoisting and every installed plugin
@@ -377,9 +363,9 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   build-time dedupe for baked images stays open, module-instance sharing stays unpromised.
 - **Publishing `@plainpages/plugin-api` to a registry is deferred, not rejected.** Today it is
   `private` and shaped as a shim — `index.ts` re-exports `../src/…`, so `npm pack` would ship a
-  broken tree. The trigger is the same as the freeze's: the first external plugin, which is also the
-  first author who cannot typecheck against a mounted host tree. Whoever does it must first make the
-  artifact self-contained (types-only `.d.ts`, or move the barrel into `plugin-api/`).
+  broken tree. The trigger is the first plugin author outside this repo — the first who cannot
+  typecheck against a mounted host tree. Whoever does it must first make the artifact self-contained
+  (types-only `.d.ts`, or move the barrel into `plugin-api/`).
 - A plugin's `apiVersion` is a **hand-written literal** semver — the host version it was built
   against — bumped by hand on rebuild, **never** the host's `HOST_API_VERSION` constant. Importing
   the constant makes every plugin always equal the host, so `checkApiVersion` can never fire.
