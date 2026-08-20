@@ -1419,10 +1419,13 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 
 **Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`) cuts **one**
 `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main` since the last tag, and
-**skips** when the tip isn't a Renovate commit or nothing new merged. Renovate stamps each commit
-with a `Release-Bump: <updateType>` trailer and
+**skips** when the tip isn't a Renovate commit or nothing new merged. Renovate stamps a
+`Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the root
+`package.json`'s runtime dependencies, the image base, and `compose.yml`'s services — and
 [`auto-release/next-version.ts`](auto-release/next-version.ts) turns the highest one into the next
-version — pre-1.0 it never auto-crosses into `1.0.0`. It is **tag-only**: the tag hands off to
+version; pre-1.0 it never auto-crosses into `1.0.0`. `updateType` rates the *dependency's* own jump,
+so the trailer is an allowlist in [`renovate.json`](renovate.json): a devDependency, E2E or CI-only
+bump carries none and rides the next patch release instead of escalating it. It is **tag-only**: the tag hands off to
 `release.yml`, and is pushed with renovate-bot's PAT so that workflow actually fires (a tag pushed by
 the built-in Actions token wouldn't trigger it). `HOST_API_VERSION` is never touched here.
 

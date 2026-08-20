@@ -4,8 +4,32 @@
   "description": "ignorePaths overrides config:recommended's :ignoreModulesAndTests, which ignores **/examples/** — an example plugin's dependencies get update PRs like any other manifest here",
   "ignorePaths": ["**/node_modules/**"],
   "automerge": true,
-  "commitBody": "Release-Bump: {{{updateType}}}",
   "packageRules": [
+    {
+      "description": "The host's own runtime deps. Release-Bump is opt-in per surface (README → CI/CD) because updateType rates the dependency's own jump, not its effect here — unscoped, the bot's self-update bumped the product",
+      "matchDepTypes": ["dependencies"],
+      "matchFileNames": ["package.json"],
+      "matchManagers": ["npm"],
+      "commitBody": "Release-Bump: {{{updateType}}}"
+    },
+    {
+      "description": "The shipped image's base — e2e-tests/Dockerfile is test-only",
+      "matchFileNames": ["Dockerfile"],
+      "matchManagers": ["dockerfile"],
+      "commitBody": "Release-Bump: {{{updateType}}}"
+    },
+    {
+      "description": "The production topology — compose.override.yml is dev, e2e-tests/compose.*.yml are test",
+      "matchFileNames": ["compose.yml"],
+      "matchManagers": ["docker-compose"],
+      "commitBody": "Release-Bump: {{{updateType}}}"
+    },
+    {
+      "description": "node is pinned to one version across Dockerfile, dev, E2E and CI, so Renovate moves them in a single branch whose commitBody would otherwise depend on upgrade order — the Dockerfile copy ships, so any node bump is a product change",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "commitBody": "Release-Bump: {{{updateType}}}"
+    },
     {
       "description": "Ory services share one release train - update kratos, keto and hydra together",
       "matchDatasources": ["docker"],

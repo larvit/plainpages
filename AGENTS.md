@@ -347,6 +347,11 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
 - Pin all dependencies and Docker images to exact, human-readable **semantic versions** — never
   ranges (`^`, `~`) and never digests. npm deps via `.npmrc` (`save-exact=true`) + `npm ci`; images
   by tag.
+- **Touching dependencies means revisiting `renovate.json`.** `Release-Bump` is an *allowlist* — only
+  the root `package.json`'s runtime deps, the `Dockerfile` base and `compose.yml`'s services carry the
+  trailer, so a dependency added anywhere else never escalates the release version and nothing fails to
+  say so. A new manifest, compose file, custom manager or dep type is a decision: can it reach a
+  running Plainpages? If yes it needs a rule; if no, record nothing and let it ride the next patch.
 - **`HOST_API_VERSION` is a live promise as of the v0.1.0 release** (the app's version and the
   contract's move independently). Bump it with every contract change, per the table in README →
   Contract versioning: major on a breaking one, minor on an additive one. **The contract surface

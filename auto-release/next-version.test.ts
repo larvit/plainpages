@@ -35,6 +35,8 @@ test("nextVersion at/after 1.0.0: literal semver", () => {
   assert.equal(nextVersion("v1.2.3", "major"), "v2.0.0");
   assert.equal(nextVersion("v1.2.3", "minor"), "v1.3.0");
   assert.equal(nextVersion("v1.2.3", "patch"), "v1.2.4");
+  // the whole chain: a major dependency bump releases a major host, once the 0.x shift-down is gone
+  assert.equal(nextVersion("v1.2.3", maxLevel(["patch", "major"])), "v2.0.0");
 });
 
 test("nextVersion rejects a tag that is not vX.Y.Z", () => {
