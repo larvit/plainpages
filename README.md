@@ -1419,8 +1419,8 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 
 **Auto-release on dependency updates** — a second job in `renovate.yml` (`auto-release`) cuts **one**
 `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main` since the last tag, and
-**skips** when the tip isn't a Renovate commit or nothing new merged.
-Renovate stamps each commit with a `Release-Bump: <updateType>` trailer and
+**skips** when the tip isn't a Renovate commit or nothing new merged. Renovate stamps each commit
+with a `Release-Bump: <updateType>` trailer and
 [`auto-release/next-version.ts`](auto-release/next-version.ts) turns the highest one into the next
 version — pre-1.0 it never auto-crosses into `1.0.0`. It is **tag-only**: the tag hands off to
 `release.yml`, and is pushed with renovate-bot's PAT so that workflow actually fires (a tag pushed by
