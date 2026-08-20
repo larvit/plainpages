@@ -26,7 +26,7 @@ const groups = on("groups");
 const clients = on("oauth2-clients");
 
 export default definePlugin({
-  apiVersion: "0.1.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 

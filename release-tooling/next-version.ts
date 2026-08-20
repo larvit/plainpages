@@ -36,7 +36,7 @@ export function nextVersion(latestTag: string, level: Bump): string {
   return `v${major}.${minor}.${patch + 1}`;
 }
 
-// CLI: node auto-release/next-version.ts <latestTag> [updateType...] → prints the next tag.
+// CLI: node release-tooling/next-version.ts <latestTag> [updateType...] → prints the next tag.
 if (process.argv[1]?.endsWith("/next-version.ts")) {
   const [, , latestTag, ...updateTypes] = process.argv;
   process.stdout.write(nextVersion(latestTag ?? "", maxLevel(updateTypes)));

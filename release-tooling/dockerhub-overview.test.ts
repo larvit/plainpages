@@ -13,8 +13,8 @@ test("leftoverPlaceholders catches a typo'd placeholder, deduped, and passes cle
   assert.deepEqual(leftoverPlaceholders(renderOverview("x {{VERSION}}", "0.1.0")), []);
 });
 
-test("the real README-dockerhub.md renders clean and pins no literal image tag", () => {
-  const rendered = renderOverview(readFileSync("README-dockerhub.md", "utf8"), "9.9.9");
+test("the real template renders clean and pins no literal image tag", () => {
+  const rendered = renderOverview(readFileSync("release-tooling/dockerhub-overview.md.tmpl", "utf8"), "9.9.9");
   assert.deepEqual(leftoverPlaceholders(rendered), []);
   assert.match(rendered, /larvit\/plainpages:9\.9\.9/); // the placeholder actually reaches the examples
   // A hardcoded version here is what went stale on the live page; the release must own every one.

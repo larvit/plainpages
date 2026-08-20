@@ -1,6 +1,6 @@
-// Publishes README-dockerhub.md as the Docker Hub repository overview. The page is the first thing
-// an adopter copies, and its image tags were maintained by hand — they pointed at a version that no
-// longer existed. `{{VERSION}}` is rendered from the tag being promoted, so they cannot go stale.
+// Publishes the Docker Hub repository overview from dockerhub-overview.md.tmpl. The page is the
+// first thing an adopter copies, and its image tags were maintained by hand — they pointed at a
+// version that no longer existed. `{{VERSION}}` is rendered from the release, so they cannot.
 
 const HUB = "https://hub.docker.com/v2";
 
@@ -18,16 +18,18 @@ async function main(): Promise<number> {
   const { readFileSync } = await import("node:fs");
   const repo = process.env["DOCKERHUB_REPO"];
   const user = process.env["DOCKERHUB_USER"];
-  const token = process.env["DOCKERHUB_TOKEN"];
+  const token = process.env["DOCKERHUB_OVERVIEW_TOKEN"];
   if (!version || !repo || !user || !token) {
-    process.stderr.write("usage: dockerhub-overview.ts <version>; needs DOCKERHUB_REPO/USER/TOKEN\n");
+    process.stderr.write(
+      "usage: dockerhub-overview.ts <version>; needs DOCKERHUB_REPO, DOCKERHUB_USER, DOCKERHUB_OVERVIEW_TOKEN\n",
+    );
     return 1;
   }
 
-  const body = renderOverview(readFileSync("README-dockerhub.md", "utf8"), version);
+  const body = renderOverview(readFileSync("release-tooling/dockerhub-overview.md.tmpl", "utf8"), version);
   const leftover = leftoverPlaceholders(body);
   if (leftover.length > 0) {
-    process.stderr.write(`README-dockerhub.md has unrendered placeholders: ${leftover.join(", ")}\n`);
+    process.stderr.write(`release-tooling/dockerhub-overview.md.tmpl has unrendered placeholders: ${leftover.join(", ")}\n`);
     return 1;
   }
 
@@ -56,8 +58,8 @@ async function main(): Promise<number> {
     process.stderr.write(
       `Docker Hub overview PATCH failed: ${res.status} ${detail}\n` +
         (res.status === 403
-          ? "403 usually means the token is scoped to the repository's images only — publishing the " +
-            "overview edits repository metadata and needs a token with that permission (README -> CI/CD).\n"
+          ? "403 means DOCKERHUB_OVERVIEW_TOKEN cannot edit repository metadata — that is a separate " +
+            "permission from pushing images, which is why it is its own secret (README -> CI/CD).\n"
           : ""),
     );
     return 1;

@@ -11,7 +11,7 @@ const upstreamUrl = process.env["SCHEDULING_UPSTREAM"] ?? "http://shifts-upstrea
 const upstream = createUpstream(upstreamUrl);
 
 export default definePlugin({
-  apiVersion: "0.1.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   // onBoot runs after discovery, before the server listens: validate the plugin's own config so a
   // typo'd SCHEDULING_UPSTREAM fails the boot loudly instead of degrading every request later.

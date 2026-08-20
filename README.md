@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -348,7 +348,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.1.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.2.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -468,7 +468,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -612,7 +612,10 @@ provider/consumer semantics in `checkApiVersion`:
 | missing / not a valid semver | `refuse` | **abort boot** — must be declared |
 
 The plugin pins one exact version (no ranges, per the project's pinning rules); the *host* supplies
-the caret-style compatibility. While Plainpages is `0.x` every release shares major `0`, so a plugin
+the caret-style compatibility. Note what a **minor** means now that one digit carries the whole
+release: either the plugin contract changed, or a dependency moved far enough to warrant one. A
+`warn` therefore says "built against an older release", not "new plugin features exist" — check the
+Upgrading section for that release before assuming there is anything to adopt. While Plainpages is `0.x` every release shares major `0`, so a plugin
 built against `0.1.0` still loads on a `0.9.0` host with a `warn`; reaching `1.0.0` refuses everything
 built against `0.x`, which is the point of that milestone.
 
@@ -748,7 +751,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
@@ -1378,7 +1381,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`, a no-op on a docs-only branch), then build + push the app image |
-| `release.yml` | push of a `vX.Y.Z` tag | check the tag against `HOST_API_VERSION`, re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`, sync those tags to Docker Hub and publish its overview |
+| `release.yml` | push of a `vX.Y.Z` tag, or manual | check the tag against `HOST_API_VERSION`, re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`, sync those tags to Docker Hub; a second job publishes the Hub overview, and runs alone on a manual trigger |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags (pruning deleted ones) to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
 | `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green, then cut a release tag for what merged |
@@ -1408,13 +1411,17 @@ nothing is rebuilt, so the released image is byte-identical to the gated one. It
 hash image exists — release tags must point at a commit that went through the gate. The same four
 tags sync to [Docker Hub](https://hub.docker.com/r/larvit/plainpages), releases only.
 
-Two things guard the tag before anything is published. The
-[contract check](#contract-versioning) refuses a tag whose `major.minor` disagrees with
-`HOST_API_VERSION`, naming the value to set. And the Docker Hub repository **overview** is published
-from [`README-dockerhub.md`](README-dockerhub.md) by the same job, with `{{VERSION}}` rendered to the
-release — so the image tags it tells adopters to pull cannot go stale. That needs `DOCKERHUB_TOKEN`
-to carry permission to edit repository metadata, not just push images; the step names this if it
-403s.
+The [contract check](#contract-versioning) guards the tag before anything is published, refusing one
+whose `major.minor` disagrees with `HOST_API_VERSION` and naming the value to set.
+
+**The Docker Hub overview** is published by a separate `publish-overview` job from
+[`release-tooling/dockerhub-overview.md.tmpl`](release-tooling/dockerhub-overview.md.tmpl), with
+`{{VERSION}}` rendered to the release, so the image tags it tells adopters to pull cannot go stale.
+It is its own job for two reasons: the images are already pushed and irreversible by then, so a Hub
+outage must not report a good release as failed; and the page has its own door — run the workflow
+manually with an `overview_version` input to republish it without cutting a release. It uses
+`DOCKERHUB_OVERVIEW_TOKEN`, separate from the image-push token because editing repository metadata is
+a different permission and widening the push credential to cover it would widen what a leak costs.
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is
 read-only; after every merge `mirror.yml` force-pushes `main` and all tags, overwriting any drift.
@@ -1436,8 +1443,11 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 trailer — a dependency update that cannot reach the app releases nothing. Renovate stamps a
 `Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the root
 `package.json`'s runtime dependencies, the image base, and `compose.yml`'s services — and
-[`auto-release/next-version.ts`](auto-release/next-version.ts) turns the highest one into the next
-version; pre-1.0 it never auto-crosses into `1.0.0`. `updateType` rates the *dependency's* own jump,
+[`release-tooling/next-version.ts`](release-tooling/next-version.ts) turns the highest one into the next
+version; pre-1.0 it never auto-crosses into `1.0.0`. Because the contract version *is* the release
+version, an update big enough to reach a **minor** stops the job rather than tagging: bump
+`HOST_API_VERSION` in a PR, merge, then tag by hand. Pre-1.0 that covers a dependency *major*, since
+`nextVersion` shifts it down to a `0.x` minor. `updateType` rates the *dependency's* own jump,
 so the trailer is an allowlist in [`renovate.json`](renovate.json): a devDependency, E2E or CI-only
 bump carries none and rides the next patch release instead of escalating it. It is **tag-only**: the tag hands off to
 `release.yml`, and is pushed with renovate-bot's PAT so that workflow actually fires (a tag pushed by
@@ -1449,6 +1459,7 @@ the built-in Actions token wouldn't trigger it). `HOST_API_VERSION` is never tou
 | --- | --- |
 | `DOCKER_REGISTRY_USER` (var) + `DOCKER_REGISTRY_TOKEN` (secret) | A Gitea account with package write in the `larvit` org, and its access token with `read:package` + `write:package`. Reused by `registry-cleanup.yml`. |
 | `DOCKERHUB_USER` (var) + `DOCKERHUB_TOKEN` (secret) | The public `larvit/plainpages` Docker Hub repo, and a read/write token **scoped to that repository** (an org access token, or one on a dedicated account — an account-wide PAT can push to every repo under it). |
+| `DOCKERHUB_OVERVIEW_TOKEN` (secret) | A Docker Hub PAT that may **edit repository metadata**, used only to publish the overview. Separate from `DOCKERHUB_TOKEN` so the image-push credential stays narrow; without it the `publish-overview` job fails and the released images are unaffected. |
 | `MIRROR_GITHUB_TOKEN` (secret) | A fine-grained PAT (Contents: read & write) for a GitHub machine account with write access to the mirror. Its `main` must not block force-pushes and must carry no tag protection, which would reject the prune. |
 | `RENOVATE_TOKEN` (secret) | The shared `renovate@larvit.se` bot's Gitea PAT, with write access to this repo. |
 | `RENOVATE_GITHUB_TOKEN` (secret) | A **scopeless** (read-only) github.com PAT, so Renovate's lookups of github.com-hosted deps run authenticated instead of tripping the anonymous 60-req/hour limit. |
@@ -1501,6 +1512,21 @@ box. The web app waits for Kratos + Keto healthy *and* the bootstrap to finish b
 **Change the demo admin before production.**
 
 ## Upgrading
+
+### 0.1.x → 0.2.0: `apiVersion` now names the Plainpages release
+
+`0.1.0` shipped a host reporting contract version `1.0.0` — a second number that tracked the plugin
+contract separately from the release. There is only one number now, and it is the release: a host on
+`0.2.0` reports `0.2.0`. Every plugin must say so, or discovery refuses it by version and **aborts
+boot**:
+
+```ts
+// plugins/<your-plugin>/plugin.ts
+apiVersion: "0.2.0",   // was "1.0.0"
+```
+
+Re-copy anything taken from `examples/` (below) to pick this up. Nothing else in the contract
+changed, so a plugin that boots after the edit needs no further work.
 
 **Re-copy your drop-in plugins.** Anything under `plugins/` is *your* copy — the host never updates
 it. A plugin copied from `examples/` is still the old one after you pull, and the host may have
@@ -1651,12 +1677,11 @@ examples/            Copy-in reference mirroring the mount dirs: plugins/schedul
                      config/menu.ts, and shifts-upstream/ (the dev mock backend)
 e2e-tests/           Playwright specs + their Dockerfile and compose.{visual,auth,oauth,full,devstack}.yml;
                      proxy.ts (same-origin gateway) and mock-oidc.ts back full-flow
-auto-release/        Release-version math for the Renovate auto-release (next-version.ts)
-release-tooling/     Run by the release itself: the HOST_API_VERSION↔tag gate, the Docker Hub publisher
+release-tooling/     Everything the release runs: next-version (the bump math), contract-version
+                     (the HOST_API_VERSION↔tag gate), dockerhub-overview (+ its .md.tmpl)
 registry-cleanup/    Nightly image pruning — the Gitea client plus what survives (select-versions.ts)
 ci.sh                The full gate: typecheck → unit tests → every E2E suite on a fresh stack
 .gitea/workflows/    Gitea Actions — see CI/CD
-README-dockerhub.md  The Docker Hub repository overview; release.yml renders {{VERSION}} and publishes it
 ```
 
 ## Extending the core

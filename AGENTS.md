@@ -291,8 +291,9 @@ Revisit only if the stated reason stops holding.
   workflow reads a markdown file. Both git channels in `ci.sh`'s `docs_only()` pass `--no-renames`:
   rename detection names only the destination, so `git mv src/app.ts notes.md` would otherwise read as
   docs and skip the gate over a source file that was gone. `src/ci-gate.test.ts` locks the flags as a
-  *text* guard — the test image ships neither `git` nor `bash`. Revisit if a `.md` ever becomes
-  load-bearing.
+  *text* guard — the test image ships neither `git` nor `bash`. This is why the Docker Hub overview is
+  `release-tooling/dockerhub-overview.md.tmpl` and not a `.md`: a release reads it and a unit test
+  guards it, so renaming it back would let a broken `{{VERSION}}` merge with its own guard skipped.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`: concurrent jobs
   can race (one job's logout can 401 another's push — recover by re-running), and tokens sit in that

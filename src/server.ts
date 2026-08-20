@@ -2,6 +2,7 @@ import { createApp } from "./http/app.ts";
 import { loadConfig } from "./config.ts";
 import { createDenylist } from "./auth/denylist.ts";
 import { discoverPlugins } from "./plugin-host/discovery.ts";
+import { HOST_API_VERSION } from "./plugin-host/plugin.ts";
 import { withTimeout } from "./auth/fetch-timeout.ts";
 import { runBootHooks } from "./plugin-host/hooks.ts";
 import { createHydraAdmin } from "./auth/hydra-admin.ts";
@@ -91,7 +92,7 @@ const server = createApp({
   plugins,
   secureCookies: config.secureCookies,
 }).listen(config.port, () => {
-  log.info("listening", { port: config.port, url: config.appUrl ?? `http://localhost:${config.port}` });
+  log.info("listening", { apiVersion: HOST_API_VERSION, port: config.port, url: config.appUrl ?? `http://localhost:${config.port}` });
 });
 
 // Drain in-flight requests on container stop instead of cutting them mid-response, then flush any

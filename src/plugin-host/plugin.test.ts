@@ -20,7 +20,7 @@ import { AUTH_FLOWS } from "../auth/flow-view.ts";
 // HOST_API_VERSION would always equal the host and defeat the check. No `id`/`basePath` — the
 // host derives both from the plugin's folder name.
 const scheduling: PluginManifest = definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   hooks: { onBoot: () => {} },
   nav: [{
     children: [{ href: "/scheduling/shifts", id: "scheduling:shifts", label: "Shifts", permission: "scheduling:read" }],

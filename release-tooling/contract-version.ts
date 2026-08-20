@@ -15,7 +15,7 @@ export function readHostApiVersion(source: string): string | null {
 // releases with no commit to bump the constant in.
 export function checkTagMatchesContract(tag: string, hostApiVersion: string | null): ContractCheck {
   if (hostApiVersion === null) {
-    return { error: "HOST_API_VERSION not found in src/plugin-host/plugin.ts", ok: false };
+    return { error: "HOST_API_VERSION not found", ok: false };
   }
   const t = SEMVER.exec(tag);
   if (!t) return { error: `tag must be vX.Y.Z, got ${JSON.stringify(tag)}`, ok: false };
@@ -31,14 +31,16 @@ export function checkTagMatchesContract(tag: string, hostApiVersion: string | nu
   };
 }
 
-// CLI: node auto-release/contract-version.ts <tag> <path/to/plugin.ts> → exits 1 on mismatch.
+// CLI: node release-tooling/contract-version.ts <tag> <path/to/plugin.ts | -> → exits 1 on
+// mismatch. `-` reads the source on stdin, so a caller checking a ref other than its checkout
+// (`git show origin/main:… | …`) needs no scratch file in the workspace.
 if (process.argv[1]?.endsWith("/contract-version.ts")) {
-  const [, , tag, pluginPath] = process.argv;
+  const [, , tag, pluginPath = "src/plugin-host/plugin.ts"] = process.argv;
   const { readFileSync } = await import("node:fs");
-  const source = readFileSync(pluginPath ?? "src/plugin-host/plugin.ts", "utf8");
+  const source = readFileSync(pluginPath === "-" ? 0 : pluginPath, "utf8");
   const result = checkTagMatchesContract(tag ?? "", readHostApiVersion(source));
   if (!result.ok) {
-    process.stderr.write(`${result.error}\n`);
+    process.stderr.write(`${pluginPath}: ${result.error}\n`);
     process.exit(1);
   }
   process.stdout.write(`${tag} matches HOST_API_VERSION\n`);

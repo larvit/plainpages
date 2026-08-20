@@ -53,8 +53,8 @@
     },
     {
       "customType": "regex",
-      "description": "Pin the node image workflow run-steps invoke (registry-cleanup, auto-release)",
-      "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml", ".gitea/workflows/renovate.yml"],
+      "description": "Pin the node image workflow run-steps invoke (registry-cleanup, renovate auto-release, release)",
+      "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml", ".gitea/workflows/release.yml", ".gitea/workflows/renovate.yml"],
       "matchStrings": ["\\snode:(?<currentValue>[0-9][^\\s\"']*)"],
       "depNameTemplate": "node",
       "datasourceTemplate": "docker"

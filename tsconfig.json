@@ -24,5 +24,5 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["auto-release", "config", "examples/config", "examples/plugins", "plugin-api", "plugins", "registry-cleanup", "release-tooling", "src"]
+  "include": ["config", "examples/config", "examples/plugins", "plugin-api", "plugins", "registry-cleanup", "release-tooling", "src"]
 }

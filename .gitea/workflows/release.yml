@@ -2,9 +2,17 @@ name: Release
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  # The overview has its own door: a stale page is exactly the state you cannot fix by cutting a
+  # release, so republishing it must not require one.
+  workflow_dispatch:
+    inputs:
+      overview_version:
+        description: 'Version the overview should tell adopters to pull (e.g. 0.2.0)'
+        required: true
 
 jobs:
   retag-image:
+    if: github.event_name == 'push'
     runs-on: docker-host
     steps:
       - uses: actions/checkout@v7.0.1
@@ -34,7 +42,7 @@ jobs:
           done
       - name: Sync the release tags to Docker Hub
         env:
-          DOCKERHUB_REPO: docker.io/${{ github.repository }}
+          DOCKERHUB_IMAGE: docker.io/${{ github.repository }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
           GIT_TAG: ${{ github.ref_name }}
@@ -46,22 +54,33 @@ jobs:
             || { echo "Set the DOCKERHUB_USER variable + DOCKERHUB_TOKEN secret (README -> CI/CD)"; exit 1; }
           printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USER" --password-stdin
           for TAG in "$VERSION" "${VERSION%.*}" "${VERSION%%.*}" latest; do
-            docker tag "$REPO:$COMMIT" "$DOCKERHUB_REPO:$TAG"
-            docker push "$DOCKERHUB_REPO:$TAG"
+            docker tag "$REPO:$COMMIT" "$DOCKERHUB_IMAGE:$TAG"
+            docker push "$DOCKERHUB_IMAGE:$TAG"
           done
-      - name: Publish the Docker Hub overview
-        env:
-          DOCKERHUB_REPO: ${{ github.repository }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
-          GIT_TAG: ${{ github.ref_name }}
-        run: |
-          docker run --rm -v "$PWD:/repo" -w /repo \
-            -e DOCKERHUB_REPO -e DOCKERHUB_TOKEN -e DOCKERHUB_USER \
-            node:24.19.0-alpine3.24 \
-            node release-tooling/dockerhub-overview.ts "${GIT_TAG#v}"
       - name: Log out of the registries
         if: always()
         run: |
           docker logout gitea.larvit.se
           docker logout docker.io
+
+  # Its own job, not a step: the images are already pushed and irreversible by this point, so a Hub
+  # API outage or an under-scoped token must not report the release itself as failed.
+  publish-overview:
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success')
+    needs: [retag-image]
+    runs-on: docker-host
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Publish the Docker Hub overview
+        env:
+          DOCKERHUB_OVERVIEW_TOKEN: ${{ secrets.DOCKERHUB_OVERVIEW_TOKEN }}
+          DOCKERHUB_REPO: ${{ github.repository }}
+          DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
+          GIT_TAG: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.overview_version }}
+        run: |
+          VERSION=${INPUT_VERSION:-${GIT_TAG#v}}
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            -e DOCKERHUB_OVERVIEW_TOKEN -e DOCKERHUB_REPO -e DOCKERHUB_USER \
+            node:24.19.0-alpine3.24 \
+            node release-tooling/dockerhub-overview.ts "$VERSION"
