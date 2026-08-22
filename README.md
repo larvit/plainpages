@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.1.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -348,7 +348,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.2.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.1.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -468,7 +468,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.1.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -751,7 +751,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.1.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
@@ -1512,21 +1512,6 @@ box. The web app waits for Kratos + Keto healthy *and* the bootstrap to finish b
 **Change the demo admin before production.**
 
 ## Upgrading
-
-### 0.1.x → 0.2.0: `apiVersion` now names the Plainpages release
-
-`0.1.0` shipped a host reporting contract version `1.0.0` — a second number that tracked the plugin
-contract separately from the release. There is only one number now, and it is the release: a host on
-`0.2.0` reports `0.2.0`. Every plugin must say so, or discovery refuses it by version and **aborts
-boot**:
-
-```ts
-// plugins/<your-plugin>/plugin.ts
-apiVersion: "0.2.0",   // was "1.0.0"
-```
-
-Re-copy anything taken from `examples/` (below) to pick this up. Nothing else in the contract
-changed, so a plugin that boots after the edit needs no further work.
 
 **Re-copy your drop-in plugins.** Anything under `plugins/` is *your* copy — the host never updates
 it. A plugin copied from `examples/` is still the old one after you pull, and the host may have
