@@ -88,7 +88,7 @@ test("checkApiVersion: semver compat — equal/patch ok, older minor warns, newe
   assert.equal(checkApiVersion("1.0.0", "2.0.0").level, "refuse"); // incompatible major (older)
   assert.equal(checkApiVersion("0.1.0", "0.1.9").level, "ok"); // pre-1.0 patch is still ignored
   assert.equal(checkApiVersion("0.1.0", "0.2.0").level, "refuse"); // pre-1.0 the minor IS the breaking slot
-  assert.equal(checkApiVersion("0.2.0", "0.1.0").level, "refuse");
+  assert.match(checkApiVersion("0.2.0", "0.1.0").message, /upgrade the host/); // ahead of the host, even pre-1.0
   for (const bad of ["1", "1.2", "v1.2.3", "01.2.3", "1.2.x", "", 1, undefined, null]) {
     assert.equal(checkApiVersion(bad).level, "refuse", `${String(bad)} must refuse`);
   }

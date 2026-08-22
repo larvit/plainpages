@@ -606,8 +606,8 @@ provider/consumer semantics in `checkApiVersion`:
 | Plugin `apiVersion` vs host | Result | Host action |
 | --- | --- | --- |
 | same major, same minor (patch ignored) | `ok` | load |
+| **major `0`**, plugin minor **<** host minor | `refuse` | **abort boot** — pre-1.0 the minor is the breaking slot |
 | same major, plugin minor **<** host minor | `warn` | load, log — built against an older release; check that release's notes |
-| **major `0`**, any minor mismatch | `refuse` | **abort boot** — pre-1.0 the minor is the breaking slot |
 | same major, plugin minor **>** host minor | `refuse` | **abort boot** — plugin needs a newer host |
 | different major | `refuse` | **abort boot** — incompatible contract |
 | missing / not a valid semver | `refuse` | **abort boot** — must be declared |
@@ -616,11 +616,6 @@ The plugin pins one exact version (no ranges, per the project's pinning rules); 
 the compatibility. One digit carries the whole release, so a **minor** means either the plugin
 contract changed or a dependency moved far enough to warrant one.
 
-While Plainpages is `0.x` the major stays `0`, which leaves the minor as the only slot a breaking
-change can use — so a minor mismatch is refused rather than warned: a plugin declaring `0.1.0` will
-not boot on a `0.2.0` host until it is rebuilt against it. Once `1.0.0` lands the minor becomes
-additive and the `warn` row applies, saying "built against an older release" rather than promising
-new features.
 
 ### Conflict rules
 
@@ -1384,7 +1379,7 @@ Gitea Actions (`.gitea/workflows/`) runs the pipeline; the test job runs
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | `ci.yml` | push, any branch except `main` | the full gate (`bash ci.sh`, a no-op on a docs-only branch), then build + push the app image |
-| `release.yml` | push of a `vX.Y.Z` tag, or manual | check the tag against `HOST_API_VERSION`, re-tag that commit's image as `X.Y.Z`, `X.Y`, `X`, `latest`, sync those tags to Docker Hub; a second job publishes the Hub overview, and runs alone on a manual trigger |
+| `release.yml` | push of a `vX.Y.Z` tag, or manual | check the tag against `HOST_API_VERSION`, re-tag that commit's image as `X.Y.Z`, `X.Y`, `latest` (plus `X` once major ≥ 1), sync those tags to Docker Hub; a second job publishes the Hub overview, and runs alone on a manual trigger |
 | `mirror.yml` | push to `main` or any tag, or manual | force-push `main` + tags (pruning deleted ones) to the [GitHub mirror](https://github.com/larvit/plainpages) |
 | `registry-cleanup.yml` | nightly cron, or manual | delete registry images that are neither release-tagged nor a branch head |
 | `renovate.yml` | nightly cron, or manual | open dependency-update PRs, automerge them once the gate is green, then cut a release tag for what merged |
@@ -1409,8 +1404,10 @@ pattern-based org cleanup rule for this package — its age/count heuristics can
 release tags and would delete images the workflow protects.
 
 **Releases** — pushing a semver git tag (`git tag v1.2.3 && git push origin v1.2.3`) runs
-`release.yml`, which pulls that commit's hash image and re-tags it `1.2.3`, `1.2`, `1`, `latest`;
-nothing is rebuilt, so the released image is byte-identical to the gated one. It fails loud if no
+`release.yml`, which pulls that commit's hash image and re-tags it `1.2.3`, `1.2`, `latest` and —
+once the major reaches `1` — `1`; nothing is rebuilt, so the released image is byte-identical to the
+gated one. While the major is `0` the bare-major tag is skipped, because a `0.x` minor is a contract
+break and a moving `:0` would carry one. It fails loud if no
 hash image exists — release tags must point at a commit that went through the gate. The same four
 tags sync to [Docker Hub](https://hub.docker.com/r/larvit/plainpages), releases only.
 
@@ -1448,15 +1445,15 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 `vX.Y.Z` tag per run covering the renovate-bot commits merged to `main` since the last tag, and
 **skips** when the tip isn't a Renovate commit, nothing new merged, or nothing that merged carried a
 trailer — a dependency update that cannot reach the app releases nothing. Renovate stamps a
-`Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the root
-`package.json`'s runtime dependencies, the image base, and `compose.yml`'s services — and
+`Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the rules in
+[`renovate.json`](renovate.json) name them — and
 [`release-tooling/next-version.ts`](release-tooling/next-version.ts) turns the highest one into the next
 version; pre-1.0 it never auto-crosses into `1.0.0`. Because the contract version *is* the release
 version, an update big enough to reach a **minor** stops the job rather than tagging: bump
 `HOST_API_VERSION` in a PR, merge, then tag by hand. Pre-1.0 that covers a dependency *major*, since
 `nextVersion` shifts it down to a `0.x` minor. `updateType` rates the *dependency's* own jump,
-so the trailer is an allowlist in [`renovate.json`](renovate.json): a devDependency, E2E or CI-only
-bump carries none and rides the next patch release instead of escalating it. It is **tag-only**: the tag hands off to
+so the trailer is an allowlist: an update outside those rules carries none and rides the next patch
+release instead of escalating it. It is **tag-only**: the tag hands off to
 `release.yml`, and is pushed with renovate-bot's PAT so that workflow actually fires (a tag pushed by
 the built-in Actions token wouldn't trigger it). `HOST_API_VERSION` is never touched here.
 

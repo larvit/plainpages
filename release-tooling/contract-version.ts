@@ -1,6 +1,4 @@
-// The gate that keeps the contract version and the release version one number (README → Contract
-// versioning): a tag whose major.minor disagrees with HOST_API_VERSION would ship a host that
-// misreports itself to every plugin's compatibility check.
+import { readFileSync } from "node:fs";
 
 export type ContractCheck = { ok: true } | { ok: false; error: string };
 
@@ -35,13 +33,12 @@ export function checkTagMatchesContract(tag: string, hostApiVersion: string | nu
 // (`git show origin/main:… | …`) needs no scratch file in the workspace.
 if (process.argv[1]?.endsWith("/contract-version.ts")) {
   const [, , tag, pluginPath = "src/plugin-host/plugin.ts"] = process.argv;
-  const { readFileSync } = await import("node:fs");
   let source = "";
   try {
     source = readFileSync(pluginPath === "-" ? 0 : pluginPath, "utf8");
   } catch (err) {
     process.stderr.write(`${pluginPath}: ${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
+    process.exitCode = 1;
   }
   const result = checkTagMatchesContract(tag ?? "", readHostApiVersion(source));
   if (!result.ok) {

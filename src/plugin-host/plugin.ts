@@ -8,9 +8,7 @@ import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
 import type { StorageCredentials } from "./storage.ts";
 
-// The Plainpages release this contract ships in. Its major.minor must equal the release tag's, and
-// both release paths refuse a tag that disagrees. The patch digit may lag: checkApiVersion ignores
-// patch, and auto-release cuts patch releases with no commit to bump this in.
+// The Plainpages release this contract ships in — see README → Contract versioning.
 export const HOST_API_VERSION = "0.1.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";
@@ -156,16 +154,14 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
   if (plugin.major !== host.major) {
     return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — incompatible major` };
   }
-  // Pre-1.0 the major is pinned at 0 until the 1.0.0 milestone, so a breaking change can only land
-  // as a minor (release-tooling/next-version.ts shifts every level down). Treating that as additive
-  // would let a stale plugin boot and fail at runtime instead of at discovery.
-  if (host.major === 0 && plugin.minor !== host.minor) {
-    return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — pre-1.0 a minor is a contract break, rebuild against ${hostVersion}` };
-  }
   if (plugin.minor > host.minor) {
     return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion} but host is ${hostVersion}; upgrade the host` };
   }
   if (plugin.minor < host.minor) {
+    // Pre-1.0 the major is pinned at 0, so a minor is the only slot a breaking change can use.
+    if (host.major === 0) {
+      return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — pre-1.0 a minor is a contract break, rebuild against ${hostVersion}` };
+    }
     return { level: "warn", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — built against an older release` };
   }
   return { level: "ok", message: `apiVersion ${pluginVersion}` };

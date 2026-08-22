@@ -100,5 +100,5 @@ async function main(): Promise<number> {
 }
 
 if (process.argv[1]?.endsWith("/dockerhub-overview.ts")) {
-  process.exit(await main());
+  process.exitCode = await main();
 }

@@ -36,7 +36,11 @@ jobs:
           printf '%s' "$REGISTRY_TOKEN" | docker login gitea.larvit.se -u "$REGISTRY_USER" --password-stdin
           docker pull "$REPO:$COMMIT" \
             || { echo "No image $REPO:$COMMIT - release tags must point at a commit whose branch passed the CI gate"; exit 1; }
-          for TAG in "$VERSION" "${VERSION%.*}" "${VERSION%%.*}" latest; do
+          # No bare-major tag while major is 0: a 0.x minor is a contract break, so `:0` would move
+          # across one and abort boot for everything tracking it. `:0.1` only moves across patches.
+          TAGS="$VERSION ${VERSION%.*} latest"
+          if [ "${VERSION%%.*}" != "0" ]; then TAGS="$TAGS ${VERSION%%.*}"; fi
+          for TAG in $TAGS; do
             docker tag "$REPO:$COMMIT" "$REPO:$TAG"
             docker push "$REPO:$TAG"
           done
@@ -54,7 +58,9 @@ jobs:
           [ -n "$DOCKERHUB_USER" ] && [ -n "$DOCKERHUB_TOKEN" ] \
             || { echo "Set the DOCKERHUB_USER variable + DOCKERHUB_TOKEN secret (README -> CI/CD)"; exit 1; }
           printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USER" --password-stdin
-          for TAG in "$VERSION" "${VERSION%.*}" "${VERSION%%.*}" latest; do
+          TAGS="$VERSION ${VERSION%.*} latest"
+          if [ "${VERSION%%.*}" != "0" ]; then TAGS="$TAGS ${VERSION%%.*}"; fi
+          for TAG in $TAGS; do
             docker tag "$REPO:$COMMIT" "$DOCKERHUB_IMAGE:$TAG"
             docker push "$DOCKERHUB_IMAGE:$TAG"
           done
@@ -72,11 +78,14 @@ jobs:
     needs: [retag-image]
     runs-on: docker-host
     steps:
+      - uses: actions/checkout@v7.0.1
+        if: github.event_name == 'push'
       # Publish the named release's own tree, so the page never pairs one Plainpages tag with another
       # release's sidecar pins. A version that was never released fails here.
       - uses: actions/checkout@v7.0.1
+        if: github.event_name == 'workflow_dispatch'
         with:
-          ref: ${{ inputs.overview_version && format('refs/tags/v{0}', inputs.overview_version) || github.ref }}
+          ref: refs/tags/v${{ inputs.overview_version }}
       - name: Publish the Docker Hub overview
         env:
           DOCKERHUB_OVERVIEW_TOKEN: ${{ secrets.DOCKERHUB_OVERVIEW_TOKEN }}

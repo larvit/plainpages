@@ -352,11 +352,11 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
 - Pin all dependencies and Docker images to exact, human-readable **semantic versions** — never
   ranges (`^`, `~`) and never digests. npm deps via `.npmrc` (`save-exact=true`) + `npm ci`; images
   by tag.
-- **Touching dependencies means revisiting `renovate.json`.** `Release-Bump` is an *allowlist* — only
-  the root `package.json`'s runtime deps, the `Dockerfile` base and `compose.yml`'s services carry the
-  trailer, so a dependency added anywhere else never escalates the release version and nothing fails to
-  say so. A new manifest, compose file, custom manager or dep type is a decision: can it reach a
-  running Plainpages? If yes it needs a rule; if no, record nothing and let it ride the next patch.
+- **Touching dependencies means revisiting `renovate.json`.** `Release-Bump` is an *allowlist*: its
+  rules name exactly what carries the trailer, so a dependency outside them never escalates the
+  release version and nothing fails to say so. A new manifest, compose file, custom manager or dep
+  type is a decision: can it reach a running Plainpages? If yes it needs a rule; if no, record nothing
+  and let it ride the next patch.
 - **`HOST_API_VERSION` *is* the release version.** Its `major.minor` must equal the release tag's, and
   both release paths refuse a tag that disagrees (`release-tooling/contract-version.ts`). The patch
   digit may lag on purpose: `checkApiVersion`
