@@ -1424,8 +1424,7 @@ outage leaves the promotion green and the images untouched; and the page has its
 workflow manually with an `overview_version` input to republish it without cutting a release. That
 input goes through the same contract check as a tag: a non-semver value, or one whose `major.minor`
 disagrees with the tree being published, is refused. It uses
-`DOCKERHUB_OVERVIEW_TOKEN`, separate from the image-push token because editing repository metadata is
-a different permission and widening the push credential to cover it would widen what a leak costs.
+the same `DOCKERHUB_TOKEN` the image push uses, which is why that token needs the **delete** scope.
 
 **GitHub mirror** — [github.com/larvit/plainpages](https://github.com/larvit/plainpages) is
 read-only; after every merge `mirror.yml` force-pushes `main` and all tags, overwriting any drift.
@@ -1462,8 +1461,7 @@ the built-in Actions token wouldn't trigger it). `HOST_API_VERSION` is never tou
 | Actions var / secret | Value |
 | --- | --- |
 | `DOCKER_REGISTRY_USER` (var) + `DOCKER_REGISTRY_TOKEN` (secret) | A Gitea account with package write in the `larvit` org, and its access token with `read:package` + `write:package`. Reused by `registry-cleanup.yml`. |
-| `DOCKERHUB_USER` (var) + `DOCKERHUB_TOKEN` (secret) | The public `larvit/plainpages` Docker Hub repo, and a read/write token **scoped to that repository** (an org access token, or one on a dedicated account — an account-wide PAT can push to every repo under it). |
-| `DOCKERHUB_OVERVIEW_TOKEN` (secret) | A Docker Hub PAT with **read/write/delete** scope — editing the overview needs delete, pushing images does not. Kept separate so that scope never reaches `docker login`, which writes it to the runner's shared config; without it the `publish-overview` job fails and the released images are unaffected. |
+| `DOCKERHUB_USER` (var) + `DOCKERHUB_TOKEN` (secret) | The public `larvit/plainpages` Docker Hub repo, and a **read/write/delete** token **scoped to that repository** (an org access token, or one on a dedicated account — an account-wide PAT reaches every repo under it, and delete is destructive). Delete is what publishing the overview needs; pushing images alone would not. |
 | `MIRROR_GITHUB_TOKEN` (secret) | A fine-grained PAT (Contents: read & write) for a GitHub machine account with write access to the mirror. Its `main` must not block force-pushes and must carry no tag protection, which would reject the prune. |
 | `RENOVATE_TOKEN` (secret) | The shared `renovate@larvit.se` bot's Gitea PAT, with write access to this repo. |
 | `RENOVATE_GITHUB_TOKEN` (secret) | A **scopeless** (read-only) github.com PAT, so Renovate's lookups of github.com-hosted deps run authenticated instead of tripping the anonymous 60-req/hour limit. |

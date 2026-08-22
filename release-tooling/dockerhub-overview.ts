@@ -49,11 +49,11 @@ async function main(): Promise<number> {
   const [, , version] = process.argv;
   const repo = process.env["DOCKERHUB_REPO"];
   const user = process.env["DOCKERHUB_USER"];
-  const token = process.env["DOCKERHUB_OVERVIEW_TOKEN"];
+  const token = process.env["DOCKERHUB_TOKEN"];
   if (!version || !repo || !user || !token) {
     return fail(
       "usage: dockerhub-overview.ts <X.Y.Z>; needs DOCKERHUB_REPO, DOCKERHUB_USER and " +
-        "DOCKERHUB_OVERVIEW_TOKEN (README -> CI/CD)",
+        "DOCKERHUB_TOKEN (README -> CI/CD)",
     );
   }
   // The page is public, so never render a version that resolves to no image.
@@ -90,8 +90,8 @@ async function main(): Promise<number> {
     return fail(
       `Docker Hub overview PATCH failed: ${res.status} ${res.text}` +
         (res.status === 403
-          ? "\n403 means DOCKERHUB_OVERVIEW_TOKEN lacks the delete scope — editing the overview needs " +
-            "read/write/delete, which pushing images does not (README -> CI/CD)."
+          ? "\n403 means DOCKERHUB_TOKEN lacks the delete scope — editing the overview needs " +
+            "read/write/delete, which pushing images alone does not (README -> CI/CD)."
           : ""),
     );
   }

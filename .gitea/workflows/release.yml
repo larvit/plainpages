@@ -88,8 +88,8 @@ jobs:
           ref: refs/tags/v${{ inputs.overview_version }}
       - name: Publish the Docker Hub overview
         env:
-          DOCKERHUB_OVERVIEW_TOKEN: ${{ secrets.DOCKERHUB_OVERVIEW_TOKEN }}
           DOCKERHUB_REPO: ${{ github.repository }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
           GIT_TAG: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.overview_version }}
@@ -101,6 +101,6 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
             node release-tooling/contract-version.ts "$VERSION" src/plugin-host/plugin.ts
           docker run --rm -v "$PWD:/repo" -w /repo \
-            -e DOCKERHUB_OVERVIEW_TOKEN -e DOCKERHUB_REPO -e DOCKERHUB_USER \
+            -e DOCKERHUB_REPO -e DOCKERHUB_TOKEN -e DOCKERHUB_USER \
             node:24.19.0-alpine3.24 \
             node release-tooling/dockerhub-overview.ts "$VERSION"
