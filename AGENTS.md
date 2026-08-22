@@ -287,13 +287,17 @@ Revisit only if the stated reason stops holding.
   console message only appears in the engine that renders the page (`ORY_FREE` in
   `e2e-tests/playwright.config.ts`). The rest write users, groups and sessions to one shared backend,
   so widening them means a stack per engine.
-- **The docs-only CI skip is `*.md` anywhere in the tree, not just the root** — no test, build step or
-  workflow reads a markdown file. Both git channels in `ci.sh`'s `docs_only()` pass `--no-renames`:
-  rename detection names only the destination, so `git mv src/app.ts notes.md` would otherwise read as
-  docs and skip the gate over a source file that was gone. `src/ci-gate.test.ts` locks the flags as a
+- **The docs-only CI skip is `*.md` anywhere in the tree, not just the root.** Both git channels in
+  `ci.sh`'s `docs_only()` pass `--no-renames`: rename detection names only the destination, so
+  `git mv src/app.ts notes.md` would otherwise read as docs and skip the gate over a source file that
+  was gone. `src/ci-gate.test.ts` locks the flags as a
   *text* guard — the test image ships neither `git` nor `bash`. This is why the Docker Hub overview is
   `release-tooling/dockerhub-overview.md.tmpl` and not a `.md`: a release reads it and a unit test
-  guards it, so giving it a `.md` name would let a broken `{{VERSION}}` merge with its own guard skipped.
+  guards it, so giving it a `.md` name would let a broken `{{VERSION}}` merge with its own guard
+  skipped. `README.md` is the one markdown a test reads — `release-tooling/contract-version.test.ts`
+  checks its `apiVersion` samples — and a README-only change skips that check; accepted, because
+  those samples are illustrative and the copies that matter (`examples/`, `views/`, the template) are
+  gated. **Valid while no markdown file is rendered or executed.**
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`: concurrent jobs
   can race (one job's logout can 401 another's push — recover by re-running), and tokens sit in that
