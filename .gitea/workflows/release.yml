@@ -83,6 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=${INPUT_VERSION:-${GIT_TAG#v}}
+          VERSION=${VERSION#v}
           # An empty dispatch input falls back to the branch name, so gate this like a tag.
           docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
             node release-tooling/contract-version.ts "$VERSION" src/plugin-host/plugin.ts

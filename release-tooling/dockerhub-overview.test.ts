@@ -28,8 +28,8 @@ test("the quick start's sidecars are pinned to the same versions this repo runs"
   const pins = (source: string) =>
     new Map([...source.matchAll(/image: ([^:\s]+):(v?\d\S*)/g)].map((m) => [m[1] ?? "", m[2] ?? ""]));
   const ours = new Map([
-    ...pins(readFileSync("compose.yml", "utf8")),
     ...pins(readFileSync("compose.override.yml", "utf8")),
+    ...pins(readFileSync("compose.yml", "utf8")), // production wins: the template is the prod quick start
   ]);
   const published = pins(template());
   assert.ok(published.size > 0, "the template should pin sidecars");

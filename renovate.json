@@ -25,6 +25,12 @@
       "commitBody": "Release-Bump: {{{updateType}}}"
     },
     {
+      "description": "The production sidecars, wherever they are pinned — compose.yml and the published quick start move in one branch, so the trailer must not depend on which upgrade sorts first. mailpit is dev-only and stays out",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["oryd/hydra", "oryd/keto", "oryd/kratos", "postgres"],
+      "commitBody": "Release-Bump: {{{updateType}}}"
+    },
+    {
       "description": "node is pinned to one version across Dockerfile, dev, E2E and CI, so Renovate moves them in a single branch whose commitBody would otherwise depend on upgrade order — the Dockerfile copy ships, so any node bump is a product change",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],

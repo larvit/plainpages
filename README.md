@@ -606,7 +606,7 @@ provider/consumer semantics in `checkApiVersion`:
 | Plugin `apiVersion` vs host | Result | Host action |
 | --- | --- | --- |
 | same major, same minor (patch ignored) | `ok` | load |
-| same major, plugin minor **<** host minor | `warn` | load, log — additive-compatible, newer features exist |
+| same major, plugin minor **<** host minor | `warn` | load, log — built against an older release; check that release's notes |
 | same major, plugin minor **>** host minor | `refuse` | **abort boot** — plugin needs a newer host |
 | different major | `refuse` | **abort boot** — incompatible contract |
 | missing / not a valid semver | `refuse` | **abort boot** — must be declared |

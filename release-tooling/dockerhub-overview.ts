@@ -60,7 +60,13 @@ async function main(): Promise<number> {
   if (!VERSION.test(version)) return fail(`version must be X.Y.Z, got ${JSON.stringify(version)}`);
 
   const templatePath = join(import.meta.dirname, "dockerhub-overview.md.tmpl");
-  const body = renderOverview(readFileSync(templatePath, "utf8"), version);
+  let template = "";
+  try {
+    template = readFileSync(templatePath, "utf8");
+  } catch (err) {
+    return fail(`${templatePath}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const body = renderOverview(template, version);
   const leftover = leftoverPlaceholders(body);
   if (leftover.length > 0) return fail(`${templatePath} has unrendered placeholders: ${leftover.join(", ")}`);
 
