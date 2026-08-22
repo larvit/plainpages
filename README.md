@@ -594,9 +594,9 @@ works without editing host config.
 ### Contract versioning
 
 Each manifest declares `apiVersion` — a **semver** string naming the **Plainpages release** it was
-built against. There is no second number to track: the host's `HOST_API_VERSION` *is* its release
-version, so a plugin author reads one version off the image they run and writes it down. Both release
-paths refuse a tag whose `major.minor` disagrees with the constant, so the two cannot drift.
+built against. The host's `HOST_API_VERSION` *is* its release version, so a plugin author reads one
+version off the image they run and writes it down — there is no separate contract number. Both
+release paths refuse a tag whose `major.minor` disagrees with the constant, so the two cannot drift.
 
 Patch releases are invisible here — `checkApiVersion` ignores the patch digit, which is what lets
 dependency updates ship continuously without touching any plugin. At discovery the host parses both
@@ -612,10 +612,10 @@ provider/consumer semantics in `checkApiVersion`:
 | missing / not a valid semver | `refuse` | **abort boot** — must be declared |
 
 The plugin pins one exact version (no ranges, per the project's pinning rules); the *host* supplies
-the caret-style compatibility. Note what a **minor** means now that one digit carries the whole
-release: either the plugin contract changed, or a dependency moved far enough to warrant one. A
-`warn` therefore says "built against an older release", not "new plugin features exist" — check the
-Upgrading section for that release before assuming there is anything to adopt. While Plainpages is `0.x` every release shares major `0`, so a plugin
+the caret-style compatibility. One digit carries the whole release, so a **minor** means either the
+plugin contract changed or a dependency moved far enough to warrant one. A `warn` therefore says
+"built against an older release" rather than promising new plugin features; check that release's
+notes before assuming there is anything to adopt. While Plainpages is `0.x` every release shares major `0`, so a plugin
 built against `0.1.0` still loads on a `0.9.0` host with a `warn`; reaching `1.0.0` refuses everything
 built against `0.x`, which is the point of that milestone.
 

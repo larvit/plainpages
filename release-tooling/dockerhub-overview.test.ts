@@ -17,6 +17,6 @@ test("the real template renders clean and pins no literal image tag", () => {
   const rendered = renderOverview(readFileSync("release-tooling/dockerhub-overview.md.tmpl", "utf8"), "9.9.9");
   assert.deepEqual(leftoverPlaceholders(rendered), []);
   assert.match(rendered, /larvit\/plainpages:9\.9\.9/); // the placeholder actually reaches the examples
-  // A hardcoded version here is what went stale on the live page; the release must own every one.
+  // The release owns every image tag on the page, so a literal one must not survive rendering.
   assert.doesNotMatch(rendered, /larvit\/plainpages:\d+\.\d+\.\d+(?<!9\.9\.9)/);
 });

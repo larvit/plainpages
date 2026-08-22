@@ -8,9 +8,9 @@ import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
 import type { StorageCredentials } from "./storage.ts";
 
-// The Plainpages release this contract ships in — one version, not a second one to track. Its
-// major.minor must equal the release tag's; `release.yml` refuses to promote a tag that disagrees.
-// The patch digit may lag, since checkApiVersion ignores patch and auto-release cuts patches itself.
+// The Plainpages release this contract ships in. Its major.minor must equal the release tag's, and
+// both release paths refuse a tag that disagrees. The patch digit may lag: checkApiVersion ignores
+// patch, and auto-release cuts patch releases with no commit to bump this in.
 export const HOST_API_VERSION = "0.1.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";

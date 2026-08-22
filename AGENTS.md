@@ -293,7 +293,7 @@ Revisit only if the stated reason stops holding.
   docs and skip the gate over a source file that was gone. `src/ci-gate.test.ts` locks the flags as a
   *text* guard — the test image ships neither `git` nor `bash`. This is why the Docker Hub overview is
   `release-tooling/dockerhub-overview.md.tmpl` and not a `.md`: a release reads it and a unit test
-  guards it, so renaming it back would let a broken `{{VERSION}}` merge with its own guard skipped.
+  guards it, so giving it a `.md` name would let a broken `{{VERSION}}` merge with its own guard skipped.
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`: concurrent jobs
   can race (one job's logout can 401 another's push — recover by re-running), and tokens sit in that
@@ -353,9 +353,9 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   trailer, so a dependency added anywhere else never escalates the release version and nothing fails to
   say so. A new manifest, compose file, custom manager or dep type is a decision: can it reach a
   running Plainpages? If yes it needs a rule; if no, record nothing and let it ride the next patch.
-- **`HOST_API_VERSION` *is* the release version — one number, not two.** Its `major.minor` must equal
-  the release tag's, and both release paths refuse a tag that disagrees
-  (`release-tooling/contract-version.ts`). The patch digit may lag on purpose: `checkApiVersion`
+- **`HOST_API_VERSION` *is* the release version.** Its `major.minor` must equal the release tag's, and
+  both release paths refuse a tag that disagrees (`release-tooling/contract-version.ts`). The patch
+  digit may lag on purpose: `checkApiVersion`
   ignores patch, and auto-release cuts patch releases with no commit to bump a constant in. So a
   dependency update big enough to force a **minor** is plugin-visible by definition — `auto-release`
   stops rather than tagging, and the fix is to bump `HOST_API_VERSION` to that `X.Y.0` in a PR, merge

@@ -1,6 +1,6 @@
 // Publishes the Docker Hub repository overview from dockerhub-overview.md.tmpl. The page is the
-// first thing an adopter copies, and its image tags were maintained by hand — they pointed at a
-// version that no longer existed. `{{VERSION}}` is rendered from the release, so they cannot.
+// first thing an adopter copies, so `{{VERSION}}` is rendered from the release being published
+// rather than written by hand.
 
 const HUB = "https://hub.docker.com/v2";
 

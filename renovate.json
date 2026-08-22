@@ -6,7 +6,7 @@
   "automerge": true,
   "packageRules": [
     {
-      "description": "The host's own runtime deps. Release-Bump is opt-in per surface (README → CI/CD) because updateType rates the dependency's own jump, not its effect here — unscoped, the bot's self-update bumped the product",
+      "description": "The host's own runtime deps. Release-Bump is opt-in per surface (README → CI/CD): updateType rates the dependency's own jump, not whether it reaches a running Plainpages",
       "matchDepTypes": ["dependencies"],
       "matchFileNames": ["package.json"],
       "matchManagers": ["npm"],
