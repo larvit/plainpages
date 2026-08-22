@@ -64,7 +64,8 @@ jobs:
           docker logout docker.io
 
   # Its own job, not a step: the images are already pushed and irreversible by this point, so a Hub
-  # API outage or an under-scoped token must not report the release itself as failed.
+  # API outage or an under-scoped token leaves the promotion green and the images untouched (the run
+  # still shows red — the failure is real, it just is not the release's).
   publish-overview:
     if: always() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success')
     needs: [retag-image]
@@ -80,6 +81,11 @@ jobs:
           INPUT_VERSION: ${{ inputs.overview_version }}
         run: |
           VERSION=${INPUT_VERSION:-${GIT_TAG#v}}
+          # The manual door carries the same invariant as the tag door: this rejects a non-semver
+          # VERSION (an empty input falls back to the branch name) and one whose major.minor
+          # disagrees with the tree whose apiVersion sample is about to be published.
+          docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+            node release-tooling/contract-version.ts "$VERSION" src/plugin-host/plugin.ts
           docker run --rm -v "$PWD:/repo" -w /repo \
             -e DOCKERHUB_OVERVIEW_TOKEN -e DOCKERHUB_REPO -e DOCKERHUB_USER \
             node:24.19.0-alpine3.24 \

@@ -1418,8 +1418,10 @@ whose `major.minor` disagrees with `HOST_API_VERSION` and naming the value to se
 [`release-tooling/dockerhub-overview.md.tmpl`](release-tooling/dockerhub-overview.md.tmpl), with
 `{{VERSION}}` rendered to the release, so the image tags it tells adopters to pull cannot go stale.
 It is its own job for two reasons: the images are already pushed and irreversible by then, so a Hub
-outage must not report a good release as failed; and the page has its own door — run the workflow
-manually with an `overview_version` input to republish it without cutting a release. It uses
+outage leaves the promotion green and the images untouched; and the page has its own door — run the
+workflow manually with an `overview_version` input to republish it without cutting a release. That
+input goes through the same contract check as a tag, so a typo cannot publish a pull tag nobody can
+resolve. It uses
 `DOCKERHUB_OVERVIEW_TOKEN`, separate from the image-push token because editing repository metadata is
 a different permission and widening the push credential to cover it would widen what a leak costs.
 
