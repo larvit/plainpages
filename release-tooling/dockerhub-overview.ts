@@ -90,8 +90,8 @@ async function main(): Promise<number> {
     return fail(
       `Docker Hub overview PATCH failed: ${res.status} ${res.text}` +
         (res.status === 403
-          ? "\n403 means DOCKERHUB_OVERVIEW_TOKEN cannot edit repository metadata — a separate " +
-            "permission from pushing images, which is why it is its own secret (README -> CI/CD)."
+          ? "\n403 means DOCKERHUB_OVERVIEW_TOKEN lacks the delete scope — editing the overview needs " +
+            "read/write/delete, which pushing images does not (README -> CI/CD)."
           : ""),
     );
   }
