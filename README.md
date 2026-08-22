@@ -607,17 +607,20 @@ provider/consumer semantics in `checkApiVersion`:
 | --- | --- | --- |
 | same major, same minor (patch ignored) | `ok` | load |
 | same major, plugin minor **<** host minor | `warn` | load, log — built against an older release; check that release's notes |
+| **major `0`**, any minor mismatch | `refuse` | **abort boot** — pre-1.0 the minor is the breaking slot |
 | same major, plugin minor **>** host minor | `refuse` | **abort boot** — plugin needs a newer host |
 | different major | `refuse` | **abort boot** — incompatible contract |
 | missing / not a valid semver | `refuse` | **abort boot** — must be declared |
 
 The plugin pins one exact version (no ranges, per the project's pinning rules); the *host* supplies
-the caret-style compatibility. One digit carries the whole release, so a **minor** means either the
-plugin contract changed or a dependency moved far enough to warrant one. A `warn` therefore says
-"built against an older release" rather than promising new plugin features; check that release's
-notes before assuming there is anything to adopt. While Plainpages is `0.x` every release shares major `0`, so a plugin
-built against `0.1.0` still loads on a `0.9.0` host with a `warn`; reaching `1.0.0` refuses everything
-built against `0.x`, which is the point of that milestone.
+the compatibility. One digit carries the whole release, so a **minor** means either the plugin
+contract changed or a dependency moved far enough to warrant one.
+
+While Plainpages is `0.x` the major stays `0`, which leaves the minor as the only slot a breaking
+change can use — so a minor mismatch is refused rather than warned: a plugin declaring `0.1.0` will
+not boot on a `0.2.0` host until it is rebuilt against it. Once `1.0.0` lands the minor becomes
+additive and the `warn` row applies, saying "built against an older release" rather than promising
+new features.
 
 ### Conflict rules
 

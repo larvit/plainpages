@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       overview_version:
-        description: 'Version the overview should tell adopters to pull (e.g. 0.1.0)'
+        description: 'Released version to republish the overview for, without the leading v (e.g. 0.1.0)'
         required: true
 
 jobs:
@@ -72,7 +72,11 @@ jobs:
     needs: [retag-image]
     runs-on: docker-host
     steps:
+      # Publish the named release's own tree, so the page never pairs one Plainpages tag with another
+      # release's sidecar pins. A version that was never released fails here.
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.overview_version && format('refs/tags/v{0}', inputs.overview_version) || github.ref }}
       - name: Publish the Docker Hub overview
         env:
           DOCKERHUB_OVERVIEW_TOKEN: ${{ secrets.DOCKERHUB_OVERVIEW_TOKEN }}

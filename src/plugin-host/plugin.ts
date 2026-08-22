@@ -156,6 +156,12 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
   if (plugin.major !== host.major) {
     return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — incompatible major` };
   }
+  // Pre-1.0 the major is pinned at 0 until the 1.0.0 milestone, so a breaking change can only land
+  // as a minor (release-tooling/next-version.ts shifts every level down). Treating that as additive
+  // would let a stale plugin boot and fail at runtime instead of at discovery.
+  if (host.major === 0 && plugin.minor !== host.minor) {
+    return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion}; host is ${hostVersion} — pre-1.0 a minor is a contract break, rebuild against ${hostVersion}` };
+  }
   if (plugin.minor > host.minor) {
     return { level: "refuse", message: `plugin targets apiVersion ${pluginVersion} but host is ${hostVersion}; upgrade the host` };
   }
