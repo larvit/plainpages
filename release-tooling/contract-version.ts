@@ -1,14 +1,13 @@
-// The plugin contract version and the release version are one number (README → Contract
-// versioning). This is the gate that keeps them one: a tag whose major.minor disagrees with
-// HOST_API_VERSION would ship a host that misreports itself to every plugin's compatibility check.
-// Pure and unit tested; the git/tag side lives in the workflows that call the CLI below.
+// The gate that keeps the contract version and the release version one number (README → Contract
+// versioning): a tag whose major.minor disagrees with HOST_API_VERSION would ship a host that
+// misreports itself to every plugin's compatibility check.
 
 export type ContractCheck = { ok: true } | { ok: false; error: string };
 
-const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)$/;
+const SEMVER = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export function readHostApiVersion(source: string): string | null {
-  return /HOST_API_VERSION\s*=\s*"([^"]+)"/.exec(source)?.[1] ?? null;
+  return /^export const HOST_API_VERSION = "([^"]+)";/m.exec(source)?.[1] ?? null;
 }
 
 // Patch is deliberately not compared: checkApiVersion ignores it, and auto-release cuts patch
@@ -37,7 +36,13 @@ export function checkTagMatchesContract(tag: string, hostApiVersion: string | nu
 if (process.argv[1]?.endsWith("/contract-version.ts")) {
   const [, , tag, pluginPath = "src/plugin-host/plugin.ts"] = process.argv;
   const { readFileSync } = await import("node:fs");
-  const source = readFileSync(pluginPath === "-" ? 0 : pluginPath, "utf8");
+  let source = "";
+  try {
+    source = readFileSync(pluginPath === "-" ? 0 : pluginPath, "utf8");
+  } catch (err) {
+    process.stderr.write(`${pluginPath}: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
   const result = checkTagMatchesContract(tag ?? "", readHostApiVersion(source));
   if (!result.ok) {
     process.stderr.write(`${pluginPath}: ${result.error}\n`);

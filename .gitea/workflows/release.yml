@@ -2,8 +2,6 @@ name: Release
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
-  # The overview has its own door: a stale page is exactly the state you cannot fix by cutting a
-  # release, so republishing it must not require one.
   workflow_dispatch:
     inputs:
       overview_version:
@@ -22,6 +20,7 @@ jobs:
         env:
           GIT_TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
             node release-tooling/contract-version.ts "$GIT_TAG" src/plugin-host/plugin.ts
       - name: Promote the commit-hash image to semver + latest
@@ -31,6 +30,7 @@ jobs:
           REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
           REPO: gitea.larvit.se/${{ github.repository }}
         run: |
+          set -euo pipefail
           COMMIT=$(git rev-parse 'HEAD^{commit}')
           VERSION=${GIT_TAG#v}
           printf '%s' "$REGISTRY_TOKEN" | docker login gitea.larvit.se -u "$REGISTRY_USER" --password-stdin
@@ -48,6 +48,7 @@ jobs:
           GIT_TAG: ${{ github.ref_name }}
           REPO: gitea.larvit.se/${{ github.repository }}
         run: |
+          set -euo pipefail
           COMMIT=$(git rev-parse 'HEAD^{commit}')
           VERSION=${GIT_TAG#v}
           [ -n "$DOCKERHUB_USER" ] && [ -n "$DOCKERHUB_TOKEN" ] \
@@ -60,14 +61,14 @@ jobs:
       - name: Log out of the registries
         if: always()
         run: |
-          docker logout gitea.larvit.se
-          docker logout docker.io
+          set -uo pipefail
+          # Cleanup, and the runner's Docker config is shared (AGENTS.md) — a lost race here must not
+          # fail a release that published, nor skip the overview job that follows.
+          docker logout gitea.larvit.se || true
+          docker logout docker.io || true
 
-  # Its own job, not a step: the images are already pushed and irreversible by this point, so a Hub
-  # API outage or an under-scoped token leaves the promotion green and the images untouched (the run
-  # still shows red — the failure is real, it just is not the release's).
   publish-overview:
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success')
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success') }}
     needs: [retag-image]
     runs-on: docker-host
     steps:
@@ -80,10 +81,9 @@ jobs:
           GIT_TAG: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.overview_version }}
         run: |
+          set -euo pipefail
           VERSION=${INPUT_VERSION:-${GIT_TAG#v}}
-          # The manual door carries the same invariant as the tag door: this rejects a non-semver
-          # VERSION (an empty input falls back to the branch name) and one whose major.minor
-          # disagrees with the tree whose apiVersion sample is about to be published.
+          # An empty dispatch input falls back to the branch name, so gate this like a tag.
           docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
             node release-tooling/contract-version.ts "$VERSION" src/plugin-host/plugin.ts
           docker run --rm -v "$PWD:/repo" -w /repo \

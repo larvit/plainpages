@@ -1,8 +1,12 @@
-// Publishes the Docker Hub repository overview from dockerhub-overview.md.tmpl. The page is the
-// first thing an adopter copies, so `{{VERSION}}` is rendered from the release being published
-// rather than written by hand.
+// Publishes the Docker Hub repository overview from dockerhub-overview.md.tmpl, rendering
+// `{{VERSION}}` to the release being published.
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const HUB = "https://hub.docker.com/v2";
+const TIMEOUT_MS = 30_000;
+const VERSION = /^\d+\.\d+\.\d+$/;
 
 export function renderOverview(source: string, version: string): string {
   return source.replaceAll("{{VERSION}}", version);
@@ -13,56 +17,77 @@ export function leftoverPlaceholders(rendered: string): string[] {
   return [...new Set(rendered.match(/\{\{[^}]*\}\}/g) ?? [])];
 }
 
+export function jwtFrom(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || !("token" in body)) return null;
+  return typeof body.token === "string" && body.token !== "" ? body.token : null;
+}
+
+type Fetched = { error: string } | { json: unknown; ok: boolean; status: number; text: string };
+
+// fetch and its body readers throw; this is the one edge that converts that into a value.
+async function post(url: string, init: RequestInit): Promise<Fetched> {
+  try {
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+    return { json, ok: res.ok, status: res.status, text };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function main(): Promise<number> {
+  const fail = (message: string): number => {
+    process.stderr.write(`${message}\n`);
+    return 1;
+  };
   const [, , version] = process.argv;
-  const { readFileSync } = await import("node:fs");
   const repo = process.env["DOCKERHUB_REPO"];
   const user = process.env["DOCKERHUB_USER"];
   const token = process.env["DOCKERHUB_OVERVIEW_TOKEN"];
   if (!version || !repo || !user || !token) {
-    process.stderr.write(
-      "usage: dockerhub-overview.ts <version>; needs DOCKERHUB_REPO, DOCKERHUB_USER, DOCKERHUB_OVERVIEW_TOKEN\n",
+    return fail(
+      "usage: dockerhub-overview.ts <X.Y.Z>; needs DOCKERHUB_REPO, DOCKERHUB_USER and " +
+        "DOCKERHUB_OVERVIEW_TOKEN (README -> CI/CD)",
     );
-    return 1;
   }
+  // The page is public, so never render a version that resolves to no image.
+  if (!VERSION.test(version)) return fail(`version must be X.Y.Z, got ${JSON.stringify(version)}`);
 
-  const body = renderOverview(readFileSync("release-tooling/dockerhub-overview.md.tmpl", "utf8"), version);
+  const templatePath = join(import.meta.dirname, "dockerhub-overview.md.tmpl");
+  const body = renderOverview(readFileSync(templatePath, "utf8"), version);
   const leftover = leftoverPlaceholders(body);
-  if (leftover.length > 0) {
-    process.stderr.write(`release-tooling/dockerhub-overview.md.tmpl has unrendered placeholders: ${leftover.join(", ")}\n`);
-    return 1;
-  }
+  if (leftover.length > 0) return fail(`${templatePath} has unrendered placeholders: ${leftover.join(", ")}`);
 
-  const login = await fetch(`${HUB}/users/login`, {
+  const login = await post(`${HUB}/users/login`, {
     body: JSON.stringify({ password: token, username: user }),
     headers: { "content-type": "application/json" },
     method: "POST",
   });
-  if (!login.ok) {
-    process.stderr.write(`Docker Hub login failed: ${login.status} ${await login.text()}\n`);
-    return 1;
-  }
-  const { token: jwt } = (await login.json()) as { token?: string };
-  if (!jwt) {
-    process.stderr.write("Docker Hub login returned no token\n");
-    return 1;
-  }
+  if ("error" in login) return fail(`Docker Hub login unreachable: ${login.error}`);
+  if (!login.ok) return fail(`Docker Hub login failed: ${login.status} ${login.text}`);
+  const jwt = jwtFrom(login.json);
+  if (!jwt) return fail("Docker Hub login returned no token");
 
-  const res = await fetch(`${HUB}/repositories/${repo}/`, {
+  const res = await post(`${HUB}/repositories/${repo}/`, {
     body: JSON.stringify({ full_description: body }),
     headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
     method: "PATCH",
   });
+  if ("error" in res) return fail(`Docker Hub unreachable: ${res.error}`);
   if (!res.ok) {
-    const detail = await res.text();
-    process.stderr.write(
-      `Docker Hub overview PATCH failed: ${res.status} ${detail}\n` +
+    return fail(
+      `Docker Hub overview PATCH failed: ${res.status} ${res.text}` +
         (res.status === 403
-          ? "403 means DOCKERHUB_OVERVIEW_TOKEN cannot edit repository metadata — that is a separate " +
-            "permission from pushing images, which is why it is its own secret (README -> CI/CD).\n"
+          ? "\n403 means DOCKERHUB_OVERVIEW_TOKEN cannot edit repository metadata — a separate " +
+            "permission from pushing images, which is why it is its own secret (README -> CI/CD)."
           : ""),
     );
-    return 1;
   }
   process.stdout.write(`Docker Hub overview updated for ${repo} at ${version}\n`);
   return 0;

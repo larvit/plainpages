@@ -53,6 +53,13 @@
     },
     {
       "customType": "regex",
+      "description": "The published quick start ships a compose file, so its sidecars move with the repo's own pins. The version group starts at a digit, which skips the {{VERSION}} placeholder the release renders",
+      "managerFilePatterns": ["release-tooling/dockerhub-overview.md.tmpl"],
+      "matchStrings": ["image: (?<depName>[^:\\s]+):(?<currentValue>v?\\d[^\\s]*)"],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "Pin the node image workflow run-steps invoke (registry-cleanup, renovate auto-release, release)",
       "managerFilePatterns": [".gitea/workflows/registry-cleanup.yml", ".gitea/workflows/release.yml", ".gitea/workflows/renovate.yml"],
       "matchStrings": ["\\snode:(?<currentValue>[0-9][^\\s\"']*)"],
