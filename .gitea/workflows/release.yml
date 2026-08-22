@@ -68,7 +68,7 @@ jobs:
           docker logout docker.io || true
 
   publish-overview:
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success') }}
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.retag-image.result == 'success')
     needs: [retag-image]
     runs-on: docker-host
     steps:
