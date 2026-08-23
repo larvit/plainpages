@@ -195,6 +195,17 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("table")).toContainText("Morning — Front desk"); // seeded by the mock upstream
   });
 
+  test("plugin settings: the screen names the variable that sets each declared key", async () => {
+    await page.goto("/admin/plugin-settings");
+    await expect(page.locator("h1")).toHaveText("Plugin settings");
+    // The reference plugin's one declared setting, and the variable an operator would set for it.
+    const scheduling = page.locator("table").filter({ hasText: "PLUGIN_SETTING_SCHEDULING_UPSTREAM" });
+    await expect(scheduling).toContainText("upstream");
+    await expect(scheduling).toContainText("http://shifts-upstream:4000"); // resolved, and its source shown
+    // Every installed plugin gets a section, so "declares none" is distinguishable from "not installed".
+    await expect(page.locator("h2", { hasText: "admin" })).toHaveCount(1);
+  });
+
   test("logout: signing out ends the session and returns to the login page", async () => {
     await page.goto("/dashboard");
     await page.locator("button.profile").click(); // open the profile dropdown

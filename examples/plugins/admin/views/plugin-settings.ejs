@@ -1,0 +1,24 @@
+<%#
+  Plugin settings admin list: one section per installed plugin, each a table of what it declares
+  and how each key resolved (admin-plugin-settings.ts). Read-only — no actions, no forms.
+%><%
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
+  let body = "";
+  for (const group of model.groups) {
+    // A plugin id is the folder name, which discovery constrains to [a-z0-9-] — no escaping needed.
+    body += '<h2 class="h2">' + group.pluginId + "</h2>";
+    body += group.table.rows.length === 0
+      ? '<p class="muted">' + group.emptyText + "</p>"
+      : include("partials/data-table", group.table);
+  }
+-%>
+<%- include("partials/shell", {
+  body,
+  brand: chrome.brand,
+  breadcrumbs: model.breadcrumbs,
+  csrfToken: chrome.csrfToken,
+  nav,
+  theme: chrome.theme,
+  title: model.title,
+  user: chrome.user,
+}) %>

@@ -7,6 +7,7 @@
 import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "@plainpages/plugin-api";
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";
 import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsPermissions, groupsRemoveMember } from "./admin-groups.ts";
+import { pluginSettingsList } from "./admin-plugin-settings.ts";
 import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersPermissions, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
 import { ADMIN_NAV, actionForMethod, type AdminAction, type AdminResource, permissionName } from "./admin-shared.ts";
 
@@ -24,9 +25,10 @@ const on = (resource: AdminResource) => (method: HttpMethod, path: string, handl
 const users = on("users");
 const groups = on("groups");
 const clients = on("oauth2-clients");
+const pluginSettings = on("plugin-settings");
 
 export default definePlugin({
-  apiVersion: "0.1.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 
@@ -37,6 +39,7 @@ export default definePlugin({
     { description: "Create and delete groups, and change their members and permissions", name: "groups:write" },
     { description: "View OAuth2 clients", name: "oauth2-clients:read" },
     { description: "Register and delete OAuth2 clients", name: "oauth2-clients:write" },
+    { description: "View the settings each installed plugin declares, and how they resolved", name: "plugin-settings:read" },
   ],
 
   routes: [
@@ -68,5 +71,7 @@ export default definePlugin({
     clients("GET", "/clients/:id", clientsDetail),
     clients("GET", "/clients/:id/delete", clientsDeleteConfirm, "write"),
     clients("POST", "/clients/:id/delete", clientsDelete),
+    // Plugin settings — read-only, so no :write route and no write-intent GET.
+    pluginSettings("GET", "/plugin-settings", pluginSettingsList),
   ],
 });

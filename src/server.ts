@@ -14,6 +14,7 @@ import { createKratosAdmin } from "./auth/kratos-admin.ts";
 import { createKratosPublic } from "./auth/kratos-public.ts";
 import { createLogger, tracedFetch } from "./logger.ts";
 import { loadMenuConfig } from "./ui/menu-config.ts";
+import { resolveSettings, settingsEnvNames, strayNames } from "./plugin-host/settings.ts";
 import { buildCredentials, storagePluginIds, type StorageCredentials } from "./plugin-host/storage.ts";
 
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
@@ -62,15 +63,29 @@ const storageCredentials = new Map<string, StorageCredentials>();
 if (pluginDbUrl !== undefined) {
   for (const id of declaresStorage) storageCredentials.set(id, buildCredentials(pluginDbUrl, id, config.pluginDbSecret));
 }
-// onBoot is the only way credentials are handed over, so without one the database is provisioned
-// and unreachable. A warning, not a refusal — the plugin still works, it just cannot store anything.
-const unreachable = plugins.filter((plugin) => plugin.storage && !plugin.hooks?.onBoot).map((plugin) => plugin.id);
-if (unreachable.length > 0) log.warn("plugins declare storage but have no onBoot to receive it", { plugins: unreachable.join(", ") });
+// Operator-supplied plugin settings, resolved against the environment the manifests declared. A bad
+// or missing value is refused here rather than at that plugin's first use, hours later.
+const settings = resolveSettings(plugins, process.env, { requireSecureSecrets: config.requireSecureSecrets });
+if (settings.errors.length > 0) throw new Error(`Plugin settings:\n${settings.errors.map((e) => `  - ${e}`).join("\n")}`);
+// A stray is usually a typo in the very variable the operator meant to set — naming it turns two
+// unrelated-looking errors into one. Reported, never acted on.
+const strays = strayNames(process.env, settingsEnvNames(plugins));
+if (strays.length > 0) log.warn("settings variables no installed plugin declares", { variables: strays.join(", ") });
+
+// onBoot is the only way storage credentials and settings are handed over, so without one they are
+// resolved and undeliverable. A warning, not a refusal — the plugin still works, it just gets neither.
+for (const [what, ids] of [
+  ["settings", plugins.filter((plugin) => plugin.settings?.length && !plugin.hooks?.onBoot)],
+  ["storage", plugins.filter((plugin) => plugin.storage && !plugin.hooks?.onBoot)],
+] as const) {
+  if (ids.length > 0) log.warn(`plugins declare ${what} but have no onBoot to receive it`, { plugins: ids.map((plugin) => plugin.id).join(", ") });
+}
 
 // plugin onBoot — after discovery, before listen; a throw aborts boot.
 await runBootHooks(plugins, (plugin) => {
   const storage = storageCredentials.get(plugin.id);
-  return storage ? { storage } : {};
+  const values = settings.values.get(plugin.id);
+  return { ...(values ? { settings: values } : {}), ...(storage ? { storage } : {}) };
 });
 
 const server = createApp({
@@ -91,6 +106,7 @@ const server = createApp({
   menu,
   plugins,
   secureCookies: config.secureCookies,
+  settingsCatalog: settings.catalog,
 }).listen(config.port, () => {
   log.info("listening", { apiVersion: HOST_API_VERSION, port: config.port, url: config.appUrl ?? `http://localhost:${config.port}` });
 });

@@ -12,12 +12,13 @@ export const ADMIN_EN: Translate = englishTranslator(enUS);
 export const ADMIN_USERS_BASE = "/admin/users";
 export const ADMIN_GROUPS_BASE = "/admin/groups";
 export const ADMIN_CLIENTS_BASE = "/admin/clients";
+export const ADMIN_PLUGIN_SETTINGS_BASE = "/admin/plugin-settings";
 
 // One resource per screen — the `<resource>` half of every permission this plugin gates on.
 // `oauth2-clients` rather than `clients` because permission names are one global namespace.
 // There is no `permissions` resource: permissions are declared in plugin code, not created here, so
 // holding a grant is a property of a user or a group and is edited on those two screens.
-export type AdminResource = "groups" | "oauth2-clients" | "users";
+export type AdminResource = "groups" | "oauth2-clients" | "plugin-settings" | "users";
 
 export type AdminAction = "read" | "write";
 
@@ -43,6 +44,7 @@ export const ADMIN_NAV: NavNode = {
     { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users", permission: permissionName("users", "read") },
     { href: ADMIN_GROUPS_BASE, icon: "i-layers", id: "groups", label: "admin.nav.groups", permission: permissionName("groups", "read") },
     { href: ADMIN_CLIENTS_BASE, icon: "i-globe", id: "clients", label: "admin.nav.clients", permission: permissionName("oauth2-clients", "read") },
+    { href: ADMIN_PLUGIN_SETTINGS_BASE, icon: "i-sliders", id: "plugin-settings", label: "admin.nav.pluginSettings", permission: permissionName("plugin-settings", "read") },
   ],
   icon: "i-shield",
   id: "admin",

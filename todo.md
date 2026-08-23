@@ -2,7 +2,6 @@
 
 ## Unfinnished work
 
-- [ ] Add a way to configure plugins directly when installing. **Decided: the manifest declares it, not an `.env`** — a declared schema is validatable at boot, so a missing or mistyped setting fails loud and named the way a stray `package.json` now does, and the picker/docs can be generated from the declaration. Open: where the operator *supplies* the values (env var per key, a `config/` file, or both), and whether a secret may be declared at all.
 - [ ] Rename the plugin "admin" to something less generic, like "auth-admin" or "users-groups-admin".
 - [ ] Guard the group paths against self-lockout, or accept them explicitly. The self-revoke guard covers only your own *direct* grants on the Users screen; unticking a permission on a group you belong to, removing yourself from that group, or deleting it can all still strip your own effective access with no warning. Recorded in AGENTS.md as a known gap — the robust fix is a "last effective holder" check, which needs a reverse Keto query.
 - [ ] The permission picker has no concurrency baseline, so two operators editing the same user/group silently discard each other's change. Sketch: post the rendered set as a hidden baseline; if it no longer matches Keto, re-render with "this changed while you had the page open" rather than applying.
@@ -36,6 +35,7 @@ Prioritized. Overall verdict: architecture is sound; these are refinements.
 
 ## Finnished work
 
+- [x] Configure a plugin at install time: the manifest declares `settings`, the operator sets one `PLUGIN_SETTING_<ID>_<KEY>` variable per key, and the resolved values arrive on `onBoot` typed from the declaration. Read-only admin screen at `/admin/plugin-settings`.
 - [x] Give a plugin persistent storage: `storage: true` provisions a Postgres database + login role named `plugin_<id>`, credentials arrive on `onBoot`, passwords are derived from `PLUGIN_DB_SECRET` rather than stored.
 - [x] Refuse a stray `package.json`/`node_modules` in `config/` by name, as plugin folders already are.
 - [x] Let Renovate reach the example plugins' manifests (`ignorePaths` overrides `config:recommended`).

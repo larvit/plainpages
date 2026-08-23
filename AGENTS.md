@@ -93,6 +93,16 @@ Revisit only if the stated reason stops holding.
   plugin cannot destroy data — boot logs the orphans instead. Because the host's copy sits in the
   ambient `/node_modules`, a plugin can `import "postgres"` without declaring it — incidental, not a
   packaging promise, and a plugin must still depend on its own driver.
+  - **Plugin settings are declared, not discovered** (README → Plugin settings). `settings.ts` is pure and
+  takes the env as an argument, so the whole matrix unit-tests without a stack. Four rules carry the
+  design: the prefix is `PLUGIN_SETTING_`, never bare `PLUGIN_`, because a plugin id `db` with key
+  `url` would otherwise name the host's own `PLUGIN_DB_URL`; keys are camelCase so the
+  `camelCase → SNAKE_CASE` mapping is total and no two keys collide, with the residual cross-plugin
+  collision caught by `findConflicts`; `required` and `default` are mutually exclusive, which is what
+  lets `SettingsOf` type a declared key as present rather than `T | undefined`, so no plugin author
+  casts; and a secret's value reaches the plugin but never a log, an error or `ctx.declaredSettings`
+  — not even as a mask or a length. An author mistake is refused at discovery, a bad operator value
+  refuses the boot, and a stray `PLUGIN_SETTING_` variable only warns (the orphan-database precedent).
 - **The trust boundary is the `web` process, not the plugin.** Per-plugin databases and roles bound
   *accidents*, not hostile plugins: `PLUGIN_DB_SECRET` is in `web`'s environment during `onBoot`, and
   a plugin already holds `ctx.system`'s Ory admin clients — so cross-plugin DB isolation is

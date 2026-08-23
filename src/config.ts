@@ -56,6 +56,7 @@ export interface Config {
   pluginDbSecret: string; // derives each plugin's database password (src/plugin-host/storage.ts)
   pluginDbUrl: string | undefined; // credential-free Postgres base URL; unset ⇒ plugin storage is off
   port: number;
+  requireSecureSecrets: boolean; // enforce real secrets — the host's own, and every plugin's declared `secret`
   revocationDenylist: boolean; // enable the optional instant permission/session revoke denylist
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
@@ -188,6 +189,7 @@ export function loadConfig(env: Env = process.env): Config {
     pluginDbSecret: resolvePluginDbSecret(env, requireSecure && Boolean(env["PLUGIN_DB_URL"])),
     pluginDbUrl: readCredentiallessUrl(env, "PLUGIN_DB_URL"),
     port: readPort(env),
+    requireSecureSecrets: requireSecure,
     // Optional instant-revoke, off by default. When on, an admin deactivate/delete or permission
     // change revokes the subject's live tokens at once; the entry lives ttl seconds (≥ the 10m
     // tokenizer TTL + skew, so it outlasts any pre-revoke token).

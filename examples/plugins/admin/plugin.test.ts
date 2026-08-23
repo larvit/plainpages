@@ -35,17 +35,20 @@ test("every nav permission is one the manifest declares", () => {
     }
   };
   walk(manifest.nav);
-  assert.equal(navPermissions.length, 3);
+  assert.equal(navPermissions.length, 4);
   for (const name of navPermissions) assert.ok(declared.includes(name), `nav gates on undeclared ${name}`);
 });
 
 test("every declared permission is <resource>:<action>, and reads and writes are split per resource", () => {
   for (const name of declared) assert.ok(isValidPermissionName(name), name); // the host's rule, not a copy of it
-  // Three screens × read/write. There is deliberately no `permissions:` pair: permissions are
-  // declared in plugin code, so holding one is edited on the user or group that holds it.
+  // Three CRUD screens × read/write, plus read-only plugin settings — a screen that never writes
+  // declares no `:write`, since a permission nothing gates on is one an operator can only mis-grant.
+  // There is deliberately no `permissions:` pair either: permissions are declared in plugin code, so
+  // holding one is edited on the user or group that holds it.
   assert.deepEqual([...declared].sort(), [
     "groups:read", "groups:write",
     "oauth2-clients:read", "oauth2-clients:write",
+    "plugin-settings:read",
     "users:read", "users:write",
   ]);
 });
@@ -58,5 +61,5 @@ test("GET routes gate on read and mutations on write, so a reader can open a scr
     const action = route.method === "GET" && !writeIntent(route.path) ? "read" : "write";
     assert.ok(route.permission?.endsWith(`:${action}`), `${route.method} ${route.path} → ${route.permission}`);
   }
-  assert.equal(routes.filter((r) => r.method === "GET" && writeIntent(r.path)).length, 6); // 2 per screen
+  assert.equal(routes.filter((r) => r.method === "GET" && writeIntent(r.path)).length, 6); // 2 per CRUD screen; plugin settings has none
 });

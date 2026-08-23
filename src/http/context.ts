@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PageChrome } from "../ui/chrome.ts"; // type-only: no runtime import, so no cycle
 import type { PermissionDecl } from "../plugin-host/plugin.ts"; // type-only
+import type { PluginSettings } from "../plugin-host/settings.ts"; // type-only
 import type { SystemCapabilities } from "../plugin-host/system.ts"; // type-only
 import { DEFAULT_LOCALE } from "../i18n/catalog.ts";
 import { ENGLISH } from "../i18n/english.ts";
@@ -42,6 +43,9 @@ export interface RequestContext {
   // screen offers when granting one. Pairs with `permissions` below: this is what *exists*, that is
   // what *this user holds*. Empty when no installed plugin declares any.
   declaredPermissions: readonly PermissionDecl[];
+  // What each installed plugin declares it can be configured with, and how each key resolved — one
+  // entry per plugin, including those declaring nothing. A secret's value is never carried here.
+  declaredSettings: readonly PluginSettings[];
   params: Record<string, string>; // path params from the route match, e.g. /users/:id → { id }
   permissions: string[]; // user?.permissions ?? [] — coarse gate without a null-check
   query: URLSearchParams; // alias of url.searchParams, for ctx.query.get("q")
@@ -67,6 +71,7 @@ export interface BuildContextOptions {
   // The host's factory is memoised, so the menu composes at most once per request across contexts.
   chrome?: () => PageChrome;
   declaredPermissions?: readonly PermissionDecl[];
+  declaredSettings?: readonly PluginSettings[];
   user?: User | null;
   locale?: string;
   localeHref?: (href: string) => string;
@@ -96,6 +101,7 @@ export function buildContext(
   return {
     get chrome(): PageChrome { return (chromeMemo ??= buildChrome ? buildChrome() : ANON_CHROME); },
     declaredPermissions: options.declaredPermissions ?? [],
+    declaredSettings: options.declaredSettings ?? [],
     user,
     locale: options.locale ?? DEFAULT_LOCALE,
     localeHref: options.localeHref ?? ((href) => href),

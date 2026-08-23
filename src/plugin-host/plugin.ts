@@ -6,10 +6,11 @@
 
 import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
+import { envName, type SettingDecl, type SettingsOf } from "./settings.ts";
 import type { StorageCredentials } from "./storage.ts";
 
 // The Plainpages release this contract ships in — see README → Contract versioning.
-export const HOST_API_VERSION = "0.1.0";
+export const HOST_API_VERSION = "0.2.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";
 
@@ -62,30 +63,39 @@ export function declaredPermissions(plugins: Plugin[]): PermissionDecl[] {
 }
 
 // What onBoot receives. A hook declaring no parameter stays valid, so this may grow additively.
-export interface BootContext {
+export type BootContext<S extends readonly SettingDecl[] = readonly SettingDecl[]> = {
   storage?: StorageCredentials; // this plugin's own database; present iff the manifest declared `storage`
-}
+} & SettingsSlot<S>;
+
+// Required once the manifest declares settings, so that plugin reads `settings.key` without a guard
+// for the case it just ruled out; optional for a manifest that declared none.
+type SettingsSlot<S extends readonly SettingDecl[]> = readonly [] extends S
+  ? { settings?: SettingsOf<S> }
+  : { settings: SettingsOf<S> };
 
 // Optional hooks on system actions. Crash-isolation is a non-goal — a throwing hook fails loud.
-export interface PluginHooks {
-  onBoot?: (host: BootContext) => Promise<void> | void; // after discovery, before the server listens
+export interface PluginHooks<S extends readonly SettingDecl[] = readonly SettingDecl[]> {
+  onBoot?: (host: BootContext<S>) => Promise<void> | void; // after discovery, before the server listens
   onRequest?: (ctx: RequestContext) => Promise<RouteResult | void> | RouteResult | void; // may short-circuit
   onResponse?: (ctx: RequestContext, result: RouteResult | null) => Promise<void> | void;
 }
 
 // The authored manifest — a plugin's `plugin.ts` default-exports this. No `id`/mount path: the
 // host derives them from the folder name at discovery (see Plugin).
-export interface PluginManifest {
+export interface PluginManifest<S extends readonly SettingDecl[] = readonly SettingDecl[]> {
   apiVersion: string; // semver of the host contract this targets — write a literal, NOT HOST_API_VERSION (see docs)
   // Take over "/dashboard"; the host gates it to a signed-in session first. At most one plugin may
   // declare it (findConflicts → error, never last-write-wins).
   dashboard?: RouteHandler;
   // Take over the ungated public landing "/". At most one plugin may declare it.
   home?: RouteHandler;
-  hooks?: PluginHooks;
+  hooks?: PluginHooks<S>;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
   routes?: Route[];
+  // Operator-supplied configuration, one PLUGIN_SETTING_<ID>_<KEY> variable per key; the resolved
+  // values arrive on onBoot's BootContext, typed from these declarations (settings.ts).
+  settings?: S;
   // Ask for a Postgres database of this plugin's own; its credentials arrive on onBoot's BootContext.
   // The host provisions and locks it down but owns no schema inside it, and never drops it.
   storage?: boolean;
@@ -99,7 +109,9 @@ export interface Plugin extends PluginManifest {
 
 // Types the manifest and returns it unchanged; validation happens at discovery, so a plugin may
 // equally be a plain typed object.
-export function definePlugin(manifest: PluginManifest): PluginManifest {
+// The `const` parameter captures the literal `settings`, so onBoot receives each key at its declared
+// type instead of a union every plugin author would have to narrow with a cast.
+export function definePlugin<const S extends readonly SettingDecl[]>(manifest: PluginManifest<S>): PluginManifest<S> {
   return manifest;
 }
 
@@ -168,7 +180,7 @@ export function checkApiVersion(pluginVersion: unknown, hostVersion: string = HO
 }
 
 export interface PluginConflict {
-  kind: "dashboard" | "home" | "id" | "nav-id" | "permission" | "route";
+  kind: "dashboard" | "home" | "id" | "nav-id" | "permission" | "route" | "setting";
   level: "error" | "warn";
   message: string;
   plugins: string[]; // unique ids involved
@@ -207,6 +219,14 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     for (const decl of plugin.permissions ?? []) push(decl.name);
   }).forEach((owners, name) => {
     if (owners.length > 1) out.push({ kind: "permission", level: "warn", message: `permission "${name}" declared by ${uniq(owners).length} plugins; pick a more specific "<resource>" unless shared on purpose`, plugins: uniq(owners) });
+  });
+
+  // Both the id's dashes and the key's camel humps become underscores, so plugin "a-b" key "c" and
+  // plugin "a" key "bC" name one variable — one plugin would silently read the other's value.
+  collect(plugins, (plugin, push) => {
+    for (const decl of plugin.settings ?? []) push(envName(plugin.id, decl.key));
+  }).forEach((owners, name) => {
+    if (owners.length > 1) out.push({ kind: "setting", level: "error", message: `${owners.length} settings resolve to "${name}"; rename a key or a plugin folder`, plugins: uniq(owners) });
   });
 
   return out;

@@ -8,6 +8,7 @@ export { definePlugin, isValidPermissionName } from "./plugin.ts";
 export type { BootContext, HttpMethod, Plugin, PluginHooks, PluginManifest, PermissionDecl, Route, RouteHandler, RouteResult } from "./plugin.ts";
 // A plugin's own database, handed to onBoot when the manifest sets `storage`. Credentials, not a
 // client — the plugin depends on whichever driver it prefers (README → Plugin storage).
+export type { PluginSettings, SettingDecl, SettingSummary, SettingType, SettingValue } from "./settings.ts";
 export type { StorageCredentials } from "./storage.ts";
 export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";

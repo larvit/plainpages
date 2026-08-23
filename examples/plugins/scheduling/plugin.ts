@@ -3,19 +3,20 @@
 // folder, rename it, point it at your own backend. Full contract: README.md → Building plugins.
 
 import { definePlugin } from "@plainpages/plugin-api";
-import { assertHttpUrl, createShift, createUpstream, listShifts, newShiftForm, overview, READ, SCHEDULING_PATH, SHIFTS_PATH, WRITE } from "./shifts.ts";
+import { createShift, createUpstream, listShifts, newShiftForm, overview, READ, SCHEDULING_PATH, SHIFTS_PATH, WRITE } from "./shifts.ts";
 
 // The upstream this plugin reads/writes — a stand-in for your real backend (the plugin is
-// stateless). Configure via env; the dev compose points it at a tiny mock (examples/shifts-upstream).
-const upstreamUrl = process.env["SCHEDULING_UPSTREAM"] ?? "http://shifts-upstream:4000";
-const upstream = createUpstream(upstreamUrl);
+// stateless). Its URL is a declared setting, so it is resolved and validated before onBoot hands it
+// over — which is after this manifest is built, hence the getter.
+let upstreamUrl = "";
+const upstream = createUpstream(() => upstreamUrl);
 
 export default definePlugin({
-  apiVersion: "0.1.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
-  // onBoot runs after discovery, before the server listens: validate the plugin's own config so a
-  // typo'd SCHEDULING_UPSTREAM fails the boot loudly instead of degrading every request later.
-  hooks: { onBoot: () => assertHttpUrl(upstreamUrl, "SCHEDULING_UPSTREAM") },
+  // onBoot runs after discovery, before the server listens — where a plugin receives its resolved
+  // settings. A malformed URL already failed the boot by then; the host validated the declared type.
+  hooks: { onBoot: ({ settings }) => { upstreamUrl = settings.upstream; } },
 
   // Merged into the global menu + filtered per user. Labels are keys in this plugin's own catalog
   // (i18n/<locale>.ts) — a plain string works too, it just isn't translated. "Overview" is `public`, so the "Scheduling"
@@ -44,5 +45,16 @@ export default definePlugin({
     { handler: listShifts(upstream), method: "GET", path: "/shifts", permission: READ },
     { handler: newShiftForm(), method: "GET", path: "/shifts/new", permission: WRITE },
     { handler: createShift(upstream), method: "POST", path: "/shifts", permission: WRITE },
+  ],
+
+  // Operator-supplied config: one PLUGIN_SETTING_SCHEDULING_UPSTREAM variable, validated as a URL at
+  // boot. The default points at the mock backend the dev compose runs (examples/shifts-upstream).
+  settings: [
+    {
+      default: "http://shifts-upstream:4000",
+      description: "Base URL of the backend this plugin reads shifts from and writes them to",
+      key: "upstream",
+      type: "url",
+    },
   ],
 });

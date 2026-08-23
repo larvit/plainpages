@@ -27,7 +27,7 @@ The plugin holds **no state** — data lives upstream (README → *Stateless*). 
 
 ## Upstream
 
-Set `SCHEDULING_UPSTREAM` to your backend's base URL. The dev compose points it at a tiny in-memory
+Set `PLUGIN_SETTING_SCHEDULING_UPSTREAM` to your backend's base URL. The dev compose points it at a tiny in-memory
 mock (`examples/shifts-upstream/`) so `docker compose up` shows the plugin working out of the box.
 A malformed/non-http URL fails the boot loudly (the plugin's `onBoot` hook).
 

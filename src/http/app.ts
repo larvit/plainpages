@@ -26,6 +26,7 @@ import { createLogger, type Log, requestLogger, runWithLog } from "../logger.ts"
 import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
+import type { PluginSettings } from "../plugin-host/settings.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
@@ -54,6 +55,7 @@ export interface AppOptions {
   pluginsDir?: string; // where plugin views/static live; defaults to the scanned plugins/
   publicDir?: string;
   secureCookies?: boolean; // set Secure on our session/CSRF cookies (config.secureCookies; off in dev http)
+  settingsCatalog?: readonly PluginSettings[]; // resolved at boot (server.ts, needs the env); → ctx.declaredSettings
   viewsDir?: string;
 }
 
@@ -88,6 +90,7 @@ export function createApp(options: AppOptions = {}): Server {
   const homePlugin = plugins.find((p): p is Plugin & { home: RouteHandler } => typeof p.home === "function");
   const dashboardPlugin = plugins.find((p): p is Plugin & { dashboard: RouteHandler } => typeof p.dashboard === "function");
   const permissionCatalog = declaredPermissions(plugins);
+  const settingsCatalog = options.settingsCatalog ?? [];
   // Skip the hook pipeline entirely unless a plugin declares the hook (keeps the hot path free).
   const anyRequestHooks = plugins.some((p) => p.hooks?.onRequest);
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
@@ -259,9 +262,9 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Base context (no route params), for the built-in routes. Every plugin-owned render — a
       // landing slot, a hook short-circuit, a plugin route — gets `contextFor(id)` instead.
-      const ctx = buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const ctx = buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
       const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext =>
-        buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
+        buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
       renderPage = viewsFor(ctx);
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.

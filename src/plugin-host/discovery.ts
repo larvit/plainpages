@@ -8,6 +8,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
+import { settingsDeclError } from "./settings.ts";
 import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID_LENGTH } from "./storage.ts";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -141,6 +142,10 @@ function shapeError(manifest: PluginManifest): string | null {
   }
   // A truthy non-boolean (a DSN, say) must not quietly read as "provision me one".
   if (manifest.storage !== undefined && typeof manifest.storage !== "boolean") return `"storage" must be a boolean`;
+  if (manifest.settings !== undefined) {
+    const settings = settingsDeclError(manifest.settings);
+    if (settings) return settings;
+  }
   // `public` and `permission` are contradictory on the same route/nav node — "open to all" vs
   // "needs this permission". Refuse rather than silently pick one, so the author's intent is unambiguous.
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {

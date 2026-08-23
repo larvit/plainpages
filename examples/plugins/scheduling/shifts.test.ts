@@ -7,7 +7,7 @@ import test from "node:test";
 import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 import {
-  assertHttpUrl, buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
+  buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
@@ -18,7 +18,7 @@ function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; ve
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
-    chrome: CHROME, declaredPermissions: [], user: null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
+    chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
     query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.permissions ?? [], t, url,
     verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
@@ -35,27 +35,25 @@ const asView = (r: RouteResult | void) => {
   return r as { data: Record<string, unknown>; status?: number; view: string };
 };
 
-// ---- upstream config validation (the onBoot hook) ----
+// ---- the upstream URL as a declared setting ----
 
-test("assertHttpUrl accepts http(s) and fails loud on a malformed or non-http upstream URL", () => {
-  assert.doesNotThrow(() => assertHttpUrl("http://shifts-upstream:4000", "SCHEDULING_UPSTREAM"));
-  assert.doesNotThrow(() => assertHttpUrl("https://api.example.com/v1", "SCHEDULING_UPSTREAM"));
-  assert.throws(() => assertHttpUrl("not a url", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*valid URL/); // unparseable
-  assert.throws(() => assertHttpUrl("shifts-upstream:4000", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*http/); // missing // → parsed as a bogus scheme
-  assert.throws(() => assertHttpUrl("ftp://host/x", "SCHEDULING_UPSTREAM"), /SCHEDULING_UPSTREAM.*http/); // wrong scheme
+test("the manifest declares its upstream as a URL setting the host validates", async () => {
+  const manifest = (await import("./plugin.ts")).default;
+  assert.deepEqual(manifest.settings?.map((s) => s.key), ["upstream"]);
+  assert.equal(manifest.settings?.[0]?.type, "url"); // so a typo'd URL fails the boot, not every request
+  assert.equal(manifest.settings?.[0]?.default, "http://shifts-upstream:4000"); // the dev compose's mock
+  assert.equal(typeof manifest.hooks?.onBoot, "function"); // without it the resolved value never arrives
 });
 
-test("the manifest's onBoot hook validates SCHEDULING_UPSTREAM (the binding, not just the helper)", async () => {
-  const prev = process.env["SCHEDULING_UPSTREAM"];
-  process.env["SCHEDULING_UPSTREAM"] = "nope://bad"; // read at import time below
-  try {
-    const manifest = (await import("./plugin.ts")).default;
-    assert.equal(typeof manifest.hooks?.onBoot, "function");
-    assert.throws(() => manifest.hooks!.onBoot!({}), /SCHEDULING_UPSTREAM/); // bad upstream → boot fails loud
-  } finally {
-    if (prev === undefined) delete process.env["SCHEDULING_UPSTREAM"];
-    else process.env["SCHEDULING_UPSTREAM"] = prev;
-  }
+test("the client re-reads its base URL, so onBoot can bind it after the manifest is built", async () => {
+  let baseUrl = "http://first:4000";
+  const seen: string[] = [];
+  const http = (async (url) => { seen.push(String(url)); return new Response("[]", { status: 200 }); }) as typeof fetch;
+  const upstream = createUpstream(() => baseUrl, http);
+  await upstream.list();
+  baseUrl = "http://second:4000";
+  await upstream.list();
+  assert.deepEqual(seen, ["http://first:4000/shifts", "http://second:4000/shifts"]);
 });
 
 // ---- upstream client (fetch injected) ----
@@ -67,21 +65,21 @@ test("createUpstream.list fetches /shifts, asks for JSON, and maps the rows", as
     assert.equal((init?.headers as Record<string, string>).accept, "application/json");
     return new Response(JSON.stringify([{ assignee: "A", end: "2", id: "x", start: "1", title: "T", extra: "ignored" }]), { status: 200 });
   }) as typeof fetch;
-  const shifts = await createUpstream("http://up:4000/", http).list(); // trailing slash trimmed
+  const shifts = await createUpstream(() => "http://up:4000/", http).list(); // trailing slash trimmed
   assert.equal(seen, "http://up:4000/shifts");
   assert.deepEqual(shifts, [{ assignee: "A", end: "2", id: "x", start: "1", title: "T" }]);
 });
 
 test("createUpstream throws UpstreamError carrying the status on a non-2xx", async () => {
   const http = (async () => new Response("nope", { status: 503 })) as typeof fetch;
-  await assert.rejects(createUpstream("http://up:4000", http).list(), (e: unknown) => e instanceof UpstreamError && e.status === 503);
+  await assert.rejects(createUpstream(() => "http://up:4000", http).list(), (e: unknown) => e instanceof UpstreamError && e.status === 503);
 });
 
 test("createUpstream.create POSTs the input as JSON", async () => {
   let body: unknown, method = "";
   const http = (async (_url, init) => { method = init?.method ?? ""; body = JSON.parse(String(init?.body)); return new Response(null, { status: 201 }); }) as typeof fetch;
   const input: ShiftInput = { assignee: "A", end: "2", start: "1", title: "T" };
-  await createUpstream("http://up:4000", http).create(input);
+  await createUpstream(() => "http://up:4000", http).create(input);
   assert.equal(method, "POST");
   assert.deepEqual(body, input);
 });

@@ -49,26 +49,16 @@ export interface ShiftsUpstream {
   list(): Promise<Shift[]>;
 }
 
-// Fail loud at boot (the plugin's onBoot hook) on a malformed/non-http upstream URL — a config
-// typo surfaces at startup, not as a degraded page later. Reachability stays a runtime concern.
-export function assertHttpUrl(value: string, name: string): void {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`${name} is not a valid URL: ${JSON.stringify(value)}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`${name} must be an http(s) URL: ${JSON.stringify(value)}`);
-}
-
 // REST client over the upstream service (a stand-in for the customer's real backend). `fetch`
 // defaults to the host's tracedFetch, so each upstream call joins the request's trace (a client
 // span + a propagated traceparent); it's injectable so handlers unit-test against a mock, no network.
-export function createUpstream(baseUrl: string, fetchImpl: typeof fetch = tracedFetch): ShiftsUpstream {
-  const base = baseUrl.replace(/\/+$/, "");
+// `baseUrl` is read per call: the plugin's settings arrive on onBoot, after the manifest that binds
+// these handlers has already been built.
+export function createUpstream(baseUrl: () => string, fetchImpl: typeof fetch = tracedFetch): ShiftsUpstream {
+  const base = (): string => baseUrl().replace(/\/+$/, "");
   return {
     async create(input) {
-      const res = await fetchImpl(`${base}/shifts`, {
+      const res = await fetchImpl(`${base()}/shifts`, {
         body: JSON.stringify(input),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -76,7 +66,7 @@ export function createUpstream(baseUrl: string, fetchImpl: typeof fetch = traced
       if (!res.ok) throw new UpstreamError(`create shift failed (${res.status})`, res.status);
     },
     async list() {
-      const res = await fetchImpl(`${base}/shifts`, { headers: { accept: "application/json" } });
+      const res = await fetchImpl(`${base()}/shifts`, { headers: { accept: "application/json" } });
       if (!res.ok) throw new UpstreamError(`list shifts failed (${res.status})`, res.status);
       const data: unknown = await res.json();
       return Array.isArray(data) ? data.map(toShift) : [];

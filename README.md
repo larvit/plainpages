@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -89,6 +89,7 @@ From here, render real pages against the app shell and fetch upstream data — s
   - [hooks](#hooks)
   - [where they live & mounting](#where-plugins-live-and-how-to-mount-them)
   - [dependencies](#plugin-dependencies)
+  - [settings](#plugin-settings)
   - [storage](#plugin-storage)
   - [local dev & test](#local-dev--test-story)
 - [The menu system](#the-menu-system)
@@ -348,7 +349,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.1.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.2.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -381,6 +382,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
+| `settings` | no | Configuration this plugin accepts, one `PLUGIN_SETTING_<ID>_<KEY>` variable per key, resolved and validated at boot and handed to `onBoot`. See [Plugin settings](#plugin-settings). |
 | `storage` | no | `true` ⇒ the host provisions a Postgres database and login role for this plugin and hands the credentials to `onBoot`. See [Plugin storage](#plugin-storage). |
 
 A plugin may be routes-only, nav-only, or hooks-only — every collection field is optional.
@@ -468,7 +470,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -736,6 +738,56 @@ barrel's types on disk: typecheck it mounted under the host tree, or vendor a ty
 `node_modules`** and point tsconfig `paths` at it — a stub inside is the shadowing copy discovery
 refuses, and it would travel with the folder you mount.
 
+### Plugin settings
+
+A plugin declares the configuration it accepts, and the host resolves it from the environment at
+boot. Each key becomes one variable — `PLUGIN_SETTING_<ID>_<KEY>`, the id's dashes and the key's
+camel humps both becoming underscores — so `upstream` on the `scheduling` plugin is set by
+`PLUGIN_SETTING_SCHEDULING_UPSTREAM`.
+
+```ts
+export default definePlugin({
+  apiVersion: "0.2.0",
+  settings: [
+    { key: "upstream", type: "url", required: true, description: "Base URL of the backend" },
+    { key: "pageSize", type: "number", default: 25 },
+    { key: "mode", type: "enum", values: ["strict", "lenient"], default: "strict" },
+    { key: "apiKey", type: "string", secret: true, default: "dev-insecure-key" },
+  ],
+  hooks: {
+    onBoot: ({ settings }) => {
+      settings.upstream; // string  — required, so the boot already refused without it
+      settings.pageSize; // number  — defaulted, so always present
+      start(settings);
+    },
+  },
+});
+```
+
+`type` is one of `string`, `number`, `boolean`, `enum` (with `values`) or `url`. A declared type is
+coerced and checked at boot, so a mistyped value names the plugin, the key and the variable instead
+of surfacing later as a broken page.
+
+**`required` and `default` are mutually exclusive** — a default means the setting can never fail, so
+declaring both is refused at discovery. That leaves three cases, and the type `onBoot` receives
+follows them exactly: `required: true` is always present, a `default` is always present, and a
+setting with neither is `T | undefined`, so the plugin has to handle its absence.
+
+**Secrets.** `secret: true` marks a value the host reads but never renders — not in a boot log, not
+in an error, not on the admin screen, which shows only whether it resolved and from where. With
+`REQUIRE_SECURE_SECRETS=true` a secret that is unset, or still equal to its declared default, refuses
+the boot — the same rule the host applies to its own secrets.
+
+**Where it fails, and where it warns.** A malformed declaration is refused at discovery; a missing
+`required` value or a value that will not coerce refuses the boot. A `PLUGIN_SETTING_` variable no
+installed plugin declares is only *reported* — it is usually a typo in the one the operator meant to
+set, and naming it turns two unrelated-looking errors into one. Declaring settings without an
+`onBoot` warns too: they resolve, but nothing receives them.
+
+**Reading what a deployment is configured with.** The admin plugin's **Plugin settings** screen
+(`plugin-settings:read`) lists every installed plugin, its declared keys, the variable that sets
+each, and whether the value came from the environment or the declared default.
+
 ### Plugin storage
 
 A plugin that needs to keep data sets `storage: true`. The host then provisions a Postgres
@@ -749,7 +801,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.1.0",
+  apiVersion: "0.2.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
@@ -1030,7 +1082,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `PORT` | `3000` | web listen port |
 | `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
-| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` — and `PLUGIN_DB_SECRET` once storage is configured — must be supplied and differ from the dev throwaway |
+| `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` — and `PLUGIN_DB_SECRET` once storage is configured, and every plugin setting declared `secret` — must be supplied and differ from the dev throwaway |
 | `LOG_LEVEL` | `info` | min severity logged: `error`/`warn`/`info`/`verbose`/`debug`/`silly`/`none` |
 | `LOG_FORMAT` | `text` | log line format: `text` (human-readable, dev) or `json` (structured, prod) |
 | `SERVICE_NAME` | `plainpages` | OTLP `service.name` on every log + span — brand it as your own deployment |
@@ -1047,6 +1099,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `REVOCATION_TTL_SEC` | `900` | how long a revoke entry lives; keep ≥ tokenizer TTL (10m) + clock skew |
 | `CSRF_SECRET` | dev throwaway | signs our double-submit CSRF token; enforced by `REQUIRE_SECURE_SECRETS` |
 | `PLUGIN_DB_URL` | _unset_ (dev: `postgres://postgres:5432`) | credential-free Postgres base URL for [plugin storage](#plugin-storage); unset ⇒ storage off, and a plugin declaring it aborts boot |
+| `PLUGIN_SETTING_<ID>_<KEY>` | per declaration | one variable per key a plugin declares in `settings`; see [Plugin settings](#plugin-settings) |
 | `PLUGIN_DB_ADMIN_URL` | _unset_ (dev: the bundled superuser) | the DSN that provisions each plugin's database and role — read by the one-shot `bootstrap` service **only**, never by `web` |
 | `PLUGIN_DB_SECRET` | dev throwaway | derives each plugin's database password; `REQUIRE_SECURE_SECRETS` enforces it in `web` once `PLUGIN_DB_URL` is set, and in `bootstrap` whenever a plugin declares storage |
 | `PLUGIN_DB_CONNECTION_LIMIT` | `10` | per-role Postgres connection ceiling, so one plugin's pools cannot exhaust the server Ory shares; read by `bootstrap` when provisioning |
