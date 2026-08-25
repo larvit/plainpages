@@ -7,7 +7,7 @@
     segmented   { name, legend?, value?, options:{value,label,count?}[] }      (radios)
     select      { name, label, value?, options:{value,label}[] }
     chips       { name, legend?, value?:string[], options:{value,label}[] }    (checkboxes)
-    multiselect { name, legend?, value?:string[], options:{value,label}[] }    (checkboxes in a popover)
+    multiselect { name, legend?, note?, value?:string[], options:{value,label}[] }  (checkboxes in a popover)
     daterange   { legend?, from:{name,value?,label?}, to:{name,value?,label?} }
   The form is a GET, which replaces the whole query string — so the visitor's chosen language rides
   along as a hidden input, and every href here (pills, clear) is run through localeHref.
@@ -40,7 +40,10 @@
       id: "f-" + c.name + "-menu",
       align: "left", kebab: false, up: false, width: null, // explicit: EJS would otherwise inherit the page's own
       trigger: { class: "btn btn-menu", count: on.length || null, label: on.length ? t("filter.selected", { count: on.length, label: legend }) : null, text: legend },
-      items: [{ group: { legend, name: c.name, options: c.options.map((o) => ({ checked: on.includes(String(o.value)), label: o.label, value: o.value })) } }],
+      items: [
+        ...(c.note ? [{ head: c.note }] : []),
+        { group: { legend, name: c.name, options: c.options.map((o) => ({ checked: on.includes(String(o.value)), label: o.label, value: o.value })) } },
+      ],
     }) %>
 <% } else if (c.type === "daterange") { -%>
     <fieldset class="filter-field"><legend class="sr-only"><%= c.legend || t("filter.dateRange") %></legend><span class="filter-legend" aria-hidden="true"><%= c.legend || t("filter.dateRange") %></span><div class="daterange"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cal"/></svg><label class="sr-only" for="f-<%= c.from.name %>"><%= c.from.label || t("filter.from") %></label><input type="date" id="f-<%= c.from.name %>" name="<%= c.from.name %>"<% if (c.from.value) { %> value="<%= c.from.value %>"<% } %>><span class="to" aria-hidden="true"><%= t("filter.toSeparator") %></span><label class="sr-only" for="f-<%= c.to.name %>"><%= c.to.label || t("filter.to") %></label><input type="date" id="f-<%= c.to.name %>" name="<%= c.to.name %>"<% if (c.to.value) { %> value="<%= c.to.value %>"<% } %>></div></fieldset>

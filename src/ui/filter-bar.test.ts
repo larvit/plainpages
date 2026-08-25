@@ -41,6 +41,7 @@ const config = {
         type: "multiselect",
         name: "owner",
         legend: "Owner",
+        note: "30 of 45",
         value: ["ann"],
         options: [{ value: "ann", label: "Ann Berg" }, { value: "bo", label: "Bo Falk" }],
       },
@@ -75,7 +76,7 @@ test("filter-bar renders a GET form with every control type, reflecting current 
   // multiselect — a disclosure: the trigger names the filter and counts what is chosen, the options
   // are checkboxes in a fieldset the popover holds, so a long list costs one line of the bar.
   assert.match(html, /<div class="menu"><button class="btn btn-menu" type="button" popovertarget="f-owner-menu" aria-label="Owner, 1 selected">Owner<span class="badge">1<\/span><\/button><div id="f-owner-menu" class="menu-pop left" popover>/);
-  assert.match(html, /<fieldset class="menu-field"><legend class="menu-head">Owner<\/legend><label class="menu-check"><input type="checkbox" name="owner" value="ann" checked>Ann Berg<\/label><label class="menu-check"><input type="checkbox" name="owner" value="bo">Bo Falk<\/label><\/fieldset>/);
+  assert.match(html, /popover><div class="menu-head">30 of 45<\/div><fieldset class="menu-field"><legend class="menu-head">Owner<\/legend><label class="menu-check"><input type="checkbox" name="owner" value="ann" checked>Ann Berg<\/label><label class="menu-check"><input type="checkbox" name="owner" value="bo">Bo Falk<\/label><\/fieldset>/);
 
   // Nothing chosen — no badge and no count in the accessible name.
   assert.match(html, /<button class="btn btn-menu" type="button" popovertarget="f-room-menu">Room<\/button>/);
