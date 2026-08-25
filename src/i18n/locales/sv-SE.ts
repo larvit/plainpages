@@ -91,6 +91,7 @@ const messages: CoreMessages = {
   "filter.remove": "Ta bort filtret {{label}}",
   "filter.reset": "Återställ",
   "filter.search": "Sök",
+  "filter.selected": "{{label}}, {{count}} valda",
   "filter.to": "Till",
   "filter.toSeparator": "till",
 

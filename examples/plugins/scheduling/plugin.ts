@@ -12,7 +12,7 @@ let upstreamUrl = "";
 const upstream = createUpstream(() => upstreamUrl);
 
 export default definePlugin({
-  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.3.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   // onBoot runs after discovery, before the server listens — where a plugin receives its resolved
   // settings. A malformed URL already failed the boot by then; the host validated the declared type.

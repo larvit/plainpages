@@ -28,7 +28,7 @@ const clients = on("oauth2-clients");
 const pluginSettings = on("plugin-settings");
 
 export default definePlugin({
-  apiVersion: "0.2.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.3.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   nav: [ADMIN_NAV],
 
