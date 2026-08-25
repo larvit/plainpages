@@ -7,7 +7,7 @@
   Config:
     id      string          REQUIRED — the panel's id and the trigger's popovertarget. Name it for what
                             the menu is (`locale-menu`); it must be unique on the page.
-    trigger { class?(="btn", "" ⇒ none) · label?(aria-label) · icon? · text? · html?(raw inner, wins) }
+    trigger { class?(="btn", "" ⇒ none) · label?(aria-label) · icon? · text? · count?(badge) · html?(raw inner, wins) }
     align?  "left"          left-align the popover (default right)
     up?     boolean         open upward (footer menus)
     kebab?  boolean         bare kebab trigger (adds .kebab)
@@ -26,7 +26,7 @@
   const popCls = "menu-pop" + (locals.align === "left" ? " left" : "") + (locals.up ? " up" : "");
   const width = locals.width;
 -%>
-<div class="menu"><button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= locals.id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } } %></button><div id="<%= locals.id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
+<div class="menu"><button<% if (btnCls) { %> class="<%= btnCls %>"<% } %> type="button" popovertarget="<%= locals.id %>"<% if (trigger.label) { %> aria-label="<%= trigger.label %>"<% } %>><% if (trigger.html != null) { %><%- trigger.html %><% } else { if (trigger.icon) { %><svg class="ico ico-sm"><use href="#<%= trigger.icon %>"/></svg><% } if (trigger.text) { %><%= trigger.text %><% } if (trigger.count != null) { %><span class="badge"><%= trigger.count %></span><% } } %></button><div id="<%= locals.id %>" class="<%= popCls %>" popover<% if (width != null) { %> style="min-width:<%= typeof width === "number" ? width + "px" : width %>"<% } %>>
 <% items.forEach((it) => { -%>
 <% if (it.head != null) { -%>
   <div class="menu-head"><%= it.head %></div>

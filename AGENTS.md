@@ -259,6 +259,10 @@ Revisit only if the stated reason stops holding.
   it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
   profile menu (its trigger composes escaped user values and its one item is a CSRF POST form) — keep
   the two in step.
+- **Two multi-selects, chosen by list length.** `chips` lays every option on the bar, which is right
+  for a handful and a wall past that — `multiselect` hides the same checkboxes in a popover and puts
+  the chosen count on the trigger. Both submit the same repeated parameter, so swapping one for the
+  other is a view-model edit.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
   is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an

@@ -37,6 +37,14 @@ const config = {
         options: [{ value: "engineering", label: "Engineering" }, { value: "design", label: "Design" }, { value: "oncall", label: "On-call" }],
       },
       { type: "daterange", legend: "Joined", from: { name: "joined_from", value: "2026-01-01", label: "Joined from" }, to: { name: "joined_to", value: "2026-06-14", label: "Joined to" } },
+      {
+        type: "multiselect",
+        name: "owner",
+        legend: "Owner",
+        value: ["ann"],
+        options: [{ value: "ann", label: "Ann Berg" }, { value: "bo", label: "Bo Falk" }],
+      },
+      { type: "multiselect", name: "room", legend: "Room", options: [{ value: "lab", label: "Lab" }] },
     ],
   ],
   pills: [{ label: "Team", value: "Engineering", remove: "?tag=oncall" }],
@@ -63,6 +71,14 @@ test("filter-bar renders a GET form with every control type, reflecting current 
   assert.match(html, /<input type="checkbox" name="tag" value="engineering" checked>Engineering/);
   assert.match(html, /<input type="checkbox" name="tag" value="oncall" checked>On-call/);
   assert.match(html, /<input type="checkbox" name="tag" value="design">Design/);
+
+  // multiselect — a disclosure: the trigger names the filter and counts what is chosen, the options
+  // are checkboxes in a fieldset the popover holds, so a long list costs one line of the bar.
+  assert.match(html, /<div class="menu"><button class="btn btn-menu" type="button" popovertarget="f-owner-menu" aria-label="Owner, 1 selected">Owner<span class="badge">1<\/span><\/button><div id="f-owner-menu" class="menu-pop left" popover>/);
+  assert.match(html, /<fieldset class="menu-field"><legend class="menu-head">Owner<\/legend><label class="menu-check"><input type="checkbox" name="owner" value="ann" checked>Ann Berg<\/label><label class="menu-check"><input type="checkbox" name="owner" value="bo">Bo Falk<\/label><\/fieldset>/);
+
+  // Nothing chosen — no badge and no count in the accessible name.
+  assert.match(html, /<button class="btn btn-menu" type="button" popovertarget="f-room-menu">Room<\/button>/);
 
   // daterange — calendar icon + two date inputs with values.
   assert.match(html, /<div class="daterange"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cal"\s*\/?><\/svg>.*?<input type="date" id="f-joined_from" name="joined_from" value="2026-01-01">.*?<span class="to" aria-hidden="true">to<\/span>.*?<input type="date" id="f-joined_to" name="joined_to" value="2026-06-14">/);

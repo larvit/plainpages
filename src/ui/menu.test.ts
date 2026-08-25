@@ -12,7 +12,7 @@ const flat = (s: string): string => s.replace(/>\s+</g, "><").replace(/\s+/g, " 
 test("menu renders trigger, positioning, the item matrix and check groups", async () => {
   const html = flat(await render({
     id: "cols-menu",
-    trigger: { icon: "i-cols", text: "Columns", label: "Column settings" },
+    trigger: { count: 3, icon: "i-cols", text: "Columns", label: "Column settings" },
     align: "left", up: true, width: 240,
     items: [
       { head: "Actions" },
@@ -30,7 +30,7 @@ test("menu renders trigger, positioning, the item matrix and check groups", asyn
 
   // Trigger: icon + text + aria-label, wired to the panel by id; popover carries align/up + width.
   // The panel is the trigger's next sibling inside the wrapper — the CSS open state reads that.
-  assert.match(html, /<div class="menu"><button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<\/button><div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
+  assert.match(html, /<div class="menu"><button class="btn" type="button" popovertarget="cols-menu" aria-label="Column settings"><svg class="ico ico-sm"><use href="#i-cols"\s*\/?><\/svg>Columns<span class="badge">3<\/span><\/button><div id="cols-menu" class="menu-pop left up" popover style="min-width:240px">/);
 
   // Item matrix: head, button-with-icon, link, separator, danger button.
   assert.match(html, /<div class="menu-head">Actions<\/div>/);

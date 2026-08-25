@@ -316,6 +316,11 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }
+.btn-menu::after {
+  content: ""; width: 7px; height: 7px; margin: -2px 1px 0 1px;
+  border-right: 1.5px solid var(--text-faint); border-bottom: 1.5px solid var(--text-faint);
+  transform: rotate(45deg);
+}
 .icon-btn {
   width: 30px; height: 30px; padding: 0; justify-content: center;
   color: var(--text-muted);
@@ -494,7 +499,8 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   position-anchor: auto;
   position-try-fallbacks: flip-block, flip-inline;
   top: anchor(bottom); right: anchor(right);
-  min-width: 210px; padding: 6px;
+  min-width: 210px; max-width: min(320px, 92vw); padding: 6px;
+  max-height: 60vh; overflow-y: auto; overflow-wrap: anywhere;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border-2); border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(0,0,0,.16);

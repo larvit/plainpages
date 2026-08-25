@@ -100,6 +100,7 @@ const messages = {
   "filter.remove": "Remove {{label}} filter",
   "filter.reset": "Reset",
   "filter.search": "Search",
+  "filter.selected": "{{label}}, {{count}} selected",
   "filter.to": "To",
   "filter.toSeparator": "to",
 

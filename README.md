@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.3.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -349,7 +349,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.2.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.3.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and permission-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -470,7 +470,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.3.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -747,7 +747,7 @@ camel humps both becoming underscores — so `upstream` on the `scheduling` plug
 
 ```ts
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.3.0",
   settings: [
     { key: "upstream", type: "url", required: true, description: "Base URL of the backend" },
     { key: "pageSize", type: "number", default: 25 },
@@ -801,7 +801,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.2.0",
+  apiVersion: "0.3.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
