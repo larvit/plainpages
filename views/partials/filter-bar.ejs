@@ -9,6 +9,8 @@
     chips       { name, legend?, value?:string[], options:{value,label}[] }    (checkboxes)
     multiselect { name, legend?, note?, value?:string[], options:{value,label}[] }  (checkboxes in a popover)
     daterange   { legend?, from:{name,value?,label?}, to:{name,value?,label?} }
+  chips and multiselect are the same checkboxes on the same parameter: on the bar, or behind a
+  button once the list is too long to lay there.
   The form is a GET, which replaces the whole query string — so the visitor's chosen language rides
   along as a hidden input, and every href here (pills, clear) is run through localeHref.
 %><%
