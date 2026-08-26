@@ -94,6 +94,7 @@ test("a popover menu sits on its trigger and closes on an outside click or Esc â
   await expect(panel).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused(); // the browser returns focus, so no trigger needs a tabindex
 });
 
 test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({ page }) => {

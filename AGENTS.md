@@ -254,8 +254,11 @@ Revisit only if the stated reason stops holding.
   open-state style and the old-browser fallback both read; the partial **requires a caller-named
   `id`** and fails loud without one, since that is the `popovertarget` idref (never generate one —
   nondeterministic HTML forecloses the caching decision); and **neither `aria-expanded` nor
-  `aria-haspopup` is written**, because a zero-JS invoker cannot keep the first truthful and the
-  second would promise `role="menu"` semantics these panels don't implement. `<details>` stays where
+  `aria-haspopup` is written**: every engine maintains the first itself on a declarative
+  `popovertarget` invoker, so a hand-written one replaces a live state with a static lie, and the
+  second would promise `role="menu"` semantics these panels don't implement. **That guarantee is the
+  declarative attribute's alone** — open a panel from script and no engine applies it, so
+  "enhancing" one of these triggers is what would cost it its accessibility. `<details>` stays where
   it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
   profile menu (its trigger composes escaped user values and its one item is a CSRF POST form) — keep
   the two in step.
