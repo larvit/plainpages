@@ -21,7 +21,7 @@ jobs:
           GIT_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+          docker run --rm -v "$PWD:/repo" -w /repo node:24.20.0-alpine3.24 \
             node release-tooling/contract-version.ts "$GIT_TAG" src/plugin-host/plugin.ts
       - name: Promote the commit-hash image to semver + latest
         env:
@@ -98,9 +98,9 @@ jobs:
           VERSION=${INPUT_VERSION:-${GIT_TAG#v}}
           VERSION=${VERSION#v}
           # An empty dispatch input falls back to the branch name, so gate this like a tag.
-          docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+          docker run --rm -v "$PWD:/repo" -w /repo node:24.20.0-alpine3.24 \
             node release-tooling/contract-version.ts "$VERSION" src/plugin-host/plugin.ts
           docker run --rm -v "$PWD:/repo" -w /repo \
             -e DOCKERHUB_REPO -e DOCKERHUB_TOKEN -e DOCKERHUB_USER \
-            node:24.19.0-alpine3.24 \
+            node:24.20.0-alpine3.24 \
             node release-tooling/dockerhub-overview.ts "$VERSION"

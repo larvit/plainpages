@@ -58,11 +58,11 @@ jobs:
           if [ -z "$BUMPS" ]; then
             echo "Renovate commits since ${LATEST}, but none carry Release-Bump — nothing reached a running Plainpages; skipping"; exit 0
           fi
-          NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+          NEXT=$(docker run --rm -v "$PWD:/repo" -w /repo node:24.20.0-alpine3.24 \
                  node release-tooling/next-version.ts "$LATEST" $BUMPS)
           # Read the constant off origin/main, not the checkout, which lags the merges this run made.
           git show origin/main:src/plugin-host/plugin.ts \
-            | docker run -i --rm -v "$PWD:/repo" -w /repo node:24.19.0-alpine3.24 \
+            | docker run -i --rm -v "$PWD:/repo" -w /repo node:24.20.0-alpine3.24 \
                      node release-tooling/contract-version.ts "$NEXT" -
           echo "Releasing $LATEST -> $NEXT"
           git tag "$NEXT" origin/main
