@@ -18,6 +18,9 @@ What it demonstrates:
 - **All three route gates** — the Overview is `public` (anyone), "My shifts" is `session` (any
   signed-in visitor, showing only rows assigned to them), and "Shifts" is gated on `scheduling:read` /
   `scheduling:write`; a leaf whose gate a visitor fails is invisible in the menu.
+- **Ownership joined on the identity id** — "My shifts" asks the upstream for `assigneeId=ctx.user.id`,
+  the opaque subject id, and renders the row's separate `assignee` display name. An email address is
+  user-changeable and can be reassigned to someone else, who would then inherit those rows.
 - **Its own translations** — every string comes from `i18n/en-US.ts` (`sv-SE.ts` beside it), including
   the nav labels, which are catalog keys in the manifest. `shifts.count` shows a plural message, and
   the views carry the visitor's language onto their links with `localeHref()`.
@@ -39,8 +42,8 @@ Your backend must expose two routes; the plugin treats any non-2xx as a recovera
 
 | Route | Request | Success | Response body |
 | --- | --- | --- | --- |
-| `GET /shifts` | `Accept: application/json`, optional `?assignee=<who>` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`). With `assignee`, only that person's rows |
-| `POST /shifts` | JSON body `{ title, assignee, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
+| `GET /shifts` | `Accept: application/json`, optional `?assigneeId=<id>` | `200` | JSON array of `{ id, title, assignee, assigneeId, start, end }` (all strings; missing fields coerce to `""`). With `assigneeId`, only that person's rows |
+| `POST /shifts` | JSON body `{ title, assignee, assigneeId?, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
 
 Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the
 form re-renders. The plugin only validates that `title` and `assignee` are non-empty.
@@ -54,4 +57,5 @@ cosmetically) — normalise to your backend's format there if it matters.
 A user sees the shift list once they hold the `scheduling:read` permission in Keto (and
 `scheduling:write` to create). The one-command bootstrap grants both to the demo admin, so the seeded
 `admin@plainpages.local` can use it immediately. "My shifts" needs no grant at all — signing in is
-its whole gate.
+its whole gate; it lists the rows this demo upstream holds against the signed-in visitor's id, and
+the demo's seeded rows belong to three made-up people, so a freshly seeded admin sees it empty.

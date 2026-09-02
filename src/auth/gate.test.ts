@@ -23,6 +23,6 @@ test("gatesSet names the gates a declaration sets, so discovery can refuse more 
   assert.deepEqual(gatesSet({ session: true }), ["session"]);
   assert.deepEqual(gatesSet({ permission: "x:read", public: true }), ["public", "permission"]);
   assert.deepEqual(gatesSet({ permission: "x:read", public: true, session: true }), ["public", "session", "permission"]);
-  // `false` is not a gate — only a set one counts, so { session: false } is an ungated route.
+  // Only `true` sets a gate, so a manifest spelling one `false` names none — which discovery refuses.
   assert.deepEqual(gatesSet({ public: false, session: false }), []);
 });

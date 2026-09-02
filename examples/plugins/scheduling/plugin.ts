@@ -31,6 +31,7 @@ export default definePlugin({
     icon: "i-cal",
     id: "scheduling",
     label: "scheduling.nav.section",
+    public: true, // the header gates nothing; each child names its own gate, and an empty header is dropped
   }],
 
   // Roles this plugin introduces (docs + Keto seeding). Namespaced `<id>:<action>`.

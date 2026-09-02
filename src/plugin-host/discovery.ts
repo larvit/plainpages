@@ -161,16 +161,18 @@ function shapeError(manifest: PluginManifest): string | null {
   return null;
 }
 
-// Every rule a declaration's gate must satisfy. A truthy non-boolean sets no gate at all, so
-// `session: "yes"` would read as an open page; a permission name is `<resource>:<action>` because a
-// bare word names a role, and roles are groups here (README → Naming a permission).
+// Every rule a declaration's gate must satisfy. Exactly one gate, always: a missing one would be an
+// open page nobody chose, and anything but `true` (a `false`, a `"yes"`) sets no gate while looking
+// like it does. A permission name is `<resource>:<action>` because a bare word names a role, and
+// roles are groups here (README → Naming a permission).
 function gateError(what: string, gate: Gate | null | undefined): string | null {
   for (const flag of ["public", "session"] as const) {
     const value = gate?.[flag];
-    if (value !== undefined && typeof value !== "boolean") return `${what} sets ${flag} to ${JSON.stringify(value)}; a gate is declared with \`true\``;
+    if (value !== undefined && value !== true) return `${what} sets ${flag} to ${JSON.stringify(value)}; a gate is declared with \`true\``;
   }
   const gates = gatesSet(gate);
-  if (gates.length > 1) return `${what} sets ${gates.join(" and ")}; name one gate — public, session or permission`;
+  if (gates.length === 0) return `${what} names no gate; name exactly one — public, session or permission`;
+  if (gates.length > 1) return `${what} sets ${gates.join(" and ")}; name exactly one — public, session or permission`;
   if (gate?.permission != null && !isValidPermissionName(gate.permission)) {
     return `${what} gates on "${gate.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
   }

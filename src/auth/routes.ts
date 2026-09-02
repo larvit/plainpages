@@ -240,20 +240,20 @@ export function buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secure
   const routes: BuiltinRoute[] = [];
   if (kratos) {
     for (const [path, flowType] of Object.entries(AUTH_FLOWS)) {
-      routes.push({ handler: flowPage(kratos, flowType, secureCookies), method: "GET", path });
+      routes.push({ handler: flowPage(kratos, flowType, secureCookies), method: "GET", path, public: true });
     }
-    routes.push({ handler: logout(kratos, secureCookies), method: "POST", path: "/logout" });
+    routes.push({ handler: logout(kratos, secureCookies), method: "POST", path: "/logout", public: true });
   }
   if (hydra && kratos) {
     const provider = { hydra, kratos };
-    routes.push({ handler: oauthLogin(provider, secureCookies), method: "GET", path: "/oauth2/login" });
-    routes.push({ handler: consentScreen(provider, menu.branding.name), method: "GET", path: "/oauth2/consent" });
-    routes.push({ handler: consentDecision(provider), method: "POST", path: "/oauth2/consent" });
+    routes.push({ handler: oauthLogin(provider, secureCookies), method: "GET", path: "/oauth2/login", public: true });
+    routes.push({ handler: consentScreen(provider, menu.branding.name), method: "GET", path: "/oauth2/consent", public: true });
+    routes.push({ handler: consentDecision(provider), method: "POST", path: "/oauth2/consent", public: true });
   }
-  if (hydra) routes.push({ handler: oauthLogout(hydra), method: "GET", path: "/oauth2/logout" });
+  if (hydra) routes.push({ handler: oauthLogout(hydra), method: "GET", path: "/oauth2/logout", public: true });
   if (kratos && kratosAdmin && keto) {
-    routes.push({ handler: completeAuth({ keto, kratosAdmin, kratosPublic: kratos }, secureCookies), method: "GET", path: "/auth/complete" });
+    routes.push({ handler: completeAuth({ keto, kratosAdmin, kratosPublic: kratos }, secureCookies), method: "GET", path: "/auth/complete", public: true });
   }
-  routes.push({ handler: errorSink, method: "GET", path: "/error" });
+  routes.push({ handler: errorSink, method: "GET", path: "/error", public: true });
   return routes;
 }

@@ -352,7 +352,7 @@ import { listThings, createThings } from "./handlers.ts";
 export default definePlugin({
   apiVersion: "0.4.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
-  // Nav fragment, merged into the global menu and permission-filtered per user.
+  // Nav fragment, merged into the global menu and gate-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
   nav: [{ href: "/things", icon: "i-cal", id: "things:list", label: "Things", permission: "things:read" }],
 
@@ -362,7 +362,7 @@ export default definePlugin({
     { description: "Create and edit things", name: "things:write" },
   ],
 
-  // Route handlers, mounted under the plugin's path (/things). `permission` gates first.
+  // Route handlers, mounted under the plugin's path (/things). The gate runs first.
   routes: [
     { method: "GET",  path: "/", permission: "things:read",  handler: listThings },
     { method: "POST", path: "/", permission: "things:write", handler: createThings },
@@ -379,7 +379,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `apiVersion` | yes | Semver string of the host contract the plugin was built against. See [Versioning](#contract-versioning). |
 | `home` | no | A `RouteHandler` that owns the **public** landing `/`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
-| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
+| `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Every node names [exactly one gate](#public-pages--menu-items). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
@@ -390,14 +390,13 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 
 ### Routes & handlers
 
-A route is `{ method, path, permission?, public?, session?, handler }`. `path` is **relative to the plugin's
+A route is `{ method, path, handler }` plus [exactly one gate](#public-pages--menu-items) —
+`permission`, `public: true` or `session: true`. `path` is **relative to the plugin's
 mount path `/<id>`** (so `path: "/:id"` in the `things` plugin serves `/things/:id`); the host matches
 `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`, runs the
-`permission` gate ([a coarse JWT-claim check](#nav--permission-gates)), then calls the handler with
+gate ([a coarse JWT-claim check](#nav--permission-gates)), then calls the handler with
 the [request context](#requestcontext). A failed gate redirects an **anonymous** visitor to `/login`
 with the page as `return_to`; a **signed-in** user lacking the permission gets the **403** page.
-`public: true` means no gate at all, `session: true` any signed-in user (see
-[Public pages](#public-pages--menu-items)).
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 
@@ -571,27 +570,28 @@ system plugins you author or vendor. An ordinary domain plugin ignores it.
 
 A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/ui/nav.ts`), which
 applies the central override and then **filters per user** by the permissions in the session JWT: a
-node shows iff it is `public`, is `session` and someone is signed in, declares no `permission`, or
-the user holds that name. A node's `icon` is a **Lucide icon** by sprite id (e.g. `i-cal` → lucide `calendar`); the available ids are
-`ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
+node shows iff it is `public`, is `session` and someone is signed in, or names a `permission` the
+user holds. A node's `icon` is a **Lucide icon** by sprite id (e.g. `i-cal` → lucide `calendar`); the
+available ids are `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name
+there.
 
 **Gating a section header.** A `permission` on the header takes the whole subtree with it. When the
-children need *different* permissions, leave the header ungated and gate each child — `composeNav`
-drops a header whose children all filtered out. That only works while the header carries **no
-`href`**: give it one and it survives as an ungated leaf, visible to everyone.
+children need *different* permissions, mark the header `public: true` — it then gates nothing, each
+child decides, and `composeNav` drops a header whose children all filtered out. That only works while
+the header carries **no `href`**: give it one and it survives as a leaf, visible to everyone.
 
 #### Public pages & menu items
 
-A route or nav node marked **`public: true`** is reachable by anyone and shows in everyone's menu.
-That is the same as omitting `permission`, but stated outright so public is a deliberate choice
-rather than a forgotten gate.
+A route or nav node marked **`public: true`** is reachable by anyone and shows in everyone's menu —
+open stated outright, so it is a deliberate choice rather than a forgotten gate.
 
 **`session: true`** takes any signed-in user, with no grant to hold — for a plugin whose data is the
 visitor's own. An anonymous visitor is bounced to `/login` with the page as `return_to`, exactly as a
 permission gate does.
 
-A declaration names **exactly one** of the three; two of them contradict, and discovery refuses the
-plugin at boot.
+Every route and nav node names **exactly one** of the three, spelled `true` (or a permission name).
+Naming none, naming two, or spelling one `false` is refused at boot — so a forgotten gate fails the
+plugin instead of publishing a page.
 
 A public page still renders in the native shell; for an anonymous visitor `ctx.user` is `null`, the
 shell shows a **Sign in** link in place of the profile block, the gated **Dashboard** link is hidden,
@@ -644,7 +644,7 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 Mount-path uniqueness needs no rule of its own — it follows from the id check. Discovery also
 rejects **per-manifest shape errors**: a non-array `nav`/`routes`/`permissions`, a non-function
 `home`/`dashboard`, a permission name that isn't [`<resource>:<action>`](#naming-a-permission), or a
-route/nav node naming more than one gate.
+route/nav node that does not name [exactly one gate](#public-pages--menu-items).
 
 ### Hooks
 
@@ -920,10 +920,9 @@ The menu is **driven entirely by config** and assembled from two sources:
    export default defineMenu({ branding: { name: "Acme Ops" }, override: { hide: ["teams"] } });
    ```
 
-Every nav item may carry a `permission`; the rendered tree is **filtered per user** from the session
-JWT (no per-request authz call), so the menu only shows what that person can reach. An item may
-instead be **`public: true`** (everyone) or **`session: true`** (anyone signed in) — one gate per
-item, never two.
+Every nav item names one gate — a `permission`, **`public: true`** (everyone) or **`session: true`**
+(anyone signed in); the rendered tree is **filtered per user** from the session JWT (no per-request
+authz call), so the menu only shows what that person can reach.
 Branding (name, logo, default theme) renders in the app shell.
 
 **One menu, one shell, everywhere.** A single menu (`src/ui/chrome.ts` `buildPluginChrome`) renders

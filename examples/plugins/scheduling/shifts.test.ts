@@ -25,8 +25,8 @@ function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; us
 }
 
 const SHIFTS: Shift[] = [
-  { assignee: "Avery Kline", end: "12:00", id: "1", start: "08:00", title: "Morning desk" },
-  { assignee: "Blair Mora", end: "17:00", id: "2", start: "12:00", title: "Afternoon support" },
+  { assignee: "Avery Kline", assigneeId: "019bdc1a-3f27-7c41-9a6e-2b1d4f8e05a3", end: "12:00", id: "1", start: "08:00", title: "Morning desk" },
+  { assignee: "Blair Mora", assigneeId: "019bdc1a-4a83-7de2-8f05-6c93a71be4d8", end: "17:00", id: "2", start: "12:00", title: "Afternoon support" },
 ];
 const fakeUpstream = (over: Partial<ShiftsUpstream> = {}): ShiftsUpstream => ({ create: async () => {}, list: async () => SHIFTS, ...over });
 
@@ -63,11 +63,11 @@ test("createUpstream.list fetches /shifts, asks for JSON, and maps the rows", as
   const http = (async (url, init) => {
     seen = String(url);
     assert.equal((init?.headers as Record<string, string>).accept, "application/json");
-    return new Response(JSON.stringify([{ assignee: "A", end: "2", id: "x", start: "1", title: "T", extra: "ignored" }]), { status: 200 });
+    return new Response(JSON.stringify([{ assignee: "A", assigneeId: "019bdc1a-5b6e-7a90-b3c7-84f01d2ea9b6", end: "2", id: "x", start: "1", title: "T", extra: "ignored" }]), { status: 200 });
   }) as typeof fetch;
   const shifts = await createUpstream(() => "http://up:4000/", http).list(); // trailing slash trimmed
   assert.equal(seen, "http://up:4000/shifts");
-  assert.deepEqual(shifts, [{ assignee: "A", end: "2", id: "x", start: "1", title: "T" }]);
+  assert.deepEqual(shifts, [{ assignee: "A", assigneeId: "019bdc1a-5b6e-7a90-b3c7-84f01d2ea9b6", end: "2", id: "x", start: "1", title: "T" }]);
 });
 
 test("createUpstream throws UpstreamError carrying the status on a non-2xx", async () => {
@@ -174,19 +174,20 @@ test("buildFormModel marks title/assignee required and attaches field errors", (
 
 // ---- the session-gated page: the visitor's own rows ----
 
-test("my shifts asks the upstream for the visitor's own rows, and names them in the empty state", async () => {
+test("my shifts scopes the upstream read by the visitor's id, and names them in the empty state", async () => {
   const user: User = { email: "Blair.Mora@example.test", id: "01a06091-baa3-71f4-a068-4879972979ff", permissions: [] };
-  const mine: Shift = { assignee: "blair.mora@example.test", end: "22:00", id: "3", start: "17:00", title: "Evening on-call" };
-  let asked: { assignee?: string } | undefined;
+  const mine: Shift = { assignee: "Blair Mora", assigneeId: user.id, end: "22:00", id: "3", start: "17:00", title: "Evening on-call" };
+  let asked: { assigneeId?: string } | undefined;
 
   const upstream = fakeUpstream({ list: async (opts) => { asked = opts; return [mine]; } });
   const r = asView(await myShifts(upstream)(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
   assert.equal(r.view, "mine");
-  assert.deepEqual(asked, { assignee: "Blair.Mora@example.test" });
+  assert.deepEqual(asked, { assigneeId: "01a06091-baa3-71f4-a068-4879972979ff" }); // the id, never the address
   const table = r.data["table"] as { emptyText: string; rows: { name: string }[] };
   assert.deepEqual(table.rows.map((row) => row.name), ["Evening on-call"]);
   assert.match(table.emptyText, /Blair\.Mora@example\.test/); // an empty page still says whose it is
 
-  // The route carries `session: true`, but the handler asserts the session itself rather than trusting it.
+  // `requireSession` narrows `ctx.user` from `User | null` to `User` — the one part of the route's
+  // `session: true` guarantee the contract cannot state in the handler's type.
   await assert.rejects(async () => { await myShifts(fakeUpstream())(fakeCtx()); }, GuardError);
 });

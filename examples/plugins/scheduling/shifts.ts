@@ -22,7 +22,8 @@ export const WRITE = "scheduling:write"; // the permission gating create
 
 export interface Shift {
   id: string;
-  assignee: string;
+  assignee: string; // display name, rendered in the table
+  assigneeId: string; // who the shift belongs to — an opaque id, the same one `ctx.user.id` carries
   end: string;
   start: string;
   title: string;
@@ -47,9 +48,9 @@ export class UpstreamError extends Error {
 
 export interface ShiftsUpstream {
   create(input: ShiftInput): Promise<void>;
-  // `assignee` scopes the read at the source, which is where an ownership rule belongs (README →
+  // `assigneeId` scopes the read at the source, which is where an ownership rule belongs (README →
   // Three tiers of "may I?"); without it the caller would hold everyone's rows to render one page.
-  list(opts?: { assignee?: string }): Promise<Shift[]>;
+  list(opts?: { assigneeId?: string }): Promise<Shift[]>;
 }
 
 // REST client over the upstream service (a stand-in for the customer's real backend). `fetch`
@@ -69,7 +70,7 @@ export function createUpstream(baseUrl: () => string, fetchImpl: typeof fetch = 
       if (!res.ok) throw new UpstreamError(`create shift failed (${res.status})`, res.status);
     },
     async list(opts = {}) {
-      const query = opts.assignee == null ? "" : `?${new URLSearchParams({ assignee: opts.assignee })}`;
+      const query = opts.assigneeId == null ? "" : `?${new URLSearchParams({ assigneeId: opts.assigneeId })}`;
       const res = await fetchImpl(`${base()}/shifts${query}`, { headers: { accept: "application/json" } });
       if (!res.ok) throw new UpstreamError(`list shifts failed (${res.status})`, res.status);
       const data: unknown = await res.json();
@@ -82,7 +83,7 @@ const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" 
 
 function toShift(raw: unknown): Shift {
   const r = (raw ?? {}) as Record<string, unknown>;
-  return { assignee: str(r["assignee"]), end: str(r["end"]), id: str(r["id"]), start: str(r["start"]), title: str(r["title"]) };
+  return { assignee: str(r["assignee"]), assigneeId: str(r["assigneeId"]), end: str(r["end"]), id: str(r["id"]), start: str(r["start"]), title: str(r["title"]) };
 }
 
 // ---- view models (pure; the EJS views read these) -----------------------------------
@@ -196,7 +197,9 @@ export function myShifts(upstream: ShiftsUpstream): RouteHandler {
     let shifts: Shift[] = [];
     let error: string | undefined;
     try {
-      shifts = await upstream.list({ assignee: user.email });
+      // Join on the id, never the email: an address is user-changeable and can be reassigned to
+      // someone else, which would hand them the previous holder's rows.
+      shifts = await upstream.list({ assigneeId: user.id });
     } catch (err) {
       ctx.log.warn("scheduling upstream unreachable", { error: String(err) });
       error = ctx.t("scheduling.upstream.list");

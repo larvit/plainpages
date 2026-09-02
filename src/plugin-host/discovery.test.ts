@@ -20,8 +20,8 @@ function scaffold(t: TestContext, files: Record<string, string>): string {
 }
 
 const full = (id: string): string =>
-  `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "${id}:root", label: "${id}" }], ` +
-  `routes: [{ method: "GET", path: "/", handler: () => ({ html: "${id}" }) }] };`;
+  `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "${id}:root", label: "${id}", public: true }], ` +
+  `routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "${id}" }) }] };`;
 
 test("a missing plugins/ dir means zero plugins, not an error (clean clone)", async () => {
   assert.deepEqual(await discoverPlugins({ dir: join(tmpdir(), "pp-does-not-exist-xyz") }), []);
@@ -67,6 +67,10 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "a route whose session flag is a truthy non-boolean is refused, not read as ungated", files: { "truthy/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", session: "yes", handler: () => ({ html: "x" }) }] };` }, match: /truthy.*session.*true/s },
   { name: "a nav node whose public flag is a truthy non-boolean is refused too", files: { "truthynav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", public: 1 }] };` }, match: /truthynav.*public.*true/s },
   { name: "a nav node marked session AND permission is contradictory", files: { "contrasessnav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", session: true, permission: "x:read" }] };` }, match: /contrasessnav.*session.*permission/s },
+  // A gate is named, never forgotten: a route or node without one would be an open page nobody chose.
+  { name: "a route naming no gate at all is refused, not served to everyone", files: { "nogate/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", handler: () => ({ html: "x" }) }] };` }, match: /nogate.*names no gate/s },
+  { name: "a nav node naming no gate at all is refused too — a section header says `public` outright", files: { "nogatenav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N" }] };` }, match: /nogatenav.*names no gate/s },
+  { name: "a gate set to false is refused — it reads as a gate but sets none", files: { "falsegate/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", public: false, handler: () => ({ html: "x" }) }] };` }, match: /falsegate.*public.*true/s },
   // A permission name is <resource>:<action> wherever the manifest mentions one. Enforced here, not
   // only in the admin GUI, so it holds for a plugin installed without that GUI.
   { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
@@ -139,7 +143,7 @@ test("a plugin may carry its own package.json, node_modules and dependencies", a
     "shop/node_modules/price-tag/package.json": `{ "name": "price-tag", "version": "1.0.0", "type": "module", "exports": "./index.js" }`,
     "shop/node_modules/price-tag/index.js": `export default (n) => \`\${n} kr\`;`,
     "shop/plugin.ts": `import { definePlugin } from "@plainpages/plugin-api";\nimport price from "price-tag";\n` +
-      `export default definePlugin({ apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", handler: () => ({ html: price(20) }) }] });`,
+      `export default definePlugin({ apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: price(20) }) }] });`,
   });
 
   const plugins = await discoverPlugins({ dir });

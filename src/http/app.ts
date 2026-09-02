@@ -173,7 +173,7 @@ export function createApp(options: AppOptions = {}): Server {
   // routes.ts, capability-gated on the wired clients) plus the two landing slots above.
   const builtinRoutes: BuiltinRoute[] = [
     ...buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secureCookies }),
-    { handler: serveHome, method: "GET", path: "/" },
+    { handler: serveHome, method: "GET", path: "/", public: true },
     { handler: serveDashboard, method: "GET", path: "/dashboard", session: true },
   ];
 

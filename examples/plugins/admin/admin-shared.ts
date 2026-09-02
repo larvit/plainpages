@@ -49,6 +49,7 @@ export const ADMIN_NAV: NavNode = {
   icon: "i-shield",
   id: "admin",
   label: "admin.nav.section", // a key in this plugin's catalog; the host translates nav labels
+  public: true, // the header gates nothing; every child needs a permission, and an empty header is dropped
 };
 
 // The screen gate: a signed-in user holding this request's `<resource>:<action>`. Each route already

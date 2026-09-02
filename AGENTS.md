@@ -182,12 +182,16 @@ Revisit only if the stated reason stops holding.
     example it keeps the route table and the in-handler guard deriving from one function, so 29 routes
     × 2 gate sites cannot drift. Generalised, it would make authorization a function of the transport
     verb — a route table must answer "what does this need?" on its own.
-- **A gate is one of three, and `session` is a first-class one.** A route or nav node names exactly
-  one of `public`, `session`, `permission` (discovery refuses two), and `src/auth/gate.ts` is the one
-  home of the rule the router and the menu both read. `session` exists because a plugin whose data is
+- **A gate is one of three, named exactly once, and `session` is a first-class one.** A route or nav
+  node names exactly one of `public`, `session`, `permission` — discovery refuses none, two, and a
+  flag spelled anything but `true`, so a forgotten gate fails the boot rather than publishing a page.
+  `src/auth/gate.ts` is the one home of the rule the plugin router, the host's own route table and
+  the menu all read. `session` exists because a plugin whose data is
   the visitor's own — their upstream account, their own tokens — has no distinction a permission could
   name; the alternative, granting every newly registered user a permission, couples the identity
-  lifecycle to a Keto write that nothing retries when it fails.
+  lifecycle to a Keto write that nothing retries when it fails. A page scoped to "mine" joins on
+  `ctx.user.id`, never the email — an address is user-changeable and can be reassigned to someone
+  who would then inherit the previous holder's rows.
 - **The reference plugin's two shift pages duplicate a view model and markup on purpose.** An example
   is read far more often than it is changed, and each page reads top to bottom on its own. **Valid
   while `examples/plugins/scheduling` stays a teaching artifact rather than a maintained product.**
