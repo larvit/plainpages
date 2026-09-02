@@ -12,7 +12,7 @@ test("readHostApiVersion pulls the constant out of the real source, and returns 
 test("bumping HOST_API_VERSION is a deliberate act, so pin the shipped value", () => {
   // Not a substitute for the release gate — this test cannot see a tag. It is the tripwire that
   // makes an accidental edit fail here rather than at release time.
-  assert.equal(readHostApiVersion(readFileSync("src/plugin-host/plugin.ts", "utf8")), "0.3.0");
+  assert.equal(readHostApiVersion(readFileSync("src/plugin-host/plugin.ts", "utf8")), "0.4.0");
 });
 
 test("every author-facing apiVersion sample matches the shipped contract", () => {

@@ -609,6 +609,7 @@ test("guards map to responses: requireSession → /login, a failed can/check →
       { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
       { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
       { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", permission: "secret:read" }, // declarative route gate
+      { handler: () => ({ html: "mine" }), method: "GET", path: "/mine", session: true }, // declarative session gate
     ],
   };
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [guarded] });
@@ -642,6 +643,12 @@ test("guards map to responses: requireSession → /login, a failed can/check →
   assert.equal(gDenied.status, 403);
   assert.match(await gDenied.text(), /403/); // the rendered 403.ejs over HTTP
   assert.equal((await fetch(url + "/guarded/gated", auth(["secret:read"]))).status, 200);
+
+  // declarative `session` gate: anonymous → sign in, and any signed-in user through, grant or none.
+  const sAnon = await fetch(url + "/guarded/mine", { redirect: "manual" });
+  assert.equal(sAnon.status, 303);
+  assert.equal(sAnon.headers.get("location"), "/login?return_to=%2Fguarded%2Fmine");
+  assert.equal((await fetch(url + "/guarded/mine", auth([]))).status, 200);
 });
 
 test("plugin hooks: onRequest can short-circuit a request and onResponse observes the handler result", async (t) => {

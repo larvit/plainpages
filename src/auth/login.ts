@@ -86,8 +86,10 @@ export interface Reminted {
 // anonymous instead of re-hitting Ory on every one.
 export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
   const completed = await completeLogin(deps, cookie);
-  if (!completed) return { setCookie: clearSessionCookie(options), user: null };
-  return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email ?? "", id: completed.userId, permissions: completed.permissions } };
+  // No email is no session, exactly as `claimsToUser` reads a token carrying none: a User with an
+  // empty email reads as anonymous in the shell, and is a blank key to whatever scopes on it.
+  if (!completed?.email) return { setCookie: clearSessionCookie(options), user: null };
+  return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email, id: completed.userId, permissions: completed.permissions } };
 }
 
 // Build the Set-Cookie for our session JWT. HttpOnly + SameSite=Lax by default; `secure` is

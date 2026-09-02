@@ -188,6 +188,9 @@ Revisit only if the stated reason stops holding.
   the visitor's own — their upstream account, their own tokens — has no distinction a permission could
   name; the alternative, granting every newly registered user a permission, couples the identity
   lifecycle to a Keto write that nothing retries when it fails.
+- **The reference plugin's two shift pages duplicate a view model and markup on purpose.** An example
+  is read far more often than it is changed, and each page reads top to bottom on its own. **Valid
+  while `examples/plugins/scheduling` stays a teaching artifact rather than a maintained product.**
 - **A `:read`-only holder must never be shown a write affordance.** The list/detail models carry
   `canWrite` and the views drop create/save/delete/add/remove; the permission picker still renders,
   disabled, because *seeing* who holds what is the point of `:read`. A **write-intent GET** (a create

@@ -218,7 +218,8 @@ export function buildMineModel(opts: { chrome: PageChrome; email: string; error?
     table: {
       caption: t("scheduling.mine.title"),
       columns: [{ label: t("scheduling.table.shift") }, { label: t("scheduling.table.start") }, { label: t("scheduling.table.end") }],
-      emptyText: t("scheduling.mine.empty", { email: opts.email }),
+      // Only when the upstream answered: a failed read knows nothing about what is assigned.
+      ...(opts.error === undefined ? { emptyText: t("scheduling.mine.empty", { email: opts.email }) } : {}),
       rows: opts.shifts.map((s) => ({ cells: [{ rowHeader: { text: s.title } }, s.start, s.end], name: s.title })),
     },
     title: t("scheduling.mine.title"),

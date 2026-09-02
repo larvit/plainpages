@@ -26,10 +26,6 @@ What it demonstrates:
 The plugin holds **no state** — data lives upstream (README → *Stateless*). Handlers are thin and
 `fetch` is injectable, so they unit-test as pure functions (`shifts.test.ts`).
 
-The shifts list and "My shifts" repeat a little view-model and markup rather than sharing a
-parameterised one: an example is read far more often than it is changed, and each page is meant to be
-followed top to bottom on its own.
-
 ## Upstream
 
 Set `PLUGIN_SETTING_SCHEDULING_UPSTREAM` to your backend's base URL. The dev compose points it at a tiny in-memory

@@ -180,8 +180,10 @@ test("the reference plugin: public Overview is open to all, My shifts takes any 
   await expect(page.locator('.sidebar a[href="/scheduling/mine"]')).toHaveCount(1); // session gate: a session is enough
 
   // And the page itself renders for that same member, holding no permission at all. This stack runs
-  // no shifts upstream, so the list degrades to its empty state — which still names whose page it is.
+  // no shifts upstream, so it also pins the degraded page: the reason, never a 500 and never a claim
+  // about what is assigned. The working page is asserted against a real upstream in full-flow.spec.
   await page.goto("/scheduling/mine");
   await expect(page.getByRole("heading", { name: "My shifts" })).toBeVisible();
-  await expect(page.getByText("No shifts are assigned to demo@plainpages.local.")).toBeVisible();
+  await expect(page.getByText("Couldn't reach the scheduling service")).toBeVisible();
+  await expect(page.getByText("No shifts are assigned to")).toHaveCount(0);
 });

@@ -12,7 +12,7 @@ let upstreamUrl = "";
 const upstream = createUpstream(() => upstreamUrl);
 
 export default definePlugin({
-  apiVersion: "0.3.0", // the host contract this was built against — a literal, never HOST_API_VERSION
+  apiVersion: "0.4.0", // the host contract this was built against — a literal, never HOST_API_VERSION
 
   // onBoot runs after discovery, before the server listens — where a plugin receives its resolved
   // settings. A malformed URL already failed the boot by then; the host validated the declared type.
@@ -39,8 +39,6 @@ export default definePlugin({
     { description: "Create and edit shifts", name: WRITE },
   ],
 
-  // Mounted under /scheduling; `permission` gates before the handler runs. The overview is `public`
-  // (anyone may reach /scheduling, signed in or not); the rest need a permission.
   routes: [
     { handler: overview(), method: "GET", path: "/", public: true },
     { handler: myShifts(upstream), method: "GET", path: "/mine", session: true },

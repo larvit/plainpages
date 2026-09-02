@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { gatesSet } from "../auth/gate.ts";
+import { type Gate, gatesSet } from "../auth/gate.ts";
 import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
 import { settingsDeclError } from "./settings.ts";
 import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID_LENGTH } from "./storage.ts";
@@ -147,9 +147,9 @@ function shapeError(manifest: PluginManifest): string | null {
     const settings = settingsDeclError(manifest.settings);
     if (settings) return settings;
   }
-  // Two gates on one route or nav node contradict each other — "open to all" vs "needs a session"
-  // vs "needs this permission". Refuse rather than silently pick one, so intent stays unambiguous.
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
+    const flag = gateFlagError(`route "${route?.method} ${route?.path}"`, route);
+    if (flag) return flag;
     const gates = gatesSet(route);
     if (gates.length > 1) return `route "${route?.method} ${route?.path}" sets ${gates.join(" and ")}; a route names exactly one gate — public, session or permission`;
   }
@@ -172,9 +172,19 @@ function shapeError(manifest: PluginManifest): string | null {
   return null;
 }
 
-// Recurse the nav fragment: a node naming more than one gate is contradictory, same as a route.
+// A truthy non-boolean sets no gate at all, so `session: "yes"` would read as an open page.
+function gateFlagError(what: string, gate: Gate | null | undefined): string | null {
+  for (const flag of ["public", "session"] as const) {
+    const value = gate?.[flag];
+    if (value !== undefined && typeof value !== "boolean") return `${what} sets ${flag} to ${JSON.stringify(value)}; a gate is declared with \`true\``;
+  }
+  return null;
+}
+
 function findNavGateContradiction(nodes: PluginManifest["nav"]): string | null {
   for (const node of Array.isArray(nodes) ? nodes : []) {
+    const flag = gateFlagError(`nav node "${node?.label ?? node?.id ?? "?"}"`, node);
+    if (flag) return flag;
     const gates = gatesSet(node);
     if (gates.length > 1) return `nav node "${node?.label ?? node?.id ?? "?"}" sets ${gates.join(" and ")}; a node names exactly one gate — public, session or permission`;
     const inChild = findNavGateContradiction(node?.children);

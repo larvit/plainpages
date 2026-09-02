@@ -10,7 +10,7 @@ import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { branding, shellUser, type ShellUser } from "./shell-context.ts";
 
-const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard" };
+const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard", session: true };
 
 export interface PageChrome {
   brand: { logo?: string; name: string; sub?: string };
@@ -35,8 +35,7 @@ export interface ChromeOptions {
 export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   const t = opts.t ?? ENGLISH;
   const carryLocale = opts.localeHref ?? ((href: string) => href);
-  // Dashboard is gated, so an anonymous click would only dead-end at /login.
-  const fragments: NavNode[][] = opts.user ? [[DASHBOARD_NAV]] : [];
+  const fragments: NavNode[][] = [[DASHBOARD_NAV]];
   // A plugin's nav labels are keys in *its* catalog, so translate each fragment with that plugin's
   // translator before merging. composeNav then runs the core one over the result; already-translated
   // text passes through it.
