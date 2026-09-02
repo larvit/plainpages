@@ -920,9 +920,10 @@ The menu is **driven entirely by config** and assembled from two sources:
    export default defineMenu({ branding: { name: "Acme Ops" }, override: { hide: ["teams"] } });
    ```
 
-Every nav item names one gate — a `permission`, **`public: true`** (everyone) or **`session: true`**
-(anyone signed in); the rendered tree is **filtered per user** from the session JWT (no per-request
-authz call), so the menu only shows what that person can reach.
+Every nav node a **plugin** declares names one gate — a `permission`, **`public: true`** (everyone)
+or **`session: true`** (anyone signed in); a header this override groups takes none, and shows
+whenever a child does. The rendered tree is **filtered per user** from the session JWT (no
+per-request authz call), so the menu only shows what that person can reach.
 Branding (name, logo, default theme) renders in the app shell.
 
 **One menu, one shell, everywhere.** A single menu (`src/ui/chrome.ts` `buildPluginChrome`) renders

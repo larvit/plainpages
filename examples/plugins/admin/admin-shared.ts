@@ -35,10 +35,9 @@ export function actionForMethod(method: string): AdminAction {
   return verb === "GET" || verb === "HEAD" ? "read" : "write";
 }
 
-// The plugin's nav fragment: an ungated "Admin" header + its three screens, each gated on its own
-// read permission. The header carries no `permission` because a user may hold one screen's and not
-// another's; composeNav drops a header left with no visible children, so a user holding none of the
-// three never sees the section. The host current-marks the active item — no `current`/`open` here.
+// The plugin's nav fragment: the "Admin" header + its four screens, each gated on its own read
+// permission. composeNav drops a header left with no visible children, so a user holding none of
+// them never sees the section. The host current-marks the active item — no `current`/`open` here.
 export const ADMIN_NAV: NavNode = {
   children: [
     { href: ADMIN_USERS_BASE, icon: "i-users", id: "users", label: "admin.nav.users", permission: permissionName("users", "read") },

@@ -186,7 +186,9 @@ Revisit only if the stated reason stops holding.
   node names exactly one of `public`, `session`, `permission` — discovery refuses none, two, and a
   flag spelled anything but `true`, so a forgotten gate fails the boot rather than publishing a page.
   `src/auth/gate.ts` is the one home of the rule the plugin router, the host's own route table and
-  the menu all read. `session` exists because a plugin whose data is
+  the menu all read. Exactly-one-gate is a discovery-time rule on manifests, not a runtime invariant:
+  `allows({}, user)` stays open **by design**, because the central override's `groups` builds header
+  nodes that carry no gate. Making `allows` fail closed would hide every operator-grouped section. `session` exists because a plugin whose data is
   the visitor's own — their upstream account, their own tokens — has no distinction a permission could
   name; the alternative, granting every newly registered user a permission, couples the identity
   lifecycle to a Keto write that nothing retries when it fails. A page scoped to "mine" joins on
