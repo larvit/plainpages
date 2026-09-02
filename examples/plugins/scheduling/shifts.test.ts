@@ -191,3 +191,18 @@ test("my shifts scopes the upstream read by the visitor's id, and names them in 
   // `session: true` guarantee the contract cannot state in the handler's type.
   await assert.rejects(async () => { await myShifts(fakeUpstream())(fakeCtx()); }, GuardError);
 });
+
+test("my shifts degrades to the reason alone when the upstream is down, claiming nothing about what is assigned", async () => {
+  const user: User = { email: "Blair.Mora@example.test", id: "01a06091-baa3-71f4-a068-4879972979ff", permissions: [] };
+  const down = fakeUpstream({ list: async () => { throw new UpstreamError("down", 503); } });
+  const r = asView(await myShifts(down)(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
+  assert.match(String(r.data["error"]), /scheduling service/i);
+  assert.deepEqual((r.data["table"] as { rows: unknown[] }).rows, []); // mine.ejs drops the count + table while `error` is set
+});
+
+test("my shifts drops a row the upstream returned that is not the visitor's", async () => {
+  const user: User = { email: "Blair.Mora@example.test", id: "01a06091-baa3-71f4-a068-4879972979ff", permissions: [] };
+  const theirs: Shift = { assignee: "Avery Kline", assigneeId: "019bdc1a-3f27-7c41-9a6e-2b1d4f8e05a3", end: "12:00", id: "9", start: "08:00", title: "Not mine" };
+  const r = asView(await myShifts(fakeUpstream({ list: async () => [theirs] }))(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
+  assert.deepEqual((r.data["table"] as { rows: unknown[] }).rows, []); // a backend ignoring the scope must not leak through this page
+});

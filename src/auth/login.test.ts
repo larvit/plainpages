@@ -92,10 +92,22 @@ test("completeLogin returns null and touches nothing when there is no active ses
   assert.equal(touched, false);
 });
 
-test("completeLogin maps a missing email trait to null and throws if the tokenizer yields no JWT", async () => {
-  const identity: Identity = { id: ID, traits: {} };
+test("completeLogin throws if the tokenizer yields no JWT", async () => {
+  const identity: Identity = { id: ID, traits: { email: "admin@plainpages.local" } };
   const kratosPublic = publicStub({ whoami: async () => ({ active: true, identity }) as Session }); // never returns a tokenized JWT
   await assert.rejects(completeLogin({ keto: ketoStub(), kratosAdmin: adminStub(), kratosPublic }, "c"), /tokenizer returned no JWT/);
+});
+
+// An identity with no email is no session, decided here so /auth/complete and remintSession cannot
+// disagree: `claimsToUser` reads a token carrying none as anonymous, so minting one would hand the
+// browser a cookie every later request refuses.
+test("completeLogin refuses an identity carrying no email, before it mints anything", async () => {
+  const identity: Identity = { id: ID, traits: {} };
+  let touched = false;
+  const kratosAdmin = adminStub({ updateMetadataPublic: async () => { touched = true; return { id: ID }; } });
+  const kratosPublic = publicStub({ whoami: async () => ({ active: true, identity, tokenized: "h.p.s" }) as Session });
+  assert.equal(await completeLogin({ keto: ketoStub(), kratosAdmin, kratosPublic }, "c"), null);
+  assert.equal(touched, false); // no Keto read, no metadata write, no JWT
 });
 
 test("remintSession: a live Kratos session → fresh cookie + refreshed user; a dead session → a clearing cookie + null", async () => {

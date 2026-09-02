@@ -4,7 +4,7 @@
 // at your real service in production.
 //
 //   GET  /shifts  → 200 [ { id, title, assigneeId, assignee, start, end }, … ]   (?assigneeId=<id> → only theirs)
-//   POST /shifts  → 201 { id, … }   (body: { title, assignee, assigneeId?, start, end })
+//   POST /shifts  → 201 { id, … }   (body: { title, assignee, start, end })
 
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
@@ -42,7 +42,7 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/shifts" && req.method === "POST") {
     const b = await readBody(req);
-    const shift = { id: randomUUID(), assignee: String(b.assignee ?? ""), assigneeId: String(b.assigneeId ?? ""), end: String(b.end ?? ""), start: String(b.start ?? ""), title: String(b.title ?? "") };
+    const shift = { id: randomUUID(), assignee: String(b.assignee ?? ""), assigneeId: "", end: String(b.end ?? ""), start: String(b.start ?? ""), title: String(b.title ?? "") };
     shifts.push(shift);
     return json(res, 201, shift);
   }

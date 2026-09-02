@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AUTH_FLOWS } from "./flow-view.ts";
+import { gatesSet } from "./gate.ts";
 import type { HydraAdmin } from "./hydra-admin.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
@@ -39,8 +40,12 @@ test("hydra alone ⇒ only RP-initiated logout of the OAuth2 group (login/consen
 });
 
 test("everything wired ⇒ the full group: OAuth2 challenges, consent GET+POST, /auth/complete", () => {
-  const got = keys(buildAuthRoutes(deps({ hydra, keto, kratos, kratosAdmin })));
+  const routes = buildAuthRoutes(deps({ hydra, keto, kratos, kratosAdmin }));
+  const got = keys(routes);
   for (const key of ["GET /auth/complete", "GET /login", "GET /oauth2/consent", "GET /oauth2/login", "GET /oauth2/logout", "POST /logout", "POST /oauth2/consent"]) {
     assert.ok(got.includes(key), key);
   }
+  // Discovery enforces exactly one gate per plugin declaration; nothing checks the host's own table
+  // at boot, so a route added here without a gate would be silently public.
+  for (const route of routes) assert.deepEqual(gatesSet(route), ["public"], `${route.method} ${route.path}`);
 });

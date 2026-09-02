@@ -198,8 +198,9 @@ export function myShifts(upstream: ShiftsUpstream): RouteHandler {
     let error: string | undefined;
     try {
       // Join on the id, never the email: an address is user-changeable and can be reassigned to
-      // someone else, which would hand them the previous holder's rows.
-      shifts = await upstream.list({ assigneeId: user.id });
+      // someone else, which would hand them the previous holder's rows. The re-filter is
+      // defence-in-depth: a backend that ignores an unknown query param would answer with everyone.
+      shifts = (await upstream.list({ assigneeId: user.id })).filter((s) => s.assigneeId === user.id);
     } catch (err) {
       ctx.log.warn("scheduling upstream unreachable", { error: String(err) });
       error = ctx.t("scheduling.upstream.list");
@@ -218,8 +219,7 @@ export function buildMineModel(opts: { chrome: PageChrome; email: string; error?
     table: {
       caption: t("scheduling.mine.title"),
       columns: [{ label: t("scheduling.table.shift") }, { label: t("scheduling.table.start") }, { label: t("scheduling.table.end") }],
-      // Only when the upstream answered: a failed read knows nothing about what is assigned.
-      ...(opts.error === undefined ? { emptyText: t("scheduling.mine.empty", { email: opts.email }) } : {}),
+      emptyText: t("scheduling.mine.empty", { email: opts.email }),
       rows: opts.shifts.map((s) => ({ cells: [{ rowHeader: { text: s.title } }, s.start, s.end], name: s.title })),
     },
     title: t("scheduling.mine.title"),

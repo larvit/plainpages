@@ -25,7 +25,6 @@ export type RouteResult =
 
 export type RouteHandler = (ctx: RequestContext) => Promise<RouteResult | void> | RouteResult | void;
 
-// `Gate` carries `permission`/`public`/`session`, checked before the handler runs.
 export interface Route extends Gate {
   handler: RouteHandler;
   method: HttpMethod;

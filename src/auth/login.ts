@@ -31,7 +31,7 @@ export interface LoginDeps {
 }
 
 export interface CompletedLogin {
-  email: string | null;
+  email: string;
   userId: string;
   jwt: string;
   permissions: string[];
@@ -61,7 +61,13 @@ export async function completeLogin(deps: LoginDeps, cookie: string | undefined)
   if (!session?.identity) return null;
   const userId = session.identity.id;
   const emailTrait = session.identity.traits?.["email"];
-  const email = typeof emailTrait === "string" ? emailTrait : null;
+  const email = typeof emailTrait === "string" ? emailTrait : "";
+  // No email is no session: `claimsToUser` reads a token carrying none as anonymous, so minting one
+  // would hand the browser a cookie every later request refuses.
+  if (!email) {
+    currentLog()?.warn("session dropped: identity has no email", { sub: userId });
+    return null;
+  }
 
   const permissions = await readPermissions(deps.keto, userId);
   await deps.kratosAdmin.updateMetadataPublic(userId, { permissions });
@@ -86,12 +92,7 @@ export interface Reminted {
 // anonymous instead of re-hitting Ory on every one.
 export async function remintSession(deps: LoginDeps, cookie: string | undefined, options: { secure?: boolean } = {}): Promise<Reminted> {
   const completed = await completeLogin(deps, cookie);
-  // No email is no session, exactly as `claimsToUser` reads a token carrying none: a User with an
-  // empty email reads as anonymous in the shell, and is a blank key to whatever scopes on it.
-  if (!completed?.email) {
-    if (completed) currentLog()?.warn("session dropped: identity has no email", { sub: completed.userId });
-    return { setCookie: clearSessionCookie(options), user: null };
-  }
+  if (!completed) return { setCookie: clearSessionCookie(options), user: null };
   return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email, id: completed.userId, permissions: completed.permissions } };
 }
 

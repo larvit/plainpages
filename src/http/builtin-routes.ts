@@ -20,8 +20,6 @@ export interface RequestCsrf {
 // own context — otherwise the plugin's keys render as bare keys on the pages it owns.
 export type PluginContextFactory = (pluginId: string) => RequestContext;
 
-// `Gate` carries `permission`/`public`/`session`, checked before the handler runs — the same rule
-// the plugin router and the menu read.
 export interface BuiltinRoute extends Gate {
   // Returns a RouteResult, or null when the handler wrote to ctx.res itself
   // (the landing slots dispatch a plugin's own result against that plugin's views).

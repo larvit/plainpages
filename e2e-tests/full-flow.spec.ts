@@ -194,10 +194,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("h1")).toHaveText("Shifts");
     await expect(page.locator("table")).toContainText("Morning — Front desk"); // seeded by the mock upstream
 
-    // The session-gated page scopes the upstream read by the visitor's identity id. The demo
-    // upstream's rows belong to three made-up people, so the admin's own page is empty — which is
-    // the assertion that matters: nobody else's shifts come back. (A matching row rendering is
-    // covered where it is exact, in the plugin's own unit test.)
+    // The admin owns none of the demo's rows, so an empty page is the no-leak assertion.
     await page.goto("/scheduling/mine");
     await expect(page.locator("h1")).toHaveText("My shifts");
     await expect(page.getByText("No shifts are assigned to admin@plainpages.local")).toBeVisible();

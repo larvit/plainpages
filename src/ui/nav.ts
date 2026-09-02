@@ -8,7 +8,6 @@ import type { User } from "../http/context.ts";
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
 
-// `Gate` carries `permission`/`public`/`session` — consumed by the filter, never rendered.
 export interface NavNode extends Gate {
   id?: string; // stable key for override targeting; stripped from the rendered tree
   children?: NavNode[];
