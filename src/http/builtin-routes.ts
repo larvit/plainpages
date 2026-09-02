@@ -3,6 +3,7 @@
 // mint (host-only — a plugin reads the token via ctx.chrome instead). app.ts matches this table
 // after plugin routes — exact path, a GET route also answering HEAD like the plugin router — and
 // pipes the result through sendResult against the core views.
+import type { Gate } from "../auth/gate.ts";
 import type { RequestContext } from "./context.ts";
 import type { RouteResult } from "../plugin-host/plugin.ts";
 
@@ -19,7 +20,9 @@ export interface RequestCsrf {
 // own context — otherwise the plugin's keys render as bare keys on the pages it owns.
 export type PluginContextFactory = (pluginId: string) => RequestContext;
 
-export interface BuiltinRoute {
+// `Gate` carries `permission`/`public`/`session`, checked before the handler runs — the same rule
+// the plugin router and the menu read.
+export interface BuiltinRoute extends Gate {
   // Returns a RouteResult, or null when the handler wrote to ctx.res itself
   // (the landing slots dispatch a plugin's own result against that plugin's views).
   handler: (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory) => Promise<RouteResult | null> | RouteResult | null;

@@ -88,7 +88,10 @@ export async function remintSession(deps: LoginDeps, cookie: string | undefined,
   const completed = await completeLogin(deps, cookie);
   // No email is no session, exactly as `claimsToUser` reads a token carrying none: a User with an
   // empty email reads as anonymous in the shell, and is a blank key to whatever scopes on it.
-  if (!completed?.email) return { setCookie: clearSessionCookie(options), user: null };
+  if (!completed?.email) {
+    if (completed) currentLog()?.warn("session dropped: identity has no email", { sub: completed.userId });
+    return { setCookie: clearSessionCookie(options), user: null };
+  }
   return { setCookie: sessionCookie(completed.jwt, options), user: { email: completed.email, id: completed.userId, permissions: completed.permissions } };
 }
 

@@ -14,6 +14,8 @@ export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";
 export { can, check, GuardError, requireSession } from "../auth/guards.ts";
+// The three coarse gates a route or nav node may declare — `Route` and `NavNode` both extend it.
+export type { Gate } from "../auth/gate.ts";
 // Translation: `ctx.t` and the view-level `t(...)` do the work at runtime — these are for
 // authoring a plugin's own catalogs (plugins/<id>/i18n/<locale>.ts) and for building a translator
 // in a unit test. `PluralMessage` types a message that varies with a count.

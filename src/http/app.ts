@@ -28,7 +28,7 @@ import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
 import type { PluginSettings } from "../plugin-host/settings.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
-import { allows } from "../auth/gate.ts";
+import { allows, type Gate } from "../auth/gate.ts";
 import { allowedMethods, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
 import { securityHeaders } from "./security-headers.ts";
@@ -157,7 +157,6 @@ export function createApp(options: AppOptions = {}): Server {
   // "/dashboard", gated to a signed-in user. A plugin may own it via `dashboard`; else the built-in
   // starter page.
   const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
-    if (!ctx.user) return { redirect: loginRedirect(ctx), status: 303 };
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
     csrf.setCookie();
     if (dashboardPlugin) {
@@ -175,7 +174,7 @@ export function createApp(options: AppOptions = {}): Server {
   const builtinRoutes: BuiltinRoute[] = [
     ...buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secureCookies }),
     { handler: serveHome, method: "GET", path: "/" },
-    { handler: serveDashboard, method: "GET", path: "/dashboard" },
+    { handler: serveDashboard, method: "GET", path: "/dashboard", session: true },
   ];
 
   // The request handler. Run inside runWithLog (below) so the per-request logger is ambient: every
@@ -279,15 +278,19 @@ export function createApp(options: AppOptions = {}): Server {
         }
       }
 
+      // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply lacks
+      // the permission gets the 403 page.
+      const refuse = async (gate: Gate, gateCtx: RequestContext): Promise<void> => {
+        if (!gateCtx.user) { res.writeHead(303, { location: carryLocale(loginRedirect(gateCtx)) }).end(); return; }
+        reqLog.warn("forbidden: missing permission", { path: pathname, required: gate.permission ?? "", sub: gateCtx.user.id });
+        sendHtml(res, 403, await renderPage("403", {}));
+      };
+
       const match = matchRoute(plugins, method, pathname);
       if (match) {
         const routeCtx = contextFor(match.plugin.id, match.params);
         if (!allows(match.route, routeCtx.user)) {
-          // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply
-          // lacks the permission gets the 403 page.
-          if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }
-          reqLog.warn("forbidden: missing permission", { path: pathname, required: match.route.permission ?? "", sub: routeCtx.user.id });
-          sendHtml(res, 403, await renderPage("403", {}));
+          await refuse(match.route, routeCtx);
           return;
         }
         csrfMint.setCookie();
@@ -301,6 +304,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
       if (builtin) {
+        if (!allows(builtin, ctx.user)) { await refuse(builtin, ctx); return; }
         await sendResult(res, await builtin.handler(ctx, csrfMint, contextFor), viewsFor(ctx), carryLocale);
         return;
       }

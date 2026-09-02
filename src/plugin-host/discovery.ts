@@ -148,57 +148,40 @@ function shapeError(manifest: PluginManifest): string | null {
     if (settings) return settings;
   }
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
-    const flag = gateFlagError(`route "${route?.method} ${route?.path}"`, route);
-    if (flag) return flag;
-    const gates = gatesSet(route);
-    if (gates.length > 1) return `route "${route?.method} ${route?.path}" sets ${gates.join(" and ")}; a route names exactly one gate — public, session or permission`;
+    const gate = gateError(`route "${route?.method} ${route?.path}"`, route);
+    if (gate) return gate;
   }
-  const navContradiction = findNavGateContradiction(manifest.nav);
-  if (navContradiction) return navContradiction;
-  // Every permission name the manifest mentions — gated on or declared — must be `<resource>:<action>`.
-  // A bare word names a role, and roles are groups here (README → Naming a permission).
-  for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
-    if (route?.permission != null && !isValidPermissionName(route.permission)) {
-      return `route "${route.method} ${route.path}" gates on "${route.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
-    }
-  }
+  const navGate = findNavGateError(manifest.nav);
+  if (navGate) return navGate;
   for (const decl of Array.isArray(manifest.permissions) ? manifest.permissions : []) {
     if (decl?.name == null || !isValidPermissionName(decl.name)) {
       return `declared permission "${decl?.name}" is not <resource>:<action>, e.g. "things:read"`;
     }
   }
-  const navPermission = findInvalidNavPermission(manifest.nav);
-  if (navPermission) return navPermission;
   return null;
 }
 
-// A truthy non-boolean sets no gate at all, so `session: "yes"` would read as an open page.
-function gateFlagError(what: string, gate: Gate | null | undefined): string | null {
+// Every rule a declaration's gate must satisfy. A truthy non-boolean sets no gate at all, so
+// `session: "yes"` would read as an open page; a permission name is `<resource>:<action>` because a
+// bare word names a role, and roles are groups here (README → Naming a permission).
+function gateError(what: string, gate: Gate | null | undefined): string | null {
   for (const flag of ["public", "session"] as const) {
     const value = gate?.[flag];
     if (value !== undefined && typeof value !== "boolean") return `${what} sets ${flag} to ${JSON.stringify(value)}; a gate is declared with \`true\``;
   }
-  return null;
-}
-
-function findNavGateContradiction(nodes: PluginManifest["nav"]): string | null {
-  for (const node of Array.isArray(nodes) ? nodes : []) {
-    const flag = gateFlagError(`nav node "${node?.label ?? node?.id ?? "?"}"`, node);
-    if (flag) return flag;
-    const gates = gatesSet(node);
-    if (gates.length > 1) return `nav node "${node?.label ?? node?.id ?? "?"}" sets ${gates.join(" and ")}; a node names exactly one gate — public, session or permission`;
-    const inChild = findNavGateContradiction(node?.children);
-    if (inChild) return inChild;
+  const gates = gatesSet(gate);
+  if (gates.length > 1) return `${what} sets ${gates.join(" and ")}; name one gate — public, session or permission`;
+  if (gate?.permission != null && !isValidPermissionName(gate.permission)) {
+    return `${what} gates on "${gate.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
   }
   return null;
 }
 
-function findInvalidNavPermission(nodes: PluginManifest["nav"]): string | null {
+function findNavGateError(nodes: PluginManifest["nav"]): string | null {
   for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (node?.permission != null && !isValidPermissionName(node.permission)) {
-      return `nav node "${node.label ?? node.id ?? "?"}" gates on "${node.permission}"; a permission name is <resource>:<action>, e.g. "things:read"`;
-    }
-    const inChild = findInvalidNavPermission(node?.children);
+    const err = gateError(`nav node "${node?.label ?? node?.id ?? "?"}"`, node);
+    if (err) return err;
+    const inChild = findNavGateError(node?.children);
     if (inChild) return inChild;
   }
   return null;
