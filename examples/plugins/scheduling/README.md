@@ -39,7 +39,7 @@ Your backend must expose two routes; the plugin treats any non-2xx as a recovera
 
 | Route | Request | Success | Response body |
 | --- | --- | --- | --- |
-| `GET /shifts` | `Accept: application/json`, optional `?assignee=<who>` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`). With `assignee`, only that person's rows — "My shifts" asks for them rather than filtering everyone's here, because ownership is the backend's rule to enforce |
+| `GET /shifts` | `Accept: application/json`, optional `?assignee=<who>` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`). With `assignee`, only that person's rows |
 | `POST /shifts` | JSON body `{ title, assignee, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
 
 Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the

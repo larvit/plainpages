@@ -190,9 +190,6 @@ export function newShiftForm(): RouteHandler {
   return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome, t: ctx.t }), view: "shift-new" });
 }
 
-// The `session: true` archetype: the rows are the visitor's own, so there is no distinction a
-// permission could name — anyone signed in sees theirs and only theirs. The scoping is the
-// upstream's, never a filter here: it owns the data and answers for one person's rows.
 export function myShifts(upstream: ShiftsUpstream): RouteHandler {
   return async (ctx) => {
     const user = requireSession(ctx);

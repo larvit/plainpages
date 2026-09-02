@@ -182,8 +182,6 @@ test("my shifts asks the upstream for the visitor's own rows, and names them in 
   const upstream = fakeUpstream({ list: async (opts) => { asked = opts; return [mine]; } });
   const r = asView(await myShifts(upstream)(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
   assert.equal(r.view, "mine");
-  // The ownership rule is the upstream's: the page asks for one person's rows rather than filtering
-  // everyone's here, so a real backend never hands this handler another visitor's shifts.
   assert.deepEqual(asked, { assignee: "Blair.Mora@example.test" });
   const table = r.data["table"] as { emptyText: string; rows: { name: string }[] };
   assert.deepEqual(table.rows.map((row) => row.name), ["Evening on-call"]);

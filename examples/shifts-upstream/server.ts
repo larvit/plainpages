@@ -12,9 +12,9 @@ import { createServer } from "node:http";
 const PORT = Number(process.env.PORT ?? 4000);
 
 const shifts = [
-  { id: randomUUID(), title: "Morning — Front desk", assignee: "Avery Kline", start: "2026-06-22 08:00", end: "2026-06-22 12:00" },
-  { id: randomUUID(), title: "Afternoon — Support", assignee: "Blair Mora", start: "2026-06-22 12:00", end: "2026-06-22 17:00" },
-  { id: randomUUID(), title: "Evening — On-call", assignee: "Casey Nguyen", start: "2026-06-22 17:00", end: "2026-06-22 22:00" },
+  { id: randomUUID(), title: "Morning — Front desk", assignee: "avery.kline@plainpages.local", start: "2026-06-22 08:00", end: "2026-06-22 12:00" },
+  { id: randomUUID(), title: "Afternoon — Support", assignee: "blair.mora@plainpages.local", start: "2026-06-22 12:00", end: "2026-06-22 17:00" },
+  { id: randomUUID(), title: "Evening — On-call", assignee: "casey.nguyen@plainpages.local", start: "2026-06-22 17:00", end: "2026-06-22 22:00" },
   { id: randomUUID(), title: "Night — Escalations", assignee: "admin@plainpages.local", start: "2026-06-22 22:00", end: "2026-06-23 06:00" },
 ];
 

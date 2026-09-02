@@ -231,6 +231,7 @@ Against the reference plugins' actual routes:
 | Request | Gate | alice | bob | carol | anonymous |
 | --- | --- | --- | --- | --- | --- |
 | `GET /scheduling` | `public: true` | ✅ | ✅ | ✅ | ✅ |
+| `GET /scheduling/mine` | `session: true` | ✅ | ✅ | ✅ | → `/login` |
 | `GET /scheduling/shifts` | `scheduling:read` | ✅ | ✅ | 403 | → `/login` |
 | `GET /scheduling/shifts/new` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
 | `POST /scheduling/shifts` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
@@ -585,10 +586,9 @@ A route or nav node marked **`public: true`** is reachable by anyone and shows i
 That is the same as omitting `permission`, but stated outright so public is a deliberate choice
 rather than a forgotten gate.
 
-**`session: true`** takes any signed-in user, with no grant to hold — the gate for a plugin whose
-data is the visitor's own (their upstream account, their own tokens), where a permission would name
-a distinction that does not exist. An anonymous visitor is bounced to `/login` with the page as
-`return_to`, exactly as a permission gate does.
+**`session: true`** takes any signed-in user, with no grant to hold — for a plugin whose data is the
+visitor's own. An anonymous visitor is bounced to `/login` with the page as `return_to`, exactly as a
+permission gate does.
 
 A declaration names **exactly one** of the three; two of them contradict, and discovery refuses the
 plugin at boot.
