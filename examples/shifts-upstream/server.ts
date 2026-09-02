@@ -3,7 +3,7 @@
 // of the app: stdlib only, in-memory (state resets on restart), no auth. Point PLUGIN_SETTING_SCHEDULING_UPSTREAM
 // at your real service in production.
 //
-//   GET  /shifts  → 200 [ { id, title, assignee, start, end }, … ]
+//   GET  /shifts  → 200 [ { id, title, assignee, start, end }, … ]   (?assignee=<who> → only theirs)
 //   POST /shifts  → 201 { id, … }   (body: { title, assignee, start, end })
 
 import { randomUUID } from "node:crypto";

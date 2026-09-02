@@ -21,7 +21,7 @@ export interface NavNode extends Gate {
 }
 
 // Central override (config/menu.ts). Targets nodes by `id`; applied rename → group →
-// order → hide, then the per-user permission filter runs last.
+// order → hide, then the per-user gate filter runs last.
 export interface NavOverride {
   groups?: NavGroupSpec[]; // wrap top-level nodes (by id) under a new header
   hide?: string[]; // remove nodes by id, at any depth (incl. a group's id)
@@ -117,7 +117,7 @@ function filterByGate(nodes: NavNode[], user: User | null): NavNode[] {
   return out;
 }
 
-// Strip the helper-only fields (id/permission) and drop absent ones, so the tree is exactly
+// Strip the helper-only fields (id and the gate) and drop absent ones, so the tree is exactly
 // what nav-tree.ejs reads. Labels (a manifest's, or the central override's rename) pass through
 // `t` on the way out: a label that names a catalog key is translated, any other renders as written.
 function toRenderNode(n: NavNode, t: Translate): NavNode {
