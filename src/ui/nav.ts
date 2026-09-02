@@ -1,8 +1,10 @@
 // composeNav: merge each plugin's nav fragment into one tree, apply the central override, then
-// permission-filter per user. Pure and I/O-free — menu gating reads the JWT `permissions` claim,
-// never Keto. A node is visible iff it is `public`, declares no `permission`, or the user holds that
-// name; a gated header hides its whole subtree, and a pure header left with no children is dropped.
+// filter per user. Pure and I/O-free — menu gating reads the JWT `permissions` claim, never Keto.
+// A node is visible iff `allows` passes its gate; a gated header hides its whole subtree, and a pure
+// header left with no children is dropped.
 
+import { allows } from "../auth/gate.ts";
+import type { User } from "../http/context.ts";
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
 
@@ -17,6 +19,7 @@ export interface NavNode {
   open?: boolean;
   permission?: string; // required permission token; consumed by the filter, never rendered
   public?: boolean; // show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
+  session?: boolean; // show to any signed-in user, no grant to hold; consumed by the filter, never rendered. Mutually exclusive with the other two (discovery refuses both).
 }
 
 // Central override (config/menu.ts). Targets nodes by `id`; applied rename → group →
@@ -39,7 +42,7 @@ export interface NavGroupSpec {
 export function composeNav(
   fragments: NavNode[][] = [],
   override: NavOverride = {},
-  permissions: string[] = [],
+  user: User | null = null,
   t: Translate = ENGLISH,
 ): NavNode[] {
   let nodes: NavNode[] = fragments.flat();
@@ -47,7 +50,7 @@ export function composeNav(
   if (override.groups?.length) nodes = applyGroups(nodes, override.groups);
   if (override.order?.length) nodes = applyOrder(nodes, override.order);
   if (override.hide?.length) nodes = hideTree(nodes, new Set(override.hide));
-  return filterByRoles(nodes, new Set(permissions)).map((node) => toRenderNode(node, t));
+  return filterByGate(nodes, user).map((node) => toRenderNode(node, t));
 }
 
 function renameTree(nodes: NavNode[], rename: Record<string, string>): NavNode[] {
@@ -104,12 +107,12 @@ function hideTree(nodes: NavNode[], hide: Set<string>): NavNode[] {
   return out;
 }
 
-function filterByRoles(nodes: NavNode[], permissions: Set<string>): NavNode[] {
+function filterByGate(nodes: NavNode[], user: User | null): NavNode[] {
   const out: NavNode[] = [];
   for (const n of nodes) {
-    if (n.public !== true && n.permission != null && !permissions.has(n.permission)) continue; // gated → drop node + subtree (public always shows)
+    if (!allows(n, user)) continue; // gated → drop node + subtree
     if (!n.children) { out.push(n); continue; }
-    const children = filterByRoles(n.children, permissions);
+    const children = filterByGate(n.children, user);
     if (children.length === 0 && n.href == null) continue; // empty pure header → drop
     out.push({ ...n, children });
   }

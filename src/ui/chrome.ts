@@ -44,8 +44,7 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     if (p.nav?.length) fragments.push(translateNav(p.nav, opts.translatorFor?.(p.id) ?? t));
   }
 
-  const permissions = opts.user?.permissions ?? [];
-  const nav = composeNav(fragments, opts.menu.override, permissions, t);
+  const nav = composeNav(fragments, opts.menu.override, opts.user ?? null, t);
   if (opts.currentPath) {
     // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
     // /admin/users/new marks the Users base leaf (/admin/users) and the dashboard marks Dashboard.

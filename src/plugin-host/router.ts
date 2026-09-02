@@ -73,10 +73,3 @@ export function allowedMethods(plugins: Plugin[], pathname: string): string[] {
   }
   return [...methods].sort();
 }
-
-// Coarse permission gate: a route marked `public` (or one with no `permission`) is open; otherwise
-// the user's permissions (from the session JWT) must include the token. The same rule composeNav uses
-// for the menu. `public` and `permission` are mutually exclusive (discovery refuses both).
-export function isAuthorized(route: Route, permissions: string[]): boolean {
-  return route.public === true || route.permission == null || permissions.includes(route.permission);
-}

@@ -15,8 +15,9 @@ What it demonstrates:
   `POST /scheduling/shifts` CSRF-verifies it (`ctx.verifyCsrf`) and forwards the create upstream,
   then POST-redirect-GET. The form body lives in the plugin's own `views/partials/shift-form.ejs`,
   reusing the core `field` partial.
-- **Permission-gated nav** — the "Shifts" nav leaf and routes are gated on `scheduling:read` /
-  `scheduling:write`; the whole "Scheduling" section is invisible to anyone without the grant.
+- **All three route gates** — the Overview is `public` (anyone), "My shifts" is `session` (any
+  signed-in visitor, showing only rows assigned to them), and "Shifts" is gated on `scheduling:read` /
+  `scheduling:write`; a leaf whose gate a visitor fails is invisible in the menu.
 - **Its own translations** — every string comes from `i18n/en-US.ts` (`sv-SE.ts` beside it), including
   the nav labels, which are catalog keys in the manifest. `shifts.count` shows a plural message, and
   the views carry the visitor's language onto their links with `localeHref()`.
@@ -50,6 +51,7 @@ cosmetically) — normalise to your backend's format there if it matters.
 
 ## Granting access
 
-A user sees Scheduling once they hold the `scheduling:read` permission in Keto (and `scheduling:write`
-to create). The one-command bootstrap grants both to the demo admin, so the seeded
-`admin@plainpages.local` can use it immediately.
+A user sees the shift list once they hold the `scheduling:read` permission in Keto (and
+`scheduling:write` to create). The one-command bootstrap grants both to the demo admin, so the seeded
+`admin@plainpages.local` can use it immediately. "My shifts" needs no grant at all — signing in is
+its whole gate.

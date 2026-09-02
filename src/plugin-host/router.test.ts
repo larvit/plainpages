@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Plugin, Route } from "./plugin.ts";
-import { allowedMethods, isAuthorized, matchRoute } from "./router.ts";
+import { allowedMethods, matchRoute } from "./router.ts";
 
 const noop: Route["handler"] = () => ({ html: "x" });
 
@@ -53,15 +53,4 @@ test("allowedMethods lists methods at a path (GET implies HEAD); empty when the 
   ];
   assert.deepEqual(allowedMethods(plugins, "/x/a"), ["GET", "HEAD", "POST"]);
   assert.deepEqual(allowedMethods(plugins, "/x/missing"), []);
-});
-
-test("isAuthorized: open routes pass; gated routes require the permission token; public is explicitly open", () => {
-  const open: Route = { handler: noop, method: "GET", path: "/" };
-  const gated: Route = { handler: noop, method: "GET", path: "/", permission: "x:read" };
-  const pub: Route = { handler: noop, method: "GET", path: "/", public: true }; // blessed public alias
-  assert.equal(isAuthorized(open, []), true);
-  assert.equal(isAuthorized(gated, []), false);
-  assert.equal(isAuthorized(gated, ["x:read"]), true);
-  assert.equal(isAuthorized(gated, ["other"]), false);
-  assert.equal(isAuthorized(pub, []), true); // open to anonymous, like omitting permission — but stated outright
 });

@@ -28,7 +28,8 @@ import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
 import type { PluginSettings } from "../plugin-host/settings.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
-import { allowedMethods, isAuthorized, matchRoute } from "../plugin-host/router.ts";
+import { allows } from "../auth/gate.ts";
+import { allowedMethods, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
@@ -281,7 +282,7 @@ export function createApp(options: AppOptions = {}): Server {
       const match = matchRoute(plugins, method, pathname);
       if (match) {
         const routeCtx = contextFor(match.plugin.id, match.params);
-        if (!isAuthorized(match.route, routeCtx.permissions)) {
+        if (!allows(match.route, routeCtx.user)) {
           // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply
           // lacks the permission gets the 403 page.
           if (!routeCtx.user) { res.writeHead(303, { location: loginRedirect(routeCtx) }).end(); return; }

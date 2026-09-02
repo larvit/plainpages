@@ -6,7 +6,7 @@
 // pure functions against a mock upstream with no network (README.md → Local dev & test story).
 
 // One import from the host's @plainpages/plugin-api barrel — the stable author surface (see README.md → Building plugins).
-import { can, CSRF_FIELD, englishTranslator, GuardError, type PageChrome, parseListQuery, readFormBody, type RouteHandler, type Translate, tracedFetch } from "@plainpages/plugin-api";
+import { can, CSRF_FIELD, englishTranslator, GuardError, type PageChrome, parseListQuery, readFormBody, requireSession, type RouteHandler, type Translate, tracedFetch } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 
 // The plugin's own English (its catalog, then the host's), for a view model built outside a request:
@@ -16,6 +16,7 @@ const EN: Translate = englishTranslator(enUS);
 
 export const SCHEDULING_PATH = "/scheduling"; // the plugin's public overview page
 export const SHIFTS_PATH = "/scheduling/shifts";
+export const MINE_PATH = "/scheduling/mine"; // the visitor's own shifts — a session is the whole gate
 export const READ = "scheduling:read"; // the permission gating the list + nav
 export const WRITE = "scheduling:write"; // the permission gating create
 
@@ -190,6 +191,41 @@ export function newShiftForm(): RouteHandler {
 // gate lets an anonymous visitor through and the menu option shows for everyone. The real data
 // (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
 // else a prompt to sign in. ctx.user may be null here, so read the permission via can() (zero I/O).
+// The `session: true` archetype: the rows are the visitor's own, so there is no distinction a
+// permission could name — anyone signed in sees theirs and only theirs.
+export function myShifts(upstream: ShiftsUpstream): RouteHandler {
+  return async (ctx) => {
+    const user = requireSession(ctx);
+    let shifts: Shift[] = [];
+    let error: string | undefined;
+    try {
+      shifts = await upstream.list();
+    } catch (err) {
+      ctx.log.warn("scheduling upstream unreachable", { error: String(err) });
+      error = ctx.t("scheduling.upstream.list");
+    }
+    const mine = shifts.filter((s) => s.assignee.toLowerCase() === user.email.toLowerCase());
+    return { data: buildMineModel({ chrome: ctx.chrome, email: user.email, ...(error ? { error } : {}), shifts: mine, t: ctx.t }), view: "mine" };
+  };
+}
+
+export function buildMineModel(opts: { chrome: PageChrome; email: string; error?: string; shifts: Shift[]; t?: Translate }) {
+  const t = opts.t ?? EN;
+  return {
+    breadcrumbs: [{ label: t("scheduling.mine.title") }],
+    chrome: opts.chrome,
+    count: t("scheduling.shifts.count", { count: opts.shifts.length }),
+    ...(opts.error ? { error: opts.error } : {}),
+    table: {
+      caption: t("scheduling.mine.title"),
+      columns: [{ label: t("scheduling.table.shift") }, { label: t("scheduling.table.start") }, { label: t("scheduling.table.end") }],
+      emptyText: t("scheduling.mine.empty", { email: opts.email }),
+      rows: opts.shifts.map((s) => ({ cells: [{ rowHeader: { text: s.title } }, s.start, s.end], name: s.title })),
+    },
+    title: t("scheduling.mine.title"),
+  };
+}
+
 export function overview(): RouteHandler {
   return (ctx) => ({
     data: {

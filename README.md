@@ -389,13 +389,14 @@ A plugin may be routes-only, nav-only, or hooks-only — every collection field 
 
 ### Routes & handlers
 
-A route is `{ method, path, permission?, public?, handler }`. `path` is **relative to the plugin's
+A route is `{ method, path, permission?, public?, session?, handler }`. `path` is **relative to the plugin's
 mount path `/<id>`** (so `path: "/:id"` in the `things` plugin serves `/things/:id`); the host matches
 `method` + the resolved full path, extracts `:name` segments into `ctx.params.name`, runs the
 `permission` gate ([a coarse JWT-claim check](#nav--permission-gates)), then calls the handler with
 the [request context](#requestcontext). A failed gate redirects an **anonymous** visitor to `/login`
 with the page as `return_to`; a **signed-in** user lacking the permission gets the **403** page.
-`public: true` means no gate at all (see [Public pages](#public-pages--menu-items)).
+`public: true` means no gate at all, `session: true` any signed-in user (see
+[Public pages](#public-pages--menu-items)).
 
 `method` is one of `GET HEAD POST PUT PATCH DELETE`. A `GET` route also answers `HEAD`.
 
@@ -569,7 +570,8 @@ system plugins you author or vendor. An ordinary domain plugin ignores it.
 
 A plugin's `nav` fragment is merged into the global menu by `composeNav` (`src/ui/nav.ts`), which
 applies the central override and then **filters per user** by the permissions in the session JWT: a
-node shows iff it is `public`, declares no `permission`, or the user holds that name. A node's `icon`
+node shows iff it is `public`, is `session` and someone is signed in, declares no `permission`, or the
+user holds that name. A node's `icon`
 is a **Lucide icon** by sprite id (e.g. `i-cal` → lucide `calendar`); the available ids are
 `ICON_NAMES` in `src/ui/icons.ts`, and adding one means registering its lucide name there.
 
@@ -582,7 +584,15 @@ drops a header whose children all filtered out. That only works while the header
 
 A route or nav node marked **`public: true`** is reachable by anyone and shows in everyone's menu.
 That is the same as omitting `permission`, but stated outright so public is a deliberate choice
-rather than a forgotten gate. The two are **mutually exclusive** — declaring both is refused at boot.
+rather than a forgotten gate.
+
+**`session: true`** takes any signed-in user, with no grant to hold — the gate for a plugin whose
+data is the visitor's own (their upstream account, their own tokens), where a permission would name
+a distinction that does not exist. An anonymous visitor is bounced to `/login` with the page as
+`return_to`, exactly as a permission gate does.
+
+A declaration names **exactly one** of the three; two of them contradict, and discovery refuses the
+plugin at boot.
 
 A public page still renders in the native shell; for an anonymous visitor `ctx.user` is `null`, the
 shell shows a **Sign in** link in place of the profile block, the gated **Dashboard** link is hidden,
@@ -635,7 +645,7 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 Mount-path uniqueness needs no rule of its own — it follows from the id check. Discovery also
 rejects **per-manifest shape errors**: a non-array `nav`/`routes`/`permissions`, a non-function
 `home`/`dashboard`, a permission name that isn't [`<resource>:<action>`](#naming-a-permission), or a
-route/nav node setting both `public` and `permission`.
+route/nav node naming more than one gate.
 
 ### Hooks
 
@@ -913,7 +923,8 @@ The menu is **driven entirely by config** and assembled from two sources:
 
 Every nav item may carry a `permission`; the rendered tree is **filtered per user** from the session
 JWT (no per-request authz call), so the menu only shows what that person can reach. An item may
-instead be **`public: true`** to show it to everyone — mutually exclusive with `permission`.
+instead be **`public: true`** (everyone) or **`session: true`** (anyone signed in) — one gate per
+item, never two.
 Branding (name, logo, default theme) renders in the app shell.
 
 **One menu, one shell, everywhere.** A single menu (`src/ui/chrome.ts` `buildPluginChrome`) renders

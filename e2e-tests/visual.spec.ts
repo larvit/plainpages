@@ -143,11 +143,11 @@ test("unknown routes serve the 404 page (a real user-facing flow, covered end-to
   await expect(page.getByRole("link", { name: "Back home" })).toBeVisible();
 });
 
-// The reference plugin (plugins/scheduling) ships discovered in the image. Its public Overview is
-// reachable by anyone and its menu header shows for everyone; the shifts list stays permission-gated,
-// so an anonymous visitor is bounced to sign in. The authenticated list/form flow is the full
-// E2E (full-flow.spec). Side-effect-free.
-test("the reference plugin: public Overview is open to all, the gated Shifts redirects to /login", async ({ page, request }) => {
+// The reference plugin (plugins/scheduling) ships discovered in the image, and shows all three
+// gates: the public Overview is reachable by anyone, My shifts takes any session, and the shifts
+// list needs a permission. The authenticated list/form flow is the full E2E (full-flow.spec).
+// Side-effect-free.
+test("the reference plugin: public Overview is open to all, My shifts takes any session, the gated Shifts redirects to /login", async ({ page, request }) => {
   // `request` is the isolated API context — it doesn't carry the beforeEach session cookie, so these
   // probes are genuinely anonymous.
   // The public overview is reachable with no session (200), not bounced to sign in.
@@ -166,10 +166,22 @@ test("the reference plugin: public Overview is open to all, the gated Shifts red
   expect(res.status()).toBe(303);
   expect(res.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fshifts");
 
+  // A `session: true` route bounces an anonymous visitor the same way — no permission involved.
+  const mine = await request.get("/scheduling/mine", { maxRedirects: 0 });
+  expect(mine.status()).toBe(303);
+  expect(mine.headers()["location"]).toBe("/login?return_to=%2Fscheduling%2Fmine");
+
   // The signed-in member (no scheduling permission) sees the public Scheduling → Overview leaf in the nav,
   // but the gated Shifts leaf is filtered out.
   await page.goto("/dashboard");
   await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders
   await expect(page.locator('.sidebar a[href="/scheduling"]')).toHaveCount(1); // public Overview shown
   await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(0); // gated leaf filtered out
+  await expect(page.locator('.sidebar a[href="/scheduling/mine"]')).toHaveCount(1); // session gate: a session is enough
+
+  // And the page itself renders for that same member, holding no permission at all. This stack runs
+  // no shifts upstream, so the list degrades to its empty state — which still names whose page it is.
+  await page.goto("/scheduling/mine");
+  await expect(page.getByRole("heading", { name: "My shifts" })).toBeVisible();
+  await expect(page.getByText("No shifts are assigned to demo@plainpages.local.")).toBeVisible();
 });

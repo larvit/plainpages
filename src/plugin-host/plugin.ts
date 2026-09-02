@@ -32,6 +32,9 @@ export interface Route {
   // Same as omitting `permission`, but stated outright so public is a deliberate choice rather than
   // a forgotten gate. Mutually exclusive with `permission` (discovery refuses both).
   public?: boolean;
+  // Any signed-in user, no grant to hold — for a plugin whose data is the visitor's own. Anonymous
+  // is bounced to /login, never 403. Mutually exclusive with the other two (discovery refuses both).
+  session?: boolean;
 }
 
 // A Keto Permission this plugin gates on — declared for docs/seeding. Names are a shared global

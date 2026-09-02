@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { gatesSet } from "../auth/gate.ts";
 import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
 import { settingsDeclError } from "./settings.ts";
 import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID_LENGTH } from "./storage.ts";
@@ -146,12 +147,13 @@ function shapeError(manifest: PluginManifest): string | null {
     const settings = settingsDeclError(manifest.settings);
     if (settings) return settings;
   }
-  // `public` and `permission` are contradictory on the same route/nav node — "open to all" vs
-  // "needs this permission". Refuse rather than silently pick one, so the author's intent is unambiguous.
+  // Two gates on one route or nav node contradict each other — "open to all" vs "needs a session"
+  // vs "needs this permission". Refuse rather than silently pick one, so intent stays unambiguous.
   for (const route of Array.isArray(manifest.routes) ? manifest.routes : []) {
-    if (route?.public === true && route.permission != null) return `route "${route.method} ${route.path}" sets both public and permission — they are mutually exclusive`;
+    const gates = gatesSet(route);
+    if (gates.length > 1) return `route "${route?.method} ${route?.path}" sets ${gates.join(" and ")}; a route names exactly one gate — public, session or permission`;
   }
-  const navContradiction = findPublicNavContradiction(manifest.nav);
+  const navContradiction = findNavGateContradiction(manifest.nav);
   if (navContradiction) return navContradiction;
   // Every permission name the manifest mentions — gated on or declared — must be `<resource>:<action>`.
   // A bare word names a role, and roles are groups here (README → Naming a permission).
@@ -170,11 +172,12 @@ function shapeError(manifest: PluginManifest): string | null {
   return null;
 }
 
-// Recurse the nav fragment: a node that is both `public` and `permission`-gated is contradictory.
-function findPublicNavContradiction(nodes: PluginManifest["nav"]): string | null {
+// Recurse the nav fragment: a node naming more than one gate is contradictory, same as a route.
+function findNavGateContradiction(nodes: PluginManifest["nav"]): string | null {
   for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (node?.public === true && node.permission != null) return `nav node "${node.label ?? node.id ?? "?"}" sets both public and permission — they are mutually exclusive`;
-    const inChild = findPublicNavContradiction(node?.children);
+    const gates = gatesSet(node);
+    if (gates.length > 1) return `nav node "${node?.label ?? node?.id ?? "?"}" sets ${gates.join(" and ")}; a node names exactly one gate — public, session or permission`;
+    const inChild = findNavGateContradiction(node?.children);
     if (inChild) return inChild;
   }
   return null;

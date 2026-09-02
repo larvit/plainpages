@@ -4,21 +4,21 @@ import { Readable } from "node:stream";
 import test from "node:test";
 // Import only from the @plainpages/plugin-api barrel — the same contract boundary shifts.ts uses (the host may
 // refactor any deeper src/* freely behind it); the test models the dev/test story the contract preaches.
-import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult } from "@plainpages/plugin-api";
+import { englishTranslator, GuardError, Log, type PageChrome, type RequestContext, type RouteResult, type User } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 import {
-  buildFormModel, createShift, createUpstream, listShifts, newShiftForm, overview, readInput,
+  buildFormModel, createShift, createUpstream, listShifts, myShifts, newShiftForm, overview, readInput,
   SHIFTS_PATH, type Shift, type ShiftInput, type ShiftsUpstream, UpstreamError, validate,
 } from "./shifts.ts";
 
 const t = englishTranslator(enUS); // this plugin's catalog then the host's, as the host would chain them
 const CHROME: PageChrome = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } };
 
-function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
+function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; user?: User; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
-    chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
+    chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
     query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.permissions ?? [], t, url,
     verifyCsrf: opts.verifyCsrf ?? (() => true),
   };
@@ -170,4 +170,21 @@ test("buildFormModel marks title/assignee required and attaches field errors", (
   assert.equal(title.required, true);
   assert.equal(title.error, "needed");
   assert.equal(fields.find((f) => f.name === "start")!.required, undefined);
+});
+
+// ---- the session-gated page: the visitor's own rows ----
+
+test("my shifts renders only the signed-in visitor's own rows, and names them in the empty state", async () => {
+  const user: User = { email: "Blair.Mora@example.test", id: "01a06091-baa3-71f4-a068-4879972979ff", permissions: [] };
+  const mine: Shift = { assignee: "blair.mora@example.test", end: "22:00", id: "3", start: "17:00", title: "Evening on-call" };
+  const listed = [...SHIFTS, mine]; // SHIFTS are assigned to other people
+
+  const r = asView(await myShifts(fakeUpstream({ list: async () => listed }))(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
+  assert.equal(r.view, "mine");
+  const table = r.data["table"] as { emptyText: string; rows: { name: string }[] };
+  assert.deepEqual(table.rows.map((row) => row.name), ["Evening on-call"]); // matched case-insensitively
+  assert.match(table.emptyText, /Blair\.Mora@example\.test/); // an empty page still says whose it is
+
+  // The route carries `session: true`, but the handler asserts the session itself rather than trusting it.
+  await assert.rejects(async () => { await myShifts(fakeUpstream())(fakeCtx()); }, GuardError);
 });

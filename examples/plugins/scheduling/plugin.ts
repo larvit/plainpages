@@ -3,7 +3,7 @@
 // folder, rename it, point it at your own backend. Full contract: README.md → Building plugins.
 
 import { definePlugin } from "@plainpages/plugin-api";
-import { createShift, createUpstream, listShifts, newShiftForm, overview, READ, SCHEDULING_PATH, SHIFTS_PATH, WRITE } from "./shifts.ts";
+import { createShift, createUpstream, listShifts, MINE_PATH, myShifts, newShiftForm, overview, READ, SCHEDULING_PATH, SHIFTS_PATH, WRITE } from "./shifts.ts";
 
 // The upstream this plugin reads/writes — a stand-in for your real backend (the plugin is
 // stateless). Its URL is a declared setting, so it is resolved and validated before onBoot hands it
@@ -25,6 +25,7 @@ export default definePlugin({
   nav: [{
     children: [
       { href: SCHEDULING_PATH, id: "scheduling:overview", label: "scheduling.nav.overview", public: true },
+      { href: MINE_PATH, id: "scheduling:mine", label: "scheduling.nav.mine", session: true },
       { href: SHIFTS_PATH, id: "scheduling:shifts", label: "scheduling.nav.shifts", permission: READ },
     ],
     icon: "i-cal",
@@ -42,6 +43,7 @@ export default definePlugin({
   // (anyone may reach /scheduling, signed in or not); the rest need a permission.
   routes: [
     { handler: overview(), method: "GET", path: "/", public: true },
+    { handler: myShifts(upstream), method: "GET", path: "/mine", session: true },
     { handler: listShifts(upstream), method: "GET", path: "/shifts", permission: READ },
     { handler: newShiftForm(), method: "GET", path: "/shifts/new", permission: WRITE },
     { handler: createShift(upstream), method: "POST", path: "/shifts", permission: WRITE },

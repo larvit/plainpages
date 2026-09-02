@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { User } from "../http/context.ts";
 import { composeNav, type NavNode } from "./nav.ts";
+
+function viewer(...permissions: string[]): User {
+  return { email: "viewer@example.test", id: "01a06091-ba9f-765f-abf4-b5144c314bc7", permissions };
+}
 
 // Two plugin fragments; ids let the override target nodes, `permission` gates per permission.
 const fragments: NavNode[][] = [
@@ -15,7 +20,7 @@ const fragments: NavNode[][] = [
 ];
 
 test("composeNav merges fragments, filters by permission, and emits clean render nodes", () => {
-  const tree = composeNav(fragments, {}, ["scheduling:read"]);
+  const tree = composeNav(fragments, {}, viewer("scheduling:read"));
 
   // Reports gone (no reports:read), Manage gone (no scheduling:admin), header kept with Shifts.
   // Output carries no `id`/`permission` and omits absent fields — ready for nav-tree.ejs.
@@ -30,7 +35,7 @@ test("composeNav drops gated subtrees, empty headers, and (with no permissions) 
     { id: "admin", label: "Admin", permission: "users:read", children: [{ href: "/u", id: "u", label: "Users" }] },
     { id: "free", label: "Free", children: [{ href: "/d", id: "d", label: "Docs" }] },
   ]];
-  assert.deepEqual(composeNav(gatedHeader, {}, []), [
+  assert.deepEqual(composeNav(gatedHeader, {}, viewer()), [
     { label: "Free", children: [{ href: "/d", label: "Docs" }] },
   ]);
 
@@ -39,25 +44,30 @@ test("composeNav drops gated subtrees, empty headers, and (with no permissions) 
     { id: "sec", label: "Section", children: [{ href: "/x", id: "x", label: "X", permission: "x:read" }] },
     { href: "/hub", id: "hub", label: "Hub", children: [{ href: "/y", id: "y", label: "Y", permission: "y:read" }] },
   ]];
-  assert.deepEqual(composeNav(emptyHeader, {}, []), [{ href: "/hub", label: "Hub" }]);
+  assert.deepEqual(composeNav(emptyHeader, {}, viewer()), [{ href: "/hub", label: "Hub" }]);
 
   // No fragments / no permissions → empty tree, never throws.
   assert.deepEqual(composeNav(), []);
 });
 
-test("composeNav keeps a node marked public for everyone — the blessed public alias", () => {
-  // A header with one public child + one gated child: with no permissions, the public child keeps the
-  // header alive (the gated child is filtered out) — so a plugin can show a public menu option to all.
+test("composeNav shows a public node to everyone and a session node to any signed-in user", () => {
+  // A header with a public child, a session child and a gated child: the public child keeps the
+  // header alive for an anonymous visitor — so a plugin can show a menu option to all.
   const frag: NavNode[][] = [[{
     icon: "i-cal", id: "sched", label: "Scheduling",
     children: [
       { href: "/scheduling", id: "overview", label: "Overview", public: true },
+      { href: "/scheduling/mine", id: "mine", label: "Mine", session: true },
       { href: "/scheduling/shifts", id: "shifts", label: "Shifts", permission: "scheduling:read" },
     ],
   }]];
-  // `public` is filter-only (like id/permission) — never rendered into the output node.
-  assert.deepEqual(composeNav(frag, {}, []), [
+  // `public`/`session` are filter-only (like id/permission) — never rendered into the output node.
+  assert.deepEqual(composeNav(frag, {}, null), [
     { icon: "i-cal", label: "Scheduling", children: [{ href: "/scheduling", label: "Overview" }] },
+  ]);
+  // Signed in with no permission at all: the session node appears, the permission-gated one does not.
+  assert.deepEqual(composeNav(frag, {}, viewer()), [
+    { icon: "i-cal", label: "Scheduling", children: [{ href: "/scheduling", label: "Overview" }, { href: "/scheduling/mine", label: "Mine" }] },
   ]);
 });
 
@@ -74,7 +84,7 @@ test("composeNav applies the override: rename, group, order, hide (then filters)
     groups: [{ icon: "i-box", id: "grp", label: "Group", open: true, children: ["b", "c"] }], // wrap b+c
     order: ["grp", "a"],                                     // grp before the lone a
     hide: ["c"],                                             // remove c from inside the group
-  }, ["secrets:read"]);
+  }, viewer("secrets:read"));
 
   // grp emitted (b only, c hidden), reordered before a; Secret kept now that permission "secrets:read" is present.
   assert.deepEqual(tree, [

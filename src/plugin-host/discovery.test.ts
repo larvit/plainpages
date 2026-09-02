@@ -62,6 +62,9 @@ const badCases: Array<{ name: string; files: Record<string, string>; match: RegE
   { name: "duplicate nav id across plugins", files: { "a/plugin.ts": full("a").replace("a:root", "dup"), "b/plugin.ts": full("b").replace("b:root", "dup") }, match: /nav id "dup"/ },
   { name: "a route marked public AND permission is contradictory", files: { "contra/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", public: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contra.*public.*permission/s },
   { name: "a nav node marked public AND permission is contradictory", files: { "contranav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", public: true, permission: "x:read" }] };` }, match: /contranav.*public.*permission/s },
+  { name: "a route marked session AND permission is contradictory", files: { "contrasess/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", session: true, permission: "x:read", handler: () => ({ html: "x" }) }] };` }, match: /contrasess.*session.*permission/s },
+  { name: "a route marked public AND session is contradictory", files: { "contrapub/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", public: true, session: true, handler: () => ({ html: "x" }) }] };` }, match: /contrapub.*public.*session/s },
+  { name: "a nav node marked session AND permission is contradictory", files: { "contrasessnav/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ id: "n", label: "N", session: true, permission: "x:read" }] };` }, match: /contrasessnav.*session.*permission/s },
   // A permission name is <resource>:<action> wherever the manifest mentions one. Enforced here, not
   // only in the admin GUI, so it holds for a plugin installed without that GUI.
   { name: "a route gating on a bare word", files: { "bare/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", routes: [{ method: "GET", path: "/", permission: "admin", handler: () => ({ html: "x" }) }] };` }, match: /bare.*admin.*<resource>:<action>/s },
@@ -96,12 +99,19 @@ test("a discovery failure tells the operator their plugins/ copy may just be out
   });
 });
 
-test("a route + nav node may be marked public and load fine", async (t) => {
-  const dir = scaffold(t, { "pub/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };` });
+test("a route + nav node may be marked public, or session, and load fine", async (t) => {
+  const dir = scaffold(t, {
+    "pub/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ href: "/pub", id: "n", label: "N", public: true }], routes: [{ method: "GET", path: "/", public: true, handler: () => ({ html: "x" }) }] };`,
+    "sess/plugin.ts": `export default { apiVersion: "${HOST_API_VERSION}", nav: [{ href: "/sess", id: "s", label: "S", session: true }], routes: [{ method: "GET", path: "/", session: true, handler: () => ({ html: "x" }) }] };`,
+  });
   const plugins = await discoverPlugins({ dir });
-  assert.equal(plugins.length, 1);
-  assert.equal(plugins[0]?.routes?.[0]?.public, true);
-  assert.equal(plugins[0]?.nav?.[0]?.public, true);
+  assert.equal(plugins.length, 2);
+  const pub = plugins.find((p) => p.id === "pub");
+  const sess = plugins.find((p) => p.id === "sess");
+  assert.equal(pub?.routes?.[0]?.public, true);
+  assert.equal(pub?.nav?.[0]?.public, true);
+  assert.equal(sess?.routes?.[0]?.session, true);
+  assert.equal(sess?.nav?.[0]?.session, true);
 });
 
 test("`admin` is not reserved — the admin screens ship as a drop-in plugin mounted at /admin", async (t) => {

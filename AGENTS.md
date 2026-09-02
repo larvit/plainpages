@@ -182,6 +182,12 @@ Revisit only if the stated reason stops holding.
     example it keeps the route table and the in-handler guard deriving from one function, so 29 routes
     × 2 gate sites cannot drift. Generalised, it would make authorization a function of the transport
     verb — a route table must answer "what does this need?" on its own.
+- **A gate is one of three, and `session` is a first-class one.** A route or nav node names exactly
+  one of `public`, `session`, `permission` (discovery refuses two), and `src/auth/gate.ts` is the one
+  home of the rule the router and the menu both read. `session` exists because a plugin whose data is
+  the visitor's own — their upstream account, their own tokens — has no distinction a permission could
+  name; the alternative, granting every newly registered user a permission, couples the identity
+  lifecycle to a Keto write that nothing retries when it fails.
 - **A `:read`-only holder must never be shown a write affordance.** The list/detail models carry
   `canWrite` and the views drop create/save/delete/add/remove; the permission picker still renders,
   disabled, because *seeing* who holds what is the point of `:read`. A **write-intent GET** (a create
