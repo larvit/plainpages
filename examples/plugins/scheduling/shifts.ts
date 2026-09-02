@@ -47,7 +47,9 @@ export class UpstreamError extends Error {
 
 export interface ShiftsUpstream {
   create(input: ShiftInput): Promise<void>;
-  list(): Promise<Shift[]>;
+  // `assignee` scopes the read at the source, which is where an ownership rule belongs (README →
+  // Three tiers of "may I?"); without it the caller would hold everyone's rows to render one page.
+  list(opts?: { assignee?: string }): Promise<Shift[]>;
 }
 
 // REST client over the upstream service (a stand-in for the customer's real backend). `fetch`
@@ -66,8 +68,9 @@ export function createUpstream(baseUrl: () => string, fetchImpl: typeof fetch = 
       });
       if (!res.ok) throw new UpstreamError(`create shift failed (${res.status})`, res.status);
     },
-    async list() {
-      const res = await fetchImpl(`${base()}/shifts`, { headers: { accept: "application/json" } });
+    async list(opts = {}) {
+      const query = opts.assignee == null ? "" : `?${new URLSearchParams({ assignee: opts.assignee })}`;
+      const res = await fetchImpl(`${base()}/shifts${query}`, { headers: { accept: "application/json" } });
       if (!res.ok) throw new UpstreamError(`list shifts failed (${res.status})`, res.status);
       const data: unknown = await res.json();
       return Array.isArray(data) ? data.map(toShift) : [];
@@ -187,25 +190,21 @@ export function newShiftForm(): RouteHandler {
   return (ctx) => ({ data: buildFormModel({ chrome: ctx.chrome, t: ctx.t }), view: "shift-new" });
 }
 
-// Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
-// gate lets an anonymous visitor through and the menu option shows for everyone. The real data
-// (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
-// else a prompt to sign in. ctx.user may be null here, so read the permission via can() (zero I/O).
 // The `session: true` archetype: the rows are the visitor's own, so there is no distinction a
-// permission could name — anyone signed in sees theirs and only theirs.
+// permission could name — anyone signed in sees theirs and only theirs. The scoping is the
+// upstream's, never a filter here: it owns the data and answers for one person's rows.
 export function myShifts(upstream: ShiftsUpstream): RouteHandler {
   return async (ctx) => {
     const user = requireSession(ctx);
     let shifts: Shift[] = [];
     let error: string | undefined;
     try {
-      shifts = await upstream.list();
+      shifts = await upstream.list({ assignee: user.email });
     } catch (err) {
       ctx.log.warn("scheduling upstream unreachable", { error: String(err) });
       error = ctx.t("scheduling.upstream.list");
     }
-    const mine = shifts.filter((s) => s.assignee.toLowerCase() === user.email.toLowerCase());
-    return { data: buildMineModel({ chrome: ctx.chrome, email: user.email, ...(error ? { error } : {}), shifts: mine, t: ctx.t }), view: "mine" };
+    return { data: buildMineModel({ chrome: ctx.chrome, email: user.email, ...(error ? { error } : {}), shifts, t: ctx.t }), view: "mine" };
   };
 }
 
@@ -226,6 +225,10 @@ export function buildMineModel(opts: { chrome: PageChrome; email: string; error?
   };
 }
 
+// Public overview: a page anyone may reach — its route + nav node are marked `public`, so the
+// gate lets an anonymous visitor through and the menu option shows for everyone. The real data
+// (the shifts list) stays behind `scheduling:read`; a reader gets a link straight to it, anyone
+// else a prompt to sign in. ctx.user may be null here, so read the permission via can() (zero I/O).
 export function overview(): RouteHandler {
   return (ctx) => ({
     data: {

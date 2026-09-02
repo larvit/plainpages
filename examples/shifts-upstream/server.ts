@@ -15,6 +15,7 @@ const shifts = [
   { id: randomUUID(), title: "Morning — Front desk", assignee: "Avery Kline", start: "2026-06-22 08:00", end: "2026-06-22 12:00" },
   { id: randomUUID(), title: "Afternoon — Support", assignee: "Blair Mora", start: "2026-06-22 12:00", end: "2026-06-22 17:00" },
   { id: randomUUID(), title: "Evening — On-call", assignee: "Casey Nguyen", start: "2026-06-22 17:00", end: "2026-06-22 22:00" },
+  { id: randomUUID(), title: "Night — Escalations", assignee: "admin@plainpages.local", start: "2026-06-22 22:00", end: "2026-06-23 06:00" },
 ];
 
 const json = (res, status, body) => {
@@ -33,7 +34,11 @@ const readBody = (req) =>
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
-  if (url.pathname === "/shifts" && req.method === "GET") return json(res, 200, shifts);
+  if (url.pathname === "/shifts" && req.method === "GET") {
+    const assignee = url.searchParams.get("assignee");
+    if (assignee === null) return json(res, 200, shifts);
+    return json(res, 200, shifts.filter((s) => s.assignee.toLowerCase() === assignee.toLowerCase()));
+  }
   if (url.pathname === "/shifts" && req.method === "POST") {
     const b = await readBody(req);
     const shift = { id: randomUUID(), assignee: String(b.assignee ?? ""), end: String(b.end ?? ""), start: String(b.start ?? ""), title: String(b.title ?? "") };

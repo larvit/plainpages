@@ -26,6 +26,10 @@ What it demonstrates:
 The plugin holds **no state** — data lives upstream (README → *Stateless*). Handlers are thin and
 `fetch` is injectable, so they unit-test as pure functions (`shifts.test.ts`).
 
+The shifts list and "My shifts" repeat a little view-model and markup rather than sharing a
+parameterised one: an example is read far more often than it is changed, and each page is meant to be
+followed top to bottom on its own.
+
 ## Upstream
 
 Set `PLUGIN_SETTING_SCHEDULING_UPSTREAM` to your backend's base URL. The dev compose points it at a tiny in-memory
@@ -39,7 +43,7 @@ Your backend must expose two routes; the plugin treats any non-2xx as a recovera
 
 | Route | Request | Success | Response body |
 | --- | --- | --- | --- |
-| `GET /shifts` | `Accept: application/json` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`) |
+| `GET /shifts` | `Accept: application/json`, optional `?assignee=<who>` | `200` | JSON array of `{ id, title, assignee, start, end }` (all strings; missing fields coerce to `""`). With `assignee`, only that person's rows — "My shifts" asks for them rather than filtering everyone's here, because ownership is the backend's rule to enforce |
 | `POST /shifts` | JSON body `{ title, assignee, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
 
 Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the

@@ -4,6 +4,7 @@
 // A plugin's identity is its folder under plugins/: folder name = `id` (isValidPluginId), mount =
 // `/<id>`. Neither is in the manifest — the host derives them, so they can't drift or be claimed twice.
 
+import type { Gate } from "../auth/gate.ts";
 import type { RequestContext } from "../http/context.ts";
 import type { NavNode } from "../ui/nav.ts";
 import { envName, type SettingDecl, type SettingsOf } from "./settings.ts";
@@ -24,17 +25,11 @@ export type RouteResult =
 
 export type RouteHandler = (ctx: RequestContext) => Promise<RouteResult | void> | RouteResult | void;
 
-export interface Route {
+// `Gate` carries `permission`/`public`/`session`, checked before the handler runs.
+export interface Route extends Gate {
   handler: RouteHandler;
   method: HttpMethod;
   path: string; // relative to the plugin's mount path `/<id>`; ":name" segments → ctx.params.name
-  permission?: string; // coarse gate — the Keto Permission the caller must hold; checked before the handler runs
-  // Same as omitting `permission`, but stated outright so public is a deliberate choice rather than
-  // a forgotten gate. Mutually exclusive with `permission` (discovery refuses both).
-  public?: boolean;
-  // Any signed-in user, no grant to hold — for a plugin whose data is the visitor's own. Anonymous
-  // is bounced to /login, never 403. Mutually exclusive with the other two (discovery refuses both).
-  session?: boolean;
 }
 
 // A Keto Permission this plugin gates on — declared for docs/seeding. Names are a shared global

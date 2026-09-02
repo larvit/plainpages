@@ -3,12 +3,13 @@
 // A node is visible iff `allows` passes its gate; a gated header hides its whole subtree, and a pure
 // header left with no children is dropped.
 
-import { allows } from "../auth/gate.ts";
+import { allows, type Gate } from "../auth/gate.ts";
 import type { User } from "../http/context.ts";
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
 
-export interface NavNode {
+// `Gate` carries `permission`/`public`/`session` — consumed by the filter, never rendered.
+export interface NavNode extends Gate {
   id?: string; // stable key for override targeting; stripped from the rendered tree
   children?: NavNode[];
   count?: number;
@@ -17,9 +18,6 @@ export interface NavNode {
   icon?: string;
   label: string;
   open?: boolean;
-  permission?: string; // required permission token; consumed by the filter, never rendered
-  public?: boolean; // show to everyone, signed in or not — the blessed alias for "no permission", stated outright; consumed by the filter, never rendered. Mutually exclusive with permission (discovery refuses both).
-  session?: boolean; // show to any signed-in user, no grant to hold; consumed by the filter, never rendered. Mutually exclusive with the other two (discovery refuses both).
 }
 
 // Central override (config/menu.ts). Targets nodes by `id`; applied rename → group →

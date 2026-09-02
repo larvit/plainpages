@@ -193,6 +193,13 @@ test.describe.serial("authenticated admin journey", () => {
     await page.goto("/scheduling/shifts");
     await expect(page.locator("h1")).toHaveText("Shifts");
     await expect(page.locator("table")).toContainText("Morning — Front desk"); // seeded by the mock upstream
+
+    // The session-gated page asks the upstream for this visitor's rows: the one seeded against the
+    // signed-in admin is there, and another person's shift is not.
+    await page.goto("/scheduling/mine");
+    await expect(page.locator("h1")).toHaveText("My shifts");
+    await expect(page.locator("table")).toContainText("Night — Escalations");
+    await expect(page.locator("table")).not.toContainText("Morning — Front desk");
   });
 
   test("plugin settings: the screen names the variable that sets each declared key", async () => {

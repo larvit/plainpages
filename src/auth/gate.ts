@@ -5,10 +5,12 @@ import type { User } from "../http/context.ts";
 // Widest first: whoever passes an earlier gate passes it without holding anything.
 const GATES = ["public", "session", "permission"] as const;
 
+// A route or nav node names exactly one of these; discovery refuses two. Omitting all three is the
+// same as `public`, which is why stating it outright makes an open gate a choice, not an oversight.
 export interface Gate {
-  permission?: string | undefined; // the Keto Permission the caller must hold
+  permission?: string | undefined; // the Keto Permission the caller must hold, `<resource>:<action>`
   public?: boolean | undefined; // anyone, signed in or not
-  session?: boolean | undefined; // any signed-in user, no grant needed
+  session?: boolean | undefined; // any signed-in user, no grant to hold; anonymous is sent to /login
 }
 
 export function allows(gate: Gate, user: User | null): boolean {

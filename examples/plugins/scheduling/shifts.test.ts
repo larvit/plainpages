@@ -174,15 +174,19 @@ test("buildFormModel marks title/assignee required and attaches field errors", (
 
 // ---- the session-gated page: the visitor's own rows ----
 
-test("my shifts renders only the signed-in visitor's own rows, and names them in the empty state", async () => {
+test("my shifts asks the upstream for the visitor's own rows, and names them in the empty state", async () => {
   const user: User = { email: "Blair.Mora@example.test", id: "01a06091-baa3-71f4-a068-4879972979ff", permissions: [] };
   const mine: Shift = { assignee: "blair.mora@example.test", end: "22:00", id: "3", start: "17:00", title: "Evening on-call" };
-  const listed = [...SHIFTS, mine]; // SHIFTS are assigned to other people
+  let asked: { assignee?: string } | undefined;
 
-  const r = asView(await myShifts(fakeUpstream({ list: async () => listed }))(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
+  const upstream = fakeUpstream({ list: async (opts) => { asked = opts; return [mine]; } });
+  const r = asView(await myShifts(upstream)(fakeCtx({ url: "http://localhost/scheduling/mine", user })));
   assert.equal(r.view, "mine");
+  // The ownership rule is the upstream's: the page asks for one person's rows rather than filtering
+  // everyone's here, so a real backend never hands this handler another visitor's shifts.
+  assert.deepEqual(asked, { assignee: "Blair.Mora@example.test" });
   const table = r.data["table"] as { emptyText: string; rows: { name: string }[] };
-  assert.deepEqual(table.rows.map((row) => row.name), ["Evening on-call"]); // matched case-insensitively
+  assert.deepEqual(table.rows.map((row) => row.name), ["Evening on-call"]);
   assert.match(table.emptyText, /Blair\.Mora@example\.test/); // an empty page still says whose it is
 
   // The route carries `session: true`, but the handler asserts the session itself rather than trusting it.

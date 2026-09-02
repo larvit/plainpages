@@ -39,6 +39,7 @@ export { CSRF_FIELD } from "../auth/csrf.ts";
 // reference consumer. The Ory client types + their error classes are re-exported so a system
 // plugin can type against them and `instanceof`-match their errors. See README → System capabilities.
 export type { SystemCapabilities } from "./system.ts";
+export type { Gate } from "../auth/gate.ts";
 export type { Identity, KratosAdmin, RecoveryCode } from "../auth/kratos-admin.ts";
 export type { ExpandTree, KetoClient, RelationQuery, RelationTuple, SubjectSet } from "../auth/keto-client.ts";
 export type { HydraAdmin, OAuth2Client } from "../auth/hydra-admin.ts";
