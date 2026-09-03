@@ -18,6 +18,7 @@ const messages: SchedulingMessages = {
   "scheduling.new.title": "Nytt pass",
   "scheduling.overview.lead":
     "Schemaläggningen samordnar teamets pass. Alla kan läsa den här översikten; själva passlistan kräver behörigheten <code>scheduling:read</code>.",
+  "scheduling.overview.mine": "Visa mina pass",
   "scheduling.overview.signIn": "Logga in för att se passen",
   "scheduling.overview.title": "Schemaläggning",
   "scheduling.overview.view": "Visa pass",

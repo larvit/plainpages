@@ -236,7 +236,9 @@ export function overview(): RouteHandler {
       breadcrumbs: [{ label: ctx.t("scheduling.nav.overview") }],
       canRead: can(ctx, READ),
       chrome: ctx.chrome,
+      mineHref: ctx.localeHref(MINE_PATH),
       shiftsHref: ctx.localeHref(SHIFTS_PATH), // a plugin carries the visitor's locale onto its own links
+      signedIn: ctx.user !== null,
       signInHref: ctx.localeHref(`/login?return_to=${encodeURIComponent(ctx.localeHref(SHIFTS_PATH))}`),
       title: ctx.t("scheduling.overview.title"),
     },

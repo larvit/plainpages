@@ -45,6 +45,11 @@ Your backend must expose two routes; the plugin treats any non-2xx as a recovera
 | `GET /shifts` | `Accept: application/json`, optional `?assigneeId=<id>` | `200` | JSON array of `{ id, title, assignee, assigneeId, start, end }` (all strings; missing fields coerce to `""`). With `assigneeId`, only that person's rows |
 | `POST /shifts` | JSON body `{ title, assignee, start, end }` | `2xx` | ignored (the plugin POST-redirect-GETs back to the list) |
 
+`POST /shifts` carries the assignee as a **display name only**, so a shift created through this
+plugin's form belongs to nobody and surfaces on no one's "My shifts" — don't go hunting for it
+there. Resolving a name to an identity id needs a directory this demo has none of; a real backend
+does that join at create time and stores the `assigneeId` alongside the name.
+
 Domain rules (overlap, capacity, time ordering) live in your backend — reject with a 4xx and the
 form re-renders. The plugin only validates that `title` and `assignee` are non-empty.
 

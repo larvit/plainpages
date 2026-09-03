@@ -22,6 +22,7 @@ const messages = {
   "scheduling.new.title": "New shift",
   "scheduling.overview.lead":
     "Scheduling coordinates shifts across your team. Anyone can read this overview; the shift list itself is available to people with the <code>scheduling:read</code> permission.",
+  "scheduling.overview.mine": "See my shifts",
   "scheduling.overview.signIn": "Sign in to view shifts",
   "scheduling.overview.title": "Scheduling",
   "scheduling.overview.view": "View shifts",

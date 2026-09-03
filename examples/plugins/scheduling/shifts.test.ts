@@ -115,14 +115,21 @@ test("listShifts degrades to a recoverable error page when the upstream is down 
 
 // ---- public overview handler (a page anyone can reach, gated data stays behind the permission) ----
 
-test("overview renders a public page for anyone; it links straight to Shifts only for a reader", async () => {
+test("overview renders a public page for anyone, and its CTA names the best gate the visitor passes", async () => {
   const anon = asView(await overview()(fakeCtx())); // user null, no permissions
   assert.equal(anon.view, "overview");
   assert.equal(anon.data["chrome"], CHROME);
   assert.equal(anon.data["canRead"], false); // anonymous → prompt to sign in, no shifts link
+  assert.equal(anon.data["signedIn"], false);
 
   const reader = asView(await overview()(fakeCtx({ permissions: ["scheduling:read"] })));
   assert.equal(reader.data["canRead"], true); // a reader gets a link straight to the shifts list
+
+  // Signed in but ungranted: the page must not invite them to sign in again.
+  const member = asView(await overview()(fakeCtx({ user: { email: "m@example.test", id: "01a06091-baa3-7a1f-9c62-0e3ab6d2f5c1", permissions: [] } })));
+  assert.equal(member.data["canRead"], false);
+  assert.equal(member.data["signedIn"], true);
+  assert.equal(member.data["mineHref"], "/scheduling/mine");
 });
 
 // ---- create handler ----
