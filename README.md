@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.3.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -350,7 +350,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.4.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.3.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and gate-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -471,7 +471,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.3.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -626,6 +626,7 @@ provider/consumer semantics in `checkApiVersion`:
 The plugin pins one exact version (no ranges, per the project's pinning rules); the *host* supplies
 the compatibility. One digit carries the whole release, so a **minor** means either the plugin
 contract changed or a dependency moved far enough to warrant one.
+[`CHANGELOG.md`](CHANGELOG.md) is what a minor sends you to: what broke, and what to change.
 
 
 ### Conflict rules
@@ -756,7 +757,7 @@ camel humps both becoming underscores — so `upstream` on the `scheduling` plug
 
 ```ts
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.3.0",
   settings: [
     { key: "upstream", type: "url", required: true, description: "Base URL of the backend" },
     { key: "pageSize", type: "number", default: 25 },
@@ -810,7 +811,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.3.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
@@ -1730,6 +1731,7 @@ e2e-tests/           Playwright specs + their Dockerfile and compose.{visual,aut
 release-tooling/     Everything the release runs: next-version (the bump math), contract-version
                      (the HOST_API_VERSION↔tag gate), dockerhub-overview (+ its .md.tmpl)
 registry-cleanup/    Nightly image pruning — the Gitea client plus what survives (select-versions.ts)
+CHANGELOG.md         What changed per release, and how to upgrade a plugin across a minor
 ci.sh                The full gate: typecheck → unit tests → every E2E suite on a fresh stack
 .gitea/workflows/    Gitea Actions — see CI/CD
 ```

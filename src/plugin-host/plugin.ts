@@ -11,7 +11,7 @@ import { envName, type SettingDecl, type SettingsOf } from "./settings.ts";
 import type { StorageCredentials } from "./storage.ts";
 
 // The Plainpages release this contract ships in — see README → Contract versioning.
-export const HOST_API_VERSION = "0.4.0";
+export const HOST_API_VERSION = "0.3.0";
 
 export type HttpMethod = "DELETE" | "GET" | "HEAD" | "PATCH" | "POST" | "PUT";
 
