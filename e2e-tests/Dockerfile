@@ -1,6 +1,6 @@
 # Playwright runner — browsers preinstalled, pinned to match @playwright/test in e2e-tests/.
 # Built/run via e2e-tests/compose.visual.yml; targets the `web` service over the network.
-FROM mcr.microsoft.com/playwright:v1.62.1-noble
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
 WORKDIR /e2e-tests
 
