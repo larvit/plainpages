@@ -28,6 +28,20 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });
 
+// The shell must never clip a page: a body that does not scroll itself has to reach the reader
+// through the document. A key press, not scrollIntoView — a script can scroll an overflow-hidden
+// box, a reader cannot. End rather than the wheel: Firefox's synthetic wheel never reaches the
+// document.
+test("a page taller than the window scrolls, so its last control can be reached", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 240 });
+  await page.goto("/dashboard");
+
+  const last = page.locator(".form-actions .btn").last();
+  await expect(last).not.toBeInViewport();
+  await page.keyboard.press("End");
+  await expect(last).toBeInViewport();
+});
+
 test("captures the live pages for review", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page.locator(".sidebar")).toBeVisible();

@@ -278,6 +278,16 @@ Revisit only if the stated reason stops holding.
   it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
   profile menu (its trigger composes escaped user values and its one item is a CSRF POST form) — keep
   the two in step.
+- **The document scrolls; a bounded scroll region is opt-in.** `.app` is `min-height: 100dvh`, not
+  a `100dvh` box with `overflow: hidden`: the sidebar is `position: sticky` at full height and the
+  topbar sticks too, so both stay put while the content column flows with the page. A page that wants
+  a region scrolling inside it — a board of full-height columns, a table whose header stays put —
+  gives that region a height and scrolls within it; `.table-wrap` is `overflow-x: auto` and nothing
+  more until a page does. The inverse default clipped the first long page that did not know the rule
+  (2026-09-06), silently, in every engine: nothing in a test or a console says a page is unreachable
+  below the fold. Document scrolling is also what keeps find-in-page, anchor links, keyboard paging,
+  print and reader mode working. The `visual.spec.ts` wheel test holds this; scrollIntoView would not,
+  since a script can scroll an overflow-hidden box and a reader cannot.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
   is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an

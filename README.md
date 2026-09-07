@@ -933,6 +933,10 @@ recovery / front pages — so it looks identical signed in or out and just shows
 anonymous visitor. The sidebar collapses to a burger on a narrow screen; a page wanting a
 chrome-free layout opts out with the shell's `menu: false`.
 
+**The document scrolls.** The sidebar and topbar stay put on their own, and a page is reachable
+below the fold without adding a scroll region. A region that should scroll *inside* the page — a
+board of full-height columns, a table whose header stays put — sets its own height and `overflow`.
+
 ## Building blocks
 
 Plainpages is a **component library, not a page generator** — reusable EJS partials + TS helpers,

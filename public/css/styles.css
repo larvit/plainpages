@@ -111,7 +111,7 @@ html:has(#theme-light:checked) {
 
 /* ---------- 2. RESET ---------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text);
   -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; }
@@ -148,19 +148,20 @@ summary { list-style: none; cursor: pointer; }
 .ico-sm { width: 14px; height: 14px; }
 
 /* ---------- 3. APP GRID ------------------------------------- */
+/* Not a viewport-height box: the document scrolls, so a page is reachable below the fold without
+   bringing a scroll region of its own (AGENTS.md → UI). */
 .app {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
 }
 
 /* ---------- 4. SIDEBAR -------------------------------------- */
 .sidebar {
   grid-column: 1;
+  position: sticky; top: 0; height: 100dvh; align-self: start;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
@@ -331,12 +332,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .content {
   grid-column: 2;
   display: flex; flex-direction: column;
-  min-width: 0; min-height: 0;
+  min-width: 0;
   background: var(--bg);
 }
 
 /* topbar (page title + hamburger on mobile) */
 .topbar {
+  position: sticky; top: 0; z-index: 20;
   flex: 0 0 auto; height: 48px;
   display: flex; align-items: center; gap: 12px;
   padding: 0 16px; border-bottom: 1px solid var(--border);
@@ -559,7 +561,8 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .pill-clear:hover { text-decoration: underline; }
 
 /* ---------- 9. TABLE --------------------------------------- */
-.table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* A bounded region is opt-in: give this a height and the header below stays put inside it. */
+.table-wrap { overflow-x: auto; }
 table.table {
   width: 100%; border-collapse: separate; border-spacing: 0;
   font-size: var(--fz); font-variant-numeric: tabular-nums;
@@ -723,4 +726,4 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .app-bare { grid-template-columns: minmax(0, 1fr); }
 .app-bare .content { grid-column: 1; }
 /* Auth/landing rendered inside the app shell: a roomy, centered column in the content area. */
-.shell-auth { flex: 1 1 auto; overflow-y: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }
+.shell-auth { flex: 1 1 auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }
