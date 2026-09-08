@@ -29,18 +29,31 @@ test.beforeEach(async ({ context }) => {
 });
 
 // The shell must never clip a page: a body that does not scroll itself has to reach the reader
-// through the document. A key press, not scrollIntoView — a script can scroll an overflow-hidden
-// box, a reader cannot. End rather than the wheel: Firefox's synthetic wheel never reaches the
-// document.
-test("a page taller than the window scrolls, so its last control can be reached", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 240 });
-  await page.goto("/dashboard");
+// through the document. One page per body idiom, since the change removed a bounded rule from each
+// (.form-page never had one, .shell-auth did). A key press, not scrollIntoView — a script can scroll
+// an overflow-hidden box, a reader cannot; and not the wheel, which Firefox's synthetic event never
+// delivers to the document.
+for (const [name, path, tail] of [
+  ["the starter dashboard", "/dashboard", ".form-actions .btn"],
+  ["the public landing", "/", ".landing-actions .btn"],
+] as const) {
+  for (const width of [1280, 390]) {
+    test(`${name} scrolls to its end at ${width}px wide, and the chrome stays put`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 200 });
+      await page.goto(path);
 
-  const last = page.locator(".form-actions .btn").last();
-  await expect(last).not.toBeInViewport();
-  await page.keyboard.press("End");
-  await expect(last).toBeInViewport();
-});
+      const overflows = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+      expect(overflows, "the page must overflow, or it proves nothing").toBe(true);
+      await page.keyboard.press("End");
+      // Whole, not merely touched: a control half under the fold is not reachable either.
+      await expect(page.locator(tail).last()).toBeInViewport({ ratio: 1 });
+      // The sticky pair is the whole reason the document may scroll: on a narrow screen the
+      // hamburger in the topbar is the only way back into the nav.
+      await expect(page.locator(".topbar")).toBeInViewport();
+      if (width > 860) await expect(page.locator(".brand-name")).toBeInViewport();
+    });
+  }
+}
 
 test("captures the live pages for review", async ({ page }) => {
   await page.goto("/dashboard");

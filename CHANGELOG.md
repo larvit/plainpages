@@ -4,6 +4,38 @@ The release version **is** the plugin contract version (`HOST_API_VERSION`), so 
 contract break: a plugin's `apiVersion` must match the host's `major.minor` or discovery refuses it
 at boot. Entries start at 0.3.0.
 
+## 0.4.0
+
+**Breaking.** Set `apiVersion: "0.4.0"`. The app shell no longer bounds the content column, so a page
+that relied on filling it scrolls the document instead.
+
+### The document scrolls
+
+`.app` was a `100dvh` box with `overflow: hidden`, so a page was only reachable below the fold if its
+own wrapper was a flex child with `overflow-y: auto`. `.table-wrap` and `.shell-auth` were; nothing
+else was, and a long page in `.form-page` clipped everything past the window in every engine.
+
+Now the shell is `min-height: 100dvh` and the document scrolls. The sidebar is `position: sticky` at
+full height and the topbar sticks with it, so both stay put as the page flows. Keyboard paging, back/
+forward scroll restoration and find-in-page work without a page doing anything.
+
+### A bounded frame is `fill: true`
+
+A page whose whole point is a frame — a board of full-height columns, a table whose header must stay
+put — passes `fill: true` to the shell. `.app-fill` restores the previous model: the viewport is the
+page, and a region inside it scrolls. `data-table`'s sticky `thead` needs it, since a header sticks
+only to a scrollport that moves.
+
+The height is the shell's to give: a page computing it would have to know the topbar's own height.
+
+### Upgrading a plugin
+
+1. Set `apiVersion: "0.4.0"`.
+2. A page that scrolled the whole window needs no change — it now scrolls the document.
+3. A page holding a region that filled the content column (`flex: 1 1 auto; min-height: 0` with its
+   own `overflow`) passes `fill: true` to the shell; the region then works as before.
+4. A table whose header must stay put needs `fill: true` on that page.
+
 ## 0.3.0
 
 **Breaking.** Set `apiVersion: "0.3.0"`, and name a gate on every route and nav node.

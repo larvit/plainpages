@@ -57,6 +57,7 @@
   /* layout + density (compact) */
   --radius: 5px;
   --nav-w: 264px;
+  --topbar-h: 48px;
   --row-h: 34px;
   --pad-x: 12px;
   --fz: 13px;
@@ -149,7 +150,7 @@ summary { list-style: none; cursor: pointer; }
 
 /* ---------- 3. APP GRID ------------------------------------- */
 /* Not a viewport-height box: the document scrolls, so a page is reachable below the fold without
-   bringing a scroll region of its own (AGENTS.md → UI). */
+   bringing a scroll region of its own. `fill` opts out — see .app-fill (AGENTS.md → UI). */
 .app {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
@@ -167,7 +168,7 @@ summary { list-style: none; cursor: pointer; }
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
-  height: 48px; padding: 0 14px; flex: 0 0 auto;
+  height: var(--topbar-h); padding: 0 14px; flex: 0 0 auto;
   border-bottom: 1px solid var(--border);
 }
 .brand-mark {
@@ -339,12 +340,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 /* topbar (page title + hamburger on mobile) */
 .topbar {
   position: sticky; top: 0; z-index: 20;
-  flex: 0 0 auto; height: 48px;
+  flex: 0 0 auto; height: var(--topbar-h);
   display: flex; align-items: center; gap: 12px;
   padding: 0 16px; border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .hamburger { display: none; }   /* shown only on narrow */
+.content :target, .content :focus-visible { scroll-margin-top: var(--topbar-h); }
 .page-title { margin: 0; font-weight: 600; letter-spacing: -.01em; font-size: 14px; }
 .page-sub { color: var(--text-faint); font-size: var(--fz-sm); }
 .topbar-spacer { flex: 1 1 auto; }
@@ -693,6 +695,8 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
     background: rgba(0,0,0,.42);
   }
   .search { min-width: 150px; flex: 1 1 auto; }
+  /* The open nav is a fixed overlay: scrolling the page behind it moves what the scrim covers. */
+  body:has(#nav-toggle:checked) { overflow: hidden; }
 }
 @media (max-width: 560px) {
   .crumbs, .page-sub { display: none; }
@@ -725,5 +729,13 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 /* Chromeless shell: a page may drop the sidebar for a focused single column. */
 .app-bare { grid-template-columns: minmax(0, 1fr); }
 .app-bare .content { grid-column: 1; }
+
+/* `fill: true` on the shell: the viewport is the page, and a region inside it scrolls instead of the
+   document. For a page whose whole point is a bounded frame — a board of full-height columns, a table
+   whose header must stay put. The height is the shell's to give: a page computing it would have to
+   know the topbar's own. */
+.app-fill { height: 100dvh; overflow: hidden; }
+.app-fill .content { min-height: 0; }
+.app-fill .table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* Auth/landing rendered inside the app shell: a roomy, centered column in the content area. */
 .shell-auth { flex: 1 1 auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }

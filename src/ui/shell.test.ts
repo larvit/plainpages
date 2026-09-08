@@ -95,8 +95,18 @@ test("app shell can disable the menu: no sidebar, focused single-column layout",
   assert.doesNotMatch(bare, /<aside class="sidebar"/); // sidebar dropped
   assert.doesNotMatch(bare, /class="hamburger"/); // and its mobile toggle
   assert.match(bare, /<div class="app app-bare">/); // single-column variant
+  assert.doesNotMatch(bare, /app-fill/); // the document scrolls unless a page says otherwise
   assert.match(bare, /<main class="content" id="main-content"/); // content still renders
   assert.match(bare, /<section id="b">x<\/section>/);
+});
+
+test("app shell: fill:true bounds the viewport, for a page whose own region scrolls", async () => {
+  // The opt-out from document scrolling is the shell's to give — a page cannot derive the height
+  // without knowing the topbar's own (AGENTS.md → UI).
+  const filled = await render({ fill: true, title: "Board", body: "<div>x</div>", nav: "" });
+  assert.match(filled, /<div class="app app-fill">/);
+  const bothOff = await render({ fill: true, menu: false, title: "Board", body: "<div>x</div>", nav: "" });
+  assert.match(bothOff, /<div class="app app-bare app-fill">/);
 });
 
 test("app shell: an empty title yields no topbar <h1> so the body owns the single heading; docTitle sets <title>", async () => {
