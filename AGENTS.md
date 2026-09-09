@@ -289,8 +289,8 @@ Revisit only if the stated reason stops holding.
   the two in step.
 - **One scroller, the document** (priority 1). `.app` is `min-height: 100dvh`. `.nav`'s
   `overflow-y: auto` and `.side-footer`'s `flex: 0 0 auto` are not leftovers of a bounded frame:
-  they are what makes the off-canvas panel usable with a long tree. `#nav-toggle` is `position: fixed`
-  for the same reason — a label click focuses it, and a browser scrolls a focused element into view.
+  they are what makes the off-canvas panel usable with a long tree. `#nav-toggle` is `position: fixed` —
+  a label click focuses it, and a browser scrolls a focused element into view.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
   is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an

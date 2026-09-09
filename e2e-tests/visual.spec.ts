@@ -47,10 +47,7 @@ for (const [name, path, tail] of [
   }
 }
 
-// The drawer is an overlay, so the document keeps scrolling behind it. Closing it must then leave
-// the reader where they were: the toggle is focusable and its label is what a tap hits, and a
-// browser scrolls a focused element into view — from the top of the document that meant jumping
-// there. `#nav-toggle` is `position: fixed` so there is nothing to scroll to.
+// Green only while #nav-toggle is position: fixed — a label tap focuses it, and focus scrolls into view.
 test("closing the mobile drawer leaves the reader where the scrim found them", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 200 });
   await page.goto("/dashboard");
