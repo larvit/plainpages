@@ -28,11 +28,8 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });
 
-// The shell must never clip a page: a body that does not scroll itself has to reach the reader
-// through the document. One page per body idiom, since the change removed a bounded rule from each
-// (.form-page never had one, .shell-auth did). A key press, not scrollIntoView — a script can scroll
-// an overflow-hidden box, a reader cannot; and not the wheel, which Firefox's synthetic event never
-// delivers to the document.
+// A key press, not scrollIntoView — a script can scroll an overflow-hidden box, a reader cannot;
+// and not the wheel, which Firefox's synthetic event never delivers to the document.
 for (const [name, path, tail] of [
   ["the starter dashboard", "/dashboard", ".form-actions .btn"],
   ["the public landing", "/", ".landing-actions .btn"],

@@ -562,7 +562,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 
 /* ---------- 9. TABLE --------------------------------------- */
 /* A bounded region is opt-in: give this a height and the header below stays put inside it. */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow: auto; }
 table.table {
   width: 100%; border-collapse: separate; border-spacing: 0;
   font-size: var(--fz); font-variant-numeric: tabular-nums;

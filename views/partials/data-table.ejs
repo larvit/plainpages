@@ -7,7 +7,7 @@
                                           name it when two tables share a page
     scrollRegion?                         take the leftover height and scroll, so the header stays
                                           put — needs the shell's `fill: true` and a flex chain
-                                          above (README → the app shell)
+                                          above (README → The menu system)
     columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
     rows:    { name?, cells: Cell[], actions?: Action[] }[]
   Cell ∈ string | { text, className? } | { user:{name,initials} } | { rowHeader:{text,href?} } | { badge:{tone,label} } | { html, className? }
