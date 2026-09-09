@@ -28,8 +28,8 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: SESSION_COOKIE, url: BASE_URL, value: devSession() }]);
 });
 
-// A key press, not scrollIntoView — a script can scroll an overflow-hidden box, a reader cannot;
-// and not the wheel, which Firefox's synthetic event never delivers to the document.
+// A key press, not scrollIntoView (a script can scroll a box no reader can) and not the wheel
+// (Firefox's synthetic event never reaches the document).
 for (const [name, path, tail] of [
   ["the starter dashboard", "/dashboard", ".form-actions .btn"],
   ["the public landing", "/", ".landing-actions .btn"],
@@ -42,11 +42,33 @@ for (const [name, path, tail] of [
       const overflows = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
       expect(overflows, "the page must overflow, or it proves nothing").toBe(true);
       await page.keyboard.press("End");
-      // Whole, not merely touched: a control half under the fold is not reachable either.
       await expect(page.locator(tail).last()).toBeInViewport({ ratio: 1 });
     });
   }
 }
+
+// The drawer is an overlay, so the document keeps scrolling behind it. Closing it must then leave
+// the reader where they were: the toggle is focusable and its label is what a tap hits, and a
+// browser scrolls a focused element into view — from the top of the document that meant jumping
+// there. `#nav-toggle` is `position: fixed` so there is nothing to scroll to.
+test("closing the mobile drawer leaves the reader where the scrim found them", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 200 });
+  await page.goto("/dashboard");
+
+  await page.locator(".hamburger").click();
+  await expect(page.locator("#nav-toggle")).toBeChecked();
+  // Scripted, because a key press with focus on the toggle does not scroll in every engine — and
+  // what is under test is closing the drawer, not how the reader got down the page.
+  await page.evaluate(() => window.scrollTo(0, 120));
+  const at = await page.evaluate(() => window.scrollY);
+  expect(at, "the page must have somewhere to scroll behind the scrim").toBeGreaterThan(0);
+
+  // The exposed strip beside the 264px panel: the scrim spans the viewport, so its centre is under
+  // the drawer and a centre click lands on the panel instead.
+  await page.locator(".scrim").click({ position: { x: 340, y: 100 } });
+  await expect(page.locator("#nav-toggle")).not.toBeChecked();
+  expect(await page.evaluate(() => window.scrollY), "closing the drawer must not move the page").toBe(at);
+});
 
 test("captures the live pages for review", async ({ page }) => {
   await page.goto("/dashboard");

@@ -556,7 +556,6 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .pill-clear:hover { text-decoration: underline; }
 
 /* ---------- 9. TABLE --------------------------------------- */
-/* A bounded region is opt-in: give this a height and the header below stays put inside it. */
 .table-wrap { overflow-x: auto; }
 table.table {
   width: 100%; border-collapse: separate; border-spacing: 0;
@@ -694,7 +693,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 }
 
 /* the nav-toggle checkbox itself is visually hidden but focusable */
-#nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+#nav-toggle { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; }
 
 /* admin forms: create/edit user, account actions */
 .form-page { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 560px; }

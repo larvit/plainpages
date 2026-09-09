@@ -42,6 +42,7 @@ test("data-table renders sortable headers, row-select, typed cells, badges and k
   const html = flat(await render(config));
 
   assert.match(html, /<div class="table-wrap"><table class="table"><caption class="sr-only">People in the directory<\/caption>/);
+
   // Row-select: header select-all + per-row checkbox with a descriptive label.
   assert.match(html, /<th class="col-check" scope="col"><input type="checkbox" aria-label="Select all rows"><\/th>/);
   assert.match(html, /<td class="col-check"><input type="checkbox" class="row-select" aria-label="Select Mara Delgado"><\/td>/);

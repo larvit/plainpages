@@ -30,8 +30,11 @@ shell offers no opt-out, per the simplicity priority in `AGENTS.md`.
 3. A page holding a region that filled the content column (`flex: 1 1 auto; min-height: 0` with its
    own `overflow`) no longer gets a bounded column to fill, so that region grows and the page scrolls.
    Either let it, or give the region its own height in the plugin's stylesheet.
-4. A `data-table` keeps working; its header no longer stays put while the rows scroll.
+4. A `data-table` no longer scrolls its rows in a bounded region: the page scrolls, and the header
+   scrolls with it.
 
+The sidebar stretches the whole document, so on a long page its footer — theme, language, profile and
+**Sign out** — sits at the end of that page rather than the bottom of the screen.
 
 ## 0.3.0
 
