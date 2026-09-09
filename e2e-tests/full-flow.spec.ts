@@ -205,7 +205,9 @@ test.describe.serial("authenticated admin journey", () => {
   // markup the shell does not own — so it is pinned here, on the reference plugin's own list, rather
   // than by asserting the class name the shell emits.
   test("plugin page: a filled page scrolls its table, not the document, and the header stays put", async () => {
-    await page.setViewportSize({ width: 1280, height: 300 });
+    // The region is the viewport less ~185px of chrome, so this leaves ~75px: enough that the 3-row
+    // fixture overflows it by half its height, and enough to hold the header a row scrolls under.
+    await page.setViewportSize({ width: 1280, height: 260 });
     await page.goto("/scheduling/shifts");
 
     const bounded = await page.evaluate(() => {
@@ -221,13 +223,19 @@ test.describe.serial("authenticated admin journey", () => {
     // Both halves, and both discriminating: miss a wrapper in the page's chain and the table grows
     // instead of scrolling, which pushes the frame past its own height.
     expect(bounded?.frameScrolls, "a filled page must fit its frame").toBe(false);
-    expect(bounded?.regionScrolls, "the table must be the thing that scrolls").toBe(true);
+    expect(bounded?.regionScrolls, "the fixture must overflow the region, or the rest proves nothing").toBe(true);
 
-    const headTop = async () => (await page.locator("thead th").first().boundingBox())?.y ?? -1;
+    const headTop = async () => {
+      const box = await page.locator("thead th").first().boundingBox();
+      expect(box, "the header must have a box to stay put").not.toBeNull();
+      return box?.y;
+    };
     const before = await headTop();
     await page.locator(".table-wrap").evaluate((el) => el.scrollTo(0, el.scrollHeight));
     await expect(page.locator("tbody tr").last()).toBeInViewport();
     expect(await headTop(), "the header sticks to a scrollport that moves").toBe(before);
+    // The journey shares one page; leaving it short would hand the next test a window it never chose.
+    await page.setViewportSize({ width: 1280, height: 800 });
   });
 
   test("plugin settings: the screen names the variable that sets each declared key", async () => {

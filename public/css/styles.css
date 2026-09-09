@@ -112,7 +112,6 @@ html:has(#theme-light:checked) {
 
 /* ---------- 2. RESET ---------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { min-height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text);
   -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; }
@@ -149,8 +148,7 @@ summary { list-style: none; cursor: pointer; }
 .ico-sm { width: 14px; height: 14px; }
 
 /* ---------- 3. APP GRID ------------------------------------- */
-/* Not a viewport-height box: the document scrolls, so a page is reachable below the fold without
-   bringing a scroll region of its own. `fill` opts out — see .app-fill (AGENTS.md → UI). */
+/* The document scrolls; `fill` opts out — see .app-fill (AGENTS.md → UI). */
 .app {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
@@ -695,7 +693,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
     background: rgba(0,0,0,.42);
   }
   .search { min-width: 150px; flex: 1 1 auto; }
-  /* The open nav is a fixed overlay: scrolling the page behind it moves what the scrim covers. */
+  /* The open nav is a fixed overlay: a reader scrolling would move what the scrim covers. */
   body:has(#nav-toggle:checked) { overflow: hidden; }
 }
 @media (max-width: 560px) {
@@ -730,16 +728,19 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .app-bare { grid-template-columns: minmax(0, 1fr); }
 .app-bare .content { grid-column: 1; }
 
-/* `fill: true` on the shell: the viewport is the page, and a region inside it scrolls instead of the
-   document. For a page whose whole point is a bounded frame — a board of full-height columns, a table
-   whose header must stay put. The height is the shell's to give: a page computing it would have to
-   know the topbar's own. What fills that height is the page's to say — `.scroll-region` below. */
+/* The shell's half of `fill: true` (AGENTS.md → UI). `auto`, not `hidden`: a page that misses a
+   wrapper in its own chain then scrolls here instead of losing the overflow. */
 .app-fill { height: 100dvh; overflow: auto; }
 .app-fill .content { min-height: 0; }
 
-/* Marks the one element that takes the leftover height and scrolls. Every ancestor between it and
-   `.content` has to be a flex column carrying this same pair, which is the page's own business —
-   `min-height: 0` is the half everyone forgets, since `auto` floors a flex item at its content. */
+/* The page's half: `min-height: 0` is the one everyone forgets, since `auto` floors a flex item at
+   its content. */
 .scroll-region { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+@media print {
+  /* A bounded frame prints as one sheet otherwise, losing everything the region scrolls past. */
+  .app-fill { height: auto; overflow: visible; }
+  .scroll-region { overflow: visible; }
+}
 /* Auth/landing rendered inside the app shell: a roomy, centered column in the content area. */
 .shell-auth { flex: 1 1 auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }

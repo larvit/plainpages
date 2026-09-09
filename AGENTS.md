@@ -293,10 +293,8 @@ Revisit only if the stated reason stops holding.
   takes that height with **`.scroll-region`** and carries the flex chain down to it, because only the
   page knows its own tree. The shell must never go looking through a page for a component it
   recognises — a rule keyed on `.table-wrap` works for a table the content slot holds directly and
-  silently clips one nested any deeper. `data-table` takes `scrollRegion: true` for exactly this, since
-  its wrapper is host markup a page cannot put the class on itself. The `visual.spec.ts` scroll test presses **End** rather than sending a
-  wheel event (Firefox's synthetic wheel does not reach the document) and rather than
-  `scrollIntoView`, which a script can apply to an overflow-hidden box that no reader can scroll.
+  silently clips one nested any deeper. `data-table` takes `scrollRegion: true` for
+  exactly this, since its wrapper is host markup a page cannot put the class on itself.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
   is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an

@@ -34,11 +34,13 @@ clip one nested any deeper. `data-table` takes `scrollRegion: true`, which puts 
 ### Upgrading a plugin
 
 1. Set `apiVersion: "0.4.0"`.
-2. A page that scrolled the whole window needs no change — it now scrolls the document.
+2. A page that scrolled the whole window needs no change — it now scrolls the document. A
+   `data-table` on it keeps working, but its header stops sticking; see step 4.
 3. A page holding a region that filled the content column passes `fill: true` to the shell, puts
    `.scroll-region` on that region, and makes every wrapper between it and the content slot a flex
    column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`). Miss a wrapper and
-   the region grows instead of scrolling, and `fill`'s bounded box clips it.
+   the region grows instead of scrolling, so the frame scrolls in its place — a second scrollbar is
+   the tell.
 4. A table whose header must stay put passes `scrollRegion: true` to `data-table` on such a page.
    `examples/plugins/scheduling` shows the whole chain on its shifts list.
 

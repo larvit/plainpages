@@ -52,13 +52,14 @@ for (const [name, path, tail] of [
       await expect(page.locator(".topbar")).toBeInViewport();
       if (width > 860) await expect(page.locator(".brand-name")).toBeInViewport();
 
-      // The open nav is a fixed overlay: the page must not slide out from under the scrim.
+      // The open nav is a fixed overlay, so a reader cannot scroll the page out from under the
+      // scrim. Focus can still move it, and stopping that needs script this page does not have.
       if (width <= 860) {
         await page.locator(".hamburger").click(); // the label is the control; the checkbox takes no pointer
         await expect(page.locator("#nav-toggle")).toBeChecked();
         const before = await page.evaluate(() => window.scrollY);
         await page.keyboard.press("Home");
-        expect(await page.evaluate(() => window.scrollY), "the page is locked while the nav is open").toBe(before);
+        expect(await page.evaluate(() => window.scrollY), "a key press cannot scroll the page while the nav is open").toBe(before);
       }
     });
   }
