@@ -57,9 +57,16 @@ for (const [name, path, tail] of [
       if (width <= 860) {
         await page.locator(".hamburger").click(); // the label is the control; the checkbox takes no pointer
         await expect(page.locator("#nav-toggle")).toBeChecked();
+        // The lock is one CSS rule, and whether a key press moves the page with the nav open turns
+        // out to differ by engine — so pin the rule itself, then the behaviour it buys.
+        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
+        // Both directions: opening the nav may leave the page at either end, and a key press toward
+        // the end it already sits at cannot move it whether the lock holds or not.
         const before = await page.evaluate(() => window.scrollY);
-        await page.keyboard.press("Home");
-        expect(await page.evaluate(() => window.scrollY), "a key press cannot scroll the page while the nav is open").toBe(before);
+        for (const key of ["End", "Home"]) {
+          await page.keyboard.press(key);
+          expect(await page.evaluate(() => window.scrollY), key + " cannot scroll the page while the nav is open").toBe(before);
+        }
       }
     });
   }

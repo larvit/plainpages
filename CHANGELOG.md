@@ -39,8 +39,8 @@ clip one nested any deeper. `data-table` takes `scrollRegion: true`, which puts 
 3. A page holding a region that filled the content column passes `fill: true` to the shell, puts
    `.scroll-region` on that region, and makes every wrapper between it and the content slot a flex
    column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`). Miss a wrapper and
-   the region grows instead of scrolling, so the frame scrolls in its place — a second scrollbar is
-   the tell.
+   the region grows instead of scrolling, so the frame scrolls in its place — the scrollbar moving off
+   the region onto the whole content column is the tell.
 4. A table whose header must stay put passes `scrollRegion: true` to `data-table` on such a page.
    `examples/plugins/scheduling` shows the whole chain on its shifts list.
 

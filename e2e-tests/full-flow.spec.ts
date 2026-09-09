@@ -207,6 +207,7 @@ test.describe.serial("authenticated admin journey", () => {
   test("plugin page: a filled page scrolls its table, not the document, and the header stays put", async () => {
     // The region is the viewport less ~185px of chrome, so this leaves ~75px: enough that the 3-row
     // fixture overflows it by half its height, and enough to hold the header a row scrolls under.
+    const original = page.viewportSize();
     await page.setViewportSize({ width: 1280, height: 260 });
     await page.goto("/scheduling/shifts");
 
@@ -235,7 +236,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("tbody tr").last()).toBeInViewport();
     expect(await headTop(), "the header sticks to a scrollport that moves").toBe(before);
     // The journey shares one page; leaving it short would hand the next test a window it never chose.
-    await page.setViewportSize({ width: 1280, height: 800 });
+    if (original) await page.setViewportSize(original);
   });
 
   test("plugin settings: the screen names the variable that sets each declared key", async () => {
