@@ -201,6 +201,34 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("table")).not.toContainText("Morning — Front desk");
   });
 
+  // `fill: true` is a contract addition whose whole behaviour is CSS, and whose effect depends on
+  // markup the shell does not own — so it is pinned here, on the reference plugin's own list, rather
+  // than by asserting the class name the shell emits.
+  test("plugin page: a filled page scrolls its table, not the document, and the header stays put", async () => {
+    await page.setViewportSize({ width: 1280, height: 300 });
+    await page.goto("/scheduling/shifts");
+
+    const bounded = await page.evaluate(() => {
+      const wrap = document.querySelector(".table-wrap");
+      if (!(wrap instanceof HTMLElement)) return null;
+      return {
+        documentScrolls: document.documentElement.scrollHeight > window.innerHeight,
+        regionScrolls: wrap.scrollHeight > wrap.clientHeight,
+      };
+    });
+    expect(bounded, ".table-wrap must render").not.toBeNull();
+    // Both halves: the shell bounds the column, and the page's chain hands that height to the table.
+    // Miss a wrapper and the region grows instead, which is what the bounded box would then clip.
+    expect(bounded?.documentScrolls, "the document must not scroll on a filled page").toBe(false);
+    expect(bounded?.regionScrolls, "the table must be the thing that scrolls").toBe(true);
+
+    const headTop = async () => (await page.locator("thead th").first().boundingBox())?.y ?? -1;
+    const before = await headTop();
+    await page.locator(".table-wrap").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(page.locator("tbody tr").last()).toBeInViewport();
+    expect(await headTop(), "the header sticks to a scrollport that moves").toBe(before);
+  });
+
   test("plugin settings: the screen names the variable that sets each declared key", async () => {
     await page.goto("/admin/plugin-settings");
     await expect(page.locator("h1")).toHaveText("Plugin settings");

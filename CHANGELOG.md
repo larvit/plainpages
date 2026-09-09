@@ -19,22 +19,28 @@ Now the shell is `min-height: 100dvh` and the document scrolls. The sidebar is `
 full height and the topbar sticks with it, so both stay put as the page flows. Keyboard paging, back/
 forward scroll restoration and find-in-page work without a page doing anything.
 
-### A bounded frame is `fill: true`
+### A bounded frame is `fill: true`, and the page says what fills it
 
 A page whose whole point is a frame — a board of full-height columns, a table whose header must stay
 put — passes `fill: true` to the shell. `.app-fill` restores the previous model: the viewport is the
-page, and a region inside it scrolls. `data-table`'s sticky `thead` needs it, since a header sticks
-only to a scrollport that moves.
+page, and a region inside it scrolls.
 
-The height is the shell's to give: a page computing it would have to know the topbar's own height.
+The two halves are split on purpose. The shell bounds the content column, because the height is the
+shell's to give and a page computing it would have to know the topbar's own. The page marks the
+element that takes that height with `.scroll-region`, because only the page knows its own tree — a
+host rule keyed on a component would work for a table held directly by the content slot and silently
+clip one nested any deeper. `data-table` takes `fills: true`, which puts the class on its own wrapper.
 
 ### Upgrading a plugin
 
 1. Set `apiVersion: "0.4.0"`.
 2. A page that scrolled the whole window needs no change — it now scrolls the document.
-3. A page holding a region that filled the content column (`flex: 1 1 auto; min-height: 0` with its
-   own `overflow`) passes `fill: true` to the shell; the region then works as before.
-4. A table whose header must stay put needs `fill: true` on that page.
+3. A page holding a region that filled the content column passes `fill: true` to the shell, puts
+   `.scroll-region` on that region, and makes every wrapper between it and the content slot a flex
+   column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`). Miss a wrapper and
+   the region grows instead of scrolling, and `fill`'s bounded box clips it.
+4. A table whose header must stay put passes `fills: true` to `data-table` on such a page.
+   `examples/plugins/scheduling` shows the whole chain on its shifts list.
 
 ## 0.3.0
 

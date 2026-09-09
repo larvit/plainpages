@@ -733,9 +733,13 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 /* `fill: true` on the shell: the viewport is the page, and a region inside it scrolls instead of the
    document. For a page whose whole point is a bounded frame — a board of full-height columns, a table
    whose header must stay put. The height is the shell's to give: a page computing it would have to
-   know the topbar's own. */
+   know the topbar's own. What fills that height is the page's to say — `.scroll-region` below. */
 .app-fill { height: 100dvh; overflow: hidden; }
 .app-fill .content { min-height: 0; }
-.app-fill .table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Marks the one element that takes the leftover height and scrolls. Every ancestor between it and
+   `.content` has to be a flex column carrying this same pair, which is the page's own business —
+   `min-height: 0` is the half everyone forgets, since `auto` floors a flex item at its content. */
+.scroll-region { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* Auth/landing rendered inside the app shell: a roomy, centered column in the content area. */
 .shell-auth { flex: 1 1 auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }

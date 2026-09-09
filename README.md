@@ -934,10 +934,15 @@ anonymous visitor. The sidebar collapses to a burger on a narrow screen; a page 
 chrome-free layout opts out with the shell's `menu: false`.
 
 **The document scrolls.** The sidebar and topbar stay put on their own, and a page is reachable
-below the fold without adding a scroll region of its own. A page that is a bounded frame instead — a
-board of full-height columns, a table whose header must stay put — passes **`fill: true`** to the
-shell: the viewport becomes the page, and a region inside it scrolls. `data-table`'s sticky header
-needs it, since a header can only stick to a scrollport that moves.
+below the fold without adding a scroll region of its own.
+
+A page that is a bounded frame instead — a board of full-height columns, a table whose header must
+stay put — passes **`fill: true`** to the shell, which bounds the content column. The page then says
+what fills it: put **`.scroll-region`** on that element, and make every wrapper between it and the
+content slot a flex column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`).
+A `data-table` takes `fills: true`, which puts the class on its own wrapper — its sticky header needs
+it, since a header only sticks to a scrollport that moves. `examples/plugins/scheduling` shows the
+whole chain on its shifts list.
 
 ## Building blocks
 

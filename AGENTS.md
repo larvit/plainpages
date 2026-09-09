@@ -282,16 +282,19 @@ Revisit only if the stated reason stops holding.
   `min-height: 100dvh`, not a `100dvh` box with `overflow: hidden`: the sidebar is `position: sticky`
   at full height and the topbar sticks with it, so the nav stays reachable — on a narrow screen the
   hamburger is the only way into it, and with no script a long page would otherwise strand the reader.
-  Three things only the document scroller gets: **keyboard paging** unconditionally (Space, PgDn and
+Two things only the document scroller gets: **keyboard paging** unconditionally (Space, PgDn and
   End reach a bounded region only once focus is inside it, which without script needs a focusable
-  descendant), **scroll restoration** on back/forward, and find-in-page. The inverse default clipped a
-  page silently in every engine — nothing in a test or a console says content is unreachable below the
-  fold.
+  descendant) and **scroll restoration** on back/forward. The inverse default clipped a page silently
+  in every engine — nothing in a test or a console says content is unreachable below the fold.
   A page that is a bounded frame — a board of full-height columns, a table whose header must stay put
-  — sets **`fill: true`** on the shell and scrolls a region inside `.app-fill` instead. The height is
-  the shell's to give, not the page's to compute: a page deriving it would have to know the topbar's
-  own height, which is a reach-through, so `.table-wrap` is `overflow-x: auto` and takes its vertical
-  scroll from `.app-fill`. The `visual.spec.ts` scroll test presses **End** rather than sending a
+  — sets **`fill: true`** on the shell and scrolls a region inside `.app-fill` instead. **The split is
+  the seam:** the shell bounds the content column and stops, because the height is the shell's to give
+  and a page deriving it would have to know the topbar's own; the page marks the one element that
+  takes that height with **`.scroll-region`** and carries the flex chain down to it, because only the
+  page knows its own tree. The shell must never go looking through a page for a component it
+  recognises — a rule keyed on `.table-wrap` works for a table the content slot holds directly and
+  silently clips one nested any deeper. `data-table` takes `fills: true` for exactly this, since its
+  wrapper is host markup a page cannot put a class on. The `visual.spec.ts` scroll test presses **End** rather than sending a
   wheel event (Firefox's synthetic wheel does not reach the document) and rather than
   `scrollIntoView`, which a script can apply to an overflow-hidden box that no reader can scroll.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it

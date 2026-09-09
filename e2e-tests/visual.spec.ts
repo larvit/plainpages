@@ -51,6 +51,15 @@ for (const [name, path, tail] of [
       // hamburger in the topbar is the only way back into the nav.
       await expect(page.locator(".topbar")).toBeInViewport();
       if (width > 860) await expect(page.locator(".brand-name")).toBeInViewport();
+
+      // The open nav is a fixed overlay: the page must not slide out from under the scrim.
+      if (width <= 860) {
+        await page.locator(".hamburger").click(); // the label is the control; the checkbox takes no pointer
+        await expect(page.locator("#nav-toggle")).toBeChecked();
+        const before = await page.evaluate(() => window.scrollY);
+        await page.keyboard.press("Home");
+        expect(await page.evaluate(() => window.scrollY), "the page is locked while the nav is open").toBe(before);
+      }
     });
   }
 }

@@ -100,9 +100,10 @@ test("app shell can disable the menu: no sidebar, focused single-column layout",
   assert.match(bare, /<section id="b">x<\/section>/);
 });
 
-test("app shell: fill:true bounds the viewport, for a page whose own region scrolls", async () => {
+test("app shell: fill is opt-in and composes with menu:false; what the class does is pinned in e2e", async () => {
   // The opt-out from document scrolling is the shell's to give — a page cannot derive the height
-  // without knowing the topbar's own (AGENTS.md → UI).
+  // without knowing the topbar's own (AGENTS.md → UI). Its effect depends on the page's own flex
+  // chain, so full-flow holds that; this holds only that nothing opts a page in by accident.
   const filled = await render({ fill: true, title: "Board", body: "<div>x</div>", nav: "" });
   assert.match(filled, /<div class="app app-fill">/);
   const bothOff = await render({ fill: true, menu: false, title: "Board", body: "<div>x</div>", nav: "" });
