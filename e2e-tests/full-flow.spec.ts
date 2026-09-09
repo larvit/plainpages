@@ -210,16 +210,17 @@ test.describe.serial("authenticated admin journey", () => {
 
     const bounded = await page.evaluate(() => {
       const wrap = document.querySelector(".table-wrap");
-      if (!(wrap instanceof HTMLElement)) return null;
+      const frame = document.querySelector(".app-fill");
+      if (!(wrap instanceof HTMLElement) || !(frame instanceof HTMLElement)) return null;
       return {
-        documentScrolls: document.documentElement.scrollHeight > window.innerHeight,
+        frameScrolls: frame.scrollHeight > frame.clientHeight,
         regionScrolls: wrap.scrollHeight > wrap.clientHeight,
       };
     });
-    expect(bounded, ".table-wrap must render").not.toBeNull();
-    // Both halves: the shell bounds the column, and the page's chain hands that height to the table.
-    // Miss a wrapper and the region grows instead, which is what the bounded box would then clip.
-    expect(bounded?.documentScrolls, "the document must not scroll on a filled page").toBe(false);
+    expect(bounded, ".table-wrap and .app-fill must render").not.toBeNull();
+    // Both halves, and both discriminating: miss a wrapper in the page's chain and the table grows
+    // instead of scrolling, which pushes the frame past its own height.
+    expect(bounded?.frameScrolls, "a filled page must fit its frame").toBe(false);
     expect(bounded?.regionScrolls, "the table must be the thing that scrolls").toBe(true);
 
     const headTop = async () => (await page.locator("thead th").first().boundingBox())?.y ?? -1;

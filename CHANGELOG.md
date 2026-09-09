@@ -16,8 +16,8 @@ own wrapper was a flex child with `overflow-y: auto`. `.table-wrap` and `.shell-
 else was, and a long page in `.form-page` clipped everything past the window in every engine.
 
 Now the shell is `min-height: 100dvh` and the document scrolls. The sidebar is `position: sticky` at
-full height and the topbar sticks with it, so both stay put as the page flows. Keyboard paging, back/
-forward scroll restoration and find-in-page work without a page doing anything.
+full height and the topbar sticks with it, so both stay put as the page flows. Keyboard paging and
+back/forward scroll restoration work without a page doing anything.
 
 ### A bounded frame is `fill: true`, and the page says what fills it
 
@@ -29,7 +29,7 @@ The two halves are split on purpose. The shell bounds the content column, becaus
 shell's to give and a page computing it would have to know the topbar's own. The page marks the
 element that takes that height with `.scroll-region`, because only the page knows its own tree — a
 host rule keyed on a component would work for a table held directly by the content slot and silently
-clip one nested any deeper. `data-table` takes `fills: true`, which puts the class on its own wrapper.
+clip one nested any deeper. `data-table` takes `scrollRegion: true`, which puts the class on its own wrapper.
 
 ### Upgrading a plugin
 
@@ -39,7 +39,7 @@ clip one nested any deeper. `data-table` takes `fills: true`, which puts the cla
    `.scroll-region` on that region, and makes every wrapper between it and the content slot a flex
    column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`). Miss a wrapper and
    the region grows instead of scrolling, and `fill`'s bounded box clips it.
-4. A table whose header must stay put passes `fills: true` to `data-table` on such a page.
+4. A table whose header must stay put passes `scrollRegion: true` to `data-table` on such a page.
    `examples/plugins/scheduling` shows the whole chain on its shifts list.
 
 ## 0.3.0

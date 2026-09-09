@@ -734,7 +734,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
    document. For a page whose whole point is a bounded frame — a board of full-height columns, a table
    whose header must stay put. The height is the shell's to give: a page computing it would have to
    know the topbar's own. What fills that height is the page's to say — `.scroll-region` below. */
-.app-fill { height: 100dvh; overflow: hidden; }
+.app-fill { height: 100dvh; overflow: auto; }
 .app-fill .content { min-height: 0; }
 
 /* Marks the one element that takes the leftover height and scrolls. Every ancestor between it and

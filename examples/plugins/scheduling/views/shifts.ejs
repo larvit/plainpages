@@ -7,7 +7,7 @@
 %><%
   const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
   const filtersHtml = include("partials/filter-bar", filterBar);
-  const tableHtml = include("partials/data-table", { ...table, fills: true });
+  const tableHtml = include("partials/data-table", { ...table, scrollRegion: true });
   const alertHtml = locals.error ? include("partials/alert", { text: locals.error, tone: "neg" }) : "";
   const actions = canWrite
     ? '<a class="btn btn-primary" href="' + localeHref(newHref) + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>' + t("scheduling.shifts.new") + '</a>'

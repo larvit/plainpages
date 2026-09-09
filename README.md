@@ -940,7 +940,7 @@ A page that is a bounded frame instead — a board of full-height columns, a tab
 stay put — passes **`fill: true`** to the shell, which bounds the content column. The page then says
 what fills it: put **`.scroll-region`** on that element, and make every wrapper between it and the
 content slot a flex column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`).
-A `data-table` takes `fills: true`, which puts the class on its own wrapper — its sticky header needs
+A `data-table` takes `scrollRegion: true`, which puts the class on its own wrapper — its sticky header needs
 it, since a header only sticks to a scrollport that moves. `examples/plugins/scheduling` shows the
 whole chain on its shifts list.
 
