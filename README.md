@@ -933,16 +933,10 @@ recovery / front pages — so it looks identical signed in or out and just shows
 anonymous visitor. The sidebar collapses to a burger on a narrow screen; a page wanting a
 chrome-free layout opts out with the shell's `menu: false`.
 
-**The document scrolls.** The sidebar and topbar stay put on their own, and a page is reachable
-below the fold without adding a scroll region of its own.
-
-A page that is a bounded frame instead — a board of full-height columns, a table whose header must
-stay put — passes **`fill: true`** to the shell, which bounds the content column. The page then says
-what fills it: put **`.scroll-region`** on that element, and make every wrapper between it and the
-content slot a flex column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`).
-A `data-table` takes `scrollRegion: true`, which puts the class on its own wrapper — its sticky header needs
-it, since a header only sticks to a scrollport that moves. `examples/plugins/scheduling` shows the
-whole chain on its shifts list.
+**The document scrolls, and the chrome scrolls with it.** Nothing bounds the viewport, so a page is
+reachable below the fold without adding a scroll region of its own, and browser paging, scroll
+restoration and find-in-page work without a page doing anything. A plugin that wants a full-height
+pane owns that in its own stylesheet.
 
 ## Building blocks
 

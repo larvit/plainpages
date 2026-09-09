@@ -7,7 +7,7 @@
 %><%
   const navHtml = include("partials/nav-tree", { nodes: chrome.nav });
   const filtersHtml = include("partials/filter-bar", filterBar);
-  const tableHtml = include("partials/data-table", { ...table, scrollRegion: true });
+  const tableHtml = include("partials/data-table", table);
   const alertHtml = locals.error ? include("partials/alert", { text: locals.error, tone: "neg" }) : "";
   const actions = canWrite
     ? '<a class="btn btn-primary" href="' + localeHref(newHref) + '"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg>' + t("scheduling.shifts.new") + '</a>'
@@ -16,7 +16,6 @@
 <%- include("partials/shell", {
   actions,
   body: '<div class="scheduling-page">' + alertHtml + filtersHtml + '<p class="shift-count">' + count + '</p>' + tableHtml + '</div>',
-  fill: true, // a long list scrolls under its own header rather than taking the page with it
   brand: chrome.brand,
   breadcrumbs,
   csrfToken: chrome.csrfToken,

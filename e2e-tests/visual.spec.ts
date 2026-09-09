@@ -35,7 +35,7 @@ for (const [name, path, tail] of [
   ["the public landing", "/", ".landing-actions .btn"],
 ] as const) {
   for (const width of [1280, 390]) {
-    test(`${name} scrolls to its end at ${width}px wide, and the chrome stays put`, async ({ page }) => {
+    test(`${name} scrolls to its end at ${width}px wide`, async ({ page }) => {
       await page.setViewportSize({ width, height: 200 });
       await page.goto(path);
 
@@ -44,27 +44,6 @@ for (const [name, path, tail] of [
       await page.keyboard.press("End");
       // Whole, not merely touched: a control half under the fold is not reachable either.
       await expect(page.locator(tail).last()).toBeInViewport({ ratio: 1 });
-      // The sticky pair is the whole reason the document may scroll: on a narrow screen the
-      // hamburger in the topbar is the only way back into the nav.
-      await expect(page.locator(".topbar")).toBeInViewport();
-      if (width > 860) await expect(page.locator(".brand-name")).toBeInViewport();
-
-      // The open nav is a fixed overlay, so a reader cannot scroll the page out from under the
-      // scrim. Focus can still move it, and stopping that needs script this page does not have.
-      if (width <= 860) {
-        await page.locator(".hamburger").click(); // the label is the control; the checkbox takes no pointer
-        await expect(page.locator("#nav-toggle")).toBeChecked();
-        // The lock is one CSS rule, and whether a key press moves the page with the nav open turns
-        // out to differ by engine — so pin the rule itself, then the behaviour it buys.
-        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
-        // Both directions: opening the nav may leave the page at either end, and a key press toward
-        // the end it already sits at cannot move it whether the lock holds or not.
-        const before = await page.evaluate(() => window.scrollY);
-        for (const key of ["End", "Home"]) {
-          await page.keyboard.press(key);
-          expect(await page.evaluate(() => window.scrollY), key + " cannot scroll the page while the nav is open").toBe(before);
-        }
-      }
     });
   }
 }

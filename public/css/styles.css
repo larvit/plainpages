@@ -57,7 +57,6 @@
   /* layout + density (compact) */
   --radius: 5px;
   --nav-w: 264px;
-  --topbar-h: 48px;
   --row-h: 34px;
   --pad-x: 12px;
   --fz: 13px;
@@ -148,7 +147,6 @@ summary { list-style: none; cursor: pointer; }
 .ico-sm { width: 14px; height: 14px; }
 
 /* ---------- 3. APP GRID ------------------------------------- */
-/* The document scrolls; `fill` opts out — see .app-fill (AGENTS.md → UI). */
 .app {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
@@ -158,7 +156,6 @@ summary { list-style: none; cursor: pointer; }
 /* ---------- 4. SIDEBAR -------------------------------------- */
 .sidebar {
   grid-column: 1;
-  position: sticky; top: 0; height: 100dvh; align-self: start;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -166,7 +163,7 @@ summary { list-style: none; cursor: pointer; }
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
-  height: var(--topbar-h); padding: 0 14px; flex: 0 0 auto;
+  height: 48px; padding: 0 14px; flex: 0 0 auto;
   border-bottom: 1px solid var(--border);
 }
 .brand-mark {
@@ -337,14 +334,12 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 
 /* topbar (page title + hamburger on mobile) */
 .topbar {
-  position: sticky; top: 0; z-index: 20;
-  flex: 0 0 auto; height: var(--topbar-h);
+  flex: 0 0 auto; height: 48px;
   display: flex; align-items: center; gap: 12px;
   padding: 0 16px; border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .hamburger { display: none; }   /* shown only on narrow */
-.content :target, .content :focus-visible { scroll-margin-top: var(--topbar-h); }
 .page-title { margin: 0; font-weight: 600; letter-spacing: -.01em; font-size: 14px; }
 .page-sub { color: var(--text-faint); font-size: var(--fz-sm); }
 .topbar-spacer { flex: 1 1 auto; }
@@ -562,13 +557,12 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 
 /* ---------- 9. TABLE --------------------------------------- */
 /* A bounded region is opt-in: give this a height and the header below stays put inside it. */
-.table-wrap { overflow: auto; }
+.table-wrap { overflow-x: auto; }
 table.table {
   width: 100%; border-collapse: separate; border-spacing: 0;
   font-size: var(--fz); font-variant-numeric: tabular-nums;
 }
 .table thead th {
-  position: sticky; top: 0; z-index: 10;
   background: var(--surface-3);
   border-bottom: 1px solid var(--border-2);
   color: var(--text-muted); font-weight: 600; font-size: var(--fz-xs);
@@ -693,8 +687,6 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
     background: rgba(0,0,0,.42);
   }
   .search { min-width: 150px; flex: 1 1 auto; }
-  /* The open nav is a fixed overlay: a reader scrolling would move what the scrim covers. */
-  body:has(#nav-toggle:checked) { overflow: hidden; }
 }
 @media (max-width: 560px) {
   .crumbs, .page-sub { display: none; }
@@ -728,19 +720,5 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .app-bare { grid-template-columns: minmax(0, 1fr); }
 .app-bare .content { grid-column: 1; }
 
-/* The shell's half of `fill: true` (AGENTS.md → UI). `auto`, not `hidden`: a page that misses a
-   wrapper in its own chain then scrolls here instead of losing the overflow. */
-.app-fill { height: 100dvh; overflow: auto; }
-.app-fill .content { min-height: 0; }
-
-/* The page's half: `min-height: 0` is the one everyone forgets, since `auto` floors a flex item at
-   its content. */
-.scroll-region { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-
-@media print {
-  /* A bounded frame prints as one sheet otherwise, losing everything the region scrolls past. */
-  .app-fill { height: auto; overflow: visible; }
-  .scroll-region { overflow: visible; }
-}
 /* Auth/landing rendered inside the app shell: a roomy, centered column in the content area. */
 .shell-auth { flex: 1 1 auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 80px; }

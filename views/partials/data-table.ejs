@@ -5,9 +5,6 @@
     caption?, selectable?, actions?       sr-only caption; toggle the check / kebab columns
     actionsId?                            id stem for the row-action menus (default `row-actions`);
                                           name it when two tables share a page
-    scrollRegion?                         take the leftover height and scroll, so the header stays
-                                          put — needs the shell's `fill: true` and a flex chain
-                                          above (README → The menu system)
     columns: { label, sortable?, sort?: "asc"|"desc", href?, className? }[]
     rows:    { name?, cells: Cell[], actions?: Action[] }[]
   Cell ∈ string | { text, className? } | { user:{name,initials} } | { rowHeader:{text,href?} } | { badge:{tone,label} } | { html, className? }
@@ -23,9 +20,8 @@
   const rows = locals.rows || [];
   const emptyText = locals.emptyText || t("table.empty"); // shown when a table that has columns has no rows
   const actionsId = locals.actionsId || "row-actions";
-  const scrollRegion = locals.scrollRegion === true;
 -%>
-<div class="table-wrap<%= scrollRegion ? " scroll-region" : "" %>">
+<div class="table-wrap">
   <table class="table">
 <% if (caption) { -%>
     <caption class="sr-only"><%= caption %></caption>

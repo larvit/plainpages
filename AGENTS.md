@@ -36,6 +36,12 @@ branch, create a PR and merge it when the CI/CD turns green.
 ## Project priorities (do not erode)
 
 1. **Simplicity** — prefer the solution that is easiest to understand, smallest, and most readable.
+   **A page is a document**: it scrolls, and the chrome scrolls with it. Bounding the viewport to
+   hold something still — a `100dvh` box, `position: sticky`/`fixed` chrome, `overflow: hidden` on
+   `body` — buys an app-like look with CSS the next reader has to reverse-engineer, and every such
+   box is one more thing to undo before the content under it can be reached. Sticky headers and
+   full-height panes do not earn that. The mobile off-canvas nav is the one exception, because an
+   overlay has no other spelling.
 2. **Few dependencies** — runtime deps stay minimal (today `ejs`, `lucide-static`, `@larvit/log`,
    `postgres`). Prefer the Node standard library; justify any new dependency; do not add frameworks.
    The **host is stateless — it owns no schema and stores nothing of its own**; a plugin may own a
@@ -278,23 +284,14 @@ Revisit only if the stated reason stops holding.
   it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
   profile menu (its trigger composes escaped user values and its one item is a CSRF POST form) — keep
   the two in step.
-- **The document scrolls; a bounded frame is `fill: true` on the shell.** `.app` is
-  `min-height: 100dvh`, not a `100dvh` box with `overflow: hidden`: the sidebar is `position: sticky`
-  at full height and the topbar sticks with it, so the nav stays reachable — on a narrow screen the
-  hamburger is the only way into it, and with no script a long page would otherwise strand the reader.
-  Two things only the document scroller gets: **keyboard paging** unconditionally (Space, PgDn and
-  End reach a bounded region only once focus is inside it, which without script needs a focusable
-  descendant) and **scroll restoration** on back/forward. The inverse default clipped a page silently
-  in every engine — nothing in a test or a console says content is unreachable below the fold.
-  A page that is a bounded frame — a board of full-height columns, a table whose header must stay put
-  — sets **`fill: true`** on the shell and scrolls a region inside `.app-fill` instead. **The split is
-  the seam:** the shell bounds the content column and stops, because the height is the shell's to give
-  and a page deriving it would have to know the topbar's own; the page marks the one element that
-  takes that height with **`.scroll-region`** and carries the flex chain down to it, because only the
-  page knows its own tree. The shell must never go looking through a page for a component it
-  recognises — a rule keyed on `.table-wrap` works for a table the content slot holds directly and
-  silently clips one nested any deeper. `data-table` takes `scrollRegion: true` for
-  exactly this, since its wrapper is host markup a page cannot put the class on itself.
+- **Nothing bounds the viewport, so there is one scroller: the document.** `.app` is
+  `min-height: 100dvh`, never a `100dvh` box with `overflow: hidden`. It was the latter once, and a
+  page taller than the window lost everything past it — silently, in every engine, because nothing in
+  a test or a console says content is unreachable below the fold. Only the document scroller gets
+  **keyboard paging** unconditionally and **scroll restoration** on back/forward; a bounded region
+  gets keys only once focus is inside it, which without script needs a focusable descendant.
+  A plugin that wants a full-height pane owns that in its own stylesheet — the shell offers no opt-out
+  and no `.table thead` stickiness, per priority 1.
 - **`ICON_NAMES` (`src/ui/icons.ts`) is a host-owned registry, not a frozen plugin contract**, so it
   is deliberately not re-exported from `@plainpages/plugin-api`. The palette may narrow when the last reference
   to an id goes, and a plugin needing one gets it re-registered in the same change. Accepted cost: an

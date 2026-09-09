@@ -9,40 +9,29 @@ at boot. Entries start at 0.3.0.
 **Breaking.** Set `apiVersion: "0.4.0"`. The app shell no longer bounds the content column, so a page
 that relied on filling it scrolls the document instead.
 
-### The document scrolls
+### The document scrolls, and the chrome scrolls with it
 
 `.app` was a `100dvh` box with `overflow: hidden`, so a page was only reachable below the fold if its
 own wrapper was a flex child with `overflow-y: auto`. `.table-wrap` and `.shell-auth` were; nothing
 else was, and a long page in `.form-page` clipped everything past the window in every engine.
 
-Now the shell is `min-height: 100dvh` and the document scrolls. The sidebar is `position: sticky` at
-full height and the topbar sticks with it, so both stay put as the page flows. Keyboard paging and
-back/forward scroll restoration work without a page doing anything.
+Now the shell is `min-height: 100dvh` and nothing bounds the viewport. The sidebar and topbar scroll
+with the page, and keyboard paging, back/forward scroll restoration and find-in-page work without a
+page doing anything.
 
-### A bounded frame is `fill: true`, and the page says what fills it
-
-A page whose whole point is a frame — a board of full-height columns, a table whose header must stay
-put — passes `fill: true` to the shell. `.app-fill` restores the previous model: the viewport is the
-page, and a region inside it scrolls.
-
-The two halves are split on purpose. The shell bounds the content column, because the height is the
-shell's to give and a page computing it would have to know the topbar's own. The page marks the
-element that takes that height with `.scroll-region`, because only the page knows its own tree — a
-host rule keyed on a component would work for a table held directly by the content slot and silently
-clip one nested any deeper. `data-table` takes `scrollRegion: true`, which puts the class on its own wrapper.
+The sticky `thead` on `data-table` goes with it: a header only sticks to a scrollport that moves, and
+there is no longer one. A plugin that wants a full-height pane owns that in its own stylesheet; the
+shell offers no opt-out, per the simplicity priority in `AGENTS.md`.
 
 ### Upgrading a plugin
 
 1. Set `apiVersion: "0.4.0"`.
-2. A page that scrolled the whole window needs no change — it now scrolls the document. A
-   `data-table` on it keeps working, but its header stops sticking; see step 4.
-3. A page holding a region that filled the content column passes `fill: true` to the shell, puts
-   `.scroll-region` on that region, and makes every wrapper between it and the content slot a flex
-   column (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`). Miss a wrapper and
-   the region grows instead of scrolling, so the frame scrolls in its place — the scrollbar moving off
-   the region onto the whole content column is the tell.
-4. A table whose header must stay put passes `scrollRegion: true` to `data-table` on such a page.
-   `examples/plugins/scheduling` shows the whole chain on its shifts list.
+2. A page that scrolled the whole window needs no change — it now scrolls the document.
+3. A page holding a region that filled the content column (`flex: 1 1 auto; min-height: 0` with its
+   own `overflow`) no longer gets a bounded column to fill, so that region grows and the page scrolls.
+   Either let it, or give the region its own height in the plugin's stylesheet.
+4. A `data-table` keeps working; its header no longer stays put while the rows scroll.
+
 
 ## 0.3.0
 

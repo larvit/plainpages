@@ -95,18 +95,8 @@ test("app shell can disable the menu: no sidebar, focused single-column layout",
   assert.doesNotMatch(bare, /<aside class="sidebar"/); // sidebar dropped
   assert.doesNotMatch(bare, /class="hamburger"/); // and its mobile toggle
   assert.match(bare, /<div class="app app-bare">/); // single-column variant
-  assert.doesNotMatch(bare, /app-fill/); // the document scrolls unless a page says otherwise
   assert.match(bare, /<main class="content" id="main-content"/); // content still renders
   assert.match(bare, /<section id="b">x<\/section>/);
-});
-
-test("app shell: fill is opt-in and composes with menu:false; what the class does is pinned in e2e", async () => {
-  // What the class does depends on the page's own flex chain (AGENTS.md → UI), so full-flow holds
-  // that; this holds only that nothing opts a page in by accident.
-  const filled = await render({ fill: true, title: "Board", body: "<div>x</div>", nav: "" });
-  assert.match(filled, /<div class="app app-fill">/);
-  const bothOff = await render({ fill: true, menu: false, title: "Board", body: "<div>x</div>", nav: "" });
-  assert.match(bothOff, /<div class="app app-bare app-fill">/);
 });
 
 test("app shell: an empty title yields no topbar <h1> so the body owns the single heading; docTitle sets <title>", async () => {

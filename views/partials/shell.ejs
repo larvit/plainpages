@@ -9,16 +9,13 @@
   (the <title> tag; defaults to title or the brand), `brand` ({ name, logo?, sub? }), `theme`
   (theme-switch default), `user`, `breadcrumbs`, `csrfToken` (the Sign-out form's hidden field),
   `signInHref` (anonymous "Sign in" target; default /login). `menu` (default true) — set false to
-  drop the sidebar and render a focused single-column page. `fill` (default false) — set true when the
-  page is a bounded frame whose own region scrolls (a board, a table with a fixed header) rather than
-  the document. `t`, `locale`, `dir` and `localeSwitch`
+  drop the sidebar and render a focused single-column page. `t`, `locale`, `dir` and `localeSwitch`
   come from the host with every render (README → Languages).
 %><%
   const brand = locals.brand || { name: "Plainpages" };
   const title = locals.title || ""; // topbar heading; empty ⇒ no topbar <h1> (the body owns it)
   const docTitle = locals.docTitle || title || brand.name;
   const menu = locals.menu !== false; // sidebar shown by default; a page may opt out
-  const fill = locals.fill === true; // the document scrolls unless a page says it owns the viewport
   const hideSignIn = locals.hideSignIn === true; // the auth pages are already a way in — no footer Sign-in there
   const user = locals.user || { name: "Guest", initials: "G", email: "" };
   const breadcrumbs = locals.breadcrumbs || [];
@@ -44,7 +41,7 @@
     <input type="checkbox" id="nav-toggle" aria-hidden="true" tabindex="-1" />
     <% } %>
 
-    <div class="app<%= menu ? "" : " app-bare" %><%= fill ? " app-fill" : "" %>">
+    <div class="app<%= menu ? "" : " app-bare" %>">
       <% if (menu) { %>
       <aside class="sidebar" aria-label="<%= t("shell.sidebar") %>">
         <div class="brand">

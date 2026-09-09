@@ -4,12 +4,3 @@
 .scheduling-page .table-wrap {
   margin-top: var(--space-3, 0.75rem);
 }
-
-/* The chain the shell cannot supply: `fill` bounds the content column, and every wrapper between it
-   and the table's own `.scroll-region` has to pass that height down. */
-.app-fill .scheduling-page {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-}
