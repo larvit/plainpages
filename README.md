@@ -961,6 +961,16 @@ underneath it — cramped, but nothing is unreachable. List state
 (`?q=…&status=…&sort=…&page=…`) lives **in the URL**, so a view is bookmarkable and shareable; the
 URL is the only state the UI keeps.
 
+**A field whose options depend on another field is asked for in steps, one GET form each**, so every
+choice is in the URL, and nothing typed is lost to one because nothing is typed until they are made.
+Once the query names a value, that field renders read-only (`field` with `readonly`, and a `link` back
+to the URL without it) above the next step's form, which carries the earlier choices as hidden inputs,
+plus `locale` from `localeParam`. The form that writes comes last and posts to the URL naming every
+choice, so its handler reads them from `ctx.query`, never from the body; a value the query names that
+the step does not offer is that step's error, never a silent fallback. Don't redraw a half-filled form
+through a submit that writes nothing instead: a `required` field blocks it, and the choice never
+reaches the URL.
+
 Plugins that genuinely need it — live dashboards, bulk actions, client-side validation — may **opt
 into progressive enhancement** (htmx, Alpine, vanilla JS) on top of working server-rendered HTML.
 The baseline never depends on it.
