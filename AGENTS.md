@@ -447,9 +447,12 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   same rule in their own language. An unmapped Kratos id renders Kratos' own wording — map the id when
   it matters. **Held by the author, never by a test:** slightly different wording is often the right
   call, and a build-failing check takes that judgment away.
-- Use well formed, standard compliant, rich URIs. Prefer state in the URL over POSTing it, for
-  example on list pages with filters and pagination. Do `ids=x&ids=y`, not `ids[]=x&ids[]=y` and not
-  `ids=x,y`.
+- Use well formed, standard compliant, rich URIs. **State lives in the URL or on the server, never in
+  a cookie.** Prefer state in the URL over POSTing it, for example on list pages with filters and
+  pagination. A message for the page a redirect lands on rides its query string — `info-msg`,
+  `warn-msg`, `error-msg` — since a fragment never reaches the server. A cookie carries only what
+  must be bound to the browser: the session (`plainpages_jwt`) and the CSRF token (`plainpages_csrf`).
+  Do `ids=x&ids=y`, not `ids[]=x&ids[]=y` and not `ids=x,y`.
 
 ## Comments
 
