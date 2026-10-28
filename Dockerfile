@@ -1,5 +1,5 @@
 # Node 24 runs TypeScript directly (type stripping) — no build step. Pinned exact tag.
-FROM node:24.22.1-alpine3.24
+FROM node:26.12.1-alpine3.24
 
 # Above WORKDIR so dev's `.:/app` bind mount can't shadow them; a volume at /app/node_modules
 # instead leaves a root-owned dir in the checkout (the daemon creates mount destinations as root).
