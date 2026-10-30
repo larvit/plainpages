@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 19 | 0.4.21 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 15 | 0.4.21 |  | security | **Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.** | 2 | 2 | 2 | 4 | 3 | 8 by 3 | 3.0 |
 | 30 | 0.4.21 |  | defect | **Give every `oklch()` colour a fallback, so primary buttons stay readable on an engine without it.** | 1 | 2 | 2 | 3 | 2 | 4 by 5 | 29.9 |
 | 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
@@ -35,6 +34,7 @@
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
+| 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
@@ -44,11 +44,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
-
-Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
-`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
 
 ### 15. Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.
 
@@ -168,6 +163,11 @@ one, a template change fixes this with no host code. Otherwise proxy the flow PO
 same-origin and `form-action 'self'` can join the CSP. Risks: one `flow.ui.action` serves all five
 flows, so this rewrites the sign-in path; and Go's nosurf checks Referer only over https, which no
 test covers. Code entry has no E2E coverage today.
+
+### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
+
+Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
+`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
 
 ### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
 
