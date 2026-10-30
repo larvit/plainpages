@@ -6,23 +6,22 @@
 
 `Bar = 1`
 
-`Next ID = 28`
+`Next ID = 29`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 9 | 0.4.21 |  | question | **Decide whether the gate typechecks `e2e-tests/`.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
-| 10 | 0.4.21 |  | question | **Decide whether Playwright's `workers` is pinned.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
 | 11 | 0.4.21 |  | question | **Record the browser floor Plainpages supports, and whether the fallback below it is a contract or a courtesy.** | 1 | 1 | 1 | 1 | 2 | 2 by 2, 1 by 1 | 4.3 |
-| 15 | 0.4.21 |  | question | **Decide who owns `Cache-Control` for rendered pages: the host or the reverse proxy.** | 1 | 1 | 1 | 1 | 2 | 8 by 3 | 4.0 |
 | 19 | 0.4.21 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
-| 12 | 0.4.21 |  | question | **Decide whether the one-item profile dropdown stays a dropdown.** | 1 | 1 | 1 | 1 | 2 | 2 by 2 | 2.8 |
-| 18 | 0.4.21 |  | question | **Decide whether the CSRF token stays unbound to the session.** | 1 | 1 | 1 | 1 | 2 |  | 0.0 |
+| 15 | 0.4.21 |  | security | **Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.** | 2 | 2 | 2 | 4 | 3 | 8 by 3 | 3.0 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
 | 8 | 0.4.21 |  |  | **Run the visual E2E specs at viewports from a large desktop down to a small phone.** | 2 | 1 | 1 | 2 | 4 | code health by 3 | 9.0 |
+| 9 | 0.4.21 |  |  | **Typecheck `e2e-tests/` in the gate.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
 | 24 | 0.4.21 |  |  | **Retire `src/ui/shell-context.ts` and render the dashboard from `ctx.chrome`.** | 2 | 1 | 2 | 3 | 4 | code health by 3 | 9.0 |
 | 17 | 0.4.21 |  |  | **Remove the icons no caller uses from `ICON_NAMES` and the sprite.** | 1 | 1 | 1 | 1 | 1 | 8 by 1, code health by 1 | 8.8 |
+| 10 | 0.4.21 |  |  | **Pin Playwright's `workers` to a fixed number.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
+| 18 | 0.4.21 |  |  | **Record in AGENTS.md and README → Security model that the CSRF token is deliberately unbound to the session, and why.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
 | 27 | 0.4.21 |  |  | **Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.** | 1 | 2 | 1 | 2 | 1 | 9 by 2, 2 by 1 | 4.8 |
 | 25 | 0.4.21 |  |  | **Point the views' references to `docs/plugin-contract.md` at the README.** | 1 | 2 | 1 | 2 | 1 | 9 by 3 | 4.6 |
@@ -36,6 +35,7 @@
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
+| 28 | 0.5.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
@@ -49,28 +49,16 @@ positioning for placement, which is newer and unguarded, since the `@supports` t
 only. An iPadOS 16 tablet gets panels flowing inline rather than working menus. Nobody has rendered
 that path on real hardware.
 
-### 15. Decide who owns `Cache-Control` for rendered pages: the host or the reverse proxy.
-
-Responses carry `Vary: Accept-Language` but no `Cache-Control`, so a signed-in page is not marked
-`private`. Either set the headers (public cacheable, gated `private, no-store`) or record in AGENTS.md
-that the reverse proxy owns this.
-
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
 `dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
 
-### 12. Decide whether the one-item profile dropdown stays a dropdown.
+### 15. Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.
 
-It holds Sign out behind a click, and its "Signed in as X" head repeats what the trigger shows.
-
-### 18. Decide whether the CSRF token stays unbound to the session.
-
-`src/auth/csrf.ts` signs `<nonce>.<HMAC(secret, nonce)>` with no session binding, so any validly
-signed token passes for any user: an attacker who can write cookies on the origin can fix a token
-they know. Standard for unbound signed double-submit, and plausibly fine behind `SameSite=Lax` and
-HSTS. Accepted → record it in AGENTS.md and README → Security model; not accepted → bind the nonce to
-`sub`.
+The host owns it, not the reverse proxy. Today responses carry `Vary: Accept-Language` but no
+`Cache-Control`, so a shared cache in front of `web` may store a signed-in page, with that user's
+data, and serve it to the next visitor.
 
 ### 26. Add a domain glossary and the project's intended horizon to the README.
 
@@ -87,6 +75,13 @@ almost every field. Keep `shellUser` as the shared primitive.
 
 `i-chart`, `i-copy` and `i-download` have no caller, and the sprite is inlined into every page.
 AGENTS.md → "`ICON_NAMES` is a host-owned registry" already makes this routine cleanup.
+
+### 18. Record in AGENTS.md and README → Security model that the CSRF token is deliberately unbound to the session, and why.
+
+`src/auth/csrf.ts` signs `<nonce>.<HMAC(secret, nonce)>` with no session binding, so an attacker who
+can write cookies on the origin can fix a token they know. Accepted: it is standard for unbound
+signed double-submit, and `SameSite=Lax` plus HSTS cover it. Valid while the session cookie stays
+`SameSite=Lax` or stricter.
 
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
@@ -168,6 +163,12 @@ is ungrantable from the GUI and answers a permanent 403. A warning, not an error
 
 Every list screen bridges `parseListQuery`/`paginate` to the partials by hand. At minimum a
 `buildPaginationModel(page, hrefFor)`. Exported through the barrel, so it is contract surface.
+
+### 28. Let a plugin add entries to the profile menu through the plugin API.
+
+The profile dropdown stays a dropdown: Sign out is its only entry today, and it will gain more.
+`views/partials/shell.ejs` hand-rolls it (AGENTS.md → UI, the dropdown rule), so the entries need a
+manifest field that discovery checks, gated like a nav node.
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 
