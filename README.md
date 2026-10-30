@@ -188,7 +188,7 @@ public front with an authenticated area behind it.
 
 Identity, sessions, SSO, OAuth2 and permission checks are delegated to **Ory** sidecar
 services. The shape doesn't change as it grows: every plugin is the same self-contained folder,
-the hot path is the same I/O-free JWT check, and there is no app database.
+the hot path is the same I/O-free JWT check, and the host stores nothing of its own.
 
 **Plugins are the extension model.** The plugin API is the product's main surface: powerful,
 predictable, and overloadable — a plugin can take over as much of a page as it wants. The host
