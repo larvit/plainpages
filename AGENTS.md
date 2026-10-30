@@ -221,10 +221,9 @@ Revisit only if the stated reason stops holding.
   adds you to any group, including one holding every permission; `users:write` mints a recovery code
   for any account. The containment the split buys is real on the **read** half only (`users:read` is
   a safe helpdesk grant). Don't let the per-resource naming imply otherwise in docs.
-- **The CSRF token is deliberately unbound to the session** (`src/auth/csrf.ts`): it is a signed
-  double-submit token, so an attacker who can write cookies on the origin can fix a token they know.
-  Accepted — standard for the unbound form, and `SameSite=Lax` plus HSTS cover it. **Valid while the
-  session cookie stays `SameSite=Lax` or stricter.**
+- **The CSRF token is deliberately unbound to the session** (`src/auth/csrf.ts`; README → Security
+  model): the usual cost of a signed double-submit token, covered by `SameSite=Lax` and HSTS.
+  **Valid while the session cookie stays `SameSite=Lax` or stricter.**
 - **Plainpages says "user" everywhere; Ory's word is "identity".** House style, not a renamed
   concept. The single exception is the `Identity` DTO in `src/auth/kratos-admin.ts`, which mirrors
   Kratos' wire shape — don't rename it.
