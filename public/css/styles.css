@@ -58,7 +58,7 @@
   --radius: 5px;
   --nav-w: 264px;
   --row-h: 34px;
-  --pad-x: 12px;
+  --pad-x: 12px;   /* every horizontal inset from the page's edge, and a table cell's */
   --fz: 13px;
   --fz-sm: 12px;
   --fz-xs: 11px;
@@ -336,7 +336,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .topbar {
   flex: 0 0 auto; height: 48px;
   display: flex; align-items: center; gap: 12px;
-  padding: 0 16px; border-bottom: 1px solid var(--border);
+  padding: 0 var(--pad-x); border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .hamburger { display: none; }   /* shown only on narrow */
@@ -352,7 +352,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .filters {
   flex: 0 0 auto; background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px;
+  padding: 10px var(--pad-x);
   display: flex; flex-direction: column; gap: 9px;
 }
 .filter-row {
@@ -584,7 +584,7 @@ table.table {
 .col-num { text-align: right; }
 .cell-strong { font-weight: 550; }
 .cell-muted { color: var(--text-muted); }
-.table-empty { text-align: center; color: var(--text-muted); padding: 28px 12px; }
+.table-empty { text-align: center; color: var(--text-muted); padding: 28px var(--pad-x); }
 .cell-mono { font-variant-numeric: tabular-nums;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: var(--fz-sm); }
 
@@ -648,7 +648,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .pager {
   flex: 0 0 auto;
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 16px; border-top: 1px solid var(--border);
+  padding: 8px var(--pad-x); border-top: 1px solid var(--border);
   background: var(--surface); font-size: var(--fz-sm); color: var(--text-muted);
 }
 .pager .spacer { flex: 1 1 auto; }
@@ -696,7 +696,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 #nav-toggle { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; }
 
 /* admin forms: create/edit user, account actions */
-.form-page { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+.form-page { padding: 16px var(--pad-x); display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
 .form-card {
   display: flex; flex-direction: column; gap: 14px;
   padding: 18px; background: var(--surface);
