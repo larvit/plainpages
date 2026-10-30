@@ -1384,6 +1384,11 @@ authorization graph, so treat it the same. `compose.yml` publishes none of the s
 so a stolen cookie jar is worth 30 days of re-mintable access, not ten minutes. Only our two cookies
 obey `SECURE_COOKIES`; the Kratos one takes its flags from Kratos' own config.
 
+**The CSRF token isn't bound to the session.** It is a signed double-submit token, so an attacker who
+can write cookies on your origin can plant one they know. `SameSite=Lax` and HSTS
+(`includeSubDomains`) are what keep that attacker out; it holds while the session cookie stays
+`SameSite=Lax` or stricter.
+
 **Offboarding is not instant by default** — a revoked permission or deactivated identity lands
 within one token TTL, unless the [denylist](#instant-revoke-the-optional-denylist) is on.
 
@@ -1641,7 +1646,11 @@ schedule, and rehearse the restore.
 Every response carries security headers (`src/http/security-headers.ts`): a strict
 `Content-Security-Policy` (the core is zero-JS — `script-src 'self'`, no inline scripts),
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` + `frame-ancestors 'none'`,
-`Referrer-Policy`, and HSTS when `SECURE_COOKIES=true`. The CSP allows **same-origin** assets only,
+`Referrer-Policy`, and HSTS when `SECURE_COOKIES=true`. A page or JSON response is
+`Cache-Control: private, no-store`, so a shared cache never keeps one user's page for the next; only
+the built-in landing `/`, for a visitor who is signed out and already holds the CSRF cookie, is
+shared-cacheable. A route whose page is the same for everyone sets its own `cache-control` via
+`RouteResult.headers`. The CSP allows **same-origin** assets only,
 so a branding logo must live under `/public/` or be a `data:` URI; a plugin route can override any
 header per-response via `RouteResult.headers`.
 

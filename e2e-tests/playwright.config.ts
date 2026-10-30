@@ -10,6 +10,7 @@ export default defineConfig({
   testDir: ".",
   outputDir: "artifacts/test-output",
   fullyParallel: true,
+  workers: 4, // Playwright's default is half the cores, so a run's parallelism would depend on the machine
   forbidOnly: true,
   reporter: [["list"], ["html", { open: "never", outputFolder: "artifacts/report" }]],
   use: {

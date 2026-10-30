@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 15 | 0.4.21 |  | security | **Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.** | 2 | 2 | 2 | 4 | 3 | 8 by 3 | 3.0 |
 | 30 | 0.4.21 |  | defect | **Give every `oklch()` colour a fallback, so primary buttons stay readable on an engine without it.** | 1 | 2 | 2 | 3 | 2 | 4 by 5 | 29.9 |
 | 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
 | 31 | 0.4.21 |  |  | **Delete the design-preview rules in `public/css/auth.css` that no view uses.** | 1 | 1 | 1 | 1 | 2 | code health by 2, 8 by 1 | 13.3 |
@@ -21,12 +20,9 @@
 | 9 | 0.4.21 |  |  | **Typecheck `e2e-tests/` in the gate.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
 | 24 | 0.4.21 |  |  | **Retire `src/ui/shell-context.ts` and render the dashboard from `ctx.chrome`.** | 2 | 1 | 2 | 3 | 4 | code health by 3 | 9.0 |
 | 17 | 0.4.21 |  |  | **Remove the icons no caller uses from `ICON_NAMES` and the sprite.** | 1 | 1 | 1 | 1 | 1 | 8 by 1, code health by 1 | 8.8 |
-| 10 | 0.4.21 |  |  | **Pin Playwright's `workers` to a fixed number.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
-| 18 | 0.4.21 |  |  | **Record in AGENTS.md and README → Security model that the CSRF token is deliberately unbound to the session, and why.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
 | 32 | 0.4.21 | 29, 30 |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
 | 27 | 0.4.21 |  |  | **Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.** | 1 | 2 | 1 | 2 | 1 | 9 by 2, 2 by 1 | 4.8 |
-| 25 | 0.4.21 |  |  | **Point the views' references to `docs/plugin-contract.md` at the README.** | 1 | 2 | 1 | 2 | 1 | 9 by 3 | 4.6 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
@@ -44,12 +40,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 15. Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.
-
-The host owns it, not the reverse proxy. Today responses carry `Vary: Accept-Language` but no
-`Cache-Control`, so a shared cache in front of `web` may store a signed-in page, with that user's
-data, and serve it to the next visitor.
 
 ### 30. Give every `oklch()` colour a fallback, so primary buttons stay readable on an engine without it.
 
@@ -85,13 +75,6 @@ almost every field. Keep `shellUser` as the shared primitive.
 `i-chart`, `i-copy` and `i-download` have no caller, and the sprite is inlined into every page.
 AGENTS.md → "`ICON_NAMES` is a host-owned registry" already makes this routine cleanup.
 
-### 18. Record in AGENTS.md and README → Security model that the CSRF token is deliberately unbound to the session, and why.
-
-`src/auth/csrf.ts` signs `<nonce>.<HMAC(secret, nonce)>` with no session binding, so an attacker who
-can write cookies on the origin can fix a token they know. Accepted: it is standard for unbound
-signed double-submit, and `SameSite=Lax` plus HSTS cover it. Valid while the session cookie stays
-`SameSite=Lax` or stricter.
-
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
 Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
@@ -106,10 +89,6 @@ allow a feature only inside an `@supports` that guards it.
 
 They sit flush against the content pane's edge while the filter bar, table and pager sit 12px in.
 The fix belongs in `examples/plugins/scheduling/public/scheduling.css`; check each page in a browser.
-
-### 25. Point the views' references to `docs/plugin-contract.md` at the README.
-
-`examples/plugins/scheduling/views/shifts.ejs` still cites it.
 
 ### 20. Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.
 

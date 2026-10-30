@@ -2,7 +2,7 @@
   Scheduling · Shifts list (reference plugin). The handler fetched the rows from the upstream
   service; this view renders them with the core building blocks inside the native app shell
   (ctx.chrome). `include()` reaches the core partials (shell, nav-tree, filter-bar, data-table,
-  alert) — see docs/plugin-contract.md. Zero-JS: search round-trips the URL.
+  alert) — see the README. Zero-JS: search round-trips the URL.
   Data: chrome, title, breadcrumbs, count, filterBar, table, canWrite, newHref, error?
 %><%
   const navHtml = include("partials/nav-tree", { nodes: chrome.nav });

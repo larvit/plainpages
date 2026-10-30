@@ -12,6 +12,14 @@ The topbar, filter bar, pager, form page and empty-table message inset their con
 (12px), as table cells do, instead of 16px. A plugin that overrides `--pad-x` now moves all of them
 together.
 
+### Pages are not kept by a shared cache
+
+Every page and JSON response now carries `Cache-Control: private, no-store`, so a cache or reverse
+proxy in front of Plainpages can't store a signed-in page and serve it to the next visitor. The
+built-in landing `/` is shared-cacheable (`public, max-age=0, s-maxage=60`) for a signed-out visitor
+who already holds the CSRF cookie. A plugin route whose page is the same for everyone sets its own
+`cache-control` through `RouteResult.headers`; assets are unchanged.
+
 ## 0.4.0
 
 **Breaking.** Set `apiVersion: "0.4.0"`. The app shell no longer bounds the content column, so a page
