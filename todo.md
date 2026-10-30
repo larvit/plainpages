@@ -6,15 +6,17 @@
 
 `Bar = 1`
 
-`Next ID = 29`
+`Next ID = 33`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 11 | 0.4.21 |  | question | **Record the browser floor Plainpages supports, and whether the fallback below it is a contract or a courtesy.** | 1 | 1 | 1 | 1 | 2 | 2 by 2, 1 by 1 | 4.3 |
 | 19 | 0.4.21 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 15 | 0.4.21 |  | security | **Set `Cache-Control` on every rendered page from the host: `private, no-store` on a gated or signed-in page, a cacheable value on a public one.** | 2 | 2 | 2 | 4 | 3 | 8 by 3 | 3.0 |
+| 30 | 0.4.21 |  | defect | **Give every `oklch()` colour a fallback, so primary buttons stay readable on an engine without it.** | 1 | 2 | 2 | 3 | 2 | 4 by 5 | 29.9 |
+| 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
+| 31 | 0.4.21 |  |  | **Delete the design-preview rules in `public/css/auth.css` that no view uses.** | 1 | 1 | 1 | 1 | 2 | code health by 2, 8 by 1 | 13.3 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
 | 8 | 0.4.21 |  |  | **Run the visual E2E specs at viewports from a large desktop down to a small phone.** | 2 | 1 | 1 | 2 | 4 | code health by 3 | 9.0 |
 | 9 | 0.4.21 |  |  | **Typecheck `e2e-tests/` in the gate.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
@@ -23,6 +25,7 @@
 | 10 | 0.4.21 |  |  | **Pin Playwright's `workers` to a fixed number.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
 | 18 | 0.4.21 |  |  | **Record in AGENTS.md and README → Security model that the CSRF token is deliberately unbound to the session, and why.** | 1 | 1 | 1 | 1 | 1 | code health by 1 | 7.2 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
+| 32 | 0.4.21 | 29, 30 |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
 | 27 | 0.4.21 |  |  | **Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.** | 1 | 2 | 1 | 2 | 1 | 9 by 2, 2 by 1 | 4.8 |
 | 25 | 0.4.21 |  |  | **Point the views' references to `docs/plugin-contract.md` at the README.** | 1 | 2 | 1 | 2 | 1 | 9 by 3 | 4.6 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
@@ -42,13 +45,6 @@
 
 ## Details
 
-### 11. Record the browser floor Plainpages supports, and whether the fallback below it is a contract or a courtesy.
-
-The stylesheet needs `:has()` (Dec 2023); the menus need the popover API (Safari 17) and CSS anchor
-positioning for placement, which is newer and unguarded, since the `@supports` test covers popover
-only. An iPadOS 16 tablet gets panels flowing inline rather than working menus. Nobody has rendered
-that path on real hardware.
-
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
@@ -59,6 +55,24 @@ Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -
 The host owns it, not the reverse proxy. Today responses carry `Vary: Accept-Language` but no
 `Cache-Control`, so a shared cache in front of `web` may store a signed-in page, with that user's
 data, and serve it to the next visitor.
+
+### 30. Give every `oklch()` colour a fallback, so primary buttons stay readable on an engine without it.
+
+The accent, focus and status tokens in `public/css/styles.css` are `oklch()`, which needs Chromium
+111. Below it (Tizen 2024, webOS TV 24) `--accent` is invalid, so `.btn-primary` is white text on
+no background: the sign-in button reads as blank.
+
+### 29. Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.
+
+README → "Two browser floors": Chromium 87 must reach every page. `public/css/styles.css` hides
+`.nav-children` and only a `:has()` rule reveals them, so below Chromium 105 (webOS TV 22 and 23)
+no nested entry can be reached. Hide the children only inside `@supports selector(:has(a))`. The
+theme switch is inert there too, since every theme rule is a `:has()`: hide it under the same guard.
+
+### 31. Delete the design-preview rules in `public/css/auth.css` that no view uses.
+
+`.auth-view`, the `:target` screen switch, `.tpl-*`, the `fstate`/`rstate` radios and the
+forgot/register alerts match nothing in `views/` or `examples/`.
 
 ### 26. Add a domain glossary and the project's intended horizon to the README.
 
@@ -86,6 +100,12 @@ signed double-submit, and `SameSite=Lax` plus HSTS cover it. Valid while the ses
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
 Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
+
+### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
+
+Nothing checks README → "Two browser floors", and no E2E engine is old enough to show a break.
+Lint every stylesheet, the examples' included, against Chromium 87, Safari 15 and Firefox 115, and
+allow a feature only inside an `@supports` that guards it.
 
 ### 27. Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.
 

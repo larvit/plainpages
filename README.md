@@ -142,7 +142,8 @@ From here, render real pages against the app shell and fetch upstream data — s
 3. **Maintain:** Plainpages solves only the parts every project shares: auth, the GUI
    building blocks (menu, tables, filters, forms) and the plugin structure. Everything
    else is a plugin.
-4. **Maintain:** Every page is a server-rendered document that works with zero JavaScript.
+4. **Maintain:** Every page is a server-rendered document that works with zero JavaScript,
+   on old and embedded browsers too. A newer browser only makes it nicer.
 5. **Maintain:** State lives in the URL. Only state the URL can't carry lives in the
    database, never in local storage or JavaScript. A cookie carries only what must be bound
    to the browser: the session and its CSRF token.
@@ -176,7 +177,8 @@ From here, render real pages against the app shell and fetch upstream data — s
   configuration through environment variables and the drop-in mounts (`plugins/`,
   `config/`, `locales/`), and on upgrades within a minor version that need no change on
   their side.
-- **Visitors** to a site built on Plainpages. They may rely on pages that load fast and
+- **Visitors** to a site built on Plainpages, on any browser, including the older engines in
+  TVs, kiosks, thin clients and embedded panels. They may rely on pages that load fast and
   work without JavaScript, with a keyboard and a screen reader.
 
 ## Overview
@@ -1016,6 +1018,13 @@ On a browser too old for popovers the trigger is inert and each panel falls back
 underneath it — cramped, but nothing is unreachable. List state
 (`?q=…&status=…&sort=…&page=…`) lives **in the URL**, so a view is bookmarkable and shareable; the
 URL is the only state the UI keeps.
+
+**Two browser floors** serve goal 4. Every page's content and actions stay reachable on
+Chromium 87, Safari 15 and Firefox 115, the engines in years-old TVs, kiosks and Qt panels. Only
+features [Baseline Widely available](https://web-platform-dx.github.io/baseline/) (in every
+major engine for 30 months) may shape how a page looks; anything newer, like popovers or anchor
+positioning, only enhances. A feature the floor engines lack, such as `:has()` or `oklch()`, may
+decorate a page but never decide whether something shows or can be read.
 
 **A field whose options depend on another field is asked for in steps, one GET form each**, so every
 choice is in the URL, and nothing typed is lost to one because nothing is typed until they are made.
