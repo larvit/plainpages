@@ -4,6 +4,14 @@ The release version **is** the plugin contract version (`HOST_API_VERSION`), so 
 contract break: a plugin's `apiVersion` must match the host's `major.minor` or discovery refuses it
 at boot. Entries start at 0.3.0.
 
+## Unreleased
+
+### One horizontal inset across the content pane
+
+The topbar, filter bar, pager, form page and empty-table message inset their content by `--pad-x`
+(12px), as table cells do, instead of 16px. A plugin that overrides `--pad-x` now moves all of them
+together.
+
 ## 0.4.0
 
 **Breaking.** Set `apiVersion: "0.4.0"`. The app shell no longer bounds the content column, so a page
