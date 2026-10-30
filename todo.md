@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 27`
+`Next ID = 28`
 
 ## Items
 
@@ -24,6 +24,7 @@
 | 24 | 0.4.21 |  |  | **Retire `src/ui/shell-context.ts` and render the dashboard from `ctx.chrome`.** | 2 | 1 | 2 | 3 | 4 | code health by 3 | 9.0 |
 | 17 | 0.4.21 |  |  | **Remove the icons no caller uses from `ICON_NAMES` and the sprite.** | 1 | 1 | 1 | 1 | 1 | 8 by 1, code health by 1 | 8.8 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
+| 27 | 0.4.21 |  |  | **Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.** | 1 | 2 | 1 | 2 | 1 | 9 by 2, 2 by 1 | 4.8 |
 | 25 | 0.4.21 |  |  | **Point the views' references to `docs/plugin-contract.md` at the README.** | 1 | 2 | 1 | 2 | 1 | 9 by 3 | 4.6 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
@@ -90,6 +91,11 @@ AGENTS.md → "`ICON_NAMES` is a host-owned registry" already makes this routine
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
 Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
+
+### 27. Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.
+
+They sit flush against the content pane's edge while the filter bar, table and pager sit 12px in.
+The fix belongs in `examples/plugins/scheduling/public/scheduling.css`; check each page in a browser.
 
 ### 25. Point the views' references to `docs/plugin-contract.md` at the README.
 
