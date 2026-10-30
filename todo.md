@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 34`
+`Next ID = 35`
 
 ## Items
 
@@ -27,11 +27,11 @@
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 22 | 0.4.21 |  |  | **Offer a `users:read` holder a View row action on the users list, not Edit.** | 2 | 2 | 1 | 3 | 3 | 2 by 2 | 2.1 |
+| 34 | 0.4.21 |  |  | **Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.** | 4 | 2 | 3 | 7 | 6 | 8 by 6, 2 by 2 | 1.8 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
-| 33 | 0.5.0 |  | question | **Decide whether any public page gets a shared-cache `Cache-Control`, now that the host sends `private, no-store` on every page.** | 2 | 3 | 4 | 7 | 3 | 8 by 2 | 2.0 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
@@ -114,6 +114,36 @@ The pencil opens the read-only detail page, so it is harmless, but the label con
 reader can do. Needs `canWrite` threaded into `listTable`, a `common.view` core catalog key and an
 `i-eye` icon.
 
+### 34. Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.
+
+`serveStatic` (`src/http/static.ts`) sends only `content-length` and `content-type`, so every page
+view downloads `styles.css`, `auth.css` and each plugin's stylesheet again: about 50 kB on a plugin's
+issue page, seconds per page over GPRS. Firefox can paint the page unstyled meanwhile, when an
+extension forces layout early.
+
+- A versioned URL carries a hash of the file's content, as `?v=<hash>` or in the path, and answers
+  `Cache-Control: public, max-age=31536000, immutable`. A release changes the hash, so it still
+  reaches every browser at once.
+- An unversioned `/public/` URL answers a short `max-age` with revalidation: `ETag` or
+  `Last-Modified`, and 304 on `If-None-Match` or `If-Modified-Since`, for GET and HEAD.
+- Every `/public/` href the host renders comes out versioned: the shell's `<link>`s and favicon,
+  the error pages (`views/403.ejs`, `404`, `500`, `503`, `error`), `views/oauth-consent.ejs`, and
+  the `styles` hrefs a plugin passes to `views/partials/shell.ejs`.
+- **Recommended: the host versions a plugin's hrefs itself.** A plugin names its asset once, as
+  today, and the shell adds the version to any `/public/` href. A helper would make every plugin
+  author remember to call it, and adds to the barrel.
+- **Contract:** `views/partials/*.ejs` are contract surface (AGENTS.md → Rules). Host-side
+  versioning keeps the `styles` option and its meaning, and an unversioned href keeps working, so
+  no minor bump of `HOST_API_VERSION` is needed and 0.4.21 holds. A helper exported through
+  `@plainpages/plugin-api` would add to the contract and need 0.5.0.
+- Pages stay `private, no-store` (`src/http/app.ts`); the static branch returns before that header
+  is set.
+
+Tests first, with expected values from this item: `src/http` unit tests for both header sets and the
+304s, and an E2E test that a repeat page view fetches no stylesheet again. State the choice once in a
+comment in `static.ts`, and in a sentence where the README tells plugin authors and operators about
+assets. Requested by plainpages-plugin-fastjira, whose own item waits on the release that ships this.
+
 ### 3. Guard the group paths against self-lockout, or accept the gap explicitly.
 
 The self-revoke guard covers only your own direct grants on the Users screen. Unticking a permission
@@ -148,15 +178,6 @@ test covers. Code entry has no E2E coverage today.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
 `dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
-
-### 33. Decide whether any public page gets a shared-cache `Cache-Control`, now that the host sends `private, no-store` on every page.
-
-Every non-asset response is `private, no-store`. The built-in signed-out `/` and its signed-in
-variant share one URL, so a shared cache keyed on URL and `Accept-Language` would serve the
-signed-out page to a signed-in visitor for the cache lifetime, and a cache that bypasses on cookies
-would never store it. Options: leave it, so operators cache only assets; add `Vary: Cookie`; or give
-the signed-out page its own URL. A plugin route can already opt in through `RouteResult.headers`.
-I is 4 because a wrong rule caches a signed-in page for everyone, exposing PII.
 
 ### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
 
