@@ -284,27 +284,23 @@ test("every response carries the security headers; HSTS follows SECURE_COOKIES",
   assert.match(res.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
 });
 
-test("Cache-Control: every host response is private, no-store; only the anonymous built-in landing may be shared-cached", async (t) => {
+test("Cache-Control: pages and JSON are private, no-store unless the route sets its own; assets are left alone", async (t) => {
   const NO_STORE = "private, no-store";
   const csrf = (await fetch(base + "/")).headers.get("set-cookie")?.split(";")[0] ?? "";
   assert.match(csrf, new RegExp(`^${CSRF_COOKIE}=`));
 
-  // A first visit mints a per-visitor cookie, so that response must not be shared.
+  // The signed-out landing is no-store as well: it and the signed-in page share one URL.
   assert.equal((await fetch(base + "/")).headers.get("cache-control"), NO_STORE);
-  // The same page for an anonymous visitor who already holds the cookie is identical for all of them.
-  assert.equal((await fetch(base + "/", { headers: { cookie: csrf } })).headers.get("cache-control"), "public, max-age=0, s-maxage=60");
-  assert.equal((await fetch(base + "/", { headers: { cookie: csrf }, method: "HEAD" })).headers.get("cache-control"), "public, max-age=0, s-maxage=60");
-  // Signed in, the same URL carries that user's menu and sign-out form.
+  assert.equal((await fetch(base + "/", { headers: { cookie: csrf } })).headers.get("cache-control"), NO_STORE);
+  assert.equal((await fetch(base + "/", { headers: { cookie: csrf }, method: "HEAD" })).headers.get("cache-control"), NO_STORE);
   assert.equal((await fetch(base + "/", { headers: { cookie: `${csrf}; ${session()}` } })).headers.get("cache-control"), NO_STORE);
 
   assert.equal((await fetch(base + "/dashboard", { headers: { cookie: session() } })).headers.get("cache-control"), NO_STORE);
   assert.equal((await fetch(base + "/dashboard", { redirect: "manual" })).headers.get("cache-control"), NO_STORE); // sign-in bounce
   assert.equal((await fetch(base + "/nope", { headers: { cookie: csrf } })).headers.get("cache-control"), NO_STORE); // 404
-  // An asset is the same bytes for everyone; its caching is not this header's job.
   assert.equal((await fetch(base + "/public/css/styles.css")).headers.get("cache-control"), null);
 
-  // A plugin's pages and JSON default to no-store too, and a route that is the same for everyone opts in itself.
-  const shared: Plugin = {
+  const demo: Plugin = {
     apiVersion: "1.0.0",
     home: () => ({ html: "<p>plugin home</p>" }),
     id: "demo",
@@ -314,9 +310,9 @@ test("Cache-Control: every host response is private, no-store; only the anonymou
       { handler: () => ({ json: { ok: true } }), method: "GET", path: "/data", public: true },
     ],
   };
-  const url = await startApp(t, [shared]);
+  const url = await startApp(t, [demo]);
   for (const path of ["/demo/open", "/demo/data", "/"]) {
-    assert.equal((await fetch(url + path, { headers: { cookie: csrf } })).headers.get("cache-control"), NO_STORE, path);
+    assert.equal((await fetch(url + path)).headers.get("cache-control"), NO_STORE, path);
   }
   assert.equal((await fetch(url + "/demo/same")).headers.get("cache-control"), "public, max-age=600");
 });

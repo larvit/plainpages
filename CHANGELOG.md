@@ -15,10 +15,9 @@ together.
 ### Pages are not kept by a shared cache
 
 Every page and JSON response now carries `Cache-Control: private, no-store`, so a cache or reverse
-proxy in front of Plainpages can't store a signed-in page and serve it to the next visitor. The
-built-in landing `/` is shared-cacheable (`public, max-age=0, s-maxage=60`) for a signed-out visitor
-who already holds the CSRF cookie. A plugin route whose page is the same for everyone sets its own
-`cache-control` through `RouteResult.headers`; assets are unchanged.
+proxy in front of Plainpages can't store a signed-in page and serve it to the next visitor. A route
+whose page is the same for everyone can still set its own `cache-control` through
+`RouteResult.headers`; assets are unchanged.
 
 ## 0.4.0
 

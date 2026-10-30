@@ -36,9 +36,7 @@ import { localPath } from "./safe-url.ts";
 import { routePublic, serveStatic } from "./static.ts";
 import { renderPluginView } from "../plugin-host/view-resolver.ts";
 
-// max-age=0 keeps a browser from showing a signed-out page after sign-in; only a shared cache keeps it.
 const NO_STORE = "private, no-store";
-const SHARED_PAGE = "public, max-age=0, s-maxage=60";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -155,10 +153,7 @@ export function createApp(options: AppOptions = {}): Server {
       await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, homePlugin.id), pluginCtx.localeHref);
       return null;
     }
-    // Shared only when nothing in the page or its headers belongs to this visitor: no user, and no
-    // Set-Cookie (a fresh CSRF cookie is per-visitor).
-    const sharable = !ctx.user && !ctx.res.hasHeader("set-cookie");
-    return { data: { chrome: ctx.chrome, user: ctx.user }, ...(sharable ? { headers: { "cache-control": SHARED_PAGE } } : {}), view: "home" };
+    return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
   };
 
   // "/dashboard", gated to a signed-in user. A plugin may own it via `dashboard`; else the built-in
@@ -210,9 +205,10 @@ export function createApp(options: AppOptions = {}): Server {
       // A cache in front of us must key on the language. Set after the static branch: an asset is
       // the same bytes in every language, and a Vary there fragments its entry per raw header.
       res.setHeader("vary", "accept-language");
-      // Fail closed: a cache in front of us must not keep a page that may carry a user's data. A
-      // response that is the same for everyone opts in through its own headers (serveHome below, or
-      // a plugin's RouteResult.headers).
+      // Fail closed: a cache in front of us must not keep a page that may carry a user's data. Not
+      // even the signed-out `/` is shared: it and the signed-in page have one URL, and a cache keyed
+      // on URL and Accept-Language would hand the signed-out one to a signed-in visitor. A route that
+      // is the same for everyone sets its own value in RouteResult.headers; the host doesn't police it.
       res.setHeader("cache-control", NO_STORE);
 
       // Canonical host (APP_URL): send an off-host visitor to the configured origin so the browser,
