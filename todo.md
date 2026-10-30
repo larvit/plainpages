@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 33`
+`Next ID = 34`
 
 ## Items
 
@@ -31,6 +31,7 @@
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
+| 33 | 0.5.0 |  | question | **Decide whether any public page gets a shared-cache `Cache-Control`, now that the host sends `private, no-store` on every page.** | 2 | 3 | 4 | 7 | 3 | 8 by 2 | 2.0 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
@@ -147,6 +148,15 @@ test covers. Code entry has no E2E coverage today.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
 `dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
+
+### 33. Decide whether any public page gets a shared-cache `Cache-Control`, now that the host sends `private, no-store` on every page.
+
+Every non-asset response is `private, no-store`. The built-in signed-out `/` and its signed-in
+variant share one URL, so a shared cache keyed on URL and `Accept-Language` would serve the
+signed-out page to a signed-in visitor for the cache lifetime, and a cache that bypasses on cookies
+would never store it. Options: leave it, so operators cache only assets; add `Vary: Cookie`; or give
+the signed-out page its own URL. A plugin route can already opt in through `RouteResult.headers`.
+I is 4 because a wrong rule caches a signed-in page for everyone, exposing PII.
 
 ### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
 
