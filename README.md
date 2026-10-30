@@ -70,6 +70,8 @@ From here, render real pages against the app shell and fetch upstream data — s
 
 ## Contents
 
+- [Goals](#goals)
+- [Audience](#audience)
 - [Overview](#overview)
 - [Users, groups & permissions](#users-groups--permissions)
   - [naming a permission](#naming-a-permission)
@@ -121,6 +123,62 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [Project layout](#project-layout)
 - [Extending the core](#extending-the-core)
 
+## Goals
+
+1. **Achieve:** Less boilerplate for a server-rendered web GUI: a new project starts at
+   its own domain, not at sign-in, a menu or a table.
+   - Signal: a new plugin reaches a working, gated page with a menu, tables, filters and
+     forms built only from the core building blocks.
+   - Counter-signal: the core grows features only one project needs.
+   - Why: boilerplate removed by absorbing a project's domain only moves it into the core.
+2. **Achieve:** Every building block works for the person using it: a non-technical user
+   gets what they meant on the first try, and can't hurt themselves by accident.
+   - Signal: bugs users hit in a shipped flow get fixed and stay fixed, such as a pasted
+     code being refused, a double click acting twice, or an admin locking themselves out.
+   - Counter-signal: a fix adds client-side JavaScript, or a setting every plugin has to
+     know about.
+   - Why: a fix that breaks zero-JS or simplicity moves the irritation from users to every
+     plugin author.
+3. **Maintain:** Plainpages solves only the parts every project shares: auth, the GUI
+   building blocks (menu, tables, filters, forms) and the plugin structure. Everything
+   else is a plugin.
+4. **Maintain:** Every page is a server-rendered document that works with zero JavaScript.
+5. **Maintain:** State lives in the URL. Only state the URL can't carry lives in the
+   database, never in local storage or JavaScript. A cookie carries only what must be bound
+   to the browser: the session and its CSRF token.
+6. **Maintain:** The frontend is semantic: the HTML says what each thing is, and the CSS
+   styles meaning, not looks. That keeps every page accessible.
+7. **Achieve:** Hackable: a plugin can change anything, and Plainpages stays out of its way.
+   - Signal: a plugin replaces any page, partial, menu entry or string without forking the
+     host, and fewer plugins need a host change to get unblocked.
+   - Counter-signal: plugins break on upgrade with no version signal, or a plugin mistake
+     shows up at runtime instead of at boot.
+   - Why: freedom that breaks silently costs more than the boilerplate it saved.
+8. **Achieve:** Speed: pages render fast and stay small.
+   - Signal: server time per page and bytes sent per page fall.
+   - Counter-signal: a building block loses a feature or accessibility to save bytes.
+   - Why: a fast page that does less only moves the work back into each plugin.
+9. **Achieve:** LLM-friendly: an LLM builds a correct plugin from the README and the
+   examples alone.
+   - Signal: an agent given only those writes a plugin that passes discovery and its E2E
+     test on the first try.
+   - Counter-signal: the README grows to restate what the code already shows.
+   - Why: docs that pass the test by growing cost every later reader, human or LLM.
+10. **Maintain:** Every behaviour is an explicit configuration choice, the same in every
+   environment.
+
+## Audience
+
+- **Developers starting a web GUI project, and the LLMs that build plugins with them.**
+  They may rely on `@plainpages/plugin-api`, the core partials and the packaging promises,
+  all versioned by `apiVersion`. A change that breaks a plugin takes a major bump.
+- **Operators** who self-host Plainpages. They may rely on semver-tagged images, on
+  configuration through environment variables and the drop-in mounts (`plugins/`,
+  `config/`, `locales/`), and on upgrades within a minor version that need no change on
+  their side.
+- **Visitors** to a site built on Plainpages. They may rely on pages that load fast and
+  work without JavaScript, with a keyboard and a screen reader.
+
 ## Overview
 
 Plainpages gives you the boring-but-hard parts of a web app — a design system, a menu,
@@ -136,11 +194,9 @@ public front with an authenticated area behind it.
 - **You add:** everything else domain-specific, as **plugins** — built from the same building
   blocks the admin plugin uses.
 
-**Priorities:** simplicity, few dependencies, strict TypeScript, no build step, Docker-only,
-environment-agnostic (no `NODE_ENV` — every behaviour is an explicit config toggle). Identity,
-sessions, SSO, OAuth2 and permission checks are delegated to **Ory** sidecar services. The shape
-doesn't change as it grows: every plugin is the same self-contained folder, the hot path is the
-same I/O-free JWT check, and there is no app database.
+Identity, sessions, SSO, OAuth2 and permission checks are delegated to **Ory** sidecar
+services. The shape doesn't change as it grows: every plugin is the same self-contained folder,
+the hot path is the same I/O-free JWT check, and the host stores nothing of its own.
 
 **Plugins are the extension model.** The plugin API is the product's main surface: powerful,
 predictable, and overloadable — a plugin can take over as much of a page as it wants. The host
