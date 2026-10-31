@@ -274,3 +274,20 @@ Read most (opens and searches):
 - `src/i18n/locales/en-US.ts` 3
 - `e2e-tests/compose.full.yml` 2
 - `src/auth/kratos-admin.ts` 2
+
+## Reading cost, chunk d8b41620d631, finished 2026-10-31T12:37:38Z
+
+70583 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 5
+- `AGENTS.md` 2
+- `README.md` 2
+- `examples/plugins/admin/README.md` 2
+- `src/auth/kratos-admin.ts` 2
+- `src/http/app-admin.test.ts` 2
+- `CHANGELOG.md` 1
+- `e2e-tests/full-flow.spec.ts` 1
+- `examples/plugins/admin/admin-users.test.ts` 1
+- `examples/plugins/admin/admin-users.ts` 1

@@ -6,6 +6,12 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### A plugin setting marked `secret` keeps its value out of the boot error that rejects it
+
+A `secret` setting of type `boolean`, `enum`, `number` or `url` that fails validation names its
+variable and what it accepts, and no longer prints the value, so a DSN with a password doesn't reach
+the log. A setting that isn't secret still prints the value it got.
+
 ### The admin's recovery-code notice links to the recovery flow the code belongs to
 
 After an admin generates a recovery code for a user, the notice asks them to send the user both the

@@ -231,26 +231,28 @@ function summarize(decl: SettingDecl, name: string, source: SettingSummary["sour
   };
 }
 
-// A coerced value, or the boot error naming the variable and what it accepts.
+// A coerced value, or the boot error naming the variable and what it accepts. A secret's value
+// stays out of it: the error reaches the log.
 function coerce(decl: SettingDecl, raw: string, name: string): { value: SettingValue } | string {
+  const got = decl.secret === true ? "" : `, got "${raw}"`;
   switch (decl.type) {
     case "boolean":
       if (raw === "true") return { value: true };
       if (raw === "false") return { value: false };
-      return `${name} must be "true" or "false", got "${raw}"`;
+      return `${name} must be "true" or "false"${got}`;
     case "enum":
       return (decl.values ?? []).includes(raw)
         ? { value: raw }
-        : `${name} must be one of ${(decl.values ?? []).join(", ")}, got "${raw}"`;
+        : `${name} must be one of ${(decl.values ?? []).join(", ")}${got}`;
     case "number": {
       const value = Number(raw);
-      return Number.isFinite(value) ? { value } : `${name} must be a number, got "${raw}"`;
+      return Number.isFinite(value) ? { value } : `${name} must be a number${got}`;
     }
     case "url":
       try {
         new URL(raw);
       } catch {
-        return `${name} is not a valid URL: ${raw}`;
+        return `${name} must be a valid URL${got}`;
       }
       return { value: raw };
     case "string":
