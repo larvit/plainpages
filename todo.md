@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 45 | 0.4.21 |  |  | **Link the admin's recovery-code notice to the flow the code was minted on, so the user can enter it.** | 1 | 2 | 2 | 3 | 2 | 2 by 5 | 7.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
@@ -25,13 +24,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 45. Link the admin's recovery-code notice to the flow the code was minted on, so the user can enter it.
-
-The notice (`examples/plugins/admin/views/partials/user-form-body.ejs`) links a bare `/recovery`,
-which starts a fresh flow at its email step. Kratos binds an admin-minted code to the flow it was minted on,
-whose URL is the `recovery_link` that `createRecoveryCode` returns as `RecoveryCode.link`. Render that
-link instead.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

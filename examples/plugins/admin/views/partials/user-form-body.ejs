@@ -2,7 +2,7 @@
   Admin user create/edit form body, captured into the shell content slot. Config:
     form  { action, csrfToken, submitLabel, cancelHref, fields: field.ejs config[] }
     edit? { nextLabel, stateAction, recoveryAction, deleteAction }   (edit mode only)
-    recovery? { code? }   shown after a recovery code is generated (recovery is code-based)
+    recovery? { code, link }   shown after a recovery code is generated; link is the flow the code was minted on, the only one that accepts it
     error?   string              shown when a write was rejected
 %><%
   const form = locals.form;
@@ -14,7 +14,7 @@
 <%- include("partials/alert", { text: locals.error, tone: "neg" }) %>
 <% } -%>
 <% if (recovery) { -%>
-  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong><%= t("admin.users.recovery.title") %></strong><span><%= t("admin.users.recovery.body") %> <a href="<%= localeHref("/recovery") %>"><%= t("admin.users.recovery.link") %></a></span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
+  <div class="alert alert-pos" role="status"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-check-circle"/></svg><div class="alert-body"><strong><%= t("admin.users.recovery.title") %></strong><span><%= t("admin.users.recovery.body") %> <a href="<%= recovery.link %>"><%= t("admin.users.recovery.link") %></a></span><% if (recovery.code) { %><span class="recovery-code"><code><%= recovery.code %></code></span><% } %></div></div>
 <% } -%>
   <form class="form-card" method="post" action="<%= localeHref(form.action) %>">
     <input type="hidden" name="_csrf" value="<%= form.csrfToken %>">

@@ -63,7 +63,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   let lastCreate: { traits?: unknown } | undefined;
   const kratosAdmin = stubAdmin({
     createIdentity: async (payload) => { lastCreate = payload as { traits?: unknown }; const created = mk("grace@example.com"); store.push(created); return created; },
-    createRecoveryCode: async (id) => ({ code: "123456", link: `http://kratos/self-service/recovery?code=123456&id=${id}` }),
+    createRecoveryCode: async (id) => ({ code: "123456", link: `http://kratos/self-service/recovery?flow=flow-${id}` }),
     deleteIdentity: async (id) => { const i = store.findIndex((x) => x.id === id); if (i >= 0) store.splice(i, 1); },
     getIdentity: async (id) => store.find((x) => x.id === id) ?? null,
     listIdentities: async () => ({ identities: store, nextPageToken: null }),
@@ -133,13 +133,13 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal(target.state, "inactive");
   assert.equal(denylist.isRevoked(target.id, 0), true);
 
-  // Recovery: renders the edit page (200) showing the generated code (code-based; no admin-host link).
+  // Recovery: renders the edit page (200) showing the generated code, linked to the flow it was minted on.
   const rec = await post(`/admin/users/${target.id}/recovery`, `_csrf=${token}`);
   assert.equal(rec.status, 200);
   const recHtml = await rec.text();
   assert.match(recHtml, /Recovery code generated/);
   assert.match(recHtml, /<code>123456<\/code>/);
-  assert.doesNotMatch(recHtml, /self-service\/recovery\?code=/); // the unreachable admin-API link is gone
+  assert.match(recHtml, new RegExp(`<a href="http://kratos/self-service/recovery\\?flow=flow-${target.id}">`)); // the code only works in the flow that minted it
 
   // Delete needs a deliberate confirm step (zero-JS): GET renders the interstitial, POST performs it.
   const confirm = await (await get(`/admin/users/${target.id}/delete`)).text();
