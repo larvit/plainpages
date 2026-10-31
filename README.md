@@ -868,7 +868,7 @@ export default definePlugin({
 ```
 
 `type` is one of `string`, `number`, `boolean`, `enum` (with `values`) or `url`. A declared type is
-coerced and checked at boot, so a mistyped value names the plugin, the key and the variable instead
+coerced and checked at boot, so a mistyped value names the plugin and the variable instead
 of surfacing later as a broken page.
 
 **`required` and `default` are mutually exclusive** — a default means the setting can never fail, so
