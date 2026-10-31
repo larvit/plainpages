@@ -478,13 +478,15 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   .chip:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 }
 
-/* Without :has() every branch is open and every theme rule is inert: neither control does anything.
-   The filter inputs stay visible, since the native control is then the only sign of a choice or of
-   focus. After the base rules, since @supports adds no specificity. */
+/* Without :has() every nav branch stays open and no theme rule applies, so the disclosure toggles and
+   the theme switch are hidden. The filter inputs are shown instead: the native control is then the
+   only sign of a choice or of focus, and the dot goes, since it would stay grey beside a ticked box. This block must come
+   after the base rules, since @supports adds no specificity. */
 @supports not selector(:has(a)) {
   .nav-disc { visibility: hidden; }  /* keeps its width, so the labels stay aligned */
   .theme-switch { display: none; }
   .segmented input, .chip input { position: static; opacity: 1; margin: 0; }
+  .chip .chip-dot { display: none; }
 }
 
 /* date range */
