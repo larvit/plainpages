@@ -139,7 +139,7 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   const recHtml = await rec.text();
   assert.match(recHtml, /Recovery code generated/);
   assert.match(recHtml, /<code>123456<\/code>/);
-  assert.match(recHtml, new RegExp(`<a href="http://kratos/self-service/recovery\\?flow=flow-${target.id}">`)); // the code only works in the flow that minted it
+  assert.match(recHtml, new RegExp(`<a href="http://kratos/self-service/recovery\\?flow=flow-${target.id}">`));
 
   // Delete needs a deliberate confirm step (zero-JS): GET renders the interstitial, POST performs it.
   const confirm = await (await get(`/admin/users/${target.id}/delete`)).text();
