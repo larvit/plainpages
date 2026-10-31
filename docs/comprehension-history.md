@@ -222,3 +222,71 @@ Inherited architect, would restructure first:
 - Locality, Overall: `src/http/app.ts:185` `handleRequest`: the most concerns and the highest complexity, already grandfathered, and every request-wide concern lands in it
 - Shape, Navigation: `src/ui/stylesheet-floor.ts:15` `FLOOR`: the 3am rule's home is a test-only module under `ui/`
 - Shape: `src/auth/routes.ts:275` `buildAuthRoutes`: the 19-module `src/auth/` mixes six concerns, and this file with `flow-view.ts` is where the next flow lands
+
+## 2026-10-31T13:06:16Z, PR #202 at 8e73d16
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7 | 6 | 6.5 | 6.5 | 6.5 |
+| Mid A | 7 | 6 | 6 | 6.5 | 6.5 |
+| Maintainability senior | 7 | 6 | 6 | 6.5 | 6.5 |
+| Inherited architect | 6.5 | 6 | 6 | 6.5 | 6.5 |
+| Mean | 6.88 | 6.00 | 6.13 | 6.50 | 6.50 |
+
+Junior A, hardest first:
+
+- Locality, Overall: `src/http/app.ts:185` `handleRequest`: about 165 lines in a fixed order that only a top-to-bottom read shows
+- Self-sufficiency, Shape: `src/auth/login.ts:40` `readPermissions`: the comment says `#members` where the code uses `granted`
+- Self-sufficiency: `src/plugin-host/settings.ts:35` `SettingsOf`: nested conditional types that need the charter's rule to decode
+
+Mid A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: complexity 43 inside the 318-line `createApp` closure, and `switchBase` reads `builtinRoutes` declared 60 lines later
+- Locality, Shape: `src/ui/stylesheet-floor.ts:119` `positive`: a regex CSS walker whose how stayed opaque
+- Self-sufficiency: `src/auth/bootstrap.ts:31` `permissionTuple`: the comment says `#members` where the code uses `granted`
+
+Maintainability senior, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: 167 lines and complexity 43 mixing twelve concerns whose order no type expresses
+- Locality: `src/ui/stylesheet-floor.ts:119` `positive`: a hand-rolled regex CSS scanner traced by hand
+- Self-sufficiency: `src/auth/gate.ts:13` `allows`: an empty gate is allowed, and the reason lives only in AGENTS.md
+
+Inherited architect, would restructure first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: the largest hub, where every request-wide concern lands
+- Shape, Navigation: `src/auth/routes.ts:275` `buildAuthRoutes`: the 19-module `src/auth/` mixes four concerns with no sub-folder
+- Shape, Navigation: `src/ui/stylesheet-floor.ts:30` `floorViolations`: test tooling sits among the runtime UI modules
+
+## 2026-10-31T13:06:21Z, PR #202 rerun at 8e73d16
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7 | 5.5 | 6 | 6 | 6 |
+| Mid A | 7 | 6 | 6 | 6 | 6.5 |
+| Maintainability senior | 7 | 6 | 6 | 6 | 6.5 |
+| Inherited architect | 7 | 5.5 | 6 | 7 | 6.5 |
+| Mean | 7.00 | 5.75 | 6.00 | 6.25 | 6.38 |
+
+Junior A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: closures over request state in a 318-line `createApp`, and it stayed opaque
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: the Kratos status semantics live outside the repo
+- Self-sufficiency, Shape: `src/auth/login.ts:45` `readPermissions`: the comment says `#members` where the code uses `granted`
+
+Mid A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: one pipeline whose steps mutate what later steps read
+- Locality: `src/ui/stylesheet-floor.ts:119` `positive`: traced by hand
+- Self-sufficiency, Shape: `src/auth/login.ts:45` `readPermissions`: the comment says `#members` where the code uses `granted`
+
+Maintainability senior, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: an unstated, load-bearing step order in shared closure state
+- Locality: `src/ui/stylesheet-floor.ts:119` `positive`: a hand-rolled CSS scanner built on lookbehind regexes
+- Self-sufficiency, Shape: `src/auth/bootstrap.ts:31` `permissionTuple`: the comment is false on the security-relevant path
+
+Inherited architect, would restructure first:
+
+- Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: stage order lives only in line order, in a grandfathered complexity-43 function
+- Shape, Navigation: `src/auth/routes.ts:275` `buildAuthRoutes`: 19 flat modules in `src/auth/`, and the next flow lands here
+- Shape, Navigation: `src/ui/stylesheet-floor.ts:15` `FLOOR`: the 3am rule's home is a test-only module under `ui/`

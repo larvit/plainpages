@@ -6,12 +6,13 @@
 
 `Bar = 1`
 
-`Next ID = 56`
+`Next ID = 57`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 56 | 0.4.22 |  |  | **Correct the README's two statements that `REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`.** | 1 | 2 | 1 | 2 | 1 | code health by 2 | 14.4 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 48 | 0.5.0 |  |  | **Correct the Keto tuple in the `login.ts` and `bootstrap.ts` comments to the `granted` relation the code writes.** | 1 | 1 | 1 | 1 | 1 | code health by 4 | 28.7 |
@@ -32,6 +33,17 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
+
+### 56. Correct the README's two statements that `REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`.
+
+README → What you must supply (about `:1275`: "refuses to boot on a missing or throwaway
+`CSRF_SECRET` and **nothing else**") and README → Security model (about `:1442`:
+"`REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`") contradict the Configuration table row (about
+`:1216`), `src/config.ts:59` and `:190`, and `src/plugin-host/settings.ts`. The flag also refuses a
+missing or throwaway `PLUGIN_DB_SECRET` once `PLUGIN_DB_URL` is set, and every plugin setting
+declared `secret`. An operator following the checklist underrates the toggle. Make both passages say
+what the flag enforces by pointing to the table row, its one home. Four comprehension seats raised it
+independently. Markdown only.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
