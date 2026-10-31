@@ -50,8 +50,8 @@ test("styles.css hides the theme switch and the nav toggles where :has() is miss
   assert.match(block, /\.nav-disc\s*\{\s*visibility:\s*hidden/);
 });
 
-// Without `:has()` nothing can check #nav-toggle, so an off-canvas sidebar there is unreachable
-// and the hamburger does nothing: the sidebar has to stay in the flow, with the hamburger hidden.
+// Without `:has()` nothing reads #nav-toggle, so an off-canvas sidebar there is unreachable and the
+// hamburger does nothing: the sidebar has to stay in the flow, with the hamburger hidden.
 test("styles.css moves the sidebar off-canvas at 860px only inside @supports selector(:has(a))", () => {
   const open = stylesheet.indexOf("@media (max-width: 860px) {");
   assert.ok(open >= 0, "no @media (max-width: 860px) block");

@@ -8,10 +8,11 @@ at boot. Entries start at 0.3.0.
 
 ### The mobile nav stays reachable on engines without `:has()`
 
-At 860px and narrower, an engine without `:has()` (Chromium below 105, such as webOS TV 22 and 23)
-hid the sidebar off-canvas with no way to open it, so no page behind the nav could be reached. Now
-the sidebar moves off-canvas, behind the hamburger, only where `:has()` works. Elsewhere it stays in
-the flow above the content and the hamburger is hidden.
+At 860px and narrower, an engine without `:has()` (Chromium below 105, such as webOS TV 22 and 23,
+and Firefox below 121) hid the sidebar off-canvas with no way to open it, so the pages the nav links
+to could not be reached. Now the sidebar moves off-canvas, behind the hamburger, only where `:has()`
+works. Elsewhere it stays in the flow above the content and the hamburger is hidden.
+
 ### The whole nav tree shows on engines without `:has()`
 
 On an engine without `:has()` (Chromium below 105, such as webOS TV 22 and 23, and Firefox below 121)
