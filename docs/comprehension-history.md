@@ -43,3 +43,22 @@ Inherited architect, decided by:
 - Locality, Overall: `public/css/styles.css:31` `--l-on-accent`: one token feeds `.btn-primary`, `.page-btn[aria-current]` and `.brand-mark`
 - Locality: `public/css/styles.css:287` `@supports not selector(:has(a))`: its `.nav-disc` rule sits about 85 lines from the nav rules it overrides, and `stylesheet-floor.test.ts` guards the order for `.theme-switch` only
 - Self-sufficiency: `src/ui/stylesheet-contrast.test.ts:29` `stylesheet-contrast.test.ts`: the darker badge colours now have a stated 4.5:1 reason someone can find
+
+## 2026-10-31T01:09:38Z, PR #183 at 0f20b38, against 364b047
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | same | same | same | better | better |
+| Inherited architect | same | better | same | better | better |
+
+Mid A, decided by:
+
+- Self-sufficiency, Overall: `public/css/styles.css:1` `App Shell Template header`: the false `light-dark()` bullet is gone, so no reader has to work out which of two comments is lying
+- Self-sufficiency, Overall: `public/css/styles.css:687` `@supports selector(:has(a))` in `@media (max-width: 860px)`: the guard and its comment say what an engine without `:has()` gets, without opening the CHANGELOG
+
+Inherited architect, decided by:
+
+- Self-sufficiency, Overall: `public/css/styles.css:5` `Architecture` header: the false `light-dark()` bullet is gone, so the header no longer contradicts the TOKENS comment
+- Locality, Self-sufficiency, Overall: `public/css/styles.css:687` `@supports selector(:has(a))` in `@media (max-width: 860px)`: the guard and its comment put the dependency of the open state on `:has()` where an editor would change it
