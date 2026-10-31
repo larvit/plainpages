@@ -1813,7 +1813,7 @@ unnecessary here — the signature itself is already invalid.
 ```
 src/                 The app — strict tsc, no build step. *.test.ts sit beside their module.
   server.ts          Entry point; config.ts env loader; logger.ts structured log + trace span + tracedFetch
-  *.test.ts          Topology guards with no source counterpart (compose/kratos/keto/hydra/postgres/ci-gate)
+  *.test.ts          Guards with no source counterpart (compose/kratos/keto/hydra/postgres/ci-gate/function-limits)
   http/              Request pipeline: app.ts (createApp), builtin-routes, context, body, cookie,
                      static, safe-url (safeUrl + localPath), security-headers
   auth/              Identity + the session-JWT hot path: jwt · jwt-middleware · jwks · gen-jwks (CLI) ·

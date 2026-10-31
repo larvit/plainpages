@@ -435,10 +435,8 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   URL shape, ignores the router's params, and has to re-handle HEAD. Factor shared per-request setup
   into a small `withX` wrapper — see `examples/plugins/admin/`.
 - **A function stays within 50 lines and complexity 20** (ESLint's defaults, measured by
-  `src/function-limits.test.ts`). Split one that outgrows them; never add it to the grandfathered
-  list or raise its ceiling there. The largest entry, `handleRequest`, is orchestration whose pure
-  parts are already extracted; it splits along the seams it tracks (canonical host, static, locale,
-  session, CSRF, hooks, routing, error mapping).
+  `src/function-limits.test.ts`). Split one that outgrows them; never add it to the test's
+  `grandfathered` list or raise a ceiling there.
 - Reviews are maintainer-triggered (e.g. via the larv-review skill) — never auto-run reviewer agents.
 - **A user-visible string belongs in a catalog, not in the code or a view.** Core strings go in
   `src/i18n/locales/en-US.ts` (then every other locale, or the boot fails); a plugin's go in its own
