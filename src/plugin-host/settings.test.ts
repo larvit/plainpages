@@ -109,31 +109,26 @@ test("each type coerces from the environment, and a bad value fails loud", () =>
     PLUGIN_SETTING_P_MODE: "loose",
   });
   assert.equal(bad.errors.length, 4);
-  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_COUNT.*number/);
-  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_FLAG.*"true".*"false"/);
-  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_MODE.*strict, lenient/);
-  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_BASE.*URL/);
+  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_COUNT.*number, got "twelve"/);
+  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_FLAG.*"true".*"false", got "yes"/);
+  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_MODE.*strict, lenient, got "loose"/);
+  assert.match(bad.errors.join("\n"), /PLUGIN_SETTING_P_BASE.*URL, got "not a url"/);
 });
 
-test("a secret's bad value never reaches the boot error, whatever its type", () => {
-  const cases: [SettingDecl, string, RegExp][] = [
-    [{ key: "s", secret: true, type: "boolean" }, "hunter2-bool", /PLUGIN_SETTING_P_S.*"true".*"false"/],
-    [{ key: "s", secret: true, type: "enum", values: ["a", "b"] }, "hunter2-enum", /PLUGIN_SETTING_P_S.*a, b/],
-    [{ key: "s", secret: true, type: "number" }, "hunter2-number", /PLUGIN_SETTING_P_S.*number/],
-    [{ key: "s", secret: true, type: "url" }, "postgres user:hunter2-url@db", /PLUGIN_SETTING_P_S.*URL/],
-  ];
-  for (const [decl, raw, names] of cases) {
+const SECRET_CASES: [SettingDecl, string, RegExp][] = [
+  [{ key: "s", secret: true, type: "boolean" }, "hunter2-bool", /PLUGIN_SETTING_P_S.*"true".*"false"/],
+  [{ key: "s", secret: true, type: "enum", values: ["a", "b"] }, "hunter2-enum", /PLUGIN_SETTING_P_S.*a, b/],
+  [{ key: "s", secret: true, type: "number" }, "hunter2-number", /PLUGIN_SETTING_P_S.*number/],
+  [{ key: "s", secret: true, type: "url" }, "postgres user:hunter2-url@db", /PLUGIN_SETTING_P_S.*URL/],
+];
+for (const [decl, raw, names] of SECRET_CASES) {
+  test(`a secret ${decl.type}'s bad value never reaches the boot error`, () => {
     const errors = resolveSettings([pluginWith("p", [decl])], { PLUGIN_SETTING_P_S: raw }).errors;
-    assert.equal(errors.length, 1, decl.type);
-    assert.match(errors[0] ?? "", names, decl.type);
-    assert.ok(!(errors[0] ?? "").includes("hunter2"), decl.type);
-  }
-});
-
-test("a non-secret's bad value is quoted in the boot error, so the operator sees the typo", () => {
-  const errors = resolveSettings([pluginWith("p", [{ key: "s", type: "url" }])], { PLUGIN_SETTING_P_S: "not a url" }).errors;
-  assert.match(errors[0] ?? "", /got "not a url"/);
-});
+    assert.equal(errors.length, 1);
+    assert.match(errors[0] ?? "", names);
+    assert.ok(!(errors[0] ?? "").includes("hunter2"));
+  });
+}
 
 test("a boolean is only \"true\"/\"false\" — a typo never degrades to false", () => {
   const plugins = [pluginWith("p", [{ default: true, key: "flag", type: "boolean" }])];
