@@ -340,11 +340,10 @@ Revisit only if the stated reason stops holding.
   *text* guard — the test image ships neither `git` nor `bash`. This is why the Docker Hub overview is
   `release-tooling/dockerhub-overview.md.tmpl` and not a `.md`: a release reads it and a unit test
   guards it, so giving it a `.md` name would let a broken `{{VERSION}}` merge with its own guard
-  skipped. `README.md` is the one markdown tests read — `release-tooling/contract-version.test.ts`
-  checks its `apiVersion` samples, `release-tooling/dockerhub-overview.test.ts` that the Hub page
-  says only what it says — and a README-only change skips both; accepted, because those samples are
-  illustrative, the copies that matter (`examples/`, `views/`, the template) are gated, and the next
-  gated change catches a README that dropped a Hub command. **Valid while no markdown file is rendered or executed.**
+  skipped. `README.md` is the one markdown tests read, and a README-only change skips them. Accepted:
+  the `apiVersion` samples `release-tooling/contract-version.test.ts` checks are illustrative, and
+  the copies that matter (`examples/`, `views/`, the template) are gated. A Hub page command the
+  README dropped (`release-tooling/dockerhub-overview.test.ts`) fails the next gated change. **Valid while no markdown file is rendered or executed.**
 - **CI docker logins share the runner host's Docker config.** The act_runner is host-mode, so
   `docker login`/`logout` in the workflows mutate one shared `~/.docker/config.json`: concurrent jobs
   can race (one job's logout can 401 another's push — recover by re-running), and tokens sit in that

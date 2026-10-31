@@ -38,8 +38,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-          # A persisted token rides every request as an extraheader, outranking the PAT in the push
-          # URL: Gitea then sees the Actions bot push the tag and starts no workflow for it.
+          # A persisted token outranks the PAT in the push URL, and Gitea runs nothing for its pushes.
           persist-credentials: false
       - name: Tag a release for what Renovate merged
         env:
