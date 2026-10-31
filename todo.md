@@ -6,18 +6,15 @@
 
 `Bar = 1`
 
-`Next ID = 40`
+`Next ID = 42`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
-| 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
-| 39 | 0.4.21 |  |  | **Pass an absolute `return_to` on to Kratos even when the URL also carries a chosen `locale`.** | 1 | 2 | 2 | 3 | 2 | 2 by 2 | 2.8 |
-| 22 | 0.4.21 |  |  | **Offer a `users:read` holder a View row action on the users list, not Edit.** | 2 | 2 | 1 | 3 | 3 | 2 by 2 | 2.1 |
 | 34 | 0.4.21 |  |  | **Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.** | 4 | 2 | 3 | 7 | 6 | 8 by 6, 2 by 2 | 1.8 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
+| 40 | 0.4.21 |  |  | **Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".** | 1 | 2 | 1 | 2 | 2 | 2 by 1 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 4 | 2 | 2 | 6 | 7 | code health by 2 | 1.1 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
@@ -28,37 +25,10 @@
 | 28 | 0.5.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
+| 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 4. Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.
-
-Sketch: post the rendered set as a hidden baseline; when it no longer matches Keto, re-render with
-"this changed while you had the page open" rather than applying.
-
-### 7. Confirm a successful permission save, and report a partial failure instead of hiding it.
-
-`applyGrants` loops writes then deletes with no transaction, so a Keto error midway leaves a
-half-applied set behind the generic error page. The `alert alert-pos` pattern of the recovery-code
-banner is available.
-
-### 39. Pass an absolute `return_to` on to Kratos even when the URL also carries a chosen `locale`.
-
-`flowReturnTo` (`src/auth/routes.ts`) returns the absolute target as-is only when no locale is chosen.
-With `/login?return_to=<absolute OAuth2 login URL>&locale=sv-SE` and no `?flow=`, it builds
-`<origin>/auth/complete?locale=sv-SE` instead and drops the absolute target, so after sign-in the
-visitor lands on the dashboard and the OAuth2 login challenge never continues. Normal paths don't hit
-it, because Hydra's redirect carries no `locale` and the language picker acts on a page that already
-holds a `?flow=`; a hand-built URL does. Fix by keeping the absolute target when `localPath` rejects
-it, losing the language across that round-trip instead, and add the case to the `login return_to`
-test in `src/http/app.test.ts`.
-
-### 22. Offer a `users:read` holder a View row action on the users list, not Edit.
-
-The pencil opens the read-only detail page, so it is harmless, but the label contradicts what the
-reader can do. Needs `canWrite` threaded into `listTable`, a `common.view` core catalog key and an
-`i-eye` icon.
 
 ### 34. Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.
 
@@ -96,6 +66,13 @@ The self-revoke guard covers only your own direct grants on the Users screen. Un
 on a group you belong to, leaving that group, or deleting it can still strip your own access with no
 warning. AGENTS.md records this as a known gap. The robust fix is a "last effective holder" check,
 which needs a reverse Keto query.
+
+### 40. Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".
+
+The users list now says View for a read-only holder, but the page it opens still titles itself
+`admin.users.edit` ("Edit user") with an "Edit" breadcrumb. `buildUserFormModel` in
+`examples/plugins/admin/admin-users.ts` already receives `canWrite`; the two admin catalog keys it
+needs are new.
 
 ### 1. Publish every release to Docker Hub, and give the Hub page its short description.
 
@@ -161,6 +138,14 @@ E2E stacks and README move with it.
 
 `grantDiff` never revokes an undeclared name, and nothing shows one either, so it can't be audited or
 cleaned, and reinstalling its plugin silently reactivates access nobody remembers granting.
+
+### 41. Apply a permission save as one Keto call, so it cannot stop part-way.
+
+`applyGrants` writes and deletes one tuple per request and reports a partial save when one fails.
+**Check first:** Keto documents `PATCH /admin/relation-tuples`, which should apply a list of inserts
+and deletes in one transaction; confirm that against the Keto version `ory/` pins. If so, add the
+call to `KetoClient`, which is contract surface (`@plainpages/plugin-api`) and so needs 0.5.0, and the
+partial-failure path in the admin example can go.
 
 ### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
 
