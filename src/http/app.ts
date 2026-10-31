@@ -42,7 +42,7 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export interface AppOptions {
   appUrl?: string; // canonical public URL (config.appUrl); off-host GET/HEAD visitors are 308'd here. Omitted ⇒ no redirect
   auth?: VerifyOptions; // expected JWT issuer/audience + clock skew (config); used with jwks
-  cache?: boolean; // cache compiled EJS templates (config.cacheTemplates); off ⇒ edits show live
+  cache?: boolean; // cache compiled EJS templates and /public/ asset versions (config.cacheTemplates); off ⇒ edits show live
   csrfSecret?: string; // HMAC key for the double-submit CSRF token (config.csrfSecret); random if omitted
   denylist?: Denylist; // optional instant-revoke; the hot path rejects revoked subjects, admin writes record revokes
   hydra?: HydraAdmin; // Hydra admin client; with kratos enables the OAuth2 login challenge
@@ -98,7 +98,7 @@ export function createApp(options: AppOptions = {}): Server {
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
-  const assets = publicAssets(publicDir, pluginsDir, pluginIds);
+  const assets = publicAssets(publicDir, pluginsDir, pluginIds, { cache });
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
   // Response security headers, fixed at boot (only HSTS depends on the https deployment signal).
   const secHeaderEntries = Object.entries(securityHeaders({ secure: secureCookies }));
@@ -197,7 +197,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
-        await assets.serve(url, req, res, (err) => reqLog.error("static stream error", { error: String(err) }));
+        await assets.serve(url, req, res, (err) => reqLog.error("static file error", { error: String(err) }));
         return;
       }
 

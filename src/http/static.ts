@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, type Hash } from "node:crypto";
 import { createReadStream, readFileSync, statSync, type Stats } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -63,24 +63,43 @@ const SHORT = "public, max-age=300";
 // gets a new hash.
 const hashes = new Map<string, { hash: string; mtimeMs: number; size: number }>();
 
-function contentHash(filePath: string, info: Stats): string {
+function memoized(filePath: string, info: Stats): string | undefined {
   const known = hashes.get(filePath);
-  if (known?.mtimeMs === info.mtimeMs && known.size === info.size) return known.hash;
-  const hash = createHash("sha256").update(readFileSync(filePath)).digest("base64url").slice(0, 16);
+  return known?.mtimeMs === info.mtimeMs && known.size === info.size ? known.hash : undefined;
+}
+
+// The one definition of a version. Two readers feed it. A view renders synchronously, so hashFileSync
+// reads the file whole; hashFile streams it, so a large file doesn't stall every other request.
+function remember(filePath: string, info: Stats, sha256: Hash): string {
+  const hash = sha256.digest("base64url").slice(0, 16);
   hashes.set(filePath, { hash, mtimeMs: info.mtimeMs, size: info.size });
   return hash;
 }
 
-// Synchronous because EJS templates are: a view calls it mid-render. The stat per href is the
-// price of picking up an edited file; the file is read and hashed once per version.
-function versioned(href: string, route: StaticRoute): string {
+function hashFileSync(filePath: string, info: Stats): string {
+  return memoized(filePath, info) ?? remember(filePath, info, createHash("sha256").update(readFileSync(filePath)));
+}
+
+async function hashFile(filePath: string, info: Stats): Promise<string> {
+  const known = memoized(filePath, info);
+  if (known !== undefined) return known;
+  const sha256 = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) sha256.update(chunk);
+  return remember(filePath, info, sha256);
+}
+
+// Without `cache`, a stat per href picks up an edited file. With it, a known version skips the stat:
+// an edit reaches the hrefs once a request for the file hashes it again.
+function versioned(href: string, route: StaticRoute, cache: boolean): string {
   try {
     const filePath = resolveStaticPath(route.dir, decodeURIComponent(route.subPath));
     if (filePath === null) return href;
+    const known = cache ? hashes.get(filePath) : undefined;
+    if (known) return `${href}?v=${known.hash}`;
     const info = statSync(filePath);
-    return info.isFile() ? `${href}?v=${contentHash(filePath, info)}` : href;
+    return info.isFile() ? `${href}?v=${hashFileSync(filePath, info)}` : href;
   } catch {
-    return href; // malformed %-encoding or a missing file: the request answers 400/404 on its own
+    return href; // malformed %-encoding, or a missing or unreadable file: serving it answers the error
   }
 }
 
@@ -122,12 +141,12 @@ async function serveStatic(route: StaticRequest, req: IncomingMessage, res: Serv
   try {
     const info = await stat(filePath);
     if (!info.isFile()) return plain(res, 404, "Not Found");
-    const hash = contentHash(filePath, info);
+    const hash = await hashFile(filePath, info);
     const etag = `"${hash}"`;
     const validators = { "cache-control": route.version === hash ? IMMUTABLE : SHORT, etag, "last-modified": info.mtime.toUTCString() };
     if (notModified(req, etag, info)) return void res.writeHead(304, validators).end();
     res.writeHead(200, { ...validators, "content-length": info.size, "content-type": contentTypeFor(filePath) });
-    if (req.method === "HEAD") return void res.end(); // headers only — skip opening the file
+    if (req.method === "HEAD") return void res.end();
     // Headers are already sent, so a mid-stream read error can't become an HTTP status —
     // log and destroy the response to signal a truncated body, not a hung socket.
     createReadStream(filePath)
@@ -136,21 +155,24 @@ async function serveStatic(route: StaticRequest, req: IncomingMessage, res: Serv
         res.destroy();
       })
       .pipe(res);
-  } catch {
-    plain(res, 404, "Not Found");
+  } catch (err) {
+    const { code } = err as NodeJS.ErrnoException;
+    if (code === "ENOENT" || code === "ENOTDIR") return plain(res, 404, "Not Found");
+    onError(err as Error);
+    plain(res, 500, "Internal Server Error");
   }
 }
 
 export interface PublicAssets {
   href: (href: string) => string; // a /public/ href with its version; any other href unchanged
-  // onError handles a mid-stream read failure (headers already sent).
+  // onError receives every failure to read a file except a missing one, which answers 404.
   serve: (url: URL, req: IncomingMessage, res: ServerResponse, onError: (err: Error) => void) => Promise<void>;
 }
 
-export function publicAssets(publicDir: string, pluginsDir: string, pluginIds: Set<string>): PublicAssets {
+export function publicAssets(publicDir: string, pluginsDir: string, pluginIds: Set<string>, { cache }: { cache: boolean }): PublicAssets {
   const route = (pathname: string): StaticRoute => routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
   return {
-    href: (href) => (href.startsWith("/public/") && !/[?#]/.test(href) ? versioned(href, route(href)) : href),
+    href: (href) => (href.startsWith("/public/") && !/[?#]/.test(href) ? versioned(href, route(href), cache) : href),
     serve: (url, req, res, onError) => serveStatic({ ...route(url.pathname), version: url.searchParams.get("v") }, req, res, onError),
   };
 }

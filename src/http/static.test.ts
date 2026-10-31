@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -17,11 +17,12 @@ mkdirSync(join(publicDir, "css"), { recursive: true });
 mkdirSync(join(pluginsDir, "demo", "public"), { recursive: true });
 writeFileSync(join(publicDir, "css", "a.css"), "body { color: red }");
 writeFileSync(join(pluginsDir, "demo", "public", "app.css"), ".demo {}");
-const assets = publicAssets(publicDir, pluginsDir, new Set(["demo"]));
+const assets = publicAssets(publicDir, pluginsDir, new Set(["demo"]), { cache: false });
 const assetHref = assets.href;
 
+const readErrors: Error[] = [];
 let base = "";
-const server = createServer((req, res) => void assets.serve(new URL(req.url ?? "/", "http://localhost"), req, res, (err) => assert.fail(err)));
+const server = createServer((req, res) => void assets.serve(new URL(req.url ?? "/", "http://localhost"), req, res, (err) => readErrors.push(err)));
 before(() => new Promise<void>((r) => server.listen(0, () => {
   base = `http://localhost:${(server.address() as AddressInfo).port}`;
   r();
@@ -66,6 +67,40 @@ test("assetHref changes when the file's content does", () => {
   assert.equal(assetHref("/public/css/changing.css"), first);
   writeFileSync(file, "a { color: blue }");
   assert.notEqual(assetHref("/public/css/changing.css"), first);
+});
+
+test("assetHref changes when the file's size does, even with its mtime restored", () => {
+  const file = join(publicDir, "css", "resized.css");
+  writeFileSync(file, "a {}");
+  const { atime, mtime } = statSync(file);
+  const first = assetHref("/public/css/resized.css");
+  writeFileSync(file, "a { color: blue }");
+  utimesSync(file, atime, mtime);
+  assert.notEqual(assetHref("/public/css/resized.css"), first);
+});
+
+test("with cache on, assetHref keeps a known version; a request naming it after an edit gets the short cache and the new ETag", async () => {
+  const cached = publicAssets(publicDir, pluginsDir, new Set(), { cache: true });
+  const file = join(publicDir, "css", "cached.css");
+  writeFileSync(file, "a {}");
+  const stale = cached.href("/public/css/cached.css");
+  writeFileSync(file, "a { color: green }");
+  assert.equal(cached.href("/public/css/cached.css"), stale);
+
+  const res = await fetch(base + stale);
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "a { color: green }");
+  assert.equal(res.headers.get("cache-control"), SHORT);
+  const fresh = assetHref("/public/css/cached.css");
+  assert.notEqual(fresh, stale);
+  assert.equal(res.headers.get("etag"), `"${fresh.split("?v=")[1]}"`);
+});
+
+test("a version hashed while rendering equals the ETag hashed while serving the same bytes", async () => {
+  writeFileSync(join(publicDir, "css", "served-first.css"), "p {}");
+  writeFileSync(join(publicDir, "css", "rendered-first.css"), "p {}");
+  const etag = (await fetch(base + "/public/css/served-first.css")).headers.get("etag");
+  assert.equal(etag, `"${assetHref("/public/css/rendered-first.css").split("?v=")[1]}"`);
 });
 
 test("a URL carrying the current version is cached for a year as immutable", async () => {
@@ -117,13 +152,21 @@ test("If-Modified-Since at or after the file's mtime answers 304; before it, or 
   const earlier = new Date(Date.parse(lastModified) - 1000).toUTCString();
   assert.equal((await fetch(base + "/public/css/a.css", { headers: { "if-modified-since": earlier } })).status, 200);
   assert.equal((await fetch(base + "/public/css/a.css", { headers: { "if-modified-since": "not a date" } })).status, 200);
-  // RFC 9110 §13.2.2: If-None-Match, when present, decides alone.
   assert.equal((await fetch(base + "/public/css/a.css", { headers: { "if-modified-since": lastModified, "if-none-match": '"other"' } })).status, 200);
 });
 
-test("unsafe or missing paths still answer 400, 403 and 404", async () => {
+test("unsafe or missing paths answer 400, 403 and 404", async () => {
   assert.equal((await fetch(base + "/public/%E0%A4%A")).status, 400);
   assert.equal((await fetch(base + "/public/..%2f..%2fetc%2fpasswd")).status, 403);
   assert.equal((await fetch(base + "/public/css/missing.css")).status, 404);
+  assert.equal((await fetch(base + "/public/css/a.css/x")).status, 404); // ENOTDIR
   assert.equal((await fetch(base + "/public/css")).status, 404);
+  assert.deepEqual(readErrors, []);
+});
+
+test("a read failure other than a missing file answers 500 and reaches onError", async () => {
+  symlinkSync("loop.css", join(publicDir, "css", "loop.css")); // root reads a mode-000 file, so a symlink loop makes the failure
+  const res = await fetch(base + "/public/css/loop.css");
+  assert.equal(res.status, 500);
+  assert.deepEqual(readErrors.splice(0).map((err) => (err as NodeJS.ErrnoException).code), ["ELOOP"]);
 });

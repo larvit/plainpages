@@ -451,6 +451,15 @@ test("every /public/ href the host renders is versioned and answers a year-long 
   }
 });
 
+test("an error page rendered before the request has a context still versions its stylesheet", async () => {
+  const port = Number(new URL(base).port);
+  const res = await rawGet(port, "//", `localhost:${port}`); // `new URL("//", …)` throws before any context exists
+  assert.equal(res.status, 500);
+  const refs = publicRefs(res.body);
+  assert.ok(refs.length > 0);
+  for (const ref of refs) assert.match(ref, /\?v=[\w-]+$/, ref);
+});
+
 test("the standalone error and consent views version their stylesheets", async () => {
   for (const view of ["403", "404", "500", "503", "error", "oauth-consent"]) {
     const html = await ejs.renderFile(join(viewsDir, `${view}.ejs`), {
