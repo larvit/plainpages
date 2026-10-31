@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 39`
+`Next ID = 40`
 
 ## Items
 
@@ -15,6 +15,7 @@
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
+| 39 | 0.4.21 |  |  | **Pass an absolute `return_to` on to Kratos even when the URL also carries a chosen `locale`.** | 1 | 2 | 2 | 3 | 2 | 2 by 2 | 2.8 |
 | 22 | 0.4.21 |  |  | **Offer a `users:read` holder a View row action on the users list, not Edit.** | 2 | 2 | 1 | 3 | 3 | 2 by 2 | 2.1 |
 | 34 | 0.4.21 |  |  | **Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.** | 4 | 2 | 3 | 7 | 6 | 8 by 6, 2 by 2 | 1.8 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
@@ -48,6 +49,17 @@ Sketch: post the rendered set as a hidden baseline; when it no longer matches Ke
 `applyGrants` loops writes then deletes with no transaction, so a Keto error midway leaves a
 half-applied set behind the generic error page. The `alert alert-pos` pattern of the recovery-code
 banner is available.
+
+### 39. Pass an absolute `return_to` on to Kratos even when the URL also carries a chosen `locale`.
+
+`flowReturnTo` (`src/auth/routes.ts`) returns the absolute target as-is only when no locale is chosen.
+With `/login?return_to=<absolute OAuth2 login URL>&locale=sv-SE` and no `?flow=`, it builds
+`<origin>/auth/complete?locale=sv-SE` instead and drops the absolute target, so after sign-in the
+visitor lands on the dashboard and the OAuth2 login challenge never continues. Normal paths don't hit
+it, because Hydra's redirect carries no `locale` and the language picker acts on a page that already
+holds a `?flow=`; a hand-built URL does. Fix by keeping the absolute target when `localPath` rejects
+it, losing the language across that round-trip instead, and add the case to the `login return_to`
+test in `src/http/app.test.ts`.
 
 ### 22. Offer a `users:read` holder a View row action on the users list, not Edit.
 
