@@ -1487,8 +1487,8 @@ session lives in Kratos and the data lives outside the process.
 
 ## Testing
 
-Type check and unit tests run off the Ory stack — `--no-deps` keeps `web` from dragging up its
-`depends_on` services:
+Type checks and unit tests run off the Ory stack — `--no-deps` keeps each service from dragging up
+its `depends_on` services:
 
 ```bash
 docker compose run --rm --no-deps web npm run typecheck   # strict tsc --noEmit

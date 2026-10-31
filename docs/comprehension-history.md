@@ -83,3 +83,26 @@ Inherited architect, decided by:
 - Self-sufficiency, Locality, Overall: `public/css/styles.css:12` `1. TOKENS` comment: an editor of the theme mapping learns of the distant `:has()` fallback from the comment, where the old text said the swap could not fail
 - Navigation, Self-sufficiency, Overall: `README.md:214` `## Glossary`: a cold reader reaches "chrome" or "denylist" and their home sections in one hop
 - Self-sufficiency: `README.md:815` `### Plugin dependencies`: the scale bullet gives the plugin count the dependency design assumes
+
+## 2026-10-31T07:26:19Z, PR #187 at 10152d2, against b336dee
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | same | same | better | better | better |
+| Inherited architect | same | same | better | better | better |
+
+Mid A, decided by:
+
+- Self-sufficiency, Overall: `e2e-tests/mock-oidc.ts:18` `idToken`: the helpers' signatures now say what `res`, `nonce` and the `codes` map hold
+- Self-sufficiency: `e2e-tests/proxy.ts:14` `toKratos`: `(path: string): boolean` shows the routing predicate's contract
+- Self-sufficiency: `e2e-tests/tsconfig.json:2` `extends`: the specs are held to the host's strict flags, and the Dockerfile comment explains the path link
+- Shape, Overall: `src/ui/icons.ts:4` `ICON_NAMES`: the comment "the icons the UI actually references" is true again
+
+Inherited architect, decided by:
+
+- Self-sufficiency, Overall: `e2e-tests/mock-oidc.ts:18` `b64`: typed helpers replace a trace through the `createServer` callback
+- Self-sufficiency: `e2e-tests/proxy.ts:14` `toKratos`: the predicate's contract is readable on its own line
+- Self-sufficiency: `e2e-tests/Dockerfile:11` `COPY tsconfig.json`: the relative `extends` path works in the checkout and in the image, and a comment names the link
+- Shape, Overall: `src/ui/icons.ts:4` `ICON_NAMES`: the registry matches its description, with no dead ids
