@@ -10,6 +10,15 @@ const SESSION_COOKIE = "plainpages_jwt"; // src/auth/login.ts — web verifies i
 const shot = (page: Page, name: string): Promise<Buffer> =>
   page.screenshot({ fullPage: true, path: `artifacts/screenshots/${test.info().project.name}/${name}.png` });
 
+// Large desktop down to a small phone, either side of the stylesheet's 860px and 560px breakpoints.
+const VIEWPORTS = [
+  { name: "desktop-xl", width: 1920, height: 1080 },
+  { name: "laptop", width: 1280, height: 800 },
+  { name: "tablet", width: 768, height: 1024 },
+  { name: "phone", width: 390, height: 844 },
+  { name: "phone-small", width: 320, height: 568 },
+] as const;
+
 // Sign a session JWT with the committed dev tokenizer key (bind-mounted at /repo/jwks.json), so the
 // gated dashboard renders for a "signed-in" user without standing up Ory — web verifies it
 // with the same key by `kid`, exactly as it verifies a real Kratos-tokenizer JWT.
@@ -34,7 +43,7 @@ for (const [name, path, tail] of [
   ["the starter dashboard", "/dashboard", ".form-actions .btn"],
   ["the public landing", "/", ".landing-actions .btn"],
 ] as const) {
-  for (const width of [1280, 390]) {
+  for (const { width } of VIEWPORTS) {
     test(`${name} scrolls to its end at ${width}px wide`, async ({ page }) => {
       await page.setViewportSize({ width, height: 200 });
       await page.goto(path);
@@ -77,12 +86,20 @@ test("captures the live pages for review", async ({ page }) => {
   await page.goto("/dashboard");
   await page.locator("#theme-dark").check({ force: true }); // visually-hidden radio
   await shot(page, "live-03-dark");
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/dashboard");
-  await shot(page, "live-04-mobile");
-  await page.setViewportSize({ width: 1280, height: 800 });
 });
+
+// The page is a document, so a column wider than the viewport can only show as sideways scroll.
+for (const { name, width, height } of VIEWPORTS) {
+  for (const [path, label] of [["/dashboard", "dashboard"], ["/", "landing"], ["/scheduling", "plugin"]] as const) {
+    test(`the ${label} page fits ${width}px wide, with no sideways scroll`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto(path);
+      const [scrollWidth, clientWidth] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth] as const);
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+      await shot(page, `live-${label}-${name}`);
+    });
+  }
+}
 
 test("every icon <use> resolves to a defined <symbol> (no broken graphics)", async ({ page }) => {
   await page.goto("/dashboard");

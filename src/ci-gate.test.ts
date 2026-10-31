@@ -32,9 +32,14 @@ test("the commit-hash image is pushed even when the gate no-ops", () => {
 test("every E2E suite the gate runs writes its artifacts as the invoking user", () => {
 	// The documented hand-run commands carry the same flag (src/compose.test.ts).
 	const runs = gate.split("\n").filter((l) => /docker compose .*\brun\b.*\be2e\b/.test(l));
-	assert.equal(runs.length, 2, "the suite helper and the devstack run");
+	assert.equal(runs.length, 3, "the e2e-tests typecheck, the suite helper and the devstack run");
 	for (const line of runs)
 		assert.match(line, /--user "\$\(id -u\):\$\(id -g\)"/, `runs as the caller: ${line.trim()}`);
+});
+
+test("the gate typechecks e2e-tests in the runner image, where @playwright/test resolves", () => {
+	assert.match(gate, /docker compose .*\brun\b.*--no-deps\b.*\be2e\b npm run typecheck/);
+	assert.match(read("e2e-tests/package.json"), /"typecheck": "tsc --noEmit"/);
 });
 
 test("only *.md counts as docs; a dirty tree and a rename both count as changed", () => {

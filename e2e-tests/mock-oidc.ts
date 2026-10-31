@@ -2,7 +2,7 @@
 // never leaves the compose network. Auto-approves /authorize (no provider login UI), then signs an
 // RS256 id_token Kratos verifies against /jwks. stdlib only, in-memory, NOT app code. The single
 // host (mock-oidc:9000) is reachable by both the browser (/authorize) and Kratos (token/jwks).
-import { createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 import { createSign, generateKeyPairSync, randomUUID } from "node:crypto";
 
 const ISSUER = process.env.ISSUER ?? "http://mock-oidc:9000";
@@ -15,8 +15,8 @@ const KID = "mock-1";
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), alg: "RS256", kid: KID, use: "sig" };
 
-const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
-function idToken(nonce) {
+const b64 = (o: unknown): string => Buffer.from(JSON.stringify(o)).toString("base64url");
+function idToken(nonce: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header = b64({ alg: "RS256", kid: KID, typ: "JWT" });
   const payload = b64({
@@ -27,8 +27,8 @@ function idToken(nonce) {
   return `${header}.${payload}.${sig}`;
 }
 
-const codes = new Map(); // single-use auth code → the nonce Kratos sent (echoed into the id_token)
-const json = (res, body) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
+const codes = new Map<string, string>(); // single-use auth code → the nonce Kratos sent (echoed into the id_token)
+const json = (res: ServerResponse, body: unknown): void => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
 
 createServer((req, res) => {
   const url = new URL(req.url ?? "/", ISSUER);

@@ -6,6 +6,11 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### Every page carries a smaller icon sprite
+
+The inlined sprite no longer holds `i-chart`, `i-copy` and `i-download`, which nothing in the host or
+the example plugins referenced. A plugin that referenced one renders a blank icon until the host registers it again.
+
 ### The README defines its terms and states its intended scale
 
 A new Glossary defines host, plugin, manifest, chrome, nav fragment, permission name, system plugin

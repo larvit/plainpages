@@ -11,7 +11,7 @@ const PORT = Number(process.env.PORT ?? 80);
 
 // Kratos public owns these prefixes (self-service flows, sessions, its well-known/schemas); the
 // browser hits them via the flow action + OIDC callbacks. Everything else is the web app.
-const toKratos = (path) => ["/self-service", "/sessions", "/.well-known/ory", "/schemas"].some((p) => path === p || path.startsWith(`${p}/`));
+const toKratos = (path: string): boolean => ["/self-service", "/sessions", "/.well-known/ory", "/schemas"].some((p) => path === p || path.startsWith(`${p}/`));
 
 createServer((req, res) => {
   const target = toKratos(req.url ?? "/") ? KRATOS : WEB;

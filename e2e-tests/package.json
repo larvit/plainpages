@@ -4,9 +4,12 @@
   "description": "Playwright E2E: design-system parity (visual), auth refresh, OAuth2 login/consent, and the full browser flow (login/menu/CRUD/plugin/logout).",
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
   }
 }
