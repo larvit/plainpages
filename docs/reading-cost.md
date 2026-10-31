@@ -291,3 +291,16 @@ Read most (opens and searches):
 - `e2e-tests/full-flow.spec.ts` 1
 - `examples/plugins/admin/admin-users.test.ts` 1
 - `examples/plugins/admin/admin-users.ts` 1
+
+## Reading cost, chunk f0a49c300aac, finished 2026-10-31T12:47:27Z
+
+63526 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 4
+- `src/plugin-host/settings.test.ts` 3
+- `todo.md` 3
+- `CHANGELOG.md` 2
+- `src/plugin-host/settings.ts` 2
+- `AGENTS.md` 1

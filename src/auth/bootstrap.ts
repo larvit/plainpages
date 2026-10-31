@@ -8,7 +8,7 @@
 // Then prints a first-run banner; fails loud on any unexpected upstream error.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
+import { assertUrl, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
 import { declaredPermissions, isValidPermissionName, type Plugin } from "../plugin-host/plugin.ts";
 import { provisionStorage } from "../plugin-host/storage-provisioning.ts";
@@ -179,6 +179,7 @@ export async function provisionPluginStorage(env: Env, plugins: Plugin[], log: L
   // Provisioned here, connected to from web: a different server means the role is created in one
   // place and looked for in another, surfacing inside a plugin as "password authentication failed".
   // Warned, not refused — web reaching a pooler that cannot run CREATE DATABASE is a legitimate split.
+  assertUrl("PLUGIN_DB_ADMIN_URL", adminUrl);
   const mismatch = serverMismatch(adminUrl, env["PLUGIN_DB_URL"]);
   if (mismatch) log.warn("PLUGIN_DB_ADMIN_URL and PLUGIN_DB_URL name different servers", { servers: mismatch });
   const result = await provision({
@@ -199,7 +200,7 @@ export async function provisionPluginStorage(env: Env, plugins: Plugin[], log: L
 export function serverMismatch(adminUrl: string, webUrl: string | undefined): string | null {
   if (!webUrl) return null;
   const [admin, web] = [safeHostPort(adminUrl), safeHostPort(webUrl)];
-  if (admin === null || web === null || admin === web) return null; // a malformed URL fails in config.ts
+  if (admin === null || web === null || admin === web) return null; // a malformed URL fails in assertUrl
   return `${admin} vs ${web}`;
 }
 

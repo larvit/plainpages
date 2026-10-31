@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 55 | 0.4.21 |  | security | **Keep a URL config value out of the boot error that rejects it.** | 1 | 1 | 4 | 5 | 2 |  | 0.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 48 | 0.5.0 |  |  | **Correct the Keto tuple in the `login.ts` and `bootstrap.ts` comments to the `granted` relation the code writes.** | 1 | 1 | 1 | 1 | 1 | code health by 4 | 28.7 |
@@ -33,20 +32,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 55. Keep a URL config value out of the boot error that rejects it.
-
-`readOptionalUrl` and `readUrl` in `src/config.ts` throw `config: ${key} is not a valid URL: ${value}`,
-so a malformed value reaches the boot error and the log. A DSN whose password breaks parsing, such as
-`postgres://admin:pa/ss@db:5432/plugins`, leaks that password. The keys that can carry credentials:
-`PLUGIN_DB_URL` (`readCredentiallessUrl` refuses userinfo only after `readOptionalUrl` has parsed it,
-so a pasted admin DSN that fails to parse is echoed), and `OTLP_ENDPOINT`, whose collector URL may
-embed basic-auth userinfo. The other URL keys, `APP_URL`, `HYDRA_ADMIN_URL`, `JWKS_URL`,
-`KETO_READ_URL`, `KETO_WRITE_URL`, `KRATOS_ADMIN_URL` and `KRATOS_PUBLIC_URL`, pass through the same
-two readers, so the fix covers them too. Name the variable and what it accepts, never the value, and
-add a test per credential-bearing key. The other readers in `config.ts` echo only non-credential
-values. `PLUGIN_DB_ADMIN_URL` isn't read in `config.ts`: `bootstrap.ts` hands it straight to
-`postgres()`. Check whether the driver echoes a malformed one.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

@@ -39,6 +39,29 @@ test("PLUGIN_DB_URL carrying credentials is refused, not silently overwritten", 
   assert.equal(loadConfig({}).pluginDbUrl, undefined); // unset ⇒ storage off
 });
 
+// A DSN whose password breaks URL parsing (a bare "/") must not reach the boot error or the log.
+// The credential-bearing keys get their own value; the rest share the two readers, so one loop covers them.
+test("a malformed URL value is refused by naming the variable, never echoing the value", () => {
+  const bad: Record<string, string> = {
+    APP_URL: "https://acme:pa/ss@[host",
+    HYDRA_ADMIN_URL: "http://u:pa/ss@[hydra:4445",
+    JWKS_URL: "http://u:pa/ss@[jwks",
+    KETO_READ_URL: "http://u:pa/ss@[keto:4466",
+    KETO_WRITE_URL: "http://u:pa/ss@[keto:4467",
+    KRATOS_ADMIN_URL: "http://u:pa/ss@[kratos:4434",
+    KRATOS_PUBLIC_URL: "http://u:pa/ss@[kratos:4433",
+    OTLP_ENDPOINT: "http://otel:pa/ss@[collector:4318",
+    PLUGIN_DB_URL: "postgres://admin:pa/ss@db:5432/plugins",
+  };
+  for (const [key, value] of Object.entries(bad)) {
+    assert.throws(
+      () => loadConfig({ [key]: value }),
+      (err: Error) => err.message.includes(key) && !err.message.includes("pa/ss") && !err.message.includes(value),
+      key,
+    );
+  }
+});
+
 test("the per-role connection ceiling defaults to 10 and rejects nonsense", () => {
   assert.equal(resolvePluginDbConnectionLimit({}), 10);
   assert.equal(resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "25" }), 25);

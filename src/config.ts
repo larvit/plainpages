@@ -98,26 +98,28 @@ function readEnum<T extends string>(env: Env, key: string, allowed: readonly T[]
   throw new Error(`config: ${key} must be one of ${allowed.join(", ")}, got "${value}"`);
 }
 
-// An optional absolute URL: unset/empty ⇒ undefined; a set-but-malformed value fails at boot.
-function readOptionalUrl(env: Env, key: string): string | undefined {
-  const value = env[key] || undefined;
-  if (value === undefined) return undefined;
+// Never echoes the value: a DSN whose password breaks URL parsing (a bare "/") would put the
+// password in the boot error and the log. bootstrap uses it too, before the postgres driver, which
+// rethrows a malformed DSN with the whole string attached.
+export function assertUrl(key: string, value: string): void {
   try {
     new URL(value);
   } catch {
-    throw new Error(`config: ${key} is not a valid URL: ${value}`);
+    throw new Error(`config: ${key} must be an absolute URL (its value is not shown; percent-encode special characters in a password)`);
   }
+}
+
+// An optional absolute URL: unset/empty ⇒ undefined; a set-but-malformed value fails at boot.
+function readOptionalUrl(env: Env, key: string): string | undefined {
+  const value = env[key] || undefined;
+  if (value !== undefined) assertUrl(key, value);
   return value;
 }
 
 // An absolute URL: defaults to the Ory service; validated so a typo fails at boot.
 function readUrl(env: Env, key: string, devDefault: string): string {
   const value = env[key] ?? devDefault;
-  try {
-    new URL(value);
-  } catch {
-    throw new Error(`config: ${key} is not a valid URL: ${value}`);
-  }
+  assertUrl(key, value);
   return value;
 }
 

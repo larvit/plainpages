@@ -181,6 +181,16 @@ test("provisioning still runs with nothing to provision, so orphans are reported
   assert.deepEqual(calls[0]?.pluginIds, []);
 });
 
+// The postgres driver rethrows a malformed DSN with the whole string on the error (`input`), so
+// the URL is checked here, before the driver sees it.
+test("a malformed PLUGIN_DB_ADMIN_URL is refused by name, never echoing the password", async () => {
+  const env = { PLUGIN_DB_ADMIN_URL: "postgres://admin:pa/ss@db:5432/plugins" };
+  await assert.rejects(
+    provisionPluginStorage(env, [storagePlugin("things")], SILENT, async () => ({ orphans: [], provisioned: [] })),
+    (err: Error) => err.message.includes("PLUGIN_DB_ADMIN_URL") && !err.message.includes("pa/ss"),
+  );
+});
+
 test("a plugin declaring storage without a provisioning DSN fails loud, naming the plugin", async () => {
   const { calls, provision } = recordingProvisioner();
   await assert.rejects(
