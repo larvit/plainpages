@@ -8,6 +8,8 @@ COPY e2e-tests/package.json e2e-tests/package-lock.json ./
 RUN npm ci
 
 COPY e2e-tests/ ./
+# e2e-tests/tsconfig.json extends it, so the specs are held to the host's strictness flags.
+COPY tsconfig.json /tsconfig.json
 
 # Runs as the invoking `--user` so artifacts land owned by them, not root — and an arbitrary uid has
 # no passwd entry here, so its home would be the unwritable `/`. npm's cache follows HOME.
