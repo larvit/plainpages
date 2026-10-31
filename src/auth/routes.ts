@@ -38,13 +38,10 @@ const FORBIDDEN: RouteResult = { status: 403, view: "403" };
 const selfOrigin = (ctx: RequestContext, secure: boolean): string =>
   `${secure ? "https" : "http"}://${ctx.req.headers.host ?? "127.0.0.1:3000"}`;
 
-// Where Kratos lands the browser after a freshly initialised flow, or undefined for its default
-// completion route. A first-party deep link (host-relative, from the gate's return_to) is wrapped
-// through /auth/complete so the session JWT is minted before the user reaches the page; an absolute
-// target (the OAuth2 login challenge) is passed as-is — Kratos allow-lists it. localPath rejects an
-// off-origin "//evil.com". The target is the host's, not Kratos', so the language the visitor picked
-// on the sign-in page survives the round-trip and lands on the page after it; without this the
-// most-travelled path in the product (pick Swedish → sign in) drops back to Accept-Language.
+// Where Kratos lands the browser after sign-in, or undefined for its default. A host-relative
+// return_to (the gate's deep link) or a chosen language goes through /auth/complete, which mints the
+// session JWT first and carries the language across Kratos; any other target (the OAuth2 login
+// challenge) is passed as-is, since Kratos allow-lists it.
 function flowReturnTo(ctx: RequestContext, secureCookies: boolean): string | undefined {
   const raw = ctx.url.searchParams.get("return_to");
   const local = localPath(raw);
@@ -56,13 +53,14 @@ function flowReturnTo(ctx: RequestContext, secureCookies: boolean): string | und
   return complete.toString();
 }
 
-// What a failed Kratos call renders instead of the flow; rethrows what is genuinely unexpected.
+// What a failed Kratos call returns instead of the flow; rethrows what is genuinely unexpected.
 function flowFailure(err: unknown, ctx: RequestContext, flowType: FlowType): RouteResult {
   const pathname = ctx.url.pathname;
   // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
   if (err instanceof KratosError && [403, 404, 410].includes(err.status)) return { redirect: pathname };
-  // No Kratos session on a page that needs one (/settings is public, so the gate never sent them
-  // to sign in): sign in, then come back. Not for /login itself, which would redirect to itself.
+  // No Kratos session on a page that needs one. /settings is public, since recovery lands there with
+  // a Kratos session but no app JWT, so the gate never sends an anonymous visitor to sign in.
+  // Not for /login itself, which would redirect to itself.
   if (err instanceof KratosError && err.status === 401 && flowType !== "login") {
     return { redirect: `/login?return_to=${encodeURIComponent(pathname)}` };
   }

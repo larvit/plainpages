@@ -242,8 +242,6 @@ test("return_to: a deep link while logged out returns to that page after login",
 
 test("settings: an anonymous visit signs in first, then lands on the settings page", async ({ page }) => {
   test.setTimeout(90_000);
-  // /settings is public (recovery lands there with a Kratos session but no app JWT), so Kratos' 401
-  // for an anonymous settings flow must send the visitor to sign in, not to the 500 page.
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/login(\?|$)/);
   await page.fill('input[name="identifier"]', ADMIN_EMAIL);
