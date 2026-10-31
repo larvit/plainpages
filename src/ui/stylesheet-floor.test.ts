@@ -16,6 +16,16 @@ for (const file of readdirSync(cssDir).filter((f) => f.endsWith(".css"))) {
 
 const stylesheet = readFileSync(join(cssDir, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
+// The index of the `}` closing the block whose `{` is the first one at or after `start`.
+function blockEnd(start: number): number {
+  let depth = 0;
+  for (let i = stylesheet.indexOf("{", start); i < stylesheet.length; i++) {
+    if (stylesheet[i] === "{") depth++;
+    if (stylesheet[i] === "}" && --depth === 0) return i;
+  }
+  throw new Error("unbalanced braces in styles.css");
+}
+
 // The text is all there is to check: Playwright's engines all support `:has()`, so no E2E sees the
 // stylesheet an older engine gets.
 // Chromium below 105 and Firefox below 121 have no `:has()`, and nothing else reveals a folded
@@ -23,12 +33,7 @@ const stylesheet = readFileSync(join(cssDir, "styles.css"), "utf8").replace(/\/\
 test("styles.css folds .nav-children only inside @supports selector(:has(a))", () => {
   const open = stylesheet.indexOf("@supports selector(:has(a)) {");
   assert.ok(open >= 0, "no @supports selector(:has(a)) block");
-  let depth = 0;
-  let close = open;
-  for (; close < stylesheet.length; close++) {
-    if (stylesheet[close] === "{") depth++;
-    if (stylesheet[close] === "}" && --depth === 0) break;
-  }
+  const close = blockEnd(open);
   const outside = stylesheet.slice(0, open) + stylesheet.slice(close + 1);
   assert.ok(!/\.nav-children\s*\{[^}]*display:\s*none/.test(outside), "a .nav-children rule hides it outside the guard");
   assert.match(stylesheet.slice(open, close), /\.nav-children\s*\{\s*display:\s*none/, "the fold rule is gone");
@@ -43,4 +48,22 @@ test("styles.css hides the theme switch and the nav toggles where :has() is miss
   const block = stylesheet.slice(guard, stylesheet.indexOf("\n}", guard));
   assert.match(block, /\.theme-switch\s*\{\s*display:\s*none/);
   assert.match(block, /\.nav-disc\s*\{\s*visibility:\s*hidden/);
+});
+
+// Without `:has()` nothing can check #nav-toggle, so an off-canvas sidebar there is unreachable
+// and the hamburger does nothing: the sidebar has to stay in the flow, with the hamburger hidden.
+test("styles.css moves the sidebar off-canvas at 860px only inside @supports selector(:has(a))", () => {
+  const open = stylesheet.indexOf("@media (max-width: 860px) {");
+  assert.ok(open >= 0, "no @media (max-width: 860px) block");
+  const close = blockEnd(open);
+  const media = stylesheet.slice(open, close);
+  const guard = media.indexOf("@supports selector(:has(a)) {");
+  assert.ok(guard >= 0, "no @supports selector(:has(a)) block inside the 860px media block");
+  const guardEnd = blockEnd(open + guard) - open;
+  const outside = media.slice(0, guard) + media.slice(guardEnd + 1);
+  const inside = media.slice(guard, guardEnd);
+  for (const offCanvas of [/translateX\(-100%\)/, /position:\s*fixed/, /#nav-toggle/, /\.hamburger/]) {
+    assert.doesNotMatch(outside, offCanvas, `${offCanvas} applies outside the guard`);
+    assert.match(inside, offCanvas, `${offCanvas} is gone from the guard`);
+  }
 });

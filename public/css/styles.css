@@ -2,8 +2,9 @@
    App Shell Template — pure HTML/CSS, no JavaScript
    -------------------------------------------------------------
    Architecture
-   - Design tokens via light-dark() so theme follows system by
-     default and can be forced Light / Dark via radio + :has().
+   - Design tokens are two raw palettes picked by a theme block, so
+     the theme follows the system by default and can be forced
+     Light / Dark via radio + :has().
    - Everything is a reusable "block": .nav-item, .filter,
      .chip, .badge, .btn, .menu, .table — combine freely.
    ============================================================= */
@@ -681,23 +682,28 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 /* ---------- 11. RESPONSIVE / HAMBURGER --------------------- */
 .scrim { display: none; }
 
+/* Off-canvas only where :has() works: without it nothing can read #nav-toggle, so the sidebar
+   stays in the flow above the content and the hamburger stays hidden. */
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); }
-  .sidebar {
-    position: fixed; inset: 0 auto 0 0; width: min(86vw, var(--nav-w));
-    z-index: 60; transform: translateX(-100%);
-    box-shadow: 2px 0 24px rgba(0,0,0,.18);
-  }
   .content { grid-column: 1; }
-  .hamburger { display: inline-flex; }
-
-  /* checkbox-driven open state */
-  body:has(#nav-toggle:checked) .sidebar { transform: translateX(0); }
-  body:has(#nav-toggle:checked) .scrim {
-    display: block; position: fixed; inset: 0; z-index: 50;
-    background: rgba(0,0,0,.42);
-  }
   .search { min-width: 150px; flex: 1 1 auto; }
+
+  @supports selector(:has(a)) {
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; width: min(86vw, var(--nav-w));
+      z-index: 60; transform: translateX(-100%);
+      box-shadow: 2px 0 24px rgba(0,0,0,.18);
+    }
+    .hamburger { display: inline-flex; }
+
+    /* checkbox-driven open state */
+    body:has(#nav-toggle:checked) .sidebar { transform: translateX(0); }
+    body:has(#nav-toggle:checked) .scrim {
+      display: block; position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,.42);
+    }
+  }
 }
 @media (max-width: 560px) {
   .crumbs, .page-sub { display: none; }

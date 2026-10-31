@@ -30,3 +30,20 @@ Read most (opens and searches):
 - `AGENTS.md` 1
 - `src/ui/stylesheet-floor.test.ts` 1
 - `src/ui/theme-switch.test.ts` 1
+
+## Reading cost, chunk 3bf0b1a97d77, finished 2026-10-31T00:48:14Z
+
+167985 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `public/css/styles.css` 17
+- `todo.md` 7
+- `README.md` 6
+- `public/css/auth.css` 5
+- `AGENTS.md` 1
+- `CHANGELOG.md` 1
+- `examples/plugins/scheduling/public/scheduling.css` 1
+- `examples/plugins/scheduling/views/overview.ejs` 1
+- `examples/plugins/scheduling/views/shifts.ejs` 1
+- `src/http/app.test.ts` 1
