@@ -8,7 +8,7 @@ at boot. Entries start at 0.3.0.
 
 ### A filter shows its selected and focused choice in browsers without `:has()`
 
-On Firefox 115, Chromium below 105 and Safari below 15.4, a filter's segments and chips now show
+On Chromium below 105, Firefox below 121 and Safari below 15.4, a filter's segments and chips now show
 their native radio or checkbox, which marks the selected choice and takes the keyboard focus ring.
 Before, they showed neither. Newer browsers look as before.
 
