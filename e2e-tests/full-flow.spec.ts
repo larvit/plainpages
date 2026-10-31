@@ -138,6 +138,26 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 
+  // Kratos accepts an admin-minted code only in the flow it was minted on, which the notice's link opens.
+  test("recovery code: the notice's link opens the flow that accepts the code, and the code signs the user in", async () => {
+    test.setTimeout(90_000);
+    const email = `admin-recovery-${suffix}@plainpages.local`;
+    await createIdentity(email);
+    await page.goto("/admin/users");
+    const editHref = await page.locator("tr", { hasText: email }).locator('a[href^="/admin/users/"]').first().getAttribute("href");
+    await page.goto(editHref!);
+    await page.getByRole("button", { name: "Generate recovery code" }).click();
+    const code = await page.locator(".recovery-code code").innerText();
+    const link = await page.locator(".alert-body a").getAttribute("href");
+
+    const user = await watchedPage(await browser.newContext());
+    await user.goto(link!);
+    await user.fill('input[name="code"]', code);
+    await user.getByRole("button", { name: "Continue" }).click();
+    await expect(user).toHaveURL(/\/settings/);
+    await user.context().close();
+  });
+
   test("groups CRUD: create a group (writes go to Keto), see it listed, then grant it a permission", async ({ browser }) => {
     // A Keto set exists only while it has ≥1 member, so create needs a first member (the form
     // enforces it); pick the first option (a user) from the required picker.

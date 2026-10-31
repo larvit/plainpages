@@ -25,7 +25,7 @@ export interface ListOptions {
   pageToken?: string;
 }
 
-// A one-time recovery code + the self-service link wrapping it (admin "trigger recovery").
+// A one-time recovery code + the URL of the recovery flow it was minted on, the only flow that accepts it.
 export interface RecoveryCode {
   code: string;
   link: string;
@@ -65,8 +65,8 @@ export function createKratosAdmin(config: { baseUrl: string; fetchImpl?: typeof 
       return (await res.json()) as Identity;
     },
 
-    // Mint a recovery code for an identity (admin "trigger recovery") — the link is mailed to the
-    // user by Kratos; the code/link are also returned so an operator can hand them over directly.
+    // Mint a recovery code for an identity (admin "trigger recovery"). Kratos mails nothing, so the
+    // operator hands the code and link to the user.
     async createRecoveryCode(userId, opts = {}) {
       const body: Record<string, unknown> = { identity_id: userId };
       if (opts.expiresIn) body.expires_in = opts.expiresIn;

@@ -100,9 +100,9 @@ test("updateMetadataPublic PATCHes a JSON-Patch `add /metadata_public` so it nev
 });
 
 test("createRecoveryCode POSTs the identity id to /admin/recovery/code → { code, link }", async () => {
-  const { calls, fetchImpl } = recorder(() => res(200, { recovery_code: "123456", recovery_link: "http://kratos/self-service/recovery?flow=f&code=123456" }));
+  const { calls, fetchImpl } = recorder(() => res(200, { recovery_code: "123456", recovery_link: "http://kratos/self-service/recovery?flow=f" }));
   const out = await createKratosAdmin({ baseUrl: BASE, fetchImpl }).createRecoveryCode(ID);
-  assert.deepEqual(out, { code: "123456", link: "http://kratos/self-service/recovery?flow=f&code=123456" });
+  assert.deepEqual(out, { code: "123456", link: "http://kratos/self-service/recovery?flow=f" });
   assert.equal(calls[0]!.method, "POST");
   assert.match(calls[0]!.url, /\/admin\/recovery\/code$/);
   assert.deepEqual(JSON.parse(calls[0]!.body!), { identity_id: ID });
