@@ -8,10 +8,11 @@ at boot. Entries start at 0.3.0.
 
 ### The admin example stops an administrator locking themselves out through a group
 
-On the Groups screen, unticking a permission on a group you are in, removing yourself or a group
-you are in, or deleting the group is refused when it would take away a permission you don't hold
-directly. The page says so, and another administrator can make the change. A permission you also
-hold through another group counts as lost, so such a change is refused as well.
+On the Groups screen, unticking a permission on a group you are in, removing yourself (or a nested
+group you are in) from its members, or deleting the group is refused when it would take away a
+permission you don't hold directly. The page names the permissions, and another administrator can
+make the change. The check errs towards refusing: it also refuses when you would keep the permission
+through another group, or keep your membership another way.
 
 ### The admin example titles a read-only user page "View user"
 
