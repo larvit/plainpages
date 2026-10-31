@@ -6,6 +6,13 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### The tests fail on a stylesheet feature the browser floor lacks
+
+Every stylesheet in the repo, the examples' included, is checked against Chromium 87, Safari 15 and
+Firefox 115 using MDN's compat data; a feature one of them lacks passes only inside an `@supports`
+that names it. The core stylesheets now guard each such feature, which those engines skip instead
+of misreading. Pages render as before in current browsers.
+
 ### Every release reaches Docker Hub, and the Hub page has a short description
 
 Releases 0.4.1 to 0.4.20 were tagged in git but never published to Docker Hub or as semver tags in

@@ -71,9 +71,24 @@
   line-height: 1.45;
 }
 
-/* shared DARK mapping, applied to Auto-via-OS and forced-dark */
-@media (prefers-color-scheme: dark) {
-  :root:not(:has(#theme-light:checked)):not(:has(#theme-dark:checked)) {
+@supports selector(:has(a)) {
+  /* shared DARK mapping, applied to Auto-via-OS and forced-dark */
+  @media (prefers-color-scheme: dark) {
+    :root:not(:has(#theme-light:checked)):not(:has(#theme-dark:checked)) {
+      --bg:var(--d-bg); --surface:var(--d-surface); --surface-2:var(--d-surface-2); --surface-3:var(--d-surface-3);
+      --border:var(--d-border); --border-2:var(--d-border-2);
+      --text:var(--d-text); --text-muted:var(--d-text-muted); --text-faint:var(--d-text-faint);
+      --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus); --on-accent:var(--d-on-accent);
+      --pos:var(--d-pos); --pos-bg:var(--d-pos-bg); --pos-bd:var(--d-pos-bd);
+      --neg:var(--d-neg); --neg-bg:var(--d-neg-bg); --neg-bd:var(--d-neg-bd);
+      --warn:var(--d-warn); --warn-bg:var(--d-warn-bg); --warn-bd:var(--d-warn-bd);
+      --info:var(--d-info); --info-bg:var(--d-info-bg); --info-bd:var(--d-info-bd);
+      color-scheme: dark;
+    }
+  }
+
+  /* forced DARK (overrides everything) */
+  html:has(#theme-dark:checked) {
     --bg:var(--d-bg); --surface:var(--d-surface); --surface-2:var(--d-surface-2); --surface-3:var(--d-surface-3);
     --border:var(--d-border); --border-2:var(--d-border-2);
     --text:var(--d-text); --text-muted:var(--d-text-muted); --text-faint:var(--d-text-faint);
@@ -84,32 +99,19 @@
     --info:var(--d-info); --info-bg:var(--d-info-bg); --info-bd:var(--d-info-bd);
     color-scheme: dark;
   }
-}
 
-/* forced DARK (overrides everything) */
-html:has(#theme-dark:checked) {
-  --bg:var(--d-bg); --surface:var(--d-surface); --surface-2:var(--d-surface-2); --surface-3:var(--d-surface-3);
-  --border:var(--d-border); --border-2:var(--d-border-2);
-  --text:var(--d-text); --text-muted:var(--d-text-muted); --text-faint:var(--d-text-faint);
-  --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus); --on-accent:var(--d-on-accent);
-  --pos:var(--d-pos); --pos-bg:var(--d-pos-bg); --pos-bd:var(--d-pos-bd);
-  --neg:var(--d-neg); --neg-bg:var(--d-neg-bg); --neg-bd:var(--d-neg-bd);
-  --warn:var(--d-warn); --warn-bg:var(--d-warn-bg); --warn-bd:var(--d-warn-bd);
-  --info:var(--d-info); --info-bg:var(--d-info-bg); --info-bd:var(--d-info-bd);
-  color-scheme: dark;
-}
-
-/* forced LIGHT (overrides the OS-dark media query) */
-html:has(#theme-light:checked) {
-  --bg:var(--l-bg); --surface:var(--l-surface); --surface-2:var(--l-surface-2); --surface-3:var(--l-surface-3);
-  --border:var(--l-border); --border-2:var(--l-border-2);
-  --text:var(--l-text); --text-muted:var(--l-text-muted); --text-faint:var(--l-text-faint);
-  --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus); --on-accent:var(--l-on-accent);
-  --pos:var(--l-pos); --pos-bg:var(--l-pos-bg); --pos-bd:var(--l-pos-bd);
-  --neg:var(--l-neg); --neg-bg:var(--l-neg-bg); --neg-bd:var(--l-neg-bd);
-  --warn:var(--l-warn); --warn-bg:var(--l-warn-bg); --warn-bd:var(--l-warn-bd);
-  --info:var(--l-info); --info-bg:var(--l-info-bg); --info-bd:var(--l-info-bd);
-  color-scheme: light;
+  /* forced LIGHT (overrides the OS-dark media query) */
+  html:has(#theme-light:checked) {
+    --bg:var(--l-bg); --surface:var(--l-surface); --surface-2:var(--l-surface-2); --surface-3:var(--l-surface-3);
+    --border:var(--l-border); --border-2:var(--l-border-2);
+    --text:var(--l-text); --text-muted:var(--l-text-muted); --text-faint:var(--l-text-faint);
+    --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus); --on-accent:var(--l-on-accent);
+    --pos:var(--l-pos); --pos-bg:var(--l-pos-bg); --pos-bd:var(--l-pos-bd);
+    --neg:var(--l-neg); --neg-bg:var(--l-neg-bg); --neg-bd:var(--l-neg-bd);
+    --warn:var(--l-warn); --warn-bg:var(--l-warn-bg); --warn-bd:var(--l-warn-bd);
+    --info:var(--l-info); --info-bg:var(--l-info-bg); --info-bd:var(--l-info-bd);
+    color-scheme: light;
+  }
 }
 
 /* ---------- 2. RESET ---------------------------------------- */
@@ -122,10 +124,12 @@ a { color: inherit; text-decoration: none; }
 summary::-webkit-details-marker { display: none; }
 summary { list-style: none; cursor: pointer; }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
-  border-radius: 3px;
+@supports selector(:focus-visible) {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
   .sidebar, .scrim, summary, .nav-item, .btn, .chip, .profile, .kebab { transition: .15s ease; }
@@ -153,7 +157,9 @@ summary { list-style: none; cursor: pointer; }
 .app {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  min-height: 100dvh;
+}
+@supports (min-height: 100dvh) {
+  .app { min-height: 100dvh; }
 }
 
 /* ---------- 4. SIDEBAR -------------------------------------- */
@@ -219,7 +225,10 @@ summary { list-style: none; cursor: pointer; }
   min-height: 30px; padding: 4px 8px;
   border-radius: var(--radius);
   color: var(--text-muted); font-size: var(--fz);
-  position: relative; user-select: none;
+  position: relative;
+}
+@supports (user-select: none) {
+  .nav-self { user-select: none; }
 }
 a.nav-self:hover { background: var(--surface-2); color: var(--text); }
 .nav-self .ico { color: var(--text-faint); }
@@ -277,12 +286,14 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .theme-switch label:hover { color: var(--text); }
 .theme-switch input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
-.theme-switch label:has(input:checked) {
-  background: var(--surface); color: var(--text);
-  box-shadow: 0 1px 2px rgba(0,0,0,.06); font-weight: 550;
-}
-.theme-switch label:has(input:focus-visible) {
-  outline: 2px solid var(--focus); outline-offset: 1px;
+@supports selector(:has(:focus-visible)) {
+  .theme-switch label:has(input:checked) {
+    background: var(--surface); color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,.06); font-weight: 550;
+  }
+  .theme-switch label:has(input:focus-visible) {
+    outline: 2px solid var(--focus); outline-offset: 1px;
+  }
 }
 
 /* Without :has() every branch is open and every theme rule is inert: neither control does anything.
@@ -414,7 +425,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   position: relative; display: inline-flex; align-items: center;
 }
 .select select {
-  appearance: none; height: 30px; padding: 0 26px 0 9px;
+  height: 30px; padding: 0 26px 0 9px;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border-2); border-radius: var(--radius);
   font: inherit; font-size: var(--fz-sm); cursor: pointer;
@@ -424,8 +435,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   width: 7px; height: 7px; border-right: 1.5px solid var(--text-faint);
   border-bottom: 1.5px solid var(--text-faint); transform: translateY(-2px) rotate(45deg);
 }
-.select select:focus-visible { border-color: var(--accent); outline: none;
-  box-shadow: 0 0 0 2px var(--accent-bg); }
+@supports (appearance: none) {
+  .select select { appearance: none; }
+}
+@supports selector(:focus-visible) {
+  .select select:focus-visible { border-color: var(--accent); outline: none;
+    box-shadow: 0 0 0 2px var(--accent-bg); }
+}
 
 /* segmented toggle (radios) */
 .segmented {
@@ -440,11 +456,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .segmented label:hover { color: var(--text); }
 .segmented input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
-.segmented label:has(input:checked) {
-  background: var(--surface); color: var(--text); font-weight: 550;
-  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+@supports selector(:has(:focus-visible)) {
+  .segmented label:has(input:checked) {
+    background: var(--surface); color: var(--text); font-weight: 550;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  .segmented label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 }
-.segmented label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 .seg-count { font-size: var(--fz-xs); color: var(--text-faint); }
 
 /* chips (multi-select checkboxes) */
@@ -460,12 +478,14 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .chip input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
 .chip .chip-dot { width: 7px; height: 7px; border-radius: 50%;
   background: var(--border-2); }
-.chip:has(input:checked) {
-  background: var(--accent-bg); border-color: var(--accent-bd);
-  color: var(--text); font-weight: 550;
+@supports selector(:has(:focus-visible)) {
+  .chip:has(input:checked) {
+    background: var(--accent-bg); border-color: var(--accent-bd);
+    color: var(--text); font-weight: 550;
+  }
+  .chip:has(input:checked) .chip-dot { background: var(--accent); }
+  .chip:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 }
-.chip:has(input:checked) .chip-dot { background: var(--accent); }
-.chip:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* date range */
 .daterange {
@@ -486,8 +506,10 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   display: inline-flex; align-items: center; gap: 7px;
   font-size: var(--fz-sm); color: var(--text-muted); cursor: pointer;
 }
-.check input, .radio input { width: 15px; height: 15px; accent-color: var(--accent);
-  margin: 0; cursor: pointer; }
+.check input, .radio input { width: 15px; height: 15px; margin: 0; cursor: pointer; }
+@supports (accent-color: auto) {
+  .check input, .radio input { accent-color: var(--accent); }
+}
 .check:hover, .radio:hover { color: var(--text); }
 /* A stacked group of .check rows in a <fieldset> — the right element for related checkboxes, but the
    UA gives it a groove border, so reset it like .filter-field and .menu-field do. A disabled row is
@@ -495,7 +517,9 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .check-group { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .check-group .check { align-items: baseline; }
 .check-group .check input:disabled { cursor: default; }
-.check-group .check:has(input:disabled) { opacity: .7; cursor: default; }
+@supports selector(:has(a)) {
+  .check-group .check:has(input:disabled) { opacity: .7; cursor: default; }
+}
 .check-group .check .cell-muted { margin-left: auto; padding-left: 12px; font-size: var(--fz-xs); }
 
 /* popover menu (language picker, profile, row kebab) — a <button popovertarget> and its [popover]
@@ -506,17 +530,25 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .menu { display: inline-flex; }
 .menu-pop {
   position: absolute; inset: auto; margin: 6px 0 0;
-  position-anchor: auto;
-  position-try-fallbacks: flip-block, flip-inline;
-  top: anchor(bottom); right: anchor(right);
   min-width: 210px; max-width: min(320px, 92vw); padding: 6px;
-  max-height: 60vh; overflow-y: auto; overflow-wrap: anywhere;
+  max-height: 60vh; overflow-y: auto;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border-2); border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(0,0,0,.16);
 }
-.menu-pop.left { right: auto; left: anchor(left); }
-.menu-pop.up { top: auto; bottom: anchor(top); margin: 0 0 6px; }
+.menu-pop.up { margin: 0 0 6px; }
+@supports (overflow-wrap: anywhere) {
+  .menu-pop { overflow-wrap: anywhere; }
+}
+@supports (position-anchor: auto) and (position-try-fallbacks: flip-block, flip-inline) and (top: anchor(bottom)) {
+  .menu-pop {
+    position-anchor: auto;
+    position-try-fallbacks: flip-block, flip-inline;
+    top: anchor(bottom); right: anchor(right);
+  }
+  .menu-pop.left { right: auto; left: anchor(left); }
+  .menu-pop.up { top: auto; bottom: anchor(top); }
+}
 /* A browser too old for the Popover API leaves the trigger inert, so let each panel flow under its
    trigger rather than stranding Sign out and the language picker behind a button that does nothing.
    The wrapper turns block so the pair stacks instead of sitting side by side, and min-width goes —
@@ -547,7 +579,10 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .menu-check { display: flex; align-items: center; gap: 9px; width: 100%;
   padding: 6px 8px; border-radius: 4px; font-size: var(--fz-sm); cursor: pointer; }
 .menu-check:hover { background: var(--surface-2); }
-.menu-check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+.menu-check input { width: 15px; height: 15px; margin: 0; }
+@supports (accent-color: auto) {
+  .menu-check input { accent-color: var(--accent); }
+}
 
 /* active filter pills */
 .active-pills { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -589,11 +624,15 @@ table.table {
 }
 .table tbody th { font-weight: inherit; text-align: left; }   /* row-header cell, not bold/centered */
 .table tbody tr:hover td, .table tbody tr:hover th { background: var(--surface-2); }
-.table tbody tr:has(.row-select:checked) td,
-.table tbody tr:has(.row-select:checked) th { background: var(--accent-bg); }
+@supports selector(:has(a)) {
+  .table tbody tr:has(.row-select:checked) td,
+  .table tbody tr:has(.row-select:checked) th { background: var(--accent-bg); }
+}
 .col-check { width: 36px; text-align: center; padding: 0; }
-.col-check input { accent-color: var(--accent); width: 15px; height: 15px;
-  margin: 0; vertical-align: middle; }
+.col-check input { width: 15px; height: 15px; margin: 0; vertical-align: middle; }
+@supports (accent-color: auto) {
+  .col-check input { accent-color: var(--accent); }
+}
 .col-num { text-align: right; }
 .cell-strong { font-weight: 550; }
 .cell-muted { color: var(--text-muted); }
@@ -655,7 +694,9 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 .kebab:hover { background: var(--surface-2); color: var(--text); }
 /* Held open — a trigger's panel is its next sibling. Its own rule: :has() is non-forgiving, so an
    engine that doesn't know :popover-open would drop the hover style along with it. */
-.kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
+@supports selector(.kebab:has(+ .menu-pop:popover-open)) {
+  .kebab:has(+ .menu-pop:popover-open) { background: var(--surface-2); color: var(--text); }
+}
 
 /* ---------- 10. PAGINATION --------------------------------- */
 .pager {

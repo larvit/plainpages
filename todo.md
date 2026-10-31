@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 4 | 2 | 2 | 6 | 7 | code health by 2 | 1.1 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
@@ -26,12 +25,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
-
-Nothing checks README → "Two browser floors", and no E2E engine is old enough to show a break.
-Lint every stylesheet, the examples' included, against Chromium 87, Safari 15 and Firefox 115, and
-allow a feature only inside an `@supports` that guards it.
 
 ### 13. Accept a verification code pasted with surrounding whitespace.
 

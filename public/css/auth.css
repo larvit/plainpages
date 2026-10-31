@@ -1,8 +1,10 @@
 .auth-stage {
-  min-height: 100dvh;
   display: grid; place-items: center;
   padding: 40px 20px 96px;
   background: var(--bg);
+}
+@supports (min-height: 100dvh) {
+  .auth-stage { min-height: 100dvh; }
 }
 .auth {
   width: 100%; max-width: 408px;
@@ -103,8 +105,10 @@
 .input:focus { outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-bg); }
 /* gentle validation feedback only after the user has interacted */
-.input:user-invalid { border-color: var(--neg); }
-.input:user-invalid:focus { box-shadow: 0 0 0 2px var(--neg-bg); }
+@supports selector(:user-invalid) {
+  .input:user-invalid { border-color: var(--neg); }
+  .input:user-invalid:focus { box-shadow: 0 0 0 2px var(--neg-bg); }
+}
 
 .field-hint { font-size: var(--fz-xs); color: var(--text-faint); }
 

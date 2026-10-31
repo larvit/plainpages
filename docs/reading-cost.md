@@ -209,3 +209,20 @@ Read most (opens and searches):
 - `examples/plugins/admin/i18n/en-US.ts` 2
 - `CHANGELOG.md` 1
 - `examples/plugins/admin/admin-groups.test.ts` 1
+
+## Reading cost, chunk c90b25a50479, finished 2026-10-31T10:40:23Z
+
+90935 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 9
+- `todo.md` 5
+- `AGENTS.md` 3
+- `CHANGELOG.md` 1
+- `package.json` 1
+- `registry-cleanup/cleanup.ts` 1
+- `release-tooling/dockerhub-overview.md.tmpl` 1
+- `release-tooling/dockerhub-overview.test.ts` 1
+- `release-tooling/dockerhub-overview.ts` 1
+- `src/ci-gate.test.ts` 1

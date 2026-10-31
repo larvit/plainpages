@@ -1,16 +1,71 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { floorViolations } from "./stylesheet-floor.ts";
 
-const cssDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public", "css");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const cssDir = join(root, "public", "css");
 
-// A custom property holding oklch() passes unchecked on an engine below Chromium 111, so the
-// var() that reads it is invalid at computed-value time: white text on no background.
-for (const file of readdirSync(cssDir).filter((f) => f.endsWith(".css"))) {
-  test(`${file} declares no oklch() colour`, () => {
-    assert.ok(!/oklch\(/i.test(readFileSync(join(cssDir, file), "utf8")));
+test("floorViolations flags a feature the floor lacks, with its line and the first version that has it", () => {
+  assert.deepEqual(floorViolations(".a { color: red; }\n.b:has(.c) { color: red; }"), [
+    "line 2: :has needs chrome 105, safari 15.4, firefox 121 (css.selectors.has)",
+  ]);
+  assert.deepEqual(floorViolations(".a { min-height: 100dvh; }"), [
+    "line 1: dvh needs chrome 108, safari 15.4 (css.types.length.viewport_percentage_units_dynamic)",
+  ]);
+  assert.deepEqual(floorViolations(".a { accent-color: red; }"), [
+    "line 1: accent-color needs chrome 93, safari 15.4 (css.properties.accent-color)",
+  ]);
+  assert.deepEqual(floorViolations(".a { overflow-wrap: anywhere; }"), [
+    "line 1: overflow-wrap: anywhere needs safari 15.4 (css.properties.overflow-wrap.anywhere)",
+  ]);
+  assert.equal(floorViolations(".a { & .b { color: red; } }").length, 1);
+});
+
+test("floorViolations checks a custom property's value, since the var() reading it fails unseen", () => {
+  assert.deepEqual(floorViolations(":root { --accent: oklch(0.5 0.1 250); }"), [
+    "line 1: oklch() needs chrome 111, safari 15.4 (css.types.color.oklch)",
+  ]);
+});
+
+test("floorViolations allows a feature inside an @supports that tests it, and only then", () => {
+  assert.deepEqual(floorViolations("@supports selector(:has(a)) { .b:has(.c) { color: red; } }"), []);
+  assert.deepEqual(floorViolations("@media (min-width: 1px) { @supports (min-height: 100dvh) { .a { min-height: 100dvh; } } }"), []);
+  assert.equal(floorViolations("@supports not selector(:has(a)) { .b:has(.c) { color: red; } }").length, 1);
+  assert.equal(floorViolations("@supports (display: grid) and (not selector(:has(a))) { .b:has(.c) { color: red; } }").length, 1);
+  assert.equal(floorViolations("@supports (min-height: 100dvh) { .b:has(.c) { color: red; } }").length, 1);
+  assert.equal(floorViolations("@supports (position-anchor: auto) { .a { top: anchor(bottom); } }").length, 1);
+});
+
+test("floorViolations passes what the floor has, a vendor prefix and a comment", () => {
+  const css = `/* .x:has(y) { min-height: 100dvh } */
+    @media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+    .a::before, .a:focus-within { content: "{ :has( }"; display: grid; gap: 4px; inset: 0;
+      grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(86vw, 20rem); transition: .15s ease;
+      background: rgba(0,0,0,.4) url("data:image/svg+xml;utf8,<svg/>"); transform: rotate(45deg); }
+    .b { -webkit-font-smoothing: antialiased; -webkit-user-select: none; }
+    summary::-webkit-details-marker { display: none; }`;
+  assert.deepEqual(floorViolations(css), []);
+});
+
+test("floorViolations refuses what MDN has no entry for, so a typo or a new feature can't pass unchecked", () => {
+  assert.deepEqual(floorViolations(".a { colr: red; }"), ["line 1: colr has no MDN compat entry"]);
+  assert.equal(floorViolations(".a { width: 3zz; }").length, 1);
+  assert.equal(floorViolations(".a:hovr { color: red; }").length, 1);
+});
+
+const stylesheets = globSync(["public/**/*.css", "examples/**/*.css"], { cwd: root, exclude: ["**/node_modules/**"] });
+
+test("the floor check finds the stylesheets", () => {
+  assert.ok(stylesheets.includes("public/css/styles.css"));
+  assert.ok(stylesheets.includes("examples/plugins/scheduling/public/scheduling.css"));
+});
+
+for (const file of stylesheets) {
+  test(`${file} uses nothing the browser floor lacks outside an @supports guarding it`, () => {
+    assert.deepEqual(floorViolations(readFileSync(join(root, file), "utf8")), []);
   });
 }
 
@@ -31,8 +86,8 @@ function blockEnd(start: number): number {
 // Chromium below 105 and Firefox below 121 have no `:has()`, and nothing else reveals a folded
 // branch there, so the fold may only exist where `:has()` works.
 test("styles.css folds .nav-children only inside @supports selector(:has(a))", () => {
-  const open = stylesheet.indexOf("@supports selector(:has(a)) {");
-  assert.ok(open >= 0, "no @supports selector(:has(a)) block");
+  const open = stylesheet.lastIndexOf("@supports selector(:has(a)) {", stylesheet.indexOf(".nav-node > .nav-children"));
+  assert.ok(open >= 0, "no @supports selector(:has(a)) block before the fold rule");
   const close = blockEnd(open);
   const outside = stylesheet.slice(0, open) + stylesheet.slice(close + 1);
   assert.ok(!/\.nav-children\s*\{[^}]*display:\s*none/.test(outside), "a .nav-children rule hides it outside the guard");
