@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 38`
+`Next ID = 39`
 
 ## Items
 
@@ -18,6 +18,7 @@
 | 24 | 0.4.21 |  |  | **Retire `src/ui/shell-context.ts` and render the dashboard from `ctx.chrome`.** | 2 | 1 | 2 | 3 | 4 | code health by 3 | 9.0 |
 | 17 | 0.4.21 |  |  | **Remove the icons no caller uses from `ICON_NAMES` and the sprite.** | 1 | 1 | 1 | 1 | 1 | 8 by 1, code health by 1 | 8.8 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
+| 38 | 0.4.21 |  |  | **Correct the TOKENS comment at the top of `public/css/styles.css` so it no longer claims `:has()` swaps are "rock-solid" or that the theme follows the OS on every engine.** | 1 | 2 | 1 | 2 | 1 | code health by 1 | 7.2 |
 | 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
@@ -57,6 +58,14 @@ AGENTS.md → "`ICON_NAMES` is a host-owned registry" already makes this routine
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
 Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
+
+### 38. Correct the TOKENS comment at the top of `public/css/styles.css` so it no longer claims `:has()` swaps are "rock-solid" or that the theme follows the OS on every engine.
+
+Section 1's TOKENS comment says the theme follows the OS by default and that `:has()` variable swaps
+are "rock-solid". On an engine without `:has()` (Chromium below 105, Firefox below 121) every theme
+rule is inert, the OS-dark rule included, so those engines stay light, as the
+`@supports not selector(:has(a))` block further down says. A reader trusting the comment expects dark
+mode there.
 
 ### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
 
