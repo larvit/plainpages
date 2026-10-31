@@ -62,3 +62,24 @@ Inherited architect, decided by:
 
 - Self-sufficiency, Overall: `public/css/styles.css:5` `Architecture` header: the false `light-dark()` bullet is gone, so the header no longer contradicts the TOKENS comment
 - Locality, Self-sufficiency, Overall: `public/css/styles.css:687` `@supports selector(:has(a))` in `@media (max-width: 860px)`: the guard and its comment put the dependency of the open state on `:has()` where an editor would change it
+
+## 2026-10-31T01:19:49Z, PR #184 at af157c9, against bb8e6bc
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | better | same | same | better | better |
+| Inherited architect | better | better | same | better | better |
+
+Mid A, decided by:
+
+- Self-sufficiency, Navigation, Overall: `public/css/styles.css:12` `TOKENS` header comment: says all three theme rules need `:has()`, names the engines without it and points to the `@supports not selector(:has(a))` block, where the old text called the swaps "rock-solid"
+- Navigation, Self-sufficiency, Overall: `README.md:214` `## Glossary`: defines host, plugin, manifest, chrome, nav fragment, permission name, system plugin and denylist and links each to its home section
+- Self-sufficiency: `README.md:815` `Plugin dependencies`: the scale bullet states the plugin count the per-plugin dependency design assumes
+
+Inherited architect, decided by:
+
+- Self-sufficiency, Locality, Overall: `public/css/styles.css:12` `1. TOKENS` comment: an editor of the theme mapping learns of the distant `:has()` fallback from the comment, where the old text said the swap could not fail
+- Navigation, Self-sufficiency, Overall: `README.md:214` `## Glossary`: a cold reader reaches "chrome" or "denylist" and their home sections in one hop
+- Self-sufficiency: `README.md:815` `### Plugin dependencies`: the scale bullet gives the plugin count the dependency design assumes
