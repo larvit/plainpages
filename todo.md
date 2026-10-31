@@ -12,18 +12,14 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
 | 36 | 0.4.21 |  | defect | **Keep the mobile nav reachable at 860px and narrower on an engine without `:has()`, and move it off-canvas only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
-| 35 | 0.4.21 |  | defect | **Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.** | 1 | 2 | 1 | 2 | 2 | 6 by 3 | 18.0 |
-| 31 | 0.4.21 |  |  | **Delete the design-preview rules in `public/css/auth.css` that no view uses.** | 1 | 1 | 1 | 1 | 2 | code health by 2, 8 by 1 | 13.3 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
 | 8 | 0.4.21 |  |  | **Run the visual E2E specs at viewports from a large desktop down to a small phone.** | 2 | 1 | 1 | 2 | 4 | code health by 3 | 9.0 |
 | 9 | 0.4.21 |  |  | **Typecheck `e2e-tests/` in the gate.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
 | 24 | 0.4.21 |  |  | **Retire `src/ui/shell-context.ts` and render the dashboard from `ctx.chrome`.** | 2 | 1 | 2 | 3 | 4 | code health by 3 | 9.0 |
 | 17 | 0.4.21 |  |  | **Remove the icons no caller uses from `ICON_NAMES` and the sprite.** | 1 | 1 | 1 | 1 | 1 | 8 by 1, code health by 1 | 8.8 |
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
-| 32 | 0.4.21 | 29 |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
-| 27 | 0.4.21 |  |  | **Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.** | 1 | 2 | 1 | 2 | 1 | 9 by 2, 2 by 1 | 4.8 |
+| 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
@@ -43,13 +39,6 @@
 
 ## Details
 
-### 29. Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.
-
-README → "Two browser floors": Chromium 87 must reach every page. `public/css/styles.css` hides
-`.nav-children` and only a `:has()` rule reveals them, so below Chromium 105 (webOS TV 22 and 23)
-no nested entry can be reached. Hide the children only inside `@supports selector(:has(a))`. The
-theme switch is inert there too, since every theme rule is a `:has()`: hide it under the same guard.
-
 ### 36. Keep the mobile nav reachable at 860px and narrower on an engine without `:has()`, and move it off-canvas only where `:has()` works.
 
 README → "Two browser floors": Chromium 87 must reach every page, and `:has()` may only decorate.
@@ -57,19 +46,8 @@ In `public/css/styles.css`, `@media (max-width: 860px)` moves `.sidebar` off-can
 `transform: translateX(-100%)`, and only `body:has(#nav-toggle:checked)` brings it and `.scrim`
 back. Below Chromium 105 (webOS TV 22 and 23) the hamburger does nothing at that width, so no page
 behind the nav can be reached. Move the off-canvas rules inside `@supports selector(:has(a))`, and
-keep the sidebar in the flow outside it, with the hamburger hidden. Item 29 fixes the desktop tree
-and the theme switch only. Test it beside `src/ui/stylesheet-floor.test.ts`.
-
-### 35. Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.
-
-Measured in `public/css/styles.css`: white text on the dark-mode primary button (`--d-accent`
-`#6ba0e8`) is 2.69:1, and the text of the light-mode pos, warn and info badges on their backgrounds 4.17, 4.40 and 4.48:1. WCAG AA
-needs 4.5:1 for normal text.
-
-### 31. Delete the design-preview rules in `public/css/auth.css` that no view uses.
-
-`.auth-view`, the `:target` screen switch, `.tpl-*`, the `fstate`/`rstate` radios and the
-forgot/register alerts match nothing in `views/` or `examples/`.
+keep the sidebar in the flow outside it, with the hamburger hidden. The desktop tree and the theme
+switch are already guarded. Test it beside `src/ui/stylesheet-floor.test.ts`.
 
 ### 26. Add a domain glossary and the project's intended horizon to the README.
 
@@ -96,11 +74,6 @@ Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
 Nothing checks README → "Two browser floors", and no E2E engine is old enough to show a break.
 Lint every stylesheet, the examples' included, against Chromium 87, Safari 15 and Firefox 115, and
 allow a feature only inside an `@supports` that guards it.
-
-### 27. Inset the scheduling example's lead text, shift count, alerts and call-to-action by `--pad-x`, like the bars around them.
-
-They sit flush against the content pane's edge while the filter bar, table and pager sit 12px in.
-The fix belongs in `examples/plugins/scheduling/public/scheduling.css`; check each page in a browser.
 
 ### 20. Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.
 
