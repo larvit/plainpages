@@ -89,3 +89,19 @@ Read most (opens and searches):
 - `e2e-tests/mock-oidc.ts` 2
 - `src/ci-gate.test.ts` 2
 - `.dockerignore` 1
+
+## Reading cost, chunk 25b7840ff611, finished 2026-10-31T07:46:18Z
+
+73781 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 5
+- `README.md` 2
+- `src/http/app.ts` 2
+- `AGENTS.md` 1
+- `src/http/app.test.ts` 1
+- `src/ui/chrome.test.ts` 1
+- `src/ui/chrome.ts` 1
+- `views/index.ejs` 1
+- `views/partials/shell.ejs` 1
