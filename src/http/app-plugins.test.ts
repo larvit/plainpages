@@ -141,7 +141,6 @@ test("a plugin view renders the native chrome; its forms are CSRF-guarded via ct
 });
 
 // JWT middleware: a verified session cookie populates ctx.user/permissions, which the gate reads.
-// The key + mintJwt + session() helper live in app-harness.ts.
 test("a verified session JWT authorizes a permission-gated route; no cookie / expired token → sign in", async (t) => {
   const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [demoPlugin] });
   await new Promise<void>((r) => app.listen(0, r));

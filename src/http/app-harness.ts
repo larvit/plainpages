@@ -1,5 +1,3 @@
-// Shared fixtures for the app.*.test.ts files: a signing key for session JWTs, an app starter,
-// and stub Ory clients.
 import { generateKeyPairSync, sign, type JsonWebKey } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { TestContext } from "node:test";
