@@ -8,10 +8,10 @@ at boot. Entries start at 0.3.0.
 
 ### The tests fail on a stylesheet feature the browser floor lacks
 
-Every stylesheet in the repo, the examples' included, is checked against Chromium 87, Safari 15 and
-Firefox 115 using MDN's compat data; a feature one of them lacks passes only inside an `@supports`
-that names it. The core stylesheets now guard each such feature, which those engines skip instead
-of misreading. Pages render as before in current browsers.
+`npm test` checks every stylesheet in `public/`, `examples/` and `plugins/` against Chromium 87,
+Safari 15 and Firefox 115: a feature one of them lacks fails it unless an `@supports` around it
+names that feature. Mount a plugin in `plugins/<id>/` to check its stylesheets. Pages render as
+before in every browser.
 
 ### Every release reaches Docker Hub, and the Hub page has a short description
 

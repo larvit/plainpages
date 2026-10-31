@@ -1059,11 +1059,12 @@ Chromium 87, Safari 15 and Firefox 115, the engines in years-old TVs, kiosks and
 features [Baseline Widely available](https://web-platform-dx.github.io/baseline/) (in every
 major engine for 30 months) may shape how a page looks; anything newer, like popovers or anchor
 positioning, only enhances. A feature the floor engines lack, such as `:has()`, may
-decorate a page but never decide whether something shows or can be read. The tests hold every
-stylesheet in `public/` and `examples/` to this floor, against MDN's compat data: a feature a floor
-engine lacks fails them unless it sits inside an `@supports` whose condition names it
-(`src/ui/stylesheet-floor.ts` lists what it checks). A plugin stylesheet mounted from outside the
-repo is not checked.
+decorate a page but never decide whether something shows or can be read. `npm test` fails on a
+stylesheet using a feature Chromium 87, Safari 15 or Firefox 115 lacks, unless an `@supports`
+around it names that feature. It checks every stylesheet in `public/`, `examples/` and `plugins/`,
+so mount your plugin in `plugins/<id>/` and run it. A few constructs fail even when guarded, such as
+`@layer`, nested rules and media range syntax, while a media feature passes unguarded, since a
+browser without it skips the query; `src/ui/stylesheet-floor.ts` lists the rules.
 
 **A field whose options depend on another field is asked for in steps, one GET form each**, so every
 choice is in the URL, and nothing typed is lost to one because nothing is typed until they are made.
