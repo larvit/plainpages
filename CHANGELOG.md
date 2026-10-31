@@ -9,8 +9,9 @@ at boot. Entries start at 0.3.0.
 ### Colours render on engines without `oklch()`
 
 The theme palette in `public/css/styles.css` is hex, not `oklch()`. On an engine older than
-Chromium 111 (Tizen 2024, webOS TV 24) the accent token was invalid, so the primary button was white
-text on no background. A plugin that overrides a palette token should use a hex value too.
+Chromium 111 (Tizen 2024, webOS TV 24) `var(--accent)` was invalid, so the primary button was white
+text on no background. A plugin that sets a colour custom property, such as `--accent` or `--l-accent`,
+should use hex, `rgb()` or `hsl()` too.
 
 ### One horizontal inset across the content pane
 

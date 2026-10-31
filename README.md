@@ -1023,8 +1023,10 @@ URL is the only state the UI keeps.
 Chromium 87, Safari 15 and Firefox 115, the engines in years-old TVs, kiosks and Qt panels. Only
 features [Baseline Widely available](https://web-platform-dx.github.io/baseline/) (in every
 major engine for 30 months) may shape how a page looks; anything newer, like popovers or anchor
-positioning, only enhances. A feature the floor engines lack, such as `:has()` or `oklch()`, may
-decorate a page but never decide whether something shows or can be read.
+positioning, only enhances. A feature the floor engines lack, such as `:has()`, may
+decorate a page but never decide whether something shows or can be read. A colour is hex, `rgb()` or
+`hsl()`, never `oklch()`: a custom property holding it passes unchecked, and the `var()` reading it
+then renders transparent.
 
 **A field whose options depend on another field is asked for in steps, one GET form each**, so every
 choice is in the URL, and nothing typed is lost to one because nothing is typed until they are made.
