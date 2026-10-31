@@ -65,6 +65,8 @@ test("the dashboard at /dashboard: the instructional starter in the unified shel
   assert.match(html, /<aside class="sidebar"/);
   // The default is a short instructional starter, not a mock-data list.
   assert.match(html, /Starter dashboard/);
+  assert.match(html, /<h1 class="page-title">Dashboard<\/h1>/); // the topbar heading …
+  assert.match(html, /<nav class="crumbs"[^>]*>\s*<span>Dashboard<\/span>/); // … and its breadcrumb
   assert.match(html, /export default definePlugin/); // shows how to replace it from a plugin
   assert.doesNotMatch(html, /<form class="filters"/); // the old mock People list is gone
   assert.doesNotMatch(html, /Avery Kline/);

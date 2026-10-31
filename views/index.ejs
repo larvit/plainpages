@@ -1,8 +1,6 @@
 <%#
-  Dashboard: the gated post-login app home. The built-in default is a short instructional
-  starter — what /dashboard is and how to replace it from a plugin. Composes the app shell (the one
-  global menu via model.nav) around the prose. A plugin owns the real dashboard via a `dashboard`
-  handler; this renders until then. Data: chrome (PageChrome).
+  The built-in /dashboard starter, shown until a plugin's `dashboard` handler replaces it.
+  Data: chrome (PageChrome).
 %><%
   const nav = include("partials/nav-tree", { nodes: chrome.nav });
   // These four messages carry markup (<code> spans), so they render raw — the documented

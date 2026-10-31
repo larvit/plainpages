@@ -75,8 +75,15 @@ test("branding logo + default theme flow through when set", () => {
   assert.equal(chrome.theme, "dark");
 });
 
+test("branding name and sub are translated; an unknown key renders as itself", () => {
+  const t = (key: string): string => (key === "brand.sub" ? "Undertitel" : key);
+  const chrome = buildPluginChrome({ menu: { branding: { name: "Acme", sub: "brand.sub" }, override: {} }, t });
+  assert.equal(chrome.brand.name, "Acme");
+  assert.equal(chrome.brand.sub, "Undertitel");
+  assert.equal(buildPluginChrome({ menu: { branding: { name: "Acme" }, override: {} } }).brand.sub, undefined);
+});
+
 test("shellUser derives the profile from the real user; anonymous → Guest", () => {
   assert.deepEqual(shellUser(null), { email: "", initials: "G", name: "Guest" });
-  // Real user: name = email local part, email kept, initials = first two letters of the local part.
   assert.deepEqual(shellUser({ email: "ada@example.com", id: "u1", permissions: [] }), { email: "ada@example.com", initials: "AD", name: "ada" });
 });

@@ -1825,8 +1825,8 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `@plainpages/plugin-api` barrel) · system.ts
                      (ctx.system) · discovery · router · hooks · view-resolver · storage (the rules) ·
                      storage-provisioning (the DDL; bootstrap-only, holds the driver)
-  ui/                chrome (the one global menu) · nav (composeNav) ·
-                     menu-config (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
+  ui/                chrome (`ctx.chrome`: menu, brand, user) · nav (composeNav) · menu-config
+                     (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
 
 plugin-api/          The `@plainpages/plugin-api` package — the author barrel, linked into /node_modules
 views/               Core EJS in the one app shell: home, index, auth, oauth-consent, error, 403/404/500/503,

@@ -70,8 +70,7 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   };
 }
 
-// The User carries no display name (the JWT holds only id/email/permissions), so the profile shows
-// the email's local part as the name; anonymous ⇒ "Guest".
+// The JWT holds only id/email/permissions, so the profile name is the email's local part.
 export function shellUser(user: User | null | undefined, t: Translate = ENGLISH): ShellUser {
   if (!user) {
     const guest = t("shell.guest");
@@ -81,7 +80,6 @@ export function shellUser(user: User | null | undefined, t: Translate = ENGLISH)
   return { email: user.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };
 }
 
-// `name`/`sub` pass through `t`, so a catalog key is translated and an operator's own wording renders as written.
 function branding(menu: MenuConfig, t: Translate): { logo?: string; name: string; sub?: string; theme?: string } {
   const b = menu.branding;
   return {
