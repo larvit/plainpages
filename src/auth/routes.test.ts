@@ -1,6 +1,6 @@
 // buildAuthRoutes registers only the endpoints the wired clients support — a missing client
 // means the path isn't in the table at all (the host then 404s). The endpoints' behaviour is
-// covered end-to-end through the app in src/http/app.test.ts.
+// covered end-to-end through the app in src/http/app-auth.test.ts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AUTH_FLOWS } from "./flow-view.ts";

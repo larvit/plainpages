@@ -1818,7 +1818,8 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   server.ts          Entry point; config.ts env loader; logger.ts structured log + trace span + tracedFetch
   *.test.ts          Guards with no source counterpart (compose/kratos/keto/hydra/postgres/ci-gate/function-limits)
   http/              Request pipeline: app.ts (createApp), builtin-routes, context, body, cookie,
-                     static, safe-url (safeUrl + localPath), security-headers
+                     static, safe-url (safeUrl + localPath), security-headers; app*.test.ts: one per concern
+                     over shared fixtures in app-harness.ts
   auth/              Identity + the session-JWT hot path: jwt · jwt-middleware · jwks · gen-jwks (CLI) ·
                      login · guards · csrf · denylist · flow-view · oauth-login · oauth-consent ·
                      routes · bootstrap, and the Ory REST clients (kratos-public/admin, keto, hydra,

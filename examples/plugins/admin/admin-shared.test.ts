@@ -1,6 +1,6 @@
 // Direct units for the admin plugin's shared nav + auth helpers. They're security-critical
 // (requirePermission/guardedForm gate every admin write) and reused across all three screens, so pin the
-// contract here in isolation; the HTTP routing/gate/CSRF is exercised end-to-end in src/http/app.test.ts.
+// contract here in isolation; the HTTP routing/gate/CSRF is exercised end-to-end in src/http/app-admin.test.ts.
 // Import only from the @plainpages/plugin-api barrel — the same contract boundary the plugin code uses.
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";

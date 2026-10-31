@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 42 | 0.4.21 |  |  | **Lower the reading cost of the files a chunk reads most before its first commit.** | 2 | 2 | 1 | 3 | 4 | code health by 3, 9 by 2 | 10.3 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
 | 40 | 0.4.21 |  |  | **Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".** | 1 | 2 | 1 | 2 | 2 | 2 by 1 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
@@ -30,17 +29,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 42. Lower the reading cost of the files a chunk reads most before its first commit.
-
-`reading-cost` (`docs/reading-cost.md`) reports the figure rising: the last 5 chunks' median is
-98975 new input tokens before their first commit, the 5 before them 80251. Read most over the last
-5 chunks (opens and searches): `README.md` 27, `todo.md` 24, `src/http/app.test.ts` 10,
-`examples/plugins/admin/admin-users.ts` 8, `e2e-tests/full-flow.spec.ts` 7, `ci.sh` 5,
-`CHANGELOG.md` 4, `e2e-tests/visual.spec.ts` 3, `examples/plugins/admin/admin-groups.ts` 3,
-`examples/plugins/admin/admin-users.test.ts` 3. Make the most-read files cheaper to find one's way
-in, such as splitting `src/http/app.test.ts` by concern, and run `reading-cost --reset` in the chunk
-that ships this.
 
 ### 3. Guard the group paths against self-lockout, or accept the gap explicitly.
 

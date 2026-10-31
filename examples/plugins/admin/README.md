@@ -62,4 +62,4 @@ property of a user or a group, edited as a checkbox list on those two screens (`
 
 The three screens hold **no state** — everything lives in Ory. Handlers are thin, so their builders
 unit-test as pure functions with no host; the HTTP routing/gate/CSRF is covered in
-`src/http/app.test.ts` (which mounts this plugin) and end-to-end in `e2e-tests/full-flow.spec.ts`.
+`src/http/app-admin.test.ts` (which mounts this plugin) and end-to-end in `e2e-tests/full-flow.spec.ts`.

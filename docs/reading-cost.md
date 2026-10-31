@@ -156,3 +156,22 @@ Read most (opens and searches):
 - `src/ui/icons.ts` 3
 - `todo.md` 3
 - `CHANGELOG.md` 2
+
+## Reading cost, chunk 0118907cad57, finished 2026-10-31T09:32:49Z
+
+116614 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app.test.ts` 11
+- `README.md` 7
+- `src/http/app.ts` 6
+- `src/ui/shell.test.ts` 5
+- `e2e-tests/visual.spec.ts` 4
+- `src/http/static.ts` 4
+- `todo.md` 3
+- `src/auth/flow-view.ts` 2
+- `views/partials/shell.ejs` 2
+- `AGENTS.md` 1
+
+## Reading cost reset, 2026-10-31T09:34:55Z

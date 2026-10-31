@@ -1,5 +1,5 @@
 // The pure half of permission granting: what a submitted checkbox set changes, and the picker the
-// two screens render from it. The Keto writes and the HTTP round trip are covered in app.test.ts.
+// two screens render from it. The Keto writes and the HTTP round trip are covered in app-admin.test.ts.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PermissionDecl } from "@plainpages/plugin-api";
