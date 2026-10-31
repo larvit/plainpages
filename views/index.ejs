@@ -2,9 +2,9 @@
   Dashboard: the gated post-login app home. The built-in default is a short instructional
   starter — what /dashboard is and how to replace it from a plugin. Composes the app shell (the one
   global menu via model.nav) around the prose. A plugin owns the real dashboard via a `dashboard`
-  handler; this renders until then. Data: model { nav, shell }.
+  handler; this renders until then. Data: chrome (PageChrome).
 %><%
-  const nav = include("partials/nav-tree", { nodes: model.nav });
+  const nav = include("partials/nav-tree", { nodes: chrome.nav });
   // These four messages carry markup (<code> spans), so they render raw — the documented
   // markup-carrying case. They interpolate nothing, so there is no untrusted data to escape.
   const body = `
@@ -27,12 +27,11 @@
 -%>
 <%- include("partials/shell", {
   body,
-  brand: model.shell.brand,
-  breadcrumbs: model.shell.breadcrumbs,
-  csrfToken: model.shell.csrfToken,
+  brand: chrome.brand,
+  breadcrumbs: [{ label: t("dashboard.title") }],
+  csrfToken: chrome.csrfToken,
   nav,
-  signInHref: model.shell.signInHref,
-  theme: model.shell.theme,
-  title: model.shell.title,
-  user: model.shell.user,
+  theme: chrome.theme,
+  title: t("dashboard.title"),
+  user: chrome.user,
 }) %>

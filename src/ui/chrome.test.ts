@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPluginChrome } from "./chrome.ts";
+import { buildPluginChrome, shellUser } from "./chrome.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
@@ -73,4 +73,10 @@ test("branding logo + default theme flow through when set", () => {
   assert.equal(chrome.brand.logo, "/logo.svg");
   assert.equal(chrome.brand.name, "Acme");
   assert.equal(chrome.theme, "dark");
+});
+
+test("shellUser derives the profile from the real user; anonymous → Guest", () => {
+  assert.deepEqual(shellUser(null), { email: "", initials: "G", name: "Guest" });
+  // Real user: name = email local part, email kept, initials = first two letters of the local part.
+  assert.deepEqual(shellUser({ email: "ada@example.com", id: "u1", permissions: [] }), { email: "ada@example.com", initials: "AD", name: "ada" });
 });

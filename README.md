@@ -1825,7 +1825,7 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `@plainpages/plugin-api` barrel) · system.ts
                      (ctx.system) · discovery · router · hooks · view-resolver · storage (the rules) ·
                      storage-provisioning (the DDL; bootstrap-only, holds the driver)
-  ui/                chrome (the one global menu) · shell-context · dashboard · nav (composeNav) ·
+  ui/                chrome (the one global menu) · nav (composeNav) ·
                      menu-config (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
 
 plugin-api/          The `@plainpages/plugin-api` package — the author barrel, linked into /node_modules

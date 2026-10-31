@@ -8,7 +8,6 @@ import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
 import type { Denylist } from "../auth/denylist.ts";
-import { buildDashboardModel } from "../ui/dashboard.ts";
 import { PLUGINS_DIR } from "../plugin-host/discovery.ts";
 import { GuardError, loginRedirect } from "../auth/guards.ts";
 import { ENGLISH_I18N } from "../i18n/english.ts";
@@ -168,7 +167,7 @@ export function createApp(options: AppOptions = {}): Server {
       await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, dashboardPlugin.id), pluginCtx.localeHref);
       return null;
     }
-    return { data: { model: buildDashboardModel({ csrfToken: csrf.token, menu, user: ctx.user, nav: ctx.chrome.nav, t: ctx.t }) }, view: "index" };
+    return { data: { chrome: ctx.chrome }, view: "index" };
   };
 
   // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/

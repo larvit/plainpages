@@ -8,9 +8,14 @@ import type { Translate } from "../i18n/translate.ts";
 import { type MenuConfig } from "./menu-config.ts";
 import { composeNav, type NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import { branding, shellUser, type ShellUser } from "./shell-context.ts";
 
 const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard", session: true };
+
+export interface ShellUser {
+  email: string;
+  initials: string;
+  name: string;
+}
 
 export interface PageChrome {
   brand: { logo?: string; name: string; sub?: string };
@@ -62,6 +67,28 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     signInHref: carryLocale(returnTo),
     ...(theme != null ? { theme } : {}),
     user: shellUser(opts.user, t),
+  };
+}
+
+// The User carries no display name (the JWT holds only id/email/permissions), so the profile shows
+// the email's local part as the name; anonymous ⇒ "Guest".
+export function shellUser(user: User | null | undefined, t: Translate = ENGLISH): ShellUser {
+  if (!user) {
+    const guest = t("shell.guest");
+    return { email: "", initials: ([...guest][0] ?? "?").toUpperCase(), name: guest }; // by character: the word is translated
+  }
+  const local = user.email.split("@")[0] || user.email;
+  return { email: user.email, initials: (local.slice(0, 2) || "U").toUpperCase(), name: local };
+}
+
+// `name`/`sub` pass through `t`, so a catalog key is translated and an operator's own wording renders as written.
+function branding(menu: MenuConfig, t: Translate): { logo?: string; name: string; sub?: string; theme?: string } {
+  const b = menu.branding;
+  return {
+    ...(b.logo != null ? { logo: b.logo } : {}),
+    name: t(b.name),
+    ...(b.sub != null ? { sub: t(b.sub) } : {}),
+    ...(b.theme != null ? { theme: b.theme } : {}),
   };
 }
 
