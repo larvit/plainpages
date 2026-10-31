@@ -6,6 +6,12 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### A verification or recovery code pasted with whitespace around it is accepted
+
+The code field on the verification and recovery pages takes a code with spaces or tabs around it, as
+a paste from an email often brings. Before, the browser refused it. Those two forms now post to
+Plainpages, which trims the code and passes the form on to Kratos at `KRATOS_PUBLIC_URL`.
+
 ### A filter shows its selected and focused choice in browsers without `:has()`
 
 On Chromium below 105, Firefox below 121 and Safari below 15.4, a filter's segments and chips now show

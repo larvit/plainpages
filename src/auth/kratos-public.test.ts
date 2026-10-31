@@ -1,6 +1,6 @@
 // Kratos public-API client: typed fetch wrappers over Ory Kratos' public endpoints.
 // Guards the request contracts (URLs, JSON-accept, cookie relay) and the result mapping
-// (200/401/4xx, validation-flow vs success, tokenized JWT). Live wiring is verified by the
+// (200/401/4xx, a submit's redirect, tokenized JWT). Live wiring is verified by the
 // flow pages; these catch contract drift with a mock fetch.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -57,35 +57,27 @@ test("getFlow throws a KratosError carrying the status when the flow is gone (41
   );
 });
 
-test("submitFlow POSTs urlencoded to the action and reports success + relays Set-Cookie", async () => {
-  const { calls, fetchImpl } = recorder(() => res(200, { session: { active: true } }, ["plainpages_session=s; Path=/"]));
+test("submitFlow POSTs the form to the flow on Kratos' own base URL, as a browser would, and relays the redirect + Set-Cookie", async () => {
+  const { calls, fetchImpl } = recorder(() => new Response(null, {
+    headers: new Headers([["location", "http://app/settings?flow=s1"], ["set-cookie", "plainpages_session=s; Path=/"]]),
+    status: 303,
+  }));
   const out = await createKratosPublic({ baseUrl: BASE, fetchImpl })
-    .submitFlow(`${BASE}/self-service/login?flow=f`, { body: "identifier=a&password=b", cookie: "csrf_token=abc" });
-  assert.equal(out.ok, true);
-  assert.equal(out.status, 200);
-  assert.deepEqual(out.setCookie, ["plainpages_session=s; Path=/"]);
+    .submitFlow("recovery", "f 1", { body: "code=123456&method=code", cookie: "csrf_token=abc" });
+  assert.deepEqual(out, { location: "http://app/settings?flow=s1", setCookie: ["plainpages_session=s; Path=/"], status: 303 });
+  assert.equal(calls[0]!.url, `${BASE}/self-service/recovery?flow=f+1`);
   assert.equal(calls[0]!.method, "POST");
+  // Not JSON: Kratos then answers with the same 303s a browser posting to it directly would get.
+  assert.equal(calls[0]!.headers.get("accept"), "text/html");
   assert.equal(calls[0]!.headers.get("content-type"), "application/x-www-form-urlencoded");
-  assert.equal(calls[0]!.body, "identifier=a&password=b");
+  assert.equal(calls[0]!.headers.get("cookie"), "csrf_token=abc");
+  assert.equal(calls[0]!.body, "code=123456&method=code");
 });
 
-test("submitFlow returns the re-rendered flow (no throw) on a 400 validation error", async () => {
-  const flow = { id: "f", ui: { action: "x", messages: [{ id: 4000006, text: "invalid credentials", type: "error" }], method: "POST", nodes: [] } };
-  const { fetchImpl } = recorder(() => res(400, flow));
-  const out = await createKratosPublic({ baseUrl: BASE, fetchImpl }).submitFlow(`${BASE}/x`, { body: "x=1" });
-  assert.equal(out.ok, false);
-  assert.equal(out.status, 400);
-  assert.deepEqual(out.body, flow);
-});
-
-test("submitFlow surfaces the redirect target — Location header or a 422 redirect_browser_to body", async () => {
-  const k = (handler: () => Response) => createKratosPublic({ baseUrl: BASE, fetchImpl: recorder(handler).fetchImpl });
-  const viaHeader = await k(() => new Response(null, { headers: new Headers({ location: "http://app/" }), status: 303 }))
-    .submitFlow(`${BASE}/x`, { body: "x=1" });
-  assert.equal(viaHeader.location, "http://app/");
-  const viaBody = await k(() => res(422, { redirect_browser_to: "http://app/login?flow=next" }))
-    .submitFlow(`${BASE}/x`, { body: "x=1" });
-  assert.equal(viaBody.location, "http://app/login?flow=next");
+test("submitFlow reports a 4xx without a redirect as a null location, and throws on a Kratos 5xx", async () => {
+  const k = (status: number) => createKratosPublic({ baseUrl: BASE, fetchImpl: recorder(() => res(status, { error: "x" })).fetchImpl });
+  assert.deepEqual(await k(400).submitFlow("verification", "f", { body: "x=1" }), { location: null, setCookie: [], status: 400 });
+  await assert.rejects(k(502).submitFlow("verification", "f", { body: "x=1" }), (e: unknown) => e instanceof KratosError && e.status === 502);
 });
 
 test("whoami returns the session on 200 (cookie forwarded) and null on 401", async () => {

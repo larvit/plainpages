@@ -6,7 +6,7 @@ import { CSRF_COOKIE, issueCsrfToken } from "../auth/csrf.ts";
 import { HydraError, type HydraAdmin } from "../auth/hydra-admin.ts";
 import { staticJwks } from "../auth/jwks.ts";
 import type { Identity } from "../auth/kratos-admin.ts";
-import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "../auth/kratos-public.ts";
+import { KratosError, type Flow, type FlowSubmission, type FlowType, type KratosPublic, type Session, type UiNode } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import { loadI18n } from "../i18n/load.ts";
@@ -389,3 +389,50 @@ test("OAuth2 challenge endpoints degrade identically: stale Hydra 4xx → 400, o
   }
 });
 
+
+// The code flows post to the host, which trims the code (a pasted one often carries whitespace that
+// Kratos would refuse) and relays the rest of the browser's POST to Kratos verbatim.
+test("code-flow POST: the host trims the code, relays the POST to Kratos and Kratos' redirect + cookies back", async (t) => {
+  const calls: { body: string; cookie: string | undefined; flowId: string; type: FlowType }[] = [];
+  let answer: () => Promise<FlowSubmission> = async () =>
+    ({ location: "http://localhost:3000/settings?flow=s1", setCookie: ["plainpages_session=s; Path=/; HttpOnly"], status: 303 });
+  const kratos: KratosPublic = {
+    ...mockKratos(async () => { throw new Error("unused"); }),
+    submitFlow: async (type, flowId, opts) => { calls.push({ body: opts.body, cookie: opts.cookie, flowId, type }); return answer(); },
+  };
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const post = (path: string, body: string) => fetch(url + path, {
+    body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: "csrf_token_x=c" }, method: "POST", redirect: "manual",
+  });
+
+  const res = await post("/recovery?flow=f1", "csrf_token=tok&code=%C2%A0123456%09%0A&method=code");
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "http://localhost:3000/settings?flow=s1");
+  assert.match(res.headers.get("set-cookie") ?? "", /plainpages_session=s/);
+  assert.deepEqual(calls[0], { body: "csrf_token=tok&code=123456&method=code", cookie: "csrf_token_x=c", flowId: "f1", type: "recovery" });
+
+  // The first step has no code field; its body passes through unchanged.
+  await post("/verification?flow=f2", "csrf_token=tok&email=a%40b.c&method=code");
+  assert.deepEqual(calls[1], { body: "csrf_token=tok&email=a%40b.c&method=code", cookie: "csrf_token_x=c", flowId: "f2", type: "verification" });
+
+  // No ?flow= → start over rather than post a flow-less submit.
+  const noFlow = await post("/recovery", "code=1");
+  assert.equal(noFlow.headers.get("location"), "/recovery");
+  assert.equal(calls.length, 2);
+
+  // Kratos answered without a redirect → back to the flow, whose page shows its state.
+  answer = async () => ({ location: null, setCookie: [], status: 400 });
+  assert.equal((await post("/recovery?flow=f1", "code=1")).headers.get("location"), "/recovery?flow=f1");
+
+  // Kratos down → the honest 503 the flow pages render, not a 500.
+  answer = async () => { throw new KratosError("bad gateway", 502, ""); };
+  assert.equal((await post("/recovery?flow=f1", "code=1")).status, 503);
+  answer = async () => { throw new TypeError("fetch failed"); };
+  assert.equal((await post("/recovery?flow=f1", "code=1")).status, 503);
+
+  // Sign-in still posts straight to Kratos: the host takes no POST there.
+  assert.notEqual((await post("/login?flow=f1", "x=1")).status, 303);
+});

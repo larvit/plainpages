@@ -51,9 +51,7 @@ export interface LogoutFlow {
 }
 
 export interface FlowSubmission {
-  body: unknown; // parsed JSON: the re-rendered flow on 400, the success payload on 200
-  location: string | null; // redirect target (Location header, or a 422 redirect_browser_to)
-  ok: boolean; // status === 200
+  location: string | null; // where Kratos sends the browser next
   setCookie: string[];
   status: number;
 }
@@ -74,21 +72,8 @@ export interface KratosPublic {
   createLogoutFlow(opts?: { cookie?: string }): Promise<LogoutFlow | null>; // null ⇒ no active session (401)
   getFlow(type: FlowType, id: string, opts?: { cookie?: string }): Promise<Flow>;
   initBrowserFlow(type: FlowType, opts?: { cookie?: string; returnTo?: string }): Promise<FlowInit>;
-  submitFlow(action: string, opts: { body: string; contentType?: string; cookie?: string }): Promise<FlowSubmission>;
+  submitFlow(type: FlowType, flowId: string, opts: { body: string; cookie?: string }): Promise<FlowSubmission>;
   whoami(opts?: { cookie?: string; tokenizeAs?: string }): Promise<Session | null>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseBody(text: string): unknown {
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
 }
 
 export function createKratosPublic(config: { baseUrl: string; fetchImpl?: typeof fetch }): KratosPublic {
@@ -129,16 +114,17 @@ export function createKratosPublic(config: { baseUrl: string; fetchImpl?: typeof
       return (await res.json()) as Flow;
     },
 
-    async submitFlow(action, opts) {
-      const h = headers(opts.cookie);
-      h["content-type"] = opts.contentType ?? "application/x-www-form-urlencoded";
-      // Manual redirect so we can read a 303 Location instead of following it server-side.
-      const res = await http(action, { body: opts.body, headers: h, method: "POST", redirect: "manual" });
-      const body = parseBody(await res.text());
-      const location =
-        res.headers.get("location") ??
-        (isRecord(body) && typeof body["redirect_browser_to"] === "string" ? body["redirect_browser_to"] : null);
-      return { body, location, ok: res.status === 200, setCookie: res.headers.getSetCookie(), status: res.status };
+    async submitFlow(type, flowId, opts) {
+      const url = new URL(`${base}/self-service/${type}`);
+      url.searchParams.set("flow", flowId);
+      // Asked for HTML, Kratos answers with the redirects a browser posting to it directly gets, so
+      // every success/error/expiry branch stays Kratos'. Its nosurf demands a Referer, which this
+      // POST lacks, only on an https request: valid while KRATOS_PUBLIC_URL is in-cluster http.
+      const h = { ...headers(opts.cookie), accept: "text/html", "content-type": "application/x-www-form-urlencoded" };
+      const res = await http(url, { body: opts.body, headers: h, method: "POST", redirect: "manual" });
+      if (res.status >= 500) throw new KratosError(`Kratos submit ${type} flow failed (${res.status})`, res.status, await res.text());
+      await res.body?.cancel();
+      return { location: res.headers.get("location"), setCookie: res.headers.getSetCookie(), status: res.status };
     },
 
     async whoami(opts = {}) {

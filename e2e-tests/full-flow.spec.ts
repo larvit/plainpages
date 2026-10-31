@@ -14,6 +14,8 @@ const ADMIN_EMAIL = "admin@plainpages.local"; // seeded by bootstrap, holds the 
 const ADMIN_PASSWORD = "admin";
 const SSO_EMAIL = "sso-user@plainpages.local"; // minted by the mock OIDC provider on first SSO login
 const suffix = randomUUID().slice(0, 8); // unique per run so re-runs don't collide on names
+const KRATOS_ADMIN = process.env.KRATOS_ADMIN_URL ?? "http://kratos:4434";
+const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
 
 // Drive the themed password login form → Kratos → /auth/complete → dashboard, signed in.
 async function loginPassword(page: Page): Promise<void> {
@@ -273,4 +275,37 @@ test("mocked SSO login: the provider button signs a user in via OIDC", async ({ 
   await expect(page.locator(".profile-mail")).toHaveText(SSO_EMAIL);
   // A fresh SSO identity holds no permissions, so the gated Admin section stays hidden.
   await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(0);
+});
+
+// The newest one-time code Kratos' courier mailed to `to`, read from the mail catcher (compose.full.yml).
+async function mailedCode(to: string): Promise<string> {
+  let code = "";
+  await expect.poll(async () => {
+    const search = (await (await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`)).json()) as { messages: { ID: string }[] };
+    const id = search.messages[0]?.ID;
+    if (!id) return "";
+    const message = (await (await fetch(`${MAILPIT}/api/v1/message/${id}`)).json()) as { Text: string };
+    code = /\b(\d{6})\b/.exec(message.Text)?.[1] ?? "";
+    return code;
+  }, { timeout: 30_000 }).not.toBe("");
+  return code;
+}
+
+test("verification: a code pasted with whitespace around it is accepted", async ({ page }) => {
+  test.setTimeout(90_000);
+  const email = `verify-${suffix}@plainpages.local`;
+  const created = await fetch(`${KRATOS_ADMIN}/admin/identities`, {
+    body: JSON.stringify({ schema_id: "default", traits: { email } }),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+  });
+  expect(created.status).toBe(201);
+
+  await page.goto("/verification");
+  await page.fill('input[name="email"]', email);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator('input[name="code"]')).toBeVisible();
+  await page.fill('input[name="code"]', ` ${await mailedCode(email)}\t `); // as a paste from an email often arrives
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("You successfully verified your email address.")).toBeVisible();
 });

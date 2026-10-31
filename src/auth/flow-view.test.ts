@@ -100,9 +100,8 @@ test("collects oidc nodes as SSO providers (text logo = initial), keeping csrf a
   assert.deepEqual(view.buttons, [{ label: "Sign in", name: "method", value: "password" }]);
 });
 
-test("the code field guards a pasted space: one-time-code autofill + numeric inputmode + digits-only pattern", () => {
-  // Verification/recovery enter a numeric OTP. Kratos doesn't trim, so a stray pasted space makes it
-  // reject the code as "invalid"; a digits-only pattern blocks that in the browser before submit.
+test("the code field takes a pasted code: one-time-code autofill + numeric inputmode + digits, whitespace around them allowed", () => {
+  // The host trims the code before Kratos sees it (routes.ts), so only a stray non-digit is refused.
   const view = buildFlowView(
     flow([
       node({ name: "csrf_token", type: "hidden", value: "tok" }),
@@ -113,16 +112,24 @@ test("the code field guards a pasted space: one-time-code autofill + numeric inp
   );
   assert.deepEqual(view.fields.find((f) => f.name === "code"), {
     autocomplete: "one-time-code", // Kratos sends none for the OTP node — enable OS/email autofill
-    hint: "Digits only — no spaces.", // the pattern refusal alone reads as a bare "match the requested format"
+    hint: "Digits only.", // the pattern refusal alone reads as a bare "match the requested format"
     icon: "i-shield",
     id: "field-code",
     inputmode: "numeric",
     label: "Verification code",
     name: "code",
-    pattern: "[0-9]*",
+    pattern: "\\s*[0-9]*\\s*",
     required: true,
     type: "text",
   });
+});
+
+test("the code flows post to the host, which trims the code; every other flow posts to Kratos", () => {
+  for (const type of ["recovery", "verification"] as const) assert.equal(buildFlowView(flow([]), type).action, `/${type}?flow=f1`);
+  for (const type of ["login", "registration", "settings"] as const) {
+    assert.equal(buildFlowView(flow([]), type).action, "http://127.0.0.1:4433/self-service/login?flow=f1");
+  }
+  assert.equal(buildFlowView({ ...flow([]), id: "a&b" }, "recovery").action, "/recovery?flow=a%26b");
 });
 
 test("chrome varies per flow type: registration alt, recovery back link", () => {

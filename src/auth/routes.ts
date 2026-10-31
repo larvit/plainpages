@@ -1,5 +1,5 @@
 // The built-in auth/OAuth2 endpoints as named handlers on the host's internal route table
-// (src/http/builtin-routes.ts): the themed Kratos self-service pages, the Hydra OAuth2
+// (src/http/builtin-routes.ts): the themed Kratos self-service pages and their code submits, the Hydra OAuth2
 // login/consent/logout challenges, login completion, the first-party logout, and Kratos'
 // flow-error sink. buildAuthRoutes registers only what the wired clients support — a missing
 // client means the path simply doesn't exist (404). `view` results render the core views.
@@ -8,11 +8,11 @@ import type { BuiltinRoute, RequestCsrf } from "../http/builtin-routes.ts";
 import type { RequestContext } from "../http/context.ts";
 import { CSRF_FIELD } from "./csrf.ts";
 import { chosenLocale } from "../i18n/locale.ts";
-import { AUTH_FLOWS, buildFlowView } from "./flow-view.ts";
+import { AUTH_FLOWS, buildFlowView, CODE_FLOWS } from "./flow-view.ts";
 import { HydraError, type HydraAdmin } from "./hydra-admin.ts";
 import type { KetoClient } from "./keto-client.ts";
 import type { KratosAdmin } from "./kratos-admin.ts";
-import { type Flow, type FlowType, KratosError, type KratosPublic } from "./kratos-public.ts";
+import { type Flow, type FlowSubmission, type FlowType, KratosError, type KratosPublic } from "./kratos-public.ts";
 import { clearSessionCookie, completeLogin, sessionCookie } from "./login.ts";
 import type { MenuConfig } from "../ui/menu-config.ts";
 import { acceptConsent, rejectConsent, resolveConsentChallenge } from "./oauth-consent.ts";
@@ -111,6 +111,29 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
     // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.
     csrf.setCookie();
     return { data: { chrome: ctx.chrome, flow: buildFlowView(flow, flowType, ctx.t) }, view: "auth" };
+  };
+}
+
+// A code flow's POST (flow-view.ts → CODE_FLOWS): trim the pasted one-time code, which Kratos would
+// refuse with its surrounding whitespace, and relay the rest to Kratos and its redirect back. Kratos'
+// own csrf_token field guards the POST, so the host checks no token of its own.
+function codeFlowSubmit(kratos: KratosPublic, flowType: FlowType): BuiltinRoute["handler"] {
+  return async (ctx: RequestContext): Promise<RouteResult> => {
+    const pathname = ctx.url.pathname;
+    const flowId = ctx.url.searchParams.get("flow");
+    if (!flowId) return { redirect: pathname };
+    const form = await readFormBody(ctx.req);
+    const code = form.get("code");
+    if (code !== null) form.set("code", code.trim());
+    const cookie = ctx.req.headers.cookie;
+    let submitted: FlowSubmission;
+    try {
+      submitted = await kratos.submitFlow(flowType, flowId, { body: form.toString(), ...(cookie ? { cookie } : {}) });
+    } catch (err) {
+      return flowFailure(err, ctx, flowType);
+    }
+    if (submitted.setCookie.length) ctx.res.appendHeader("set-cookie", submitted.setCookie);
+    return { redirect: submitted.location ?? `${pathname}?flow=${encodeURIComponent(flowId)}` };
   };
 }
 
@@ -250,6 +273,7 @@ export function buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secure
   if (kratos) {
     for (const [path, flowType] of Object.entries(AUTH_FLOWS)) {
       routes.push({ handler: flowPage(kratos, flowType, secureCookies), method: "GET", path, public: true });
+      if (CODE_FLOWS.has(flowType)) routes.push({ handler: codeFlowSubmit(kratos, flowType), method: "POST", path, public: true });
     }
     routes.push({ handler: logout(kratos, secureCookies), method: "POST", path: "/logout", public: true });
   }

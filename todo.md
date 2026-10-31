@@ -6,13 +6,13 @@
 
 `Bar = 1`
 
-`Next ID = 45`
+`Next ID = 46`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
+| 45 | 0.4.21 |  |  | **Link the admin's recovery-code notice to the flow the code was minted on, so the user can enter it.** | 1 | 2 | 2 | 3 | 2 | 2 by 5 | 7.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
@@ -26,17 +26,12 @@
 
 ## Details
 
-### 13. Accept a verification code pasted with surrounding whitespace.
+### 45. Link the admin's recovery-code notice to the flow the code was minted on, so the user can enter it.
 
-A pasted code fails the browser's `pattern` check. No zero-JS fix exists: `pattern`
-cannot transform, so loosening it only lets the untrimmed value through to Kratos. **Check first:**
-`kratos-admin.ts` returns a `recovery_link` alongside the code; if the stock courier mail can carry
-one, a template change fixes this with no host code. Otherwise proxy the flow POST through the host:
-`submitFlow` (`src/auth/kratos-public.ts`) already relays cookies and normalises a 422
-`redirect_browser_to`, and has no callers outside tests. CSRF improves, since the POST becomes
-same-origin and `form-action 'self'` can join the CSP. Risks: one `flow.ui.action` serves all five
-flows, so this rewrites the sign-in path; and Go's nosurf checks Referer only over https, which no
-test covers. Code entry has no E2E coverage today.
+The notice (`examples/plugins/admin/views/partials/user-form-body.ejs`) links a bare `/recovery`,
+which starts a fresh flow at its email step. Kratos binds an admin-minted code to the flow it minted,
+whose URL is the `recovery_link` that `createRecoveryCode` returns as `RecoveryCode.link`. Render that
+link instead.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

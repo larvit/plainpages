@@ -1,8 +1,8 @@
 // Kratos flow → themed view model. Pure: turns a fetched self-service Flow
 // (src/auth/kratos-public.ts) into the data views/auth.ejs renders — hidden inputs (incl. the
 // CSRF token), themed fields, submit buttons, tone-mapped messages, and one SSO button per
-// configured `oidc` provider. The form posts straight back to `flow.ui.action`, so Kratos
-// owns its CSRF; we only render and map errors. No providers configured ⇒ no SSO buttons.
+// configured `oidc` provider. The form posts to `flow.ui.action`, except a CODE_FLOWS form, which
+// posts to the host first; Kratos owns the CSRF of both. No providers configured ⇒ no SSO buttons.
 
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
@@ -17,7 +17,7 @@ export interface FlowField {
   inputmode?: string; // virtual-keyboard hint (e.g. "numeric" for the OTP code)
   label: string;
   name: string;
-  pattern?: string; // client-side validity regex; blocks a pasted space before it reaches Kratos
+  pattern?: string; // client-side validity regex
   required?: boolean;
   type: string;
   value?: string;
@@ -68,6 +68,9 @@ export const AUTH_FLOWS: Record<string, FlowType> = {
   "/settings": "settings",
   "/verification": "verification",
 };
+
+// The flows that take an emailed one-time code, whose form posts to the host to have it trimmed.
+export const CODE_FLOWS: ReadonlySet<FlowType> = new Set(["recovery", "verification"]);
 
 // Where each flow's card links; its words come from the catalog under `auth.<flow>.*`.
 const LINKS: Record<FlowType, { alt?: string; back?: boolean }> = {
@@ -123,9 +126,9 @@ const ssoLogo = (value: string): string => (value.charAt(0) || "?").toUpperCase(
 
 function toField(node: UiNode, name: string, type: string, t: Translate): FlowField {
   const value = str(node.attributes["value"]);
-  // The recovery/verification one-time code: numeric, and Kratos doesn't trim it, so a stray pasted
-  // space makes it reject the code as "invalid". A digits-only pattern + numeric keypad block that in
-  // the browser; one-time-code enables OS/email autofill (Kratos sends no autocomplete for the node).
+  // The recovery/verification one-time code: numeric, so a numeric keypad and a digits pattern, which
+  // allows the whitespace a paste brings since the host trims it (routes.ts → codeFlowSubmit).
+  // one-time-code enables OS/email autofill (Kratos sends no autocomplete for the node).
   const isCode = name === "code";
   const autocomplete = str(node.attributes["autocomplete"]) ?? (isCode ? "one-time-code" : undefined);
   const icon = iconFor(name, type);
@@ -140,7 +143,7 @@ function toField(node: UiNode, name: string, type: string, t: Translate): FlowFi
     ...(autocomplete ? { autocomplete } : {}),
     ...(errorMsg ? { error: { text: kratosText(t, errorMsg.text, idKey(errorMsg.id)) } } : {}),
     ...(icon ? { icon } : {}),
-    ...(isCode ? { hint: t("auth.field.code.hint"), inputmode: "numeric", pattern: "[0-9]*" } : {}),
+    ...(isCode ? { hint: t("auth.field.code.hint"), inputmode: "numeric", pattern: "\\s*[0-9]*\\s*" } : {}),
     ...(node.attributes["required"] === true ? { required: true } : {}),
     ...(value ? { value } : {}),
   };
@@ -174,7 +177,7 @@ export function buildFlowView(flow: Flow, type: FlowType, t: Translate = ENGLISH
   }
 
   return {
-    action: flow.ui.action,
+    action: CODE_FLOWS.has(type) ? `/${type}?flow=${encodeURIComponent(flow.id)}` : flow.ui.action,
     buttons,
     fields,
     hidden,

@@ -1,5 +1,5 @@
 # Full browser E2E — the real Playwright UI flow against the live stack: password + mocked-SSO
-# login, menu filtering by permission, users/groups/OAuth2-clients CRUD + permission granting, a plugin page, logout. A
+# login, emailed-code verification, menu filtering by permission, users/groups/OAuth2-clients CRUD + permission granting, a plugin page, logout. A
 # tiny same-origin gateway (proxy, e2e-tests/proxy.ts) fronts web + Kratos on one host so the browser's cookies
 # round-trip (ory/kratos/e2e-proxy.yml points Kratos at it); a mock OIDC provider backs the SSO test.
 #   docker compose -f compose.yml -f e2e-tests/compose.full.yml run --user "$(id -u):$(id -g)" --build --rm e2e
@@ -79,6 +79,17 @@ services:
       timeout: 4s
       retries: 15
 
+  # Catches the courier's mail (kratos.yml → smtp://mailpit:1025), so a test can read an emailed code.
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    mem_limit: 128m
+    memswap_limit: 128m
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+
   # Same-origin gateway: Kratos-owned paths → kratos, everything else → web (e2e-tests/proxy.ts).
   proxy:
     image: node:24.22.2-alpine3.24
@@ -103,6 +114,8 @@ services:
       dockerfile: e2e-tests/Dockerfile
     command: ["npx", "playwright", "test", "full-flow.spec.ts"]
     depends_on:
+      mailpit:
+        condition: service_healthy
       mock-oidc:
         condition: service_healthy
       proxy:
@@ -110,5 +123,6 @@ services:
     environment:
       BASE_URL: http://proxy
       KRATOS_ADMIN_URL: http://kratos:4434
+      MAILPIT_URL: http://mailpit:8025
     volumes:
       - ./e2e-tests/artifacts:/e2e-tests/artifacts
