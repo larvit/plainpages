@@ -14,7 +14,7 @@ const LIMITS = { lines: 50, complexity: 20 };
 // leaves the entry once it fits, so a function that shrank can't grow back.
 const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
   "src/http/app.ts createApp": { lines: 318, complexity: 28 },
-  "src/http/app.ts createApp > handleRequest": { lines: 168, complexity: 43 },
+  "src/http/app.ts createApp > handleRequest": { lines: 167, complexity: 43 },
   "src/auth/flow-view.ts buildFlowView": { complexity: 24 },
   "src/auth/hydra-admin.ts createHydraAdmin": { lines: 87 },
   "src/auth/kratos-admin.ts createKratosAdmin": { lines: 68 },

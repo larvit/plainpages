@@ -11,9 +11,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= t("consent.title", { client: consent.client }) %></title>
-    <link rel="stylesheet" href="/public/css/styles.css" />
-    <link rel="stylesheet" href="/public/css/auth.css" />
-    <link rel="icon" href="/public/favicon.svg" />
+    <link rel="stylesheet" href="<%= assetHref("/public/css/styles.css") %>" />
+    <link rel="stylesheet" href="<%= assetHref("/public/css/auth.css") %>" />
+    <link rel="icon" href="<%= assetHref("/public/favicon.svg") %>" />
   </head>
   <body>
     <%- include("partials/icons") %>

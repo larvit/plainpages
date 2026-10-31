@@ -250,6 +250,24 @@ test("the reference plugin's lead text is inset by --pad-x, like the bars around
   expect(inset).toBe(padX);
 });
 
+// transferSize is 0 only for a response the browser's own cache served; a 304 still costs a round trip.
+test("a repeat page view fetches no stylesheet again", async ({ page }) => {
+  const stylesheets = (): Promise<{ name: string; transferSize: number }[]> => page.evaluate(() =>
+    performance.getEntriesByType("resource")
+      .filter((entry): entry is PerformanceResourceTiming => entry instanceof PerformanceResourceTiming && entry.initiatorType === "link" && entry.name.includes(".css"))
+      .map(({ name, transferSize }) => ({ name, transferSize })));
+
+  await page.goto("/");
+  const first = await stylesheets();
+  expect(first.length, "the landing links styles.css and auth.css").toBeGreaterThanOrEqual(2);
+  for (const { name, transferSize } of first) expect(transferSize, `${name} on the first view`).toBeGreaterThan(0);
+
+  await page.goto("/");
+  const repeat = await stylesheets();
+  expect(repeat.map(({ name }) => name)).toEqual(first.map(({ name }) => name));
+  for (const { name, transferSize } of repeat) expect(transferSize, `${name} on the repeat view`).toBe(0);
+});
+
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
   allowConsole(/status of 404 .*\/no-such-page$/); // the navigation under test, which Chromium and WebKit log — not a sub-resource of it
   const res = await page.goto("/no-such-page");

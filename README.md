@@ -510,6 +510,9 @@ export async function listThings(ctx: RequestContext) {
   nested names like `"things/edit"` work, out-of-bounds names are refused. The template may
   `include()` the core building-block partials and its own. To load the plugin's own CSS, pass its
   `/public/<id>/x.css` href in the shell's `styles` slot — see the reference's `views/shifts.ejs`.
+  The host adds the file's content hash to every `/public/` href the shell renders, so browsers and
+  any cache in front of Plainpages keep it for a year; a `/public/` URL your own markup writes is
+  kept for five minutes, then revalidated.
 - **Finer authorization than the route `permission`** uses the guards from `@plainpages/plugin-api`:
   `requireSession(ctx)`, `can(ctx, permission)` (coarse JWT-claim check, zero I/O), and
   `check(keto, ctx, {namespace, object, relation})` (a live Keto check; anonymous ⇒ denied). Throw

@@ -139,3 +139,20 @@ Read most (opens and searches):
 - `compose.yml` 1
 - `e2e-tests/auth-refresh.spec.ts` 1
 - `src/auth/flow-view.ts` 1
+
+## Reading cost, chunk 3373527a4f72, finished 2026-10-31T08:52:59Z
+
+138664 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `examples/plugins/admin/admin-users.ts` 8
+- `README.md` 7
+- `src/http/app.test.ts` 7
+- `e2e-tests/full-flow.spec.ts` 3
+- `examples/plugins/admin/admin-groups.ts` 3
+- `examples/plugins/admin/admin-users.test.ts` 3
+- `examples/plugins/admin/i18n/en-US.ts` 3
+- `src/ui/icons.ts` 3
+- `todo.md` 3
+- `CHANGELOG.md` 2

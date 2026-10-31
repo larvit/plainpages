@@ -6,10 +6,10 @@ import ejs from "ejs";
 import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 // A localeHref that marks what it touches, so a raw href in the chrome is visible to a test.
-const CARRYING = { ...ENGLISH_LOCALS, localeHref: (href: string) => `${href}?locale=sv-SE` };
+const CARRYING = { ...ENGLISH_LOCALS, assetHref: (href: string) => href, localeHref: (href: string) => `${href}?locale=sv-SE` };
 
 const shell = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views", "partials", "shell.ejs");
-const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(shell, { ...ENGLISH_LOCALS, ...data });
+const render = (data: Record<string, unknown> = {}): Promise<string> => ejs.renderFile(shell, { ...ENGLISH_LOCALS, assetHref: (href: string) => href, ...data });
 
 test("app shell renders sidebar, topbar and the content slot", async () => {
   const html = await render({
@@ -88,6 +88,12 @@ test("app shell links extra per-page stylesheets via the styles slot (e.g. a plu
 
   const none = await render(); // no styles → only the core stylesheet
   assert.equal((none.match(/rel="stylesheet"/g) ?? []).length, 1);
+});
+
+test("app shell passes every /public/ reference through the host's assetHref, the plugin's styles included", async () => {
+  const html = await render({ assetHref: (href: string) => `${href}?v=1`, brand: { logo: "/public/brand/logo.svg", name: "Acme" }, styles: ["/public/scheduling/scheduling.css"] });
+  const refs = [...html.matchAll(/(?:href|src)="(\/public\/[^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(refs, ["/public/css/styles.css?v=1", "/public/scheduling/scheduling.css?v=1", "/public/favicon.svg?v=1", "/public/brand/logo.svg?v=1"]);
 });
 
 test("app shell can disable the menu: no sidebar, focused single-column layout", async () => {

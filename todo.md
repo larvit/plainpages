@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 34 | 0.4.21 |  |  | **Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.** | 4 | 2 | 3 | 7 | 6 | 8 by 6, 2 by 2 | 1.8 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
 | 40 | 0.4.21 |  |  | **Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".** | 1 | 2 | 1 | 2 | 2 | 2 by 1 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
@@ -29,36 +28,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 34. Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.
-
-`serveStatic` (`src/http/static.ts`) sends only `content-length` and `content-type`, so every page
-view downloads `styles.css`, `auth.css` and each plugin's stylesheet again: about 50 kB on a plugin's
-issue page, seconds per page over GPRS. Firefox can paint the page unstyled meanwhile, when an
-extension forces layout early.
-
-- A versioned URL carries a hash of the file's content, as `?v=<hash>` or in the path, and answers
-  `Cache-Control: public, max-age=31536000, immutable`. A release changes the hash, so it still
-  reaches every browser at once.
-- An unversioned `/public/` URL answers a short `max-age` with revalidation: `ETag` or
-  `Last-Modified`, and 304 on `If-None-Match` or `If-Modified-Since`, for GET and HEAD.
-- Every `/public/` href the host renders comes out versioned: the shell's `<link>`s and favicon,
-  the error pages (`views/403.ejs`, `404`, `500`, `503`, `error`), `views/oauth-consent.ejs`, and
-  the `styles` hrefs a plugin passes to `views/partials/shell.ejs`.
-- **Recommended: the host versions a plugin's hrefs itself.** A plugin names its asset once, as
-  today, and the shell adds the version to any `/public/` href. A helper would make every plugin
-  author remember to call it, and adds to the barrel.
-- **Contract:** `views/partials/*.ejs` are contract surface (AGENTS.md → Rules). Host-side
-  versioning keeps the `styles` option and its meaning, and an unversioned href keeps working, so
-  no minor bump of `HOST_API_VERSION` is needed and 0.4.21 holds. A helper exported through
-  `@plainpages/plugin-api` would add to the contract and need 0.5.0.
-- Pages stay `private, no-store` (`src/http/app.ts`); the static branch returns before that header
-  is set.
-
-Tests first, with expected values from this item: `src/http` unit tests for both header sets and the
-304s, and an E2E test that a repeat page view fetches no stylesheet again. State the choice once in a
-comment in `static.ts`, and in a sentence where the README tells plugin authors and operators about
-assets. Requested by plainpages-plugin-fastjira, whose own item waits on the release that ships this.
 
 ### 3. Guard the group paths against self-lockout, or accept the gap explicitly.
 

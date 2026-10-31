@@ -10,7 +10,8 @@
   (theme-switch default), `user`, `breadcrumbs`, `csrfToken` (the Sign-out form's hidden field),
   `signInHref` (anonymous "Sign in" target; default /login). `menu` (default true) — set false to
   drop the sidebar and render a focused single-column page. `t`, `locale`, `dir` and `localeSwitch`
-  come from the host with every render (README → Languages).
+  come from the host with every render (README → Languages), as does `assetHref`, which versions a
+  /public/ href so the browser caches it (src/http/static.ts).
 %><%
   const brand = locals.brand || { name: "Plainpages" };
   const title = locals.title || ""; // topbar heading; empty ⇒ no topbar <h1> (the body owns it)
@@ -29,9 +30,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= docTitle %></title>
-    <link rel="stylesheet" href="/public/css/styles.css" />
-    <% styles.forEach((href) => { %><link rel="stylesheet" href="<%= href %>" />
-    <% }) %><link rel="icon" href="/public/favicon.svg" />
+    <link rel="stylesheet" href="<%= assetHref("/public/css/styles.css") %>" />
+    <% styles.forEach((href) => { %><link rel="stylesheet" href="<%= assetHref(href) %>" />
+    <% }) %><link rel="icon" href="<%= assetHref("/public/favicon.svg") %>" />
   </head>
   <body>
     <a class="skip-link" href="#main-content"><%= t("shell.skipToContent") %></a>
@@ -45,7 +46,7 @@
       <% if (menu) { %>
       <aside class="sidebar" aria-label="<%= t("shell.sidebar") %>">
         <div class="brand">
-          <% if (brand.logo) { %><img class="brand-logo" src="<%= brand.logo %>" alt="" /><% } else { %><span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span><% } %>
+          <% if (brand.logo) { %><img class="brand-logo" src="<%= assetHref(brand.logo) %>" alt="" /><% } else { %><span class="brand-mark"><svg class="ico ico-sm"><use href="#i-box" /></svg></span><% } %>
           <span class="brand-name"><%= brand.name %></span>
           <% if (brand.sub) { %><span class="brand-sub"><%= brand.sub %></span><% } %>
         </div>

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import ejs from "ejs";
 import { createApp, type AppOptions } from "./app.ts";
 import { readFormBody } from "./body.ts";
 import { createLogger } from "../logger.ts";
@@ -20,11 +21,11 @@ import type { Identity, KratosAdmin } from "../auth/kratos-admin.ts";
 import { KratosError, type Flow, type FlowType, type KratosPublic, type Session, type UiNode } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import { contentTypeFor, resolveStaticPath, routePublic } from "./static.ts";
 import adminManifest from "../../examples/plugins/admin/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import type { MenuConfig } from "../ui/menu-config.ts";
 import { loadI18n } from "../i18n/load.ts";
+import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
 // The HTTP-level admin tests mount the example plugin via createApp — stub Ory clients on
@@ -286,7 +287,7 @@ test("every response carries the security headers; HSTS follows SECURE_COOKIES",
   assert.match(res.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
 });
 
-test("Cache-Control: pages and JSON are private, no-store unless the route sets its own; assets are left alone", async (t) => {
+test("Cache-Control: pages and JSON are private, no-store unless the route sets its own", async (t) => {
   const NO_STORE = "private, no-store";
   const csrf = (await fetch(base + "/")).headers.get("set-cookie")?.split(";")[0] ?? "";
   assert.match(csrf, new RegExp(`^${CSRF_COOKIE}=`));
@@ -300,7 +301,7 @@ test("Cache-Control: pages and JSON are private, no-store unless the route sets 
   assert.equal((await fetch(base + "/dashboard", { headers: { cookie: session() } })).headers.get("cache-control"), NO_STORE);
   assert.equal((await fetch(base + "/dashboard", { redirect: "manual" })).headers.get("cache-control"), NO_STORE); // sign-in bounce
   assert.equal((await fetch(base + "/nope", { headers: { cookie: csrf } })).headers.get("cache-control"), NO_STORE); // 404
-  assert.equal((await fetch(base + "/public/css/styles.css")).headers.get("cache-control"), null);
+  assert.equal((await fetch(base + "/public/css/styles.css")).headers.get("cache-control"), "public, max-age=300"); // static.test.ts covers asset caching
 
   const demo: Plugin = {
     apiVersion: "1.0.0",
@@ -415,6 +416,54 @@ test("renders the 500 HTML page when a handler throws", async () => {
   } finally {
     app.close();
     rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+// Every /public/ reference in the page, as written in the HTML.
+const publicRefs = (html: string): string[] => [...html.matchAll(/(?:href|src)="(\/public\/[^"]*)"/g)].map((m) => m[1] ?? "");
+
+test("every /public/ href the host renders is versioned and answers a year-long immutable Cache-Control", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
+  mkdirSync(join(dir, "styled", "views"), { recursive: true });
+  mkdirSync(join(dir, "styled", "public"), { recursive: true });
+  writeFileSync(join(dir, "styled", "views", "page.ejs"), `<%- include("partials/shell", { body: "<p>styled</p>", styles: ["/public/styled/app.css"] }) %>`);
+  writeFileSync(join(dir, "styled", "public", "app.css"), ".styled{}");
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const styled: Plugin = { apiVersion: "1.0.0", id: "styled", routes: [{ handler: () => ({ data: {}, view: "page" }), method: "GET", path: "/page", public: true }] };
+  const url = await startApp(t, [styled], dir);
+
+  const pages = { home: "/", notFound: "/no-such-page", plugin: "/styled/page" };
+  const seen = new Set<string>();
+  for (const [name, path] of Object.entries(pages)) {
+    const refs = publicRefs(await (await fetch(url + path)).text());
+    assert.ok(refs.length > 0, name);
+    for (const ref of refs) {
+      assert.match(ref, /\?v=[\w-]+$/, `${name}: ${ref}`);
+      seen.add(ref);
+    }
+  }
+  assert.ok([...seen].some((ref) => ref.startsWith("/public/styled/app.css?v=")), "the plugin's styles href");
+  assert.ok([...seen].some((ref) => ref.startsWith("/public/favicon.svg?v=")), "the favicon");
+  for (const ref of seen) {
+    const res = await fetch(url + ref);
+    assert.equal(res.status, 200, ref);
+    assert.equal(res.headers.get("cache-control"), "public, max-age=31536000, immutable", ref);
+  }
+});
+
+test("the standalone error and consent views version their stylesheets", async () => {
+  for (const view of ["403", "404", "500", "503", "error", "oauth-consent"]) {
+    const html = await ejs.renderFile(join(viewsDir, `${view}.ejs`), {
+      ...ENGLISH_LOCALS,
+      assetHref: (href: string) => `${href}?v=test`,
+      consent: { account: "a@b.c", challenge: "c", client: "x", scopes: [] },
+      csrfField: "csrf",
+      csrfToken: "t",
+      error: { message: "m" },
+    });
+    const refs = publicRefs(html);
+    assert.ok(refs.length > 0, view);
+    for (const ref of refs) assert.match(ref, /\?v=test$/, `${view}: ${ref}`);
   }
 });
 
@@ -1662,25 +1711,6 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
   // Unknown id → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/admin/clients/does-not-exist")).status, 404);
   assert.equal((await get("/admin/clients/%ZZ")).status, 404);
-});
-
-test("resolveStaticPath blocks traversal and control chars, allows nested files", () => {
-  assert.equal(resolveStaticPath("/srv/public", "../app.ts"), null);
-  assert.equal(resolveStaticPath("/srv/public", "a\x00b"), null);
-  assert.equal(resolveStaticPath("/srv/public", "css/styles.css"), "/srv/public/css/styles.css");
-});
-
-test("contentTypeFor maps known and unknown extensions", () => {
-  assert.match(contentTypeFor("a.css"), /text\/css/);
-  assert.equal(contentTypeFor("a.bin"), "application/octet-stream");
-});
-
-test("routePublic sends a plugin-id segment to its public/ dir, everything else to core", () => {
-  const ids = new Set(["scheduling"]);
-  assert.deepEqual(routePublic("scheduling/app.css", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "app.css" });
-  assert.deepEqual(routePublic("scheduling/img/logo.svg", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "img/logo.svg" });
-  assert.deepEqual(routePublic("scheduling", "/core", "/plugins", ids), { dir: "/plugins/scheduling/public", subPath: "" }); // bare /public/<id>, no file
-  assert.deepEqual(routePublic("css/styles.css", "/core", "/plugins", ids), { dir: "/core", subPath: "css/styles.css" }); // not a plugin → core
 });
 
 // ---- language (i18n) ----

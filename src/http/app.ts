@@ -32,7 +32,7 @@ import { allowedMethods, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
-import { routePublic, serveStatic } from "./static.ts";
+import { publicAssets } from "./static.ts";
 import { renderPluginView } from "../plugin-host/view-resolver.ts";
 
 const NO_STORE = "private, no-store";
@@ -98,6 +98,7 @@ export function createApp(options: AppOptions = {}): Server {
   const anyResponseHooks = plugins.some((p) => p.hooks?.onResponse);
   const pluginsDir = options.pluginsDir ?? PLUGINS_DIR;
   const publicDir = options.publicDir ?? join(rootDir, "public");
+  const assets = publicAssets(publicDir, pluginsDir, pluginIds);
   const viewsDir = options.viewsDir ?? join(rootDir, "views");
   // Response security headers, fixed at boot (only HSTS depends on the https deployment signal).
   const secHeaderEntries = Object.entries(securityHeaders({ secure: secureCookies }));
@@ -131,10 +132,10 @@ export function createApp(options: AppOptions = {}): Server {
     t: ctx.t,
     url: ctx.url,
   });
-  // i18n locals go last: their names are reserved, so a handler's colliding key loses instead of
-  // breaking the shell around it.
-  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)) });
-  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)) });
+  // i18n locals and `assetHref` (static.ts) go last: their names are reserved, so a handler's
+  // colliding key loses instead of breaking the shell around it.
+  const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
+  const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
 
   const sendHtml = (res: ServerResponse, status: number, html: string): void => {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -184,7 +185,7 @@ export function createApp(options: AppOptions = {}): Server {
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
-    let renderPage: ViewRenderer = (view, data) => render(view, { ...data, ...ENGLISH_LOCALS });
+    let renderPage: ViewRenderer = (view, data) => render(view, { ...data, ...ENGLISH_LOCALS, assetHref: assets.href });
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -196,8 +197,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
       if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
-        const { dir, subPath } = routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
-        await serveStatic(dir, subPath, res, method === "HEAD", (err) => reqLog.error("static stream error", { error: String(err) }));
+        await assets.serve(url, req, res, (err) => reqLog.error("static stream error", { error: String(err) }));
         return;
       }
 
