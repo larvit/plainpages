@@ -21,8 +21,8 @@
    widgets (date picker, scrollbars, selects).
 ------------------------------------------------------------- */
 :root {
-  /* Hex, not oklch: an engine below Chromium 111 drops an oklch token and the primary button
-     loses its background. */
+  /* Hex, never oklch: below Chromium 111 `var(--accent)` is invalid at computed-value time and the
+     primary button loses its background. A fallback declaration cannot catch that. */
   /* ---- raw LIGHT palette ---- */
   --l-bg:#f3f3f4; --l-surface:#ffffff; --l-surface-2:#f6f6f7; --l-surface-3:#fbfbfc;
   --l-border:#e5e5e8; --l-border-2:#d6d6da;

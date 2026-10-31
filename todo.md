@@ -6,13 +6,14 @@
 
 `Bar = 1`
 
-`Next ID = 35`
+`Next ID = 36`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
+| 35 | 0.4.21 |  | defect | **Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.** | 1 | 2 | 1 | 2 | 2 | 6 by 3 | 18.0 |
 | 31 | 0.4.21 |  |  | **Delete the design-preview rules in `public/css/auth.css` that no view uses.** | 1 | 1 | 1 | 1 | 2 | code health by 2, 8 by 1 | 13.3 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
 | 8 | 0.4.21 |  |  | **Run the visual E2E specs at viewports from a large desktop down to a small phone.** | 2 | 1 | 1 | 2 | 4 | code health by 3 | 9.0 |
@@ -47,6 +48,12 @@ README → "Two browser floors": Chromium 87 must reach every page. `public/css/
 `.nav-children` and only a `:has()` rule reveals them, so below Chromium 105 (webOS TV 22 and 23)
 no nested entry can be reached. Hide the children only inside `@supports selector(:has(a))`. The
 theme switch is inert there too, since every theme rule is a `:has()`: hide it under the same guard.
+
+### 35. Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.
+
+Measured in `public/css/styles.css`: white text on the dark-mode primary button (`--d-accent`
+`#6ba0e8`) is 2.69:1, and the text of the light-mode pos, warn and info badges on their backgrounds 4.17, 4.40 and 4.48:1. WCAG AA
+needs 4.5:1 for normal text.
 
 ### 31. Delete the design-preview rules in `public/css/auth.css` that no view uses.
 
