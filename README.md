@@ -1198,7 +1198,7 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | --- | --- | --- |
 | `APP_URL` | _unset_ (dev: `http://localhost:3000`) | the canonical public URL — the **single source** for the host this deployment lives on; set ⇒ off-host visitors are redirected here, unset ⇒ no redirect (see [Canonical host](#canonical-host-one-public-url)) |
 | `PORT` | `3000` | web listen port |
-| `CACHE_TEMPLATES` | `false` | cache compiled EJS templates (`true` in prod) |
+| `CACHE_TEMPLATES` | `false` | cache compiled EJS templates and `/public/` asset versions (`true` in prod) |
 | `SECURE_COOKIES` | `false` | mark our session/CSRF cookies `Secure` (`true` in prod https; off in dev http) |
 | `REQUIRE_SECURE_SECRETS` | `false` | when `true`, `CSRF_SECRET` — and `PLUGIN_DB_SECRET` once storage is configured, and every plugin setting declared `secret` — must be supplied and differ from the dev throwaway |
 | `LOG_LEVEL` | `info` | min severity logged: `error`/`warn`/`info`/`verbose`/`debug`/`silly`/`none` |

@@ -163,7 +163,7 @@ Every behaviour is an explicit env toggle read at boot — no `NODE_ENV`. The co
 | --- | --- | --- |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@plainpages.local` / `admin` | the seeded first admin (bootstrap service) |
 | `APP_URL` | unset | canonical public URL; off-host visitors are redirected to it |
-| `CACHE_TEMPLATES` | `false` | cache compiled templates (`true` in prod) |
+| `CACHE_TEMPLATES` | `false` | cache compiled templates and `/public/` asset versions (`true` in prod) |
 | `CSRF_SECRET` | dev throwaway | signs the CSRF token — set a real one in prod |
 | `KRATOS_*` / `KETO_*` / `HYDRA_*` URLs | compose defaults | the Ory sidecar endpoints |
 | `LOG_FORMAT` / `LOG_LEVEL` | `text` / `info` | `json` for structured prod logs |
