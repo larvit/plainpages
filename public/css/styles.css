@@ -21,27 +21,29 @@
    widgets (date picker, scrollbars, selects).
 ------------------------------------------------------------- */
 :root {
+  /* Hex, not oklch: an engine below Chromium 111 drops an oklch token and the primary button
+     loses its background. */
   /* ---- raw LIGHT palette ---- */
   --l-bg:#f3f3f4; --l-surface:#ffffff; --l-surface-2:#f6f6f7; --l-surface-3:#fbfbfc;
   --l-border:#e5e5e8; --l-border-2:#d6d6da;
   --l-text:#18181b; --l-text-muted:#6b6b73; --l-text-faint:#9a9aa2;
-  --l-accent:oklch(0.52 0.12 256); --l-accent-bg:oklch(0.96 0.03 256);
-  --l-accent-bd:oklch(0.82 0.07 256); --l-focus:oklch(0.52 0.14 256);
-  --l-pos:oklch(0.54 0.13 150); --l-pos-bg:oklch(0.95 0.03 150); --l-pos-bd:oklch(0.83 0.07 150);
-  --l-neg:oklch(0.55 0.18 25);  --l-neg-bg:oklch(0.96 0.03 25);  --l-neg-bd:oklch(0.85 0.08 25);
-  --l-warn:oklch(0.55 0.12 75); --l-warn-bg:oklch(0.96 0.04 85); --l-warn-bd:oklch(0.84 0.08 85);
-  --l-info:oklch(0.54 0.12 245);--l-info-bg:oklch(0.96 0.03 245);--l-info-bd:oklch(0.83 0.07 245);
+  --l-accent:#3669ac; --l-accent-bg:#e5f3ff;
+  --l-accent-bd:#a7c7f2; --l-focus:#2a68b7;
+  --l-pos:#258343; --l-pos-bg:#e1f5e4; --l-pos-bd:#a8d5b0;
+  --l-neg:#c53637;  --l-neg-bg:#ffebe8;  --l-neg-bd:#febab4;
+  --l-warn:#9a6500; --l-warn-bg:#fef0d4; --l-warn-bd:#e3c78e;
+  --l-info:#2274af;--l-info-bg:#e2f5ff;--l-info-bd:#a2cdf2;
 
   /* ---- raw DARK palette ---- */
   --d-bg:#0d0d0f; --d-surface:#161619; --d-surface-2:#1d1d22; --d-surface-3:#1a1a1e;
   --d-border:#2a2a31; --d-border-2:#3a3a43;
   --d-text:#ededf0; --d-text-muted:#9b9ba6; --d-text-faint:#6a6a74;
-  --d-accent:oklch(0.70 0.12 256); --d-accent-bg:oklch(0.32 0.06 256);
-  --d-accent-bd:oklch(0.48 0.08 256); --d-focus:oklch(0.74 0.13 256);
-  --d-pos:oklch(0.74 0.14 150); --d-pos-bg:oklch(0.30 0.05 150); --d-pos-bd:oklch(0.45 0.07 150);
-  --d-neg:oklch(0.74 0.16 25);  --d-neg-bg:oklch(0.30 0.07 25);  --d-neg-bd:oklch(0.47 0.10 25);
-  --d-warn:oklch(0.80 0.13 85); --d-warn-bg:oklch(0.31 0.05 80); --d-warn-bd:oklch(0.48 0.07 80);
-  --d-info:oklch(0.74 0.12 245);--d-info-bg:oklch(0.31 0.06 245);--d-info-bd:oklch(0.47 0.08 245);
+  --d-accent:#6ba0e8; --d-accent-bg:#1d3351;
+  --d-accent-bd:#3f5f8a; --d-focus:#72adfb;
+  --d-pos:#62c37a; --d-pos-bg:#1a3520; --d-pos-bd:#376040;
+  --d-neg:#ff7e76;  --d-neg-bg:#4b1d1b;  --d-neg-bd:#8a423d;
+  --d-warn:#e4b750; --d-warn-bg:#3e2d10; --d-warn-bd:#72592c;
+  --d-info:#65b2f1;--d-info-bg:#12334c;--d-info-bd:#305f85;
 
   /* ---- active mapping: default = LIGHT ---- */
   --bg:var(--l-bg); --surface:var(--l-surface); --surface-2:var(--l-surface-2); --surface-3:var(--l-surface-3);
