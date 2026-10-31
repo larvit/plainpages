@@ -7,9 +7,6 @@
   there) and every row when `readOnly` (the viewer holds :read but not :write). Neither can be diffed
   into an accidental revoke, because grantDiff compares against the direct grants only.
 
-  The hidden `baseline` is a token for the direct grants this page showed: a save made after they changed
-  is refused (see baselineToken in admin-grants.ts).
-
   Locals: csrfToken, permissions ({ action, baseline, choices, empty, error, field, hint, inheritedNote, legend, notice, pending, readOnly, submit }).
 %>
   <section class="form-card" aria-labelledby="permissions-h">
@@ -32,7 +29,8 @@
 <% }) -%>
     </fieldset>
 <% } else { -%>
-    <form method="post" action="<%= localeHref(permissions.action) %>">
+    <%# The fragment brings the card, and the notice in it, into view on a long page. %>
+    <form method="post" action="<%= localeHref(permissions.action + '#permissions-h') %>">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <input type="hidden" name="baseline" value="<%= permissions.baseline %>">
       <fieldset class="check-group">

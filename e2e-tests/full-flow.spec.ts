@@ -1,5 +1,5 @@
 import type { Browser, Page } from "@playwright/test";
-import { expect, test, watchedPage } from "./console-guard.ts";
+import { allowConsole, expect, test, watchedPage } from "./console-guard.ts";
 import { randomUUID } from "node:crypto";
 
 // Full browser E2E: the real Playwright UI against the live stack via the same-origin
@@ -136,7 +136,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 
-  test("groups CRUD: create a group (writes go to Keto), see it listed, then grant it a permission", async () => {
+  test("groups CRUD: create a group (writes go to Keto), see it listed, then grant it a permission", async ({ browser }) => {
     // A Keto set exists only while it has ≥1 member, so create needs a first member (the form
     // enforces it); pick the first option (a user) from the required picker.
     const group = `e2e-grp-${suffix}`;
@@ -150,7 +150,9 @@ test.describe.serial("authenticated admin journey", () => {
     // Permissions are declared in plugin code, so the group's detail page offers them as a fixed
     // checkbox list rather than a create form — there is no Permissions screen to visit.
     await page.goto(`/admin/groups/${group}`);
-    const staleTab = await watchedPage(page.context()); // opened now, so it holds this page's grants
+    allowConsole(/status of 409 .*\/admin\/groups\/[^/]+\/permissions/); // the stale save below, refused on purpose
+    // A second browser signed in as the same admin, opened before the save below, so its form carries the old grants.
+    const staleTab = await watchedPage(await browser.newContext({ storageState: await page.context().storageState() }));
     await staleTab.goto(`/admin/groups/${group}`);
     const scheduling = page.locator('input[name="permission"][value="scheduling:read"]');
     await expect(scheduling).toHaveCount(1); // declared by the reference plugin, so it's on offer
@@ -168,7 +170,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(staleTab.getByText("changed while you had the page open")).toBeVisible();
     await expect(staleTab.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
     await expect(staleTab.locator('input[name="permission"][value="scheduling:write"]')).not.toBeChecked();
-    await staleTab.close();
+    await staleTab.context().close();
   });
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {

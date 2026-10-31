@@ -53,7 +53,7 @@ const messages: AdminMessages = {
   "admin.grants.inherited": "Gråmarkerade behörigheter kommer från en grupp. Ändra dem på gruppen.",
   "admin.grants.legend": "Behörigheter",
   "admin.grants.none": "Ingen installerad plugin deklarerar någon behörighet, så det finns inget att tilldela.",
-  "admin.grants.partial": "Sparandet avbröts halvvägs eftersom behörighetstjänsten fallerade, så bara en del av ändringarna genomfördes. Listan visar vad som är sparat nu. Spara igen för att slutföra.",
+  "admin.grants.partial": "Sparandet avbröts halvvägs eftersom behörighetstjänsten gav fel, så bara en del av ändringarna genomfördes. Kontrollera behörigheterna och gör de återstående ändringarna igen.",
   "admin.grants.pending": "Medlemmar får detta vid nästa inloggning (upp till 10 minuter).",
   "admin.grants.save": "Spara behörigheter",
   "admin.grants.saved": "Behörigheterna är sparade.",
@@ -152,6 +152,7 @@ const messages: AdminMessages = {
   "admin.users.status.inactive": "Inaktiv",
   "admin.users.status.label": "Status",
   "admin.users.title": "Användare",
+  "admin.users.view": "Visa",
 };
 
 export default messages;

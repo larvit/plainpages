@@ -7,8 +7,8 @@
 // each returning a RouteResult.
 
 import { can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE } from "./admin-grants.ts";
-import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE } from "./admin-grants.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, partialSave, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -369,9 +369,9 @@ async function groupDetailPage({ ctx, keto, kratosAdmin }: GroupsDeps, name: str
   return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ canWrite: !permissions.readOnly, candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t }) }, view: "group-detail" };
 }
 
-// GET /admin/groups/:name — the detail + membership page; `info-msg` is read as on the user page.
+// GET /admin/groups/:name — the detail + membership page.
 export const groupsDetail = withGroupName((deps, name) =>
-  groupDetailPage(deps, name, deps.ctx.url.searchParams.get("info-msg") === SAVED_NOTICE ? { notice: deps.ctx.t("admin.grants.saved") } : {}));
+  groupDetailPage(deps, name, isSavedNotice(deps.ctx.url) ? { notice: deps.ctx.t("admin.grants.saved") } : {}));
 
 // POST /admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold
 // a group's permissions transitively, so the change reaches them at their next login or re-mint —
@@ -381,14 +381,15 @@ export const groupsPermissions = withGroupName(async (deps, name) => {
   const form = (await guardedForm(ctx))!;
   const subject = groupSubject(name);
   const held = await heldPermissions(keto, subject);
-  if (isStale(form, ctx.declaredPermissions, held)) return { ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.stale") })), status: 409 };
-  const { applied, error } = await applyGrants(keto, subject, grantDiff(ctx.declaredPermissions, held, form.getAll(PERMISSIONS_FIELD)));
+  const diff = grantDiff(ctx.declaredPermissions, held, form.getAll(PERMISSIONS_FIELD));
+  if (isStale(form, ctx.declaredPermissions, held, diff)) return { ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.stale") })), status: 409 };
+  const { applied, error } = await applyGrants(keto, subject, diff);
   if (applied.grant.length > 0 || applied.revoke.length > 0) {
     ctx.log.info("admin: group permissions changed", { actor: user.id, granted: applied.grant.join(","), group: name, revoked: applied.revoke.join(",") });
   }
   if (error) {
     ctx.log.error("admin: group permissions only partly saved", { actor: user.id, error: String(error), group: name });
-    return { ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.partial") })), status: 502 };
+    return partialSave(ctx, async () => ({ ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.partial") })), status: 502 }));
   }
   return { redirect: `${detailHref(name)}?info-msg=${SAVED_NOTICE}` };
 });

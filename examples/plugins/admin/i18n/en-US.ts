@@ -53,7 +53,7 @@ const messages = {
   "admin.grants.inherited": "Greyed-out permissions come from a group. Change them on that group.",
   "admin.grants.legend": "Permissions",
   "admin.grants.none": "No installed plugin declares a permission, so there is nothing to grant.",
-  "admin.grants.partial": "Saving stopped part-way because the permission service failed, so only some changes were applied. The list shows what is stored now. Save again to finish.",
+  "admin.grants.partial": "Saving stopped part-way because the permission service failed, so only some changes were applied. Check the permissions and make any remaining changes again.",
   "admin.grants.pending": "Members get this at their next sign-in (up to 10 minutes).",
   "admin.grants.save": "Save permissions",
   "admin.grants.saved": "Permissions saved.",
@@ -152,6 +152,7 @@ const messages = {
   "admin.users.status.inactive": "Inactive",
   "admin.users.status.label": "Status",
   "admin.users.title": "Users",
+  "admin.users.view": "View",
 };
 
 export type AdminMessages = typeof messages;

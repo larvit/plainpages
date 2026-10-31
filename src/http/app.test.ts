@@ -851,6 +851,9 @@ test("login return_to: a chosen language alone still routes through /auth/comple
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
 
+  lastReturnTo = "unset";
+  await fetch(url + "/login", { redirect: "manual" });
+  assert.equal(lastReturnTo, undefined, "no target and no language: Kratos keeps its default");
   await fetch(url + "/login?locale=sv-SE", { redirect: "manual" });
   assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?locale=sv-SE$/);
   await fetch(url + "/login?locale=sv-SE&return_to=" + encodeURIComponent("/admin/users"), { redirect: "manual" });
@@ -1388,8 +1391,7 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
 });
 
-// Two admins open the same page; the second save would silently undo the first. The form carries a
-// token for the grants it was rendered from, and a save made from any other state is refused.
+// Two admins open the same page; the second save would silently undo the first.
 test("admin permission grants: a save from a stale page is refused, and the page re-renders the current state", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
@@ -1428,8 +1430,7 @@ test("admin permission grants: a save from a stale page is refused, and the page
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the group keeps its grant");
 });
 
-// applyGrants is not a transaction: a Keto error midway leaves some changes applied. The save says
-// so, instead of the generic error page, and still revokes the tokens of what did change.
+// A Keto error midway leaves some changes applied; the save says so and still revokes the user's live tokens.
 test("admin permission grants: a Keto failure midway reports a partial save and keeps what was applied", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
@@ -1454,6 +1455,75 @@ test("admin permission grants: a Keto failure midway reports a partial save and 
   assert.doesNotMatch(page, /value="users:write"[^>]*checked/);
   assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
   assert.equal(denylist.isRevoked(ada, 0), true); // the half that was applied still revokes live tokens
+});
+
+// A double-clicked Save posts twice from one page; the second post finds the first one's result.
+// A save that changes nothing has nothing to refuse and nothing to revoke.
+test("admin permission grants: a save that changes nothing is not refused for a stale page and leaves live tokens alone", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${ada}` }];
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const denylist = createDenylist();
+  const { get, post, token } = await adminHarness(t, { denylist, keto: fakeKeto(tuples), kratosAdmin });
+  const stale = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+  tuples.push({ namespace: "Permission", object: "users:write", relation: "granted", subject_id: `user:${ada}` });
+  const before = JSON.stringify(tuples);
+
+  const repeated = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=users%3Awrite`);
+  assert.equal(repeated.status, 303);
+  assert.equal(JSON.stringify(tuples), before);
+  assert.equal(denylist.isRevoked(ada, 0), false);
+});
+
+// Keto answered the writes but not the re-read: the report must still reach the admin.
+test("admin permission grants: a partial save is still reported when Keto cannot be read again", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [];
+  let writes = 0;
+  let down = false;
+  let failureTakesKetoDown = true;
+  const keto = fakeKeto(tuples, {
+    listRelations: async (q = {}) => {
+      if (down) throw new Error("keto unreachable");
+      return { nextPageToken: null, tuples: tuples.filter((tp) => matchesTuple(tp, q)) };
+    },
+    writeTuple: async (tp) => {
+      if (++writes === 2) { down = failureTakesKetoDown; throw new Error("keto unreachable"); }
+      tuples.push(tp);
+    },
+  });
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
+  const baseline = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+
+  const res = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread`);
+  assert.equal(res.status, 502);
+  assert.match(await res.text(), /stopped part-way/);
+  assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
+
+  // The same on a group, whose page needs Keto for its members as well.
+  down = false;
+  writes = 0;
+  tuples.length = 0;
+  tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
+  const groupBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
+  const groupRes = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread&permission=users%3Aread`);
+  assert.equal(groupRes.status, 502);
+  assert.match(await groupRes.text(), /stopped part-way/);
+  assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the first write landed");
+
+  // With Keto still answering, the group page itself reports it and shows what is stored.
+  failureTakesKetoDown = false;
+  down = false;
+  writes = 0;
+  tuples.length = 1;
+  const again = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baselineOf(await (await get("/admin/groups/eng")).text())}&permission=groups%3Aread&permission=users%3Aread`);
+  assert.equal(again.status, 502);
+  const page = await again.text();
+  assert.match(page, /stopped part-way/);
+  assert.match(page, /value="groups:read"[^>]*checked/);
 });
 
 // Revoking your own grants can remove the last users:write on the deployment, and the instant-revoke

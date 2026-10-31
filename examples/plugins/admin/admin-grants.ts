@@ -15,6 +15,9 @@ export const PERMISSIONS_FIELD = "permission"; // the checkbox name the two form
 export const BASELINE_FIELD = "baseline"; // the hidden field carrying baselineToken
 export const SAVED_NOTICE = "permissions-saved"; // the `info-msg` a successful save redirects with
 
+// Only that exact value counts, so a crafted link can't put words on the page.
+export const isSavedNotice = (url: URL): boolean => url.searchParams.get("info-msg") === SAVED_NOTICE;
+
 export type GrantSubject = { subject_id: string } | { subject_set: SubjectSet };
 
 export const userSubject = (id: string): GrantSubject => ({ subject_id: `user:${id}` });
@@ -123,23 +126,25 @@ export function grantDiff(declared: readonly PermissionDecl[], held: string[], w
   };
 }
 
-// Proves which direct grants a form was rendered from, so a save made after someone else changed
-// them is refused rather than silently undoing that change. Covers only the declared names the form
-// offered, like grantDiff, and is a digest so an empty set is still a token and a missing field is not.
+// A token for the direct grants a form was rendered from. Like grantDiff it covers only the declared
+// names the form offered. It is a digest so an empty set is still a token; it is a guard against a
+// stale page, not a secret, since anyone who can read the page can compute it.
 export function baselineToken(declared: readonly PermissionDecl[], held: string[]): string {
   const offered = new Set(declared.map((d) => d.name));
   return createHash("sha256").update(held.filter((name) => offered.has(name)).sort().join("\n")).digest("hex").slice(0, 16);
 }
 
-// True when the submitted token is missing or no longer matches Keto.
-export const isStale = (form: { get(name: string): string | null }, declared: readonly PermissionDecl[], held: string[]): boolean =>
-  form.get(BASELINE_FIELD) !== baselineToken(declared, held);
+// True when the form's token is missing or no longer matches Keto *and* the save would change
+// something. A save that changes nothing, such as a double-clicked Save whose first POST landed, is
+// harmless, so it is not refused.
+export const isStale = (form: { get(name: string): string | null }, declared: readonly PermissionDecl[], held: string[], diff: GrantChange): boolean =>
+  (diff.grant.length > 0 || diff.revoke.length > 0) && form.get(BASELINE_FIELD) !== baselineToken(declared, held);
 
 export interface GrantChange { grant: string[]; revoke: string[] }
 
-// Keto has no transaction, so the writes and deletes run one by one and stop at the first failure.
-// What was applied by then is returned beside the error, so the caller can still revoke live tokens
-// and tell the admin the save is only partly done.
+// KetoClient writes one tuple per call, so the writes and deletes run one by one and stop at the first
+// failure. What was applied by then is returned beside the error, so the caller can still revoke live
+// tokens and tell the admin the save is only partly done.
 export async function applyGrants(keto: KetoClient, subject: GrantSubject, diff: GrantChange): Promise<{ applied: GrantChange; error?: unknown }> {
   const applied: GrantChange = { grant: [], revoke: [] };
   try {

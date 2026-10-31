@@ -83,6 +83,16 @@ export function unavailable(ctx: RequestContext, what: string): RouteResult {
   return { data: { chrome: ctx.chrome, message: ctx.t("admin.unavailable.message", { what }), title: ctx.t("admin.unavailable.title") }, status: 503, view: "notice" };
 }
 
+// The page a partial permission save reports on reads Keto again. If that read fails too, the report
+// stands alone on the notice page, so the admin still hears that part of the save landed.
+export async function partialSave(ctx: RequestContext, render: () => Promise<RouteResult>): Promise<RouteResult> {
+  try {
+    return await render();
+  } catch {
+    return { data: { chrome: ctx.chrome, message: ctx.t("admin.grants.partial"), title: ctx.t("admin.unavailable.title") }, status: 502, view: "notice" };
+  }
+}
+
 // Model for the shared destructive-confirm page (views/confirm.ejs). The view reads the shell fields
 // (brand/csrf/theme/user/nav) from ctx.chrome; this carries only the page body + title/breadcrumbs.
 export function buildConfirmModel(opts: {

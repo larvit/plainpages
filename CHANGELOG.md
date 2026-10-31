@@ -6,30 +6,32 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
-### The admin example refuses a permission save made from an out-of-date page
-
-Two administrators editing one user's or group's permissions no longer overwrite each other. The
-form carries a token for the grants it showed, and a save made after they changed is refused with
-"These permissions changed while you had the page open", re-rendering the current state. A POST with
-no token is refused the same way, so a script posting to `/admin/users/:id/permissions` or
-`/admin/groups/:name/permissions` must first read the token from the page's `baseline` field.
-
-### The admin example confirms a permission save and reports a partial one
-
-A save now lands on the page with "Permissions saved." If the permission service fails midway, the
-page says the save stopped part-way and shows what is stored, instead of the generic error page; the
-changes applied before the failure still sign the user's live sessions out.
-
-### A read-only holder sees View, not Edit, on the users list
-
-A holder of `users:read` without `users:write` gets a "View" row action with an eye icon. The new
-`common.view` catalog key is in `en-US` and `sv-SE`; a mounted core catalog must add it.
-
 ### A language chosen on a sign-in link no longer drops an absolute return target
 
 `/login?return_to=<absolute URL>&locale=sv-SE` passed the visitor to the dashboard after sign-in and
 dropped the OAuth2 login challenge in `return_to`. The target now reaches Kratos, and the chosen
 language is lost across that round-trip instead.
+
+### The admin example refuses a permission save made from an out-of-date page
+
+Two administrators editing one user's or group's permissions no longer overwrite each other. The
+form carries a token for the grants it showed. A save that would change something, made after those
+grants changed, is refused with "These permissions changed while you had the page open", and the page
+shows the current grants. A POST with no token is refused the same way, so a script posting to
+`/admin/users/:id/permissions` or `/admin/groups/:name/permissions` must first read the token from the
+page's `baseline` field.
+
+### The admin example confirms a permission save and reports a partial one
+
+A save now lands on the page with "Permissions saved." If the permission service fails midway, the
+page says the save stopped part-way instead of showing the generic error page. On a user, the
+changes that landed still reach the user's live sessions at once when the revocation denylist is on.
+
+### A read-only holder sees View, not Edit, on the admin example's users list
+
+A holder of `users:read` without `users:write` gets a "View" row action with an eye icon. The admin
+example's catalogs gain `admin.grants.partial`, `admin.grants.saved`, `admin.grants.stale` and
+`admin.users.view`, so a translated catalog mounted under `locales/plugins/admin/` must add them.
 
 ### Every page carries a smaller icon sprite
 

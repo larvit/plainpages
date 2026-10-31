@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PermissionDecl } from "@plainpages/plugin-api";
 import type { KetoClient } from "@plainpages/plugin-api";
-import { applyGrants, baselineToken, buildPermissionPicker, grantDiff, grantTuple, groupSubject, userSubject } from "./admin-grants.ts";
+import { applyGrants, baselineToken, buildPermissionPicker, grantDiff, grantTuple, groupSubject, isStale, userSubject } from "./admin-grants.ts";
 
 const declared: PermissionDecl[] = [
   { description: "View users", name: "users:read" },
@@ -83,7 +83,6 @@ test("buildPermissionPicker says so when no plugin declares a permission, rather
   assert.ok(picker.empty);
 });
 
-// The concurrency token of the permission form: equal exactly when the direct grants it offered are.
 test("baselineToken depends on the offered grants held, not on their order or on undeclared ones", () => {
   const token = baselineToken(declared, ["users:read", "users:write"]);
   assert.match(token, /^[0-9a-f]+$/);
@@ -93,6 +92,18 @@ test("baselineToken depends on the offered grants held, not on their order or on
   assert.notEqual(baselineToken(declared, []), token);
   assert.notEqual(baselineToken(declared, []), ""); // an empty set is a state too, not an absent token
   assert.equal(buildPermissionPicker({ action: "/x", declared, direct: ["users:read", "users:write"] }).baseline, token);
+});
+
+test("isStale refuses a missing or old token, but only for a save that would change something", () => {
+  const held = ["users:read"];
+  const change = grantDiff(declared, held, ["users:read", "users:write"]);
+  const nothing = grantDiff(declared, held, ["users:read"]);
+  const current = new URLSearchParams({ baseline: baselineToken(declared, held) });
+  const old = new URLSearchParams({ baseline: baselineToken(declared, []) });
+  assert.equal(isStale(current, declared, held, change), false);
+  assert.equal(isStale(old, declared, held, change), true);
+  assert.equal(isStale(new URLSearchParams(), declared, held, change), true); // no token at all
+  assert.equal(isStale(old, declared, held, nothing), false); // a repeated save has nothing to refuse
 });
 
 test("applyGrants applies writes then deletes, and on a Keto failure stops and reports what was applied", async () => {
