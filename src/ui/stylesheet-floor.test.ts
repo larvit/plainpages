@@ -3,7 +3,8 @@ import { globSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { floorViolations } from "./stylesheet-floor.ts";
+import type { SupportStatement } from "@mdn/browser-compat-data";
+import { floorViolations, lacking } from "./stylesheet-floor.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const cssDir = join(root, "public", "css");
@@ -22,6 +23,27 @@ test("floorViolations flags a feature the floor lacks, with its line and the fir
     "line 1: overflow-wrap: anywhere needs safari 15.4 (css.properties.overflow-wrap.anywhere)",
   ]);
   assert.equal(floorViolations(".a { & .b { color: red; } }").length, 1);
+  assert.deepEqual(floorViolations("@layer base { .a { color: red; } }"), [
+    "line 1: @layer needs chrome 99, safari 15.4 (css.at-rules.layer)",
+  ]);
+});
+
+test("floorViolations flags media range and or syntax, which a floor engine drops with the whole query", () => {
+  assert.deepEqual(floorViolations("@media (width >= 600px) { .a { color: red; } }"), [
+    "line 1: media range syntax needs chrome 104, safari 16.4 (css.at-rules.media.range_syntax)",
+  ]);
+  assert.deepEqual(floorViolations("@media (hover: hover) or (pointer: fine) { .a { color: red; } }"), [
+    "line 1: media or syntax needs chrome 104, safari 16.4 (css.at-rules.media.or_syntax)",
+  ]);
+});
+
+test("floorViolations passes a media feature the floor lacks, since an engine without it reads the query as false", () => {
+  assert.deepEqual(floorViolations("@media (forced-colors: active) { .a { color: red; } }"), []);
+});
+
+test("floorViolations reports a bracket nothing closes, with its line", () => {
+  assert.deepEqual(floorViolations(".a { color: red; }\n.b { color: red;"), ["line 2: { is never closed"]);
+  assert.deepEqual(floorViolations(".a {\n  width: calc(1px;\n}"), ["line 2: ( is never closed"]);
 });
 
 test("floorViolations checks a custom property's value, since the var() reading it fails unseen", () => {
@@ -37,16 +59,25 @@ test("floorViolations allows a feature inside an @supports that tests it, and on
   assert.equal(floorViolations("@supports (display: grid) and (not selector(:has(a))) { .b:has(.c) { color: red; } }").length, 1);
   assert.equal(floorViolations("@supports (min-height: 100dvh) { .b:has(.c) { color: red; } }").length, 1);
   assert.equal(floorViolations("@supports (position-anchor: auto) { .a { top: anchor(bottom); } }").length, 1);
+  assert.equal(floorViolations("@supports at-rule(@layer) { @layer base { .a { color: red; } } }").length, 1);
 });
 
-test("floorViolations passes what the floor has, a vendor prefix and a comment", () => {
+test("floorViolations takes as a guard only a part of the @supports condition that must hold", () => {
+  const has = ["line 1: :has needs chrome 105, safari 15.4, firefox 121 (css.selectors.has)"];
+  assert.deepEqual(floorViolations("@supports (display: grid) or selector(:has(a)) { .b:has(.c) { color: red; } }"), has);
+  assert.deepEqual(floorViolations("@supports selector(:has(a)) and ((display: grid) or (display: flex)) { .b:has(.c) { color: red; } }"), []);
+  assert.deepEqual(floorViolations("@supports (display: grid) and ((display: flex) or selector(:has(a))) { .b:has(.c) { color: red; } }"), has);
+});
+
+test("floorViolations passes what the floor has, vendor prefixes, font-family names, and syntax inside comments, strings and url()", () => {
   const css = `/* .x:has(y) { min-height: 100dvh } */
-    @media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+    @media (prefers-color-scheme: dark) and (orientation: portrait) { :root { color-scheme: dark; } }
     .a::before, .a:focus-within { content: "{ :has( }"; display: grid; gap: 4px; inset: 0;
       grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(86vw, 20rem); transition: .15s ease;
       background: rgba(0,0,0,.4) url("data:image/svg+xml;utf8,<svg/>"); transform: rotate(45deg); }
-    .b { -webkit-font-smoothing: antialiased; -webkit-user-select: none; }
-    summary::-webkit-details-marker { display: none; }`;
+    .b { -webkit-font-smoothing: antialiased; -webkit-user-select: none; font-family: Avenir, ui-sans-serif, sans-serif; }
+    summary::-webkit-details-marker { display: none; }
+    @-webkit-keyframes spin { to { opacity: 0; } }`;
   assert.deepEqual(floorViolations(css), []);
 });
 
@@ -54,9 +85,26 @@ test("floorViolations refuses what MDN has no entry for, so a typo or a new feat
   assert.deepEqual(floorViolations(".a { colr: red; }"), ["line 1: colr has no MDN compat entry"]);
   assert.equal(floorViolations(".a { width: 3zz; }").length, 1);
   assert.equal(floorViolations(".a:hovr { color: red; }").length, 1);
+  assert.deepEqual(floorViolations("@media (hovr: hover) { .a { color: red; } }"), ["line 1: (hovr) has no MDN compat entry"]);
 });
 
-const stylesheets = globSync(["public/**/*.css", "examples/**/*.css"], { cwd: root, exclude: ["**/node_modules/**"] });
+const safari = (support: SupportStatement): string[] =>
+  lacking({ chrome: { version_added: "1" }, firefox: { version_added: "1" }, safari: support });
+
+test("lacking counts only an unprefixed, unflagged, unrenamed support statement the floor still has", () => {
+  assert.deepEqual(safari({ version_added: "15" }), []);
+  assert.deepEqual(safari({ version_added: "15.4" }), ["safari 15.4"]);
+  assert.deepEqual(safari({ version_added: "≤16" }), ["safari 16"]);
+  assert.deepEqual(safari({ version_added: "preview" }), ["safari (none yet)"]);
+  assert.deepEqual(safari({ version_added: "3", prefix: "-webkit-" }), ["safari (none yet)"]);
+  assert.deepEqual(safari({ version_added: "3", flags: [{ type: "preference", name: "x" }] }), ["safari (none yet)"]);
+  assert.deepEqual(safari({ version_added: "3", alternative_name: "x" }), ["safari (none yet)"]);
+  assert.deepEqual(safari({ version_added: "3", version_removed: "15" }), ["safari (none yet)"]);
+  assert.deepEqual(safari({ version_added: "3", version_removed: "15.4" }), []);
+  assert.deepEqual(safari([{ version_added: "3", version_removed: "14" }, { version_added: "16" }]), ["safari 16"]);
+});
+
+const stylesheets = globSync(["public/**/*.css", "examples/**/*.css", "plugins/**/*.css"], { cwd: root, exclude: ["**/node_modules/**"] });
 
 test("the floor check finds the stylesheets", () => {
   assert.ok(stylesheets.includes("public/css/styles.css"));

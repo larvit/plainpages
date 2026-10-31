@@ -22,8 +22,6 @@
    selects).
 ------------------------------------------------------------- */
 :root {
-  /* Hex, never oklch: below Chromium 111 `var(--accent)` is invalid at computed-value time and the
-     primary button loses its background. A fallback declaration cannot catch that. */
   /* ---- raw LIGHT palette ---- */
   --l-bg:#f3f3f4; --l-surface:#ffffff; --l-surface-2:#f6f6f7; --l-surface-3:#fbfbfc;
   --l-border:#e5e5e8; --l-border-2:#d6d6da;
@@ -540,14 +538,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 @supports (overflow-wrap: anywhere) {
   .menu-pop { overflow-wrap: anywhere; }
 }
-@supports (position-anchor: auto) and (position-try-fallbacks: flip-block, flip-inline) and (top: anchor(bottom)) {
-  .menu-pop {
-    position-anchor: auto;
-    position-try-fallbacks: flip-block, flip-inline;
-    top: anchor(bottom); right: anchor(right);
-  }
+@supports (position-anchor: auto) and (top: anchor(bottom)) {
+  .menu-pop { position-anchor: auto; top: anchor(bottom); right: anchor(right); }
   .menu-pop.left { right: auto; left: anchor(left); }
   .menu-pop.up { top: auto; bottom: anchor(top); }
+}
+@supports (position-try-fallbacks: flip-block, flip-inline) {
+  .menu-pop { position-try-fallbacks: flip-block, flip-inline; }
 }
 /* A browser too old for the Popover API leaves the trigger inert, so let each panel flow under its
    trigger rather than stranding Sign out and the language picker behind a button that does nothing.
