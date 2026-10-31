@@ -231,8 +231,7 @@ function summarize(decl: SettingDecl, name: string, source: SettingSummary["sour
   };
 }
 
-// A coerced value, or the boot error naming the variable and what it accepts. A secret's value
-// stays out of it: the error reaches the log.
+// A coerced value, or the boot error naming the variable and what it accepts.
 function coerce(decl: SettingDecl, raw: string, name: string): { value: SettingValue } | string {
   const got = decl.secret === true ? "" : `, got "${raw}"`;
   switch (decl.type) {

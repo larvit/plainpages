@@ -6,11 +6,10 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
-### A plugin setting marked `secret` keeps its value out of the boot error that rejects it
+### A secret plugin setting's bad value stays out of the boot error
 
-A `secret` setting of type `boolean`, `enum`, `number` or `url` that fails validation names its
-variable and what it accepts, and no longer prints the value, so a DSN with a password doesn't reach
-the log. A setting that isn't secret still prints the value it got.
+When a `secret` setting's value fails validation, the boot error no longer prints it, so a malformed
+DSN doesn't put its password in the log.
 
 ### The admin's recovery-code notice links to the recovery flow the code belongs to
 
