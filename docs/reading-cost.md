@@ -16,3 +16,17 @@ Read most (opens and searches):
 - `ci.sh` 1
 - `examples/plugins/scheduling/views/shifts.ejs` 1
 - `src/auth/csrf.ts` 1
+
+## Reading cost, chunk df5e30a4db5f, finished 2026-10-31T00:22:00Z
+
+80251 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 5
+- `README.md` 3
+- `CHANGELOG.md` 2
+- `public/css/styles.css` 2
+- `AGENTS.md` 1
+- `src/ui/stylesheet-floor.test.ts` 1
+- `src/ui/theme-switch.test.ts` 1

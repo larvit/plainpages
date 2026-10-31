@@ -28,18 +28,18 @@
   --l-border:#e5e5e8; --l-border-2:#d6d6da;
   --l-text:#18181b; --l-text-muted:#6b6b73; --l-text-faint:#9a9aa2;
   --l-accent:#3669ac; --l-accent-bg:#e5f3ff;
-  --l-accent-bd:#a7c7f2; --l-focus:#2a68b7;
-  --l-pos:#258343; --l-pos-bg:#e1f5e4; --l-pos-bd:#a8d5b0;
+  --l-accent-bd:#a7c7f2; --l-focus:#2a68b7; --l-on-accent:#ffffff;
+  --l-pos:#1f7a3d; --l-pos-bg:#e1f5e4; --l-pos-bd:#a8d5b0;
   --l-neg:#c53637;  --l-neg-bg:#ffebe8;  --l-neg-bd:#febab4;
-  --l-warn:#9a6500; --l-warn-bg:#fef0d4; --l-warn-bd:#e3c78e;
-  --l-info:#2274af;--l-info-bg:#e2f5ff;--l-info-bd:#a2cdf2;
+  --l-warn:#8f5d00; --l-warn-bg:#fef0d4; --l-warn-bd:#e3c78e;
+  --l-info:#1d6aa5;--l-info-bg:#e2f5ff;--l-info-bd:#a2cdf2;
 
   /* ---- raw DARK palette ---- */
   --d-bg:#0d0d0f; --d-surface:#161619; --d-surface-2:#1d1d22; --d-surface-3:#1a1a1e;
   --d-border:#2a2a31; --d-border-2:#3a3a43;
   --d-text:#ededf0; --d-text-muted:#9b9ba6; --d-text-faint:#6a6a74;
   --d-accent:#6ba0e8; --d-accent-bg:#1d3351;
-  --d-accent-bd:#3f5f8a; --d-focus:#72adfb;
+  --d-accent-bd:#3f5f8a; --d-focus:#72adfb; --d-on-accent:#0d0d0f;
   --d-pos:#62c37a; --d-pos-bg:#1a3520; --d-pos-bd:#376040;
   --d-neg:#ff7e76;  --d-neg-bg:#4b1d1b;  --d-neg-bd:#8a423d;
   --d-warn:#e4b750; --d-warn-bg:#3e2d10; --d-warn-bd:#72592c;
@@ -49,7 +49,7 @@
   --bg:var(--l-bg); --surface:var(--l-surface); --surface-2:var(--l-surface-2); --surface-3:var(--l-surface-3);
   --border:var(--l-border); --border-2:var(--l-border-2);
   --text:var(--l-text); --text-muted:var(--l-text-muted); --text-faint:var(--l-text-faint);
-  --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus);
+  --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus); --on-accent:var(--l-on-accent);
   --pos:var(--l-pos); --pos-bg:var(--l-pos-bg); --pos-bd:var(--l-pos-bd);
   --neg:var(--l-neg); --neg-bg:var(--l-neg-bg); --neg-bd:var(--l-neg-bd);
   --warn:var(--l-warn); --warn-bg:var(--l-warn-bg); --warn-bd:var(--l-warn-bd);
@@ -76,7 +76,7 @@
     --bg:var(--d-bg); --surface:var(--d-surface); --surface-2:var(--d-surface-2); --surface-3:var(--d-surface-3);
     --border:var(--d-border); --border-2:var(--d-border-2);
     --text:var(--d-text); --text-muted:var(--d-text-muted); --text-faint:var(--d-text-faint);
-    --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus);
+    --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus); --on-accent:var(--d-on-accent);
     --pos:var(--d-pos); --pos-bg:var(--d-pos-bg); --pos-bd:var(--d-pos-bd);
     --neg:var(--d-neg); --neg-bg:var(--d-neg-bg); --neg-bd:var(--d-neg-bd);
     --warn:var(--d-warn); --warn-bg:var(--d-warn-bg); --warn-bd:var(--d-warn-bd);
@@ -90,7 +90,7 @@ html:has(#theme-dark:checked) {
   --bg:var(--d-bg); --surface:var(--d-surface); --surface-2:var(--d-surface-2); --surface-3:var(--d-surface-3);
   --border:var(--d-border); --border-2:var(--d-border-2);
   --text:var(--d-text); --text-muted:var(--d-text-muted); --text-faint:var(--d-text-faint);
-  --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus);
+  --accent:var(--d-accent); --accent-bg:var(--d-accent-bg); --accent-bd:var(--d-accent-bd); --focus:var(--d-focus); --on-accent:var(--d-on-accent);
   --pos:var(--d-pos); --pos-bg:var(--d-pos-bg); --pos-bd:var(--d-pos-bd);
   --neg:var(--d-neg); --neg-bg:var(--d-neg-bg); --neg-bd:var(--d-neg-bd);
   --warn:var(--d-warn); --warn-bg:var(--d-warn-bg); --warn-bd:var(--d-warn-bd);
@@ -103,7 +103,7 @@ html:has(#theme-light:checked) {
   --bg:var(--l-bg); --surface:var(--l-surface); --surface-2:var(--l-surface-2); --surface-3:var(--l-surface-3);
   --border:var(--l-border); --border-2:var(--l-border-2);
   --text:var(--l-text); --text-muted:var(--l-text-muted); --text-faint:var(--l-text-faint);
-  --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus);
+  --accent:var(--l-accent); --accent-bg:var(--l-accent-bg); --accent-bd:var(--l-accent-bd); --focus:var(--l-focus); --on-accent:var(--l-on-accent);
   --pos:var(--l-pos); --pos-bg:var(--l-pos-bg); --pos-bd:var(--l-pos-bd);
   --neg:var(--l-neg); --neg-bg:var(--l-neg-bg); --neg-bd:var(--l-neg-bd);
   --warn:var(--l-warn); --warn-bg:var(--l-warn-bg); --warn-bd:var(--l-warn-bd);
@@ -171,9 +171,9 @@ summary { list-style: none; cursor: pointer; }
 .brand-mark {
   width: 22px; height: 22px; border-radius: 5px; flex: 0 0 auto;
   background: var(--accent);
-  display: grid; place-items: center; color: #fff;
+  display: grid; place-items: center; color: var(--on-accent);
 }
-.brand-mark .ico { stroke: #fff; }
+.brand-mark .ico { stroke: var(--on-accent); }
 .brand-logo { width: 22px; height: 22px; border-radius: 5px; flex: 0 0 auto; object-fit: contain; }
 .brand-name { font-weight: 650; letter-spacing: -.01em; }
 .brand-sub { color: var(--text-faint); font-size: var(--fz-xs); margin-left: auto; }
@@ -191,9 +191,10 @@ summary { list-style: none; cursor: pointer; }
      • CLICKABLE = label is <a href>      → navigates on click.
        STATIC    = label is <span>        → not a navigation target.
    So "header" and "clickable" are independent: any combination works.
-   Children sit in a sibling <ul class="nav-children">, revealed by
-   :has() on THIS row's own <details open> (scoped with > so a node
-   only ever controls its own subtree — infinite depth, no JS).
+   Children sit in a sibling <ul class="nav-children">. Where :has() works, it
+   folds them unless THIS row's own <details open> (scoped with > so a node
+   only ever controls its own subtree — infinite depth, no JS); elsewhere
+   every branch stays open, since nothing could reopen one.
    ============================================================ */
 .nav-row { display: flex; align-items: center; gap: 2px; }
 
@@ -237,8 +238,10 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 .nav-self[aria-current="page"] .ico { color: var(--accent); }
 
 /* children + infinite indentation with a guide line per level */
-.nav-node > .nav-children { display: none; }
-.nav-node:has(> .nav-row > .nav-disc[open]) > .nav-children { display: block; }
+@supports selector(:has(a)) {
+  .nav-node > .nav-children { display: none; }
+  .nav-node:has(> .nav-row > .nav-disc[open]) > .nav-children { display: block; }
+}
 .nav-children { padding-left: 22px; position: relative; }
 .nav-children::before {
   content: ""; position: absolute; left: 10px; top: 2px; bottom: 2px;
@@ -259,7 +262,8 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   padding: 8px; display: flex; flex-direction: column; gap: 6px;
 }
 
-/* theme segmented control */
+/* theme segmented control — every theme rule is a :has(), so without it the switch is inert */
+@supports not selector(:has(a)) { .theme-switch { display: none; } }
 .theme-switch {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 2px; padding: 2px;
@@ -311,7 +315,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .btn:hover { background: var(--surface-2); }
 .btn-primary { background: var(--accent); border-color: var(--accent);
-  color: #fff; font-weight: 550; }
+  color: var(--on-accent); font-weight: 550; }
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }
@@ -665,7 +669,7 @@ th[aria-sort="descending"] .sort-ico { transform: rotate(180deg); }
 }
 .page-btn:hover { background: var(--surface-2); color: var(--text); }
 .page-btn[aria-current="page"] { background: var(--accent); border-color: var(--accent);
-  color: #fff; font-weight: 600; }
+  color: var(--on-accent); font-weight: 600; }
 .page-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- 11. RESPONSIVE / HAMBURGER --------------------- */

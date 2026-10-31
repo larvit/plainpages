@@ -6,6 +6,25 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### The whole nav tree shows on engines without `:has()`
+
+On Chromium below 105 (webOS TV 22 and 23) every nested nav entry was hidden with nothing to open
+it. Now the tree folds only where `:has()` works and stays fully open elsewhere. The theme switch,
+which also needs `:has()`, is hidden there.
+
+### Text meets 4.5:1 contrast
+
+The primary button and the current page button take their text colour from the new `--on-accent`
+token: white in light mode, near-black in dark mode, where white on the accent was 2.7:1. The
+light-mode success, warning and info badge text is darker. A plugin that overrides `--accent` or
+`--l-accent` should set `--l-on-accent` and `--d-on-accent` to match.
+
+### Unused auth stylesheet rules are gone
+
+`public/css/auth.css` no longer holds the `.auth-view` screen switch, `.tpl-*` preview controls,
+`.forgot-alert`, `.register-alert`, `.remember` and `.auth-foot`; no core view used them. A plugin
+view that did must carry its own rules.
+
 ### Colours render on engines without `oklch()`
 
 The theme palette in `public/css/styles.css` is hex, not `oklch()`. On an engine older than
