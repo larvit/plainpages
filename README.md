@@ -24,16 +24,6 @@ cd plainpages
 docker compose up -d        # http://localhost:3000, live-reloads on source changes
 ```
 
-To try it without a clone, save the `compose.yml` the
-[Docker Hub page](https://hub.docker.com/r/larvit/plainpages) shows. Then extract the Ory config
-the image ships and start, with `X.Y.Z` the release that page names:
-
-```bash
-docker run --rm larvit/plainpages:X.Y.Z tar -cf - ory | tar -xf -
-mkdir -p plugins
-docker compose up -d
-```
-
 **2. Sign in.** Open <http://localhost:3000> and sign in as the seeded admin —
 **`admin@plainpages.local` / `admin`**.
 
@@ -77,6 +67,16 @@ is the plugin id *and* the mount path) and "Hello" is in the menu. That's the wh
 From here, render real pages against the app shell and fetch upstream data — see
 [Building plugins](#building-plugins) and the runnable reference in
 [`examples/plugins/scheduling/`](examples/plugins/scheduling/).
+
+**Without a clone**, the image runs a trial stack on its own. Save the `compose.yml` the
+[Docker Hub page](https://hub.docker.com/r/larvit/plainpages) shows, then extract the Ory config the
+image ships and start, with `X.Y.Z` the release that page names. The page goes on to a first plugin:
+
+```bash
+docker run --rm larvit/plainpages:X.Y.Z tar -cf - ory | tar -xf -
+mkdir -p plugins
+docker compose up -d
+```
 
 ## Contents
 
