@@ -370,7 +370,7 @@ docker compose -f compose.yml up --build -d              # production
    stack up and a *minimal* plugin live. Nothing comes before Quick start. Keep its commands
    copy-pasteable; deeper detail lives in its own section, linked.
 2. **Returning developer (rest).** A **Contents** ToC right after Quick start, then sections ordered
-   by **what an adopter reaches for first**, not by architectural layering: Goals → Audience → Overview → Users, groups
+   by **what an adopter reaches for first**, not by architectural layering: Goals → Audience → Overview → Glossary → Users, groups
    & permissions → Building plugins → menu/blocks/interactivity → Configuration → Auth → Email →
    Architecture → Testing → Production → Observability → JWT-rotation runbook → Project-layout file
    map → Extending. Place a new section by how early an adopter needs it. **Users, groups &

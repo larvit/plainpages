@@ -215,24 +215,19 @@ avoid is shipping a client-side runtime, not using the platform. Markup is seman
 
 - **Host** — the `web` container: the Node process that discovers plugins, serves every page and
   owns no state of its own. Everything outside it (a plugin's upstream, Ory) is reached over the network.
-- **Plugin** — a folder under `plugins/` that adds domain screens; the only way to add a feature.
-- **Manifest** — the object a plugin's `index.ts` exports through `definePlugin`: its routes, nav,
+- **Plugin** — a folder under `plugins/` that adds domain features.
+- **Manifest** — the object a plugin's `plugin.ts` exports as its default: its routes, nav,
   permissions and hooks. The host checks it at boot and refuses a bad one ([The manifest](#the-manifest)).
 - **Chrome** — everything on a page that isn't the page's own content: brand, menu, user, theme and
   CSRF token. A handler gets it as `ctx.chrome` ([RequestContext](#requestcontext)).
 - **Nav fragment** — the `nav` entries one plugin contributes. The host merges every plugin's
   fragment into the one global menu and filters it per user ([The menu system](#the-menu-system)).
-- **Permission token** — a `<resource>:<action>` string such as `shifts:write`, granted in Keto and
+- **Permission name** — a `<resource>:<action>` string such as `scheduling:write`, granted in Keto and
   carried in the session JWT's `permissions` claim ([Naming a permission](#naming-a-permission)).
 - **System plugin** — a plugin that administers Plainpages' own identity stack, through the
   privileged `ctx.system` ([System capabilities](#system-capabilities-the-ctxsystem-surface)).
-- **Denylist** — the optional in-memory list of subjects revoked just now, so a permission change
-  lands before the JWT expires ([Instant revoke](#instant-revoke-the-optional-denylist)).
-
-**Intended scale.** One deployment serves a handful of plugins, up to about ten, so a plugin's own
-dependency tree ([Plugin dependencies](#plugin-dependencies)) costs disk and memory in proportion to
-how many are installed. The `web` container scales out because it is stateless ([Stateless
-core](#stateless-core)); a catalogue of hundreds of plugins is not a goal.
+- **Denylist** — the optional in-memory list, per instance, of subjects revoked just now, so a
+  deactivation or a user's own permission change lands before the JWT expires ([Instant revoke](#instant-revoke-the-optional-denylist)).
 
 ## Users, groups & permissions
 
@@ -817,6 +812,9 @@ included, since the plugin folder *is* the repo. A baked image needs no extra st
   above every plugin, and a plugin resolves it from there — nothing to declare, just import it. A
   copy inside your plugin's own `node_modules` would shadow it with a *second* instance of the host's
   contract, turning a sign-in redirect into a 500, so discovery refuses one there at boot.
+- **Plainpages is sized for a handful of plugins per deployment, about ten.** Each plugin carries
+  its own dependency tree, so every one adds to disk use and to the memory of the `web` process;
+  hundreds of plugins is not a goal.
 - **The host never upgrades or dedupes your dependencies.** Two plugins depending on the same package
   each get their own copy at their own version, so neither can break the other by upgrading — and
   keeping yours current, and audited, is yours to own. Renovate here watches every manifest in this

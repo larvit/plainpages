@@ -8,8 +8,9 @@ at boot. Entries start at 0.3.0.
 
 ### The README defines its terms and states its intended scale
 
-A new Glossary defines host, manifest, chrome, nav fragment, permission token, system plugin and
-denylist. It also states the scale Plainpages is sized for: a handful of plugins per deployment.
+A new Glossary defines host, plugin, manifest, chrome, nav fragment, permission name, system plugin
+and denylist. Plugin dependencies also states the scale Plainpages is sized for: a handful of plugins
+per deployment.
 
 ### The mobile nav stays reachable on engines without `:has()`
 

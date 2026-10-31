@@ -9,12 +9,12 @@
 /* ---------- 1. TOKENS ----------------------------------------
    Two raw palettes (--l-* light, --d-* dark) are defined once.
    A small mapping (--bg: var(--l-bg) ...) picks the active set.
-   Theme resolution (no JS), every rule below needing :has():
+   Theme resolution (no JS); all three rules below need :has():
      • default + @media(dark)  → follows the OS  (Auto)
      • html:has(#theme-light)  → force light
      • html:has(#theme-dark)   → force dark
-   Engines without :has() (Chromium below 105, Firefox below 121)
-   ignore all three and stay light; see the @supports not
+   Engines without :has() (Chromium below 105, Firefox below 121,
+   Safari below 15.4) ignore all three and stay light; see the @supports not
    selector(:has(a)) block further down.
    We avoid light-dark()/color-scheme for app colors because their
    resolution is unreliable across engines. color-scheme is still
