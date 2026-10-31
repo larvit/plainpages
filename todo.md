@@ -6,13 +6,14 @@
 
 `Bar = 1`
 
-`Next ID = 36`
+`Next ID = 37`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 29 | 0.4.21 |  | defect | **Show the whole nav tree on an engine without `:has()`, and fold it only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
+| 36 | 0.4.21 |  | defect | **Keep the mobile nav reachable at 860px and narrower on an engine without `:has()`, and move it off-canvas only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
 | 35 | 0.4.21 |  | defect | **Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.** | 1 | 2 | 1 | 2 | 2 | 6 by 3 | 18.0 |
 | 31 | 0.4.21 |  |  | **Delete the design-preview rules in `public/css/auth.css` that no view uses.** | 1 | 1 | 1 | 1 | 2 | code health by 2, 8 by 1 | 13.3 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
@@ -48,6 +49,16 @@ README → "Two browser floors": Chromium 87 must reach every page. `public/css/
 `.nav-children` and only a `:has()` rule reveals them, so below Chromium 105 (webOS TV 22 and 23)
 no nested entry can be reached. Hide the children only inside `@supports selector(:has(a))`. The
 theme switch is inert there too, since every theme rule is a `:has()`: hide it under the same guard.
+
+### 36. Keep the mobile nav reachable at 860px and narrower on an engine without `:has()`, and move it off-canvas only where `:has()` works.
+
+README → "Two browser floors": Chromium 87 must reach every page, and `:has()` may only decorate.
+In `public/css/styles.css`, `@media (max-width: 860px)` moves `.sidebar` off-canvas with
+`transform: translateX(-100%)`, and only `body:has(#nav-toggle:checked)` brings it and `.scrim`
+back. Below Chromium 105 (webOS TV 22 and 23) the hamburger does nothing at that width, so no page
+behind the nav can be reached. Move the off-canvas rules inside `@supports selector(:has(a))`, and
+keep the sidebar in the flow outside it, with the hamburger hidden. Item 29 fixes the desktop tree
+and the theme switch only. Test it beside `src/ui/stylesheet-floor.test.ts`.
 
 ### 35. Raise the contrast of the dark-mode primary button's white text and of the light-mode status badges' text to 4.5:1.
 
