@@ -72,3 +72,20 @@ Read most (opens and searches):
 - `CHANGELOG.md` 2
 - `AGENTS.md` 1
 - `src/auth/jwt-middleware.ts` 1
+
+## Reading cost, chunk 9e8ffd0aa8dc, finished 2026-10-31T07:36:53Z
+
+98975 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 9
+- `ci.sh` 3
+- `e2e-tests/visual.spec.ts` 3
+- `todo.md` 3
+- `CHANGELOG.md` 2
+- `e2e-tests/compose.visual.yml` 2
+- `e2e-tests/language.spec.ts` 2
+- `e2e-tests/mock-oidc.ts` 2
+- `src/ci-gate.test.ts` 2
+- `.dockerignore` 1
