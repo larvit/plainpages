@@ -19,7 +19,7 @@
     "@larvit/log": "2.3.0",
     "ejs": "6.0.1",
     "lucide-static": "1.66.0",
-    "postgres": "3.4.9"
+    "postgres": "4.0.0"
   },
   "devDependencies": {
     "@mdn/browser-compat-data": "8.1.7",
