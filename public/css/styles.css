@@ -294,13 +294,6 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   }
 }
 
-/* Without :has() every branch is open and every theme rule is inert: neither control does anything.
-   After the base rules, since @supports adds no specificity. */
-@supports not selector(:has(a)) {
-  .nav-disc { visibility: hidden; }  /* keeps its width, so the labels stay aligned */
-  .theme-switch { display: none; }
-}
-
 .footer-actions { display: flex; align-items: center; gap: 4px; }
 .profile {
   display: flex; align-items: center; gap: 9px; flex: 1 1 auto;
@@ -483,6 +476,15 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   }
   .chip:has(input:checked) .chip-dot { background: var(--accent); }
   .chip:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
+}
+
+/* Without :has() every branch is open and every theme rule is inert: neither control does anything.
+   The filter inputs stay visible, since the native control is then the only sign of a choice or of
+   focus. After the base rules, since @supports adds no specificity. */
+@supports not selector(:has(a)) {
+  .nav-disc { visibility: hidden; }  /* keeps its width, so the labels stay aligned */
+  .theme-switch { display: none; }
+  .segmented input, .chip input { position: static; opacity: 1; margin: 0; }
 }
 
 /* date range */

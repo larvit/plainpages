@@ -226,3 +226,20 @@ Read most (opens and searches):
 - `release-tooling/dockerhub-overview.test.ts` 1
 - `release-tooling/dockerhub-overview.ts` 1
 - `src/ci-gate.test.ts` 1
+
+## Reading cost, chunk 984f4d4c8a76, finished 2026-10-31T11:18:20Z
+
+209334 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 6
+- `todo.md` 6
+- `src/ui/stylesheet-floor.test.ts` 4
+- `src/ui/stylesheet-floor.ts` 4
+- `CHANGELOG.md` 3
+- `AGENTS.md` 2
+- `examples/plugins/scheduling/public/scheduling.css` 2
+- `package.json` 2
+- `public/css/styles.css` 2
+- `ci.sh` 1

@@ -153,6 +153,18 @@ test("styles.css hides the theme switch and the nav toggles where :has() is miss
   assert.match(block, /\.nav-disc\s*\{\s*visibility:\s*hidden/);
 });
 
+// Both inputs are invisible in the base rules and only a `:has()` rule marks the choice, so without
+// `:has()` the native control is the only sign of what is selected or focused.
+test("styles.css shows the segmented and chip inputs where :has() is missing, after their base rules", () => {
+  const guard = stylesheet.indexOf("@supports not selector(:has(a)) {");
+  assert.ok(guard >= 0, "no @supports not selector(:has(a)) block");
+  const block = stylesheet.slice(guard, blockEnd(guard));
+  for (const input of [".segmented input", ".chip input"]) {
+    assert.ok(stylesheet.indexOf(`${input} {`) < guard, `the base ${input} rule comes after the guard`);
+  }
+  assert.match(block, /\.segmented input,\s*\.chip input\s*\{[^}]*position:\s*static[^}]*opacity:\s*1/);
+});
+
 // Without `:has()` nothing reads #nav-toggle, so an off-canvas sidebar there is unreachable and the
 // hamburger does nothing: the sidebar has to stay in the flow, with the hamburger hidden.
 test("styles.css moves the sidebar off-canvas at 860px only inside @supports selector(:has(a))", () => {
