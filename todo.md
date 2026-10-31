@@ -6,12 +6,13 @@
 
 `Bar = 1`
 
-`Next ID = 44`
+`Next ID = 45`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 44 | 0.4.21 |  | defect | **Show which filter segment or chip is selected and focused on a browser without `:has()`.** | 1 | 2 | 2 | 3 | 2 | 4 by 4 | 23.9 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
@@ -25,6 +26,14 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
+
+### 44. Show which filter segment or chip is selected and focused on a browser without `:has()`.
+
+`.segmented input` and `.chip input` are `opacity: 0`, and only `:has(input:checked)` and
+`:has(input:focus-visible)` rules mark the choice. On Firefox 115, Chromium 87–104 and Safari
+15.0–15.3 a filter shows no selected state and no keyboard focus, which README → "Two browser
+floors" forbids. Show the native inputs in `public/css/styles.css`'s `@supports not selector(:has(a))`
+block.
 
 ### 13. Accept a verification code pasted with surrounding whitespace.
 
