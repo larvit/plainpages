@@ -148,6 +148,21 @@ test("mobile layout hides the sidebar off-canvas behind the hamburger", async ({
   expect(offCanvas).toBe(true);
 });
 
+test("the hamburger opens the drawer over the scrim, and a link in it navigates", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard");
+  await page.locator(".hamburger").click();
+
+  const sidebar = page.locator(".sidebar");
+  await expect(sidebar).toBeInViewport({ ratio: 1 });
+  // A click is refused while the scrim sits above the drawer, which a lower z-index would cause.
+  await sidebar.locator("summary").first().click(); // the dashboard is the current page, so its links are in a folded branch
+  const link = sidebar.locator(".nav-children a.nav-self").first();
+  const target = await link.getAttribute("href");
+  await link.click();
+  await expect(page).toHaveURL((url) => url.pathname === target?.split("?")[0]);
+});
+
 test("Sign-out is a CSRF-guarded POST form: the token is issued on the page, a tokenless POST is refused", async ({ page }) => {
   await page.goto("/dashboard");
   // The page issues a CSRF cookie and embeds the same token in the Sign-out form (double-submit).
