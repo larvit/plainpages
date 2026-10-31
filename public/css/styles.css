@@ -9,14 +9,17 @@
 /* ---------- 1. TOKENS ----------------------------------------
    Two raw palettes (--l-* light, --d-* dark) are defined once.
    A small mapping (--bg: var(--l-bg) ...) picks the active set.
-   Theme resolution (no JS):
+   Theme resolution (no JS), every rule below needing :has():
      • default + @media(dark)  → follows the OS  (Auto)
      • html:has(#theme-light)  → force light
      • html:has(#theme-dark)   → force dark
+   Engines without :has() (Chromium below 105, Firefox below 121)
+   ignore all three and stay light; see the @supports not
+   selector(:has(a)) block further down.
    We avoid light-dark()/color-scheme for app colors because their
-   resolution is unreliable across engines; :has() variable swaps
-   are rock-solid. color-scheme is still set as a hint for native
-   widgets (date picker, scrollbars, selects).
+   resolution is unreliable across engines. color-scheme is still
+   set as a hint for native widgets (date picker, scrollbars,
+   selects).
 ------------------------------------------------------------- */
 :root {
   /* Hex, never oklch: below Chromium 111 `var(--accent)` is invalid at computed-value time and the

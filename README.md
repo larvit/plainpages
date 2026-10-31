@@ -73,6 +73,7 @@ From here, render real pages against the app shell and fetch upstream data — s
 - [Goals](#goals)
 - [Audience](#audience)
 - [Overview](#overview)
+- [Glossary](#glossary)
 - [Users, groups & permissions](#users-groups--permissions)
   - [naming a permission](#naming-a-permission)
   - [a worked example](#a-worked-example)
@@ -209,6 +210,29 @@ at runtime; crash-isolation is a deliberate non-goal. See [Building plugins](#bu
 feature removes the need for JS (theme switching, popovers, disclosure) we use it — the trade we
 avoid is shipping a client-side runtime, not using the platform. Markup is semantic and accessible
 (see [AGENTS.md](AGENTS.md)).
+
+## Glossary
+
+- **Host** — the `web` container: the Node process that discovers plugins, serves every page and
+  owns no state of its own. Everything outside it (a plugin's upstream, Ory) is reached over the network.
+- **Plugin** — a folder under `plugins/` that adds domain screens; the only way to add a feature.
+- **Manifest** — the object a plugin's `index.ts` exports through `definePlugin`: its routes, nav,
+  permissions and hooks. The host checks it at boot and refuses a bad one ([The manifest](#the-manifest)).
+- **Chrome** — everything on a page that isn't the page's own content: brand, menu, user, theme and
+  CSRF token. A handler gets it as `ctx.chrome` ([RequestContext](#requestcontext)).
+- **Nav fragment** — the `nav` entries one plugin contributes. The host merges every plugin's
+  fragment into the one global menu and filters it per user ([The menu system](#the-menu-system)).
+- **Permission token** — a `<resource>:<action>` string such as `shifts:write`, granted in Keto and
+  carried in the session JWT's `permissions` claim ([Naming a permission](#naming-a-permission)).
+- **System plugin** — a plugin that administers Plainpages' own identity stack, through the
+  privileged `ctx.system` ([System capabilities](#system-capabilities-the-ctxsystem-surface)).
+- **Denylist** — the optional in-memory list of subjects revoked just now, so a permission change
+  lands before the JWT expires ([Instant revoke](#instant-revoke-the-optional-denylist)).
+
+**Intended scale.** One deployment serves a handful of plugins, up to about ten, so a plugin's own
+dependency tree ([Plugin dependencies](#plugin-dependencies)) costs disk and memory in proportion to
+how many are installed. The `web` container scales out because it is stateless ([Stateless
+core](#stateless-core)); a catalogue of hundreds of plugins is not a goal.
 
 ## Users, groups & permissions
 

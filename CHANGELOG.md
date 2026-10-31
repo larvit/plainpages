@@ -6,6 +6,11 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### The README defines its terms and states its intended scale
+
+A new Glossary defines host, manifest, chrome, nav fragment, permission token, system plugin and
+denylist. It also states the scale Plainpages is sized for: a handful of plugins per deployment.
+
 ### The mobile nav stays reachable on engines without `:has()`
 
 At 860px and narrower, an engine without `:has()` (Chromium below 105, such as webOS TV 22 and 23,
