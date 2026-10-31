@@ -101,7 +101,6 @@ test("collects oidc nodes as SSO providers (text logo = initial), keeping csrf a
 });
 
 test("the code field takes a pasted code: one-time-code autofill + numeric inputmode + digits, whitespace around them allowed", () => {
-  // The host trims the code before Kratos sees it (routes.ts), so only a stray non-digit is refused.
   const view = buildFlowView(
     flow([
       node({ name: "csrf_token", type: "hidden", value: "tok" }),

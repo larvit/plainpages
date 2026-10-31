@@ -29,7 +29,7 @@
 ### 45. Link the admin's recovery-code notice to the flow the code was minted on, so the user can enter it.
 
 The notice (`examples/plugins/admin/views/partials/user-form-body.ejs`) links a bare `/recovery`,
-which starts a fresh flow at its email step. Kratos binds an admin-minted code to the flow it minted,
+which starts a fresh flow at its email step. Kratos binds an admin-minted code to the flow it was minted on,
 whose URL is the `recovery_link` that `createRecoveryCode` returns as `RecoveryCode.link`. Render that
 link instead.
 

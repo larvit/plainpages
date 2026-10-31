@@ -69,7 +69,7 @@ export const AUTH_FLOWS: Record<string, FlowType> = {
   "/verification": "verification",
 };
 
-// The flows that take an emailed one-time code, whose form posts to the host to have it trimmed.
+// The flows that take an emailed one-time code. Their form posts to the host, which trims the code.
 export const CODE_FLOWS: ReadonlySet<FlowType> = new Set(["recovery", "verification"]);
 
 // Where each flow's card links; its words come from the catalog under `auth.<flow>.*`.
@@ -126,8 +126,8 @@ const ssoLogo = (value: string): string => (value.charAt(0) || "?").toUpperCase(
 
 function toField(node: UiNode, name: string, type: string, t: Translate): FlowField {
   const value = str(node.attributes["value"]);
-  // The recovery/verification one-time code: numeric, so a numeric keypad and a digits pattern, which
-  // allows the whitespace a paste brings since the host trims it (routes.ts → codeFlowSubmit).
+  // The recovery/verification one-time code is numeric: a numeric keypad and a digits pattern. The
+  // pattern allows whitespace around the digits, as a paste brings; routes.ts → codeFlowSubmit trims it.
   // one-time-code enables OS/email autofill (Kratos sends no autocomplete for the node).
   const isCode = name === "code";
   const autocomplete = str(node.attributes["autocomplete"]) ?? (isCode ? "one-time-code" : undefined);
