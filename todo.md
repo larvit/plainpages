@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 39 | 0.4.21 |  |  | **Pass an absolute `return_to` on to Kratos even when the URL also carries a chosen `locale`.** | 1 | 2 | 2 | 3 | 2 | 2 by 2 | 2.8 |
@@ -32,12 +31,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 20. Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.
-
-`flowPage` (`src/auth/routes.ts`) rethrows a 401, which Kratos answers to a settings-flow init with no
-session. `/settings` stays `public`, since recovery lands there with a Kratos session but no app JWT;
-a 401 should redirect to `/login` with the page as `return_to`. Add the missing E2E.
 
 ### 4. Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.
 
