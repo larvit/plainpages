@@ -463,3 +463,13 @@ Default to **no comment**. Delete one that restates the adjacent code, repeats a
 elsewhere, justifies self-evident code, or records history. Write one only for what a competent
 reader of *this* codebase could not infer: a surprising why, a footgun, an invariant, an external
 constraint. See [Prose discipline](#prose-discipline).
+
+## Scoring run
+
+The comprehension panel's seats fill their prompts from these fields.
+
+- **Language:** strict TypeScript on Node 24, with EJS views and plain CSS
+- **Kind:** a server-rendered web GUI host with a plugin system
+- **Domain:** web authentication, authorization and server-rendered admin GUIs
+- **Domain docs:** the Ory Kratos, Keto and Hydra documentation
+- **3am question:** a visitor on an old TV browser reports that the sign-in button is blank. Which file and rule?
