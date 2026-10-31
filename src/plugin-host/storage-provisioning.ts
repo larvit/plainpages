@@ -16,10 +16,20 @@ export interface ProvisionResult {
   provisioned: string[];
 }
 
+// The driver's error for a DSN it can't parse carries the whole string (`input`) — password included —
+// so it is swallowed here. The driver, not `new URL`, decides what parses: it takes a multi-host DSN.
+function connect(adminUrl: string): ReturnType<typeof postgres> {
+  try {
+    return postgres(adminUrl, { connect_timeout: 10, max: 1 });
+  } catch {
+    throw new Error("PLUGIN_DB_ADMIN_URL must be a Postgres URL (its value is not shown; percent-encode special characters in a password)");
+  }
+}
+
 export async function provisionStorage(options: ProvisionOptions): Promise<ProvisionResult> {
   // Notices are left to surface: a REVOKE the account cannot perform only *warns*, and silencing
   // that would mean reporting a locked-down database that is still open to PUBLIC.
-  const sql = postgres(options.adminUrl, { connect_timeout: 10, max: 1 });
+  const sql = connect(options.adminUrl);
   try {
     const provisioned: string[] = [];
     for (const pluginId of options.pluginIds) {

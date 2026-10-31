@@ -108,6 +108,13 @@ test("a connection limit that is not a positive integer is refused, not interpol
   }
 });
 
+test("a malformed admin DSN is refused by name, without echoing its password", async () => {
+  await assert.rejects(
+    provisionStorage({ adminUrl: "postgres://admin:pa/ss@db:5432/plugins", connectionLimit: 10, pluginIds: [], secret: SECRET }),
+    (err: Error) => err.message.includes("PLUGIN_DB_ADMIN_URL") && !err.message.includes("pa/ss"),
+  );
+});
+
 // --- Integration: the statements above, against a real Postgres -----------------------
 // Opt-in via PLUGIN_DB_ADMIN_URL (a superuser DSN); the unit gate runs no Postgres. What the unit
 // tests cannot prove lives here: the owner may create tables, and a peer role is locked out.

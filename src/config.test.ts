@@ -39,16 +39,10 @@ test("PLUGIN_DB_URL carrying credentials is refused, not silently overwritten", 
   assert.equal(loadConfig({}).pluginDbUrl, undefined); // unset ⇒ storage off
 });
 
-// A DSN whose password breaks URL parsing (a bare "/") must not reach the boot error or the log.
-// The credential-bearing keys get their own value; the rest share the two readers, so one loop covers them.
 test("a malformed URL value is refused by naming the variable, never echoing the value", () => {
+  // PLUGIN_DB_URL and OTLP_ENDPOINT can carry credentials; APP_URL and KRATOS_PUBLIC_URL stand for the other keys, one per reader.
   const bad: Record<string, string> = {
     APP_URL: "https://acme:pa/ss@[host",
-    HYDRA_ADMIN_URL: "http://u:pa/ss@[hydra:4445",
-    JWKS_URL: "http://u:pa/ss@[jwks",
-    KETO_READ_URL: "http://u:pa/ss@[keto:4466",
-    KETO_WRITE_URL: "http://u:pa/ss@[keto:4467",
-    KRATOS_ADMIN_URL: "http://u:pa/ss@[kratos:4434",
     KRATOS_PUBLIC_URL: "http://u:pa/ss@[kratos:4433",
     OTLP_ENDPOINT: "http://otel:pa/ss@[collector:4318",
     PLUGIN_DB_URL: "postgres://admin:pa/ss@db:5432/plugins",

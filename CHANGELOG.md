@@ -6,9 +6,9 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
-### A malformed URL setting's boot error no longer prints the value
+### A malformed URL variable's boot error no longer prints the value
 
-When a URL setting such as `PLUGIN_DB_URL`, `PLUGIN_DB_ADMIN_URL` or `OTLP_ENDPOINT` can't be parsed,
+When a URL variable such as `PLUGIN_DB_URL`, `PLUGIN_DB_ADMIN_URL` or `OTLP_ENDPOINT` can't be parsed,
 the boot error names the variable and not its value, so a DSN whose password breaks parsing doesn't
 put the password in the log.
 

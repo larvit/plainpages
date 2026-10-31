@@ -99,9 +99,8 @@ function readEnum<T extends string>(env: Env, key: string, allowed: readonly T[]
 }
 
 // Never echoes the value: a DSN whose password breaks URL parsing (a bare "/") would put the
-// password in the boot error and the log. bootstrap uses it too, before the postgres driver, which
-// rethrows a malformed DSN with the whole string attached.
-export function assertUrl(key: string, value: string): void {
+// password in the boot error and the log.
+function assertUrl(key: string, value: string): void {
   try {
     new URL(value);
   } catch {
