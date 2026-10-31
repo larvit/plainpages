@@ -26,12 +26,14 @@ test("nothing wired ⇒ only the flow-error sink exists", () => {
   assert.deepEqual(keys(buildAuthRoutes(deps({}))), ["GET /error"]);
 });
 
-test("kratos wired ⇒ the themed flow pages + POST /logout; no OAuth2, no /auth/complete", () => {
+test("kratos wired ⇒ the themed flow pages, the two code-flow submits + POST /logout; no OAuth2, no /auth/complete", () => {
   const got = keys(buildAuthRoutes(deps({ kratos })));
   assert.deepEqual(got, keys([
     ...Object.keys(AUTH_FLOWS).map((path) => ({ method: "GET", path })),
     { method: "GET", path: "/error" },
     { method: "POST", path: "/logout" },
+    { method: "POST", path: "/recovery" },
+    { method: "POST", path: "/verification" },
   ]));
 });
 

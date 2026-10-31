@@ -117,9 +117,8 @@ export function createKratosPublic(config: { baseUrl: string; fetchImpl?: typeof
     async submitFlow(type, flowId, opts) {
       const url = new URL(`${base}/self-service/${type}`);
       url.searchParams.set("flow", flowId);
-      // Asked for HTML, Kratos answers with the redirects a browser posting to it directly gets, so
-      // every success/error/expiry branch stays Kratos'. Its nosurf demands a Referer, which this
-      // POST lacks, only on an https request: valid while KRATOS_PUBLIC_URL is in-cluster http.
+      // Asked for HTML, Kratos answers with the redirects a browser gets, so every outcome stays Kratos'.
+      // Its nosurf wants a Referer, absent here, only over https: valid while KRATOS_PUBLIC_URL is http.
       const h = { ...headers(opts.cookie), accept: "text/html", "content-type": "application/x-www-form-urlencoded" };
       const res = await http(url, { body: opts.body, headers: h, method: "POST", redirect: "manual" });
       if (res.status >= 500) throw new KratosError(`Kratos submit ${type} flow failed (${res.status})`, res.status, await res.text());

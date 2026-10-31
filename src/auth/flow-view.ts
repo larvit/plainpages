@@ -149,6 +149,10 @@ function toField(node: UiNode, name: string, type: string, t: Translate): FlowFi
   };
 }
 
+function formAction(flow: Flow, type: FlowType): string {
+  return CODE_FLOWS.has(type) ? `/${type}?flow=${encodeURIComponent(flow.id)}` : flow.ui.action;
+}
+
 export function buildFlowView(flow: Flow, type: FlowType, t: Translate = ENGLISH): FlowView {
   const hidden: { name: string; value: string }[] = [];
   const fields: FlowField[] = [];
@@ -177,7 +181,7 @@ export function buildFlowView(flow: Flow, type: FlowType, t: Translate = ENGLISH
   }
 
   return {
-    action: CODE_FLOWS.has(type) ? `/${type}?flow=${encodeURIComponent(flow.id)}` : flow.ui.action,
+    action: formAction(flow, type),
     buttons,
     fields,
     hidden,
