@@ -38,7 +38,8 @@ test("styles.css folds .nav-children only inside @supports selector(:has(a))", (
 test("styles.css hides the theme switch and the nav toggles where :has() is missing, after their base rules", () => {
   const guard = stylesheet.indexOf("@supports not selector(:has(a)) {");
   assert.ok(guard >= 0, "no @supports not selector(:has(a)) block");
-  assert.ok(guard > stylesheet.lastIndexOf(".theme-switch {", guard), "the guard precedes the base .theme-switch rule");
+  const base = stylesheet.search(/^\.theme-switch\s*\{/m);
+  assert.ok(base >= 0 && base < guard, "the guard precedes the base .theme-switch rule");
   const block = stylesheet.slice(guard, stylesheet.indexOf("\n}", guard));
   assert.match(block, /\.theme-switch\s*\{\s*display:\s*none/);
   assert.match(block, /\.nav-disc\s*\{\s*visibility:\s*hidden/);

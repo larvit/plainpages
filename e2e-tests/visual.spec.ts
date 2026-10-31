@@ -174,25 +174,30 @@ test("the public landing at / is ungated and links to sign in + register", async
   await shot(page, "live-05-public-landing");
 });
 
-// Measured on the rendered button, so a theme block that drops --on-accent fails here.
-for (const colorScheme of ["light", "dark"] as const) {
-  test(`the primary button's text reaches 4.5:1 in ${colorScheme} mode`, async ({ page, context }) => {
+// Measured on the rendered elements, so a theme block that drops --on-accent fails here.
+const contrastOf = (el: Element): number => {
+  const luminance = (rgb: string): number => {
+    const [r = 0, g = 0, b = 0] = (rgb.match(/[\d.]+/g) ?? []).map((c) => {
+      const v = Number(c) / 255;
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const style = getComputedStyle(el);
+  const [hi = 0, lo = 0] = [luminance(style.color), luminance(style.backgroundColor)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+for (const [name, colorScheme, forceDark] of [["light", "light", false], ["dark", "dark", false], ["forced dark", "light", true]] as const) {
+  test(`text on the accent reaches 4.5:1 in ${name} mode`, async ({ page, context }) => {
     await context.clearCookies();
     await page.emulateMedia({ colorScheme });
     await page.goto("/");
-    const ratio = await page.locator(".landing .btn-primary").first().evaluate((el) => {
-      const luminance = (rgb: string): number => {
-        const [r = 0, g = 0, b = 0] = (rgb.match(/[\d.]+/g) ?? []).map((c) => {
-          const v = Number(c) / 255;
-          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-        });
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      };
-      const style = getComputedStyle(el);
-      const [hi = 0, lo = 0] = [luminance(style.color), luminance(style.backgroundColor)].sort((x, y) => y - x);
-      return (hi + 0.05) / (lo + 0.05);
-    });
-    expect(ratio).toBeGreaterThanOrEqual(4.5);
+    if (forceDark) await page.locator("#theme-dark").check({ force: true });
+    // No page of this stack has a second page of results, so add the current-page button.
+    await page.locator("#main-content").evaluate((el) => el.insertAdjacentHTML("beforeend", '<a class="page-btn" aria-current="page" href="#">2</a>'));
+    for (const selector of [".landing .btn-primary", ".brand-mark", ".page-btn"]) {
+      await expect.poll(() => page.locator(selector).first().evaluate(contrastOf), { message: selector }).toBeGreaterThanOrEqual(4.5); // polls past the colour transition
+    }
   });
 }
 
