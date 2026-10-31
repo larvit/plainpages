@@ -114,10 +114,11 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
   };
 }
 
-// A code flow's POST (flow-view.ts → CODE_FLOWS): trim the pasted one-time code, which Kratos would
-// refuse with its surrounding whitespace, and relay the rest to Kratos and its redirect back. Kratos'
-// own csrf_token field guards the POST, so the host checks no token of its own.
-function codeFlowSubmit(kratos: KratosPublic, flowType: FlowType): BuiltinRoute["handler"] {
+// A code flow's POST (flow-view.ts → CODE_FLOWS). Trims the pasted one-time code, since Kratos
+// refuses one with whitespace around it, then passes the form on to Kratos and sends the browser
+// where Kratos redirects. Kratos' csrf_token field guards the POST, so the host's own CSRF token
+// isn't checked here.
+function codeFlowSubmit(kratos: KratosPublic, flowType: FlowType, secureCookies: boolean): BuiltinRoute["handler"] {
   return async (ctx: RequestContext): Promise<RouteResult> => {
     const pathname = ctx.url.pathname;
     const flowId = ctx.url.searchParams.get("flow");
@@ -133,7 +134,10 @@ function codeFlowSubmit(kratos: KratosPublic, flowType: FlowType): BuiltinRoute[
       return flowFailure(err, ctx, flowType);
     }
     if (submitted.setCookie.length) ctx.res.appendHeader("set-cookie", submitted.setCookie);
-    return { redirect: submitted.location ?? `${pathname}?flow=${encodeURIComponent(flowId)}` };
+    // Kratos names our own pages by absolute URL; made host-relative, the redirect keeps a chosen locale.
+    const own = selfOrigin(ctx, secureCookies);
+    const location = submitted.location?.startsWith(`${own}/`) ? submitted.location.slice(own.length) : submitted.location;
+    return { redirect: location ?? `${pathname}?flow=${encodeURIComponent(flowId)}` };
   };
 }
 
@@ -273,7 +277,7 @@ export function buildAuthRoutes({ hydra, keto, kratos, kratosAdmin, menu, secure
   if (kratos) {
     for (const [path, flowType] of Object.entries(AUTH_FLOWS)) {
       routes.push({ handler: flowPage(kratos, flowType, secureCookies), method: "GET", path, public: true });
-      if (CODE_FLOWS.has(flowType)) routes.push({ handler: codeFlowSubmit(kratos, flowType), method: "POST", path, public: true });
+      if (CODE_FLOWS.has(flowType)) routes.push({ handler: codeFlowSubmit(kratos, flowType, secureCookies), method: "POST", path, public: true });
     }
     routes.push({ handler: logout(kratos, secureCookies), method: "POST", path: "/logout", public: true });
   }

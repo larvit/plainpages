@@ -389,9 +389,6 @@ test("OAuth2 challenge endpoints degrade identically: stale Hydra 4xx → 400, o
   }
 });
 
-
-// The code flows post to the host, which trims the code (a pasted one often carries whitespace that
-// Kratos would refuse) and relays the rest of the browser's POST to Kratos verbatim.
 test("code-flow POST: the host trims the code, relays the POST to Kratos and Kratos' redirect + cookies back", async (t) => {
   const calls: { body: string; cookie: string | undefined; flowId: string; type: FlowType }[] = [];
   let answer: () => Promise<FlowSubmission> = async () =>
@@ -423,6 +420,10 @@ test("code-flow POST: the host trims the code, relays the POST to Kratos and Kra
   assert.equal(noFlow.headers.get("location"), "/recovery");
   assert.equal(calls.length, 2);
 
+  // Kratos' absolute redirect to this host becomes host-relative, so it keeps the chosen locale.
+  answer = async () => ({ location: `${url}/settings?flow=s1`, setCookie: [], status: 303 });
+  assert.equal((await post("/recovery?flow=f1&locale=en-US", "code=1")).headers.get("location"), "/settings?flow=s1&locale=en-US");
+
   // Kratos answered without a redirect → back to the flow, whose page shows its state.
   answer = async () => ({ location: null, setCookie: [], status: 400 });
   assert.equal((await post("/recovery?flow=f1", "code=1")).headers.get("location"), "/recovery?flow=f1");
@@ -433,6 +434,6 @@ test("code-flow POST: the host trims the code, relays the POST to Kratos and Kra
   answer = async () => { throw new TypeError("fetch failed"); };
   assert.equal((await post("/recovery?flow=f1", "code=1")).status, 503);
 
-  // Sign-in still posts straight to Kratos: the host takes no POST there.
+  // Sign-in posts straight to Kratos, so the host has no POST /login.
   assert.notEqual((await post("/login?flow=f1", "x=1")).status, 303);
 });

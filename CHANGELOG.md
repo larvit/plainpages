@@ -8,9 +8,10 @@ at boot. Entries start at 0.3.0.
 
 ### A verification or recovery code pasted with whitespace around it is accepted
 
-The code field on the verification and recovery pages takes a code with spaces or tabs around it, as
-a paste from an email often brings. Before, the browser refused it. Those two forms now post to
-Plainpages, which trims the code and passes the form on to Kratos at `KRATOS_PUBLIC_URL`.
+The code field on the verification and recovery pages takes a code with spaces or tabs around it.
+Pasting a code from an email often adds them, and before, the browser refused the code. Those two
+forms now post to Plainpages, which trims the code and passes the form on to Kratos at
+`KRATOS_PUBLIC_URL`. A visitor who picked a language now keeps it through both flows.
 
 ### A filter shows its selected and focused choice in browsers without `:has()`
 

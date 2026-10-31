@@ -21,7 +21,7 @@ export interface UiNode {
 }
 
 export interface FlowUi {
-  action: string; // absolute Kratos URL the browser POSTs the form to (Kratos owns its CSRF)
+  action: string; // absolute Kratos URL the form submits to
   messages?: UiText[];
   method: string;
   nodes: UiNode[];
@@ -117,9 +117,9 @@ export function createKratosPublic(config: { baseUrl: string; fetchImpl?: typeof
     async submitFlow(type, flowId, opts) {
       const url = new URL(`${base}/self-service/${type}`);
       url.searchParams.set("flow", flowId);
-      // Asked for HTML, Kratos answers with the redirects a browser gets, so every outcome stays Kratos'.
-      // Its nosurf wants a Referer, absent here, only over https: valid while KRATOS_PUBLIC_URL is http.
-      const h = { ...headers(opts.cookie), accept: "text/html", "content-type": "application/x-www-form-urlencoded" };
+      // Asked for HTML, Kratos answers with the redirect a browser posting to it would get. Its CSRF
+      // check demands a same-origin Referer on an https request, and this server-side POST has none.
+      const h = { ...headers(opts.cookie), accept: "text/html", "content-type": "application/x-www-form-urlencoded", referer: `${base}/` };
       const res = await http(url, { body: opts.body, headers: h, method: "POST", redirect: "manual" });
       if (res.status >= 500) throw new KratosError(`Kratos submit ${type} flow failed (${res.status})`, res.status, await res.text());
       await res.body?.cancel();
