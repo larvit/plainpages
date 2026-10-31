@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { DESCRIPTION, jwtFrom, leftoverPlaceholders, renderOverview } from "./dockerhub-overview.ts";
+import { DESCRIPTION, hubPatch, jwtFrom, leftoverPlaceholders, renderOverview } from "./dockerhub-overview.ts";
 
 const TEMPLATE = "release-tooling/dockerhub-overview.md.tmpl";
 const template = () => readFileSync(TEMPLATE, "utf8");
@@ -49,9 +49,9 @@ test("jwtFrom accepts only a non-empty string token, never throwing on a hostile
 
 test("the short description opens a README sentence and fits Docker Hub's 100 characters", () => {
   const readme = readFileSync("README.md", "utf8").replaceAll("**", "");
-  assert.ok(DESCRIPTION.length <= 100, `${DESCRIPTION.length} characters`);
+  assert.ok(DESCRIPTION.trim() !== "" && DESCRIPTION.length <= 100, `${DESCRIPTION.length} characters`);
   const escaped = DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  assert.match(readme, new RegExp(`^${escaped}(?=[\\s.:,])`, "m"));
+  assert.match(readme, new RegExp(`(?:\\n\\n|\\.\\s)${escaped}(?=[\\s.:,])`));
 });
 
 test("every command the overview shows, the README shows too", () => {
@@ -65,5 +65,9 @@ test("every command the overview shows, the README shows too", () => {
   const shown = new Set(commands(readFileSync("README.md", "utf8")));
   const published = commands(template());
   assert.ok(published.length > 0, `${TEMPLATE} should show commands`);
-  for (const command of published) assert.ok(shown.has(command), `${TEMPLATE} runs ${command}, which README.md doesn't show`);
+  for (const command of published) assert.ok(shown.has(command), `${TEMPLATE} shows ${command}, which README.md doesn't`);
+});
+
+test("the PATCH carries the short description beside the overview", () => {
+  assert.deepEqual(hubPatch("# page"), { description: DESCRIPTION, full_description: "# page" });
 });
