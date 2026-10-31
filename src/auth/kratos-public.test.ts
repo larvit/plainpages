@@ -17,12 +17,13 @@ function res(status: number, body?: unknown, setCookie: string[] = []): Response
 
 // Records each call so a test can assert URL/method/headers/body.
 function recorder(handler: (url: string, init: RequestInit | undefined) => Response) {
-  const calls: { body: string | undefined; headers: Headers; method: string; url: string }[] = [];
+  const calls: { body: string | undefined; headers: Headers; method: string; redirect: string | undefined; url: string }[] = [];
   const fetchImpl = (async (input: unknown, init?: RequestInit) => {
     calls.push({
       body: init?.body as string | undefined,
       headers: new Headers(init?.headers),
       method: init?.method ?? "GET",
+      redirect: init?.redirect,
       url: String(input),
     });
     return handler(String(input), init);
@@ -67,8 +68,9 @@ test("submitFlow POSTs the form to the flow on Kratos' own base URL, as a browse
   assert.deepEqual(out, { location: "http://app/settings?flow=s1", setCookie: ["plainpages_session=s; Path=/"], status: 303 });
   assert.equal(calls[0]!.url, `${BASE}/self-service/recovery?flow=f+1`);
   assert.equal(calls[0]!.method, "POST");
-  // Not JSON: Kratos then answers with the same 303s a browser posting to it directly would get.
+  assert.equal(calls[0]!.redirect, "manual");
   assert.equal(calls[0]!.headers.get("accept"), "text/html");
+  assert.equal(calls[0]!.headers.get("referer"), `${BASE}/`);
   assert.equal(calls[0]!.headers.get("content-type"), "application/x-www-form-urlencoded");
   assert.equal(calls[0]!.headers.get("cookie"), "csrf_token=abc");
   assert.equal(calls[0]!.body, "code=123456&method=code");
@@ -77,7 +79,7 @@ test("submitFlow POSTs the form to the flow on Kratos' own base URL, as a browse
 test("submitFlow reports a 4xx without a redirect as a null location, and throws on a Kratos 5xx", async () => {
   const k = (status: number) => createKratosPublic({ baseUrl: BASE, fetchImpl: recorder(() => res(status, { error: "x" })).fetchImpl });
   assert.deepEqual(await k(400).submitFlow("verification", "f", { body: "x=1" }), { location: null, setCookie: [], status: 400 });
-  await assert.rejects(k(502).submitFlow("verification", "f", { body: "x=1" }), (e: unknown) => e instanceof KratosError && e.status === 502);
+  await assert.rejects(k(500).submitFlow("verification", "f", { body: "x=1" }), (e: unknown) => e instanceof KratosError && e.status === 500);
 });
 
 test("whoami returns the session on 200 (cookie forwarded) and null on 401", async () => {

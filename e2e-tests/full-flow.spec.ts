@@ -291,21 +291,39 @@ async function mailedCode(to: string): Promise<string> {
   return code;
 }
 
-test("verification: a code pasted with whitespace around it is accepted", async ({ page }) => {
-  test.setTimeout(90_000);
-  const email = `verify-${suffix}@plainpages.local`;
+async function createIdentity(email: string): Promise<void> {
   const created = await fetch(`${KRATOS_ADMIN}/admin/identities`, {
     body: JSON.stringify({ schema_id: "default", traits: { email } }),
     headers: { "content-type": "application/json" },
     method: "POST",
   });
   expect(created.status).toBe(201);
+}
 
-  await page.goto("/verification");
+// Fills the email step, then pastes the mailed code with whitespace around it, as a paste often brings.
+async function enterMailedCode(page: Page, email: string): Promise<void> {
   await page.fill('input[name="email"]', email);
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.locator('input[name="code"]')).toBeVisible();
-  await page.fill('input[name="code"]', ` ${await mailedCode(email)}\t `); // as a paste from an email often arrives
+  await page.fill('input[name="code"]', ` ${await mailedCode(email)}\t `);
   await page.getByRole("button", { name: "Continue" }).click();
+}
+
+test("verification: a code pasted with whitespace around it is accepted", async ({ page }) => {
+  test.setTimeout(90_000);
+  const email = `verify-${suffix}@plainpages.local`;
+  await createIdentity(email);
+  await page.goto("/verification");
+  await enterMailedCode(page, email);
   await expect(page.getByText("You successfully verified your email address.")).toBeVisible();
+});
+
+test("recovery: a pasted code signs in to the settings page, in the chosen language", async ({ page }) => {
+  test.setTimeout(90_000);
+  const email = `recover-${suffix}@plainpages.local`;
+  await createIdentity(email);
+  await page.goto("/recovery?locale=en-US");
+  await enterMailedCode(page, email);
+  await expect(page).toHaveURL(/\/settings\?.*locale=en-US/);
+  await expect(page.locator("h1")).toHaveText("Account settings");
 });
