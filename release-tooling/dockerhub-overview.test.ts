@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { jwtFrom, leftoverPlaceholders, renderOverview } from "./dockerhub-overview.ts";
+import { DESCRIPTION, jwtFrom, leftoverPlaceholders, renderOverview } from "./dockerhub-overview.ts";
 
 const TEMPLATE = "release-tooling/dockerhub-overview.md.tmpl";
 const template = () => readFileSync(TEMPLATE, "utf8");
@@ -45,4 +45,25 @@ test("jwtFrom accepts only a non-empty string token, never throwing on a hostile
   assert.equal(jwtFrom({}), null);
   assert.equal(jwtFrom({ token: "" }), null);
   assert.equal(jwtFrom({ token: 42 }), null);
+});
+
+test("the short description opens a README sentence and fits Docker Hub's 100 characters", () => {
+  const readme = readFileSync("README.md", "utf8").replaceAll("**", "");
+  assert.ok(DESCRIPTION.length <= 100, `${DESCRIPTION.length} characters`);
+  const escaped = DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(readme, new RegExp(`^${escaped}(?=[\\s.:,])`, "m"));
+});
+
+test("every command the overview shows, the README shows too", () => {
+  const commands = (source: string) =>
+    [...source.matchAll(/```bash\n(.*?)```/gs)].flatMap((block) =>
+      (block[1] ?? "")
+        .split("\n")
+        .map((line) => (line.split(" #")[0] ?? "").trim().replace(/larvit\/plainpages:\S+/g, "larvit/plainpages:X.Y.Z"))
+        .filter((line) => line !== ""),
+    );
+  const shown = new Set(commands(readFileSync("README.md", "utf8")));
+  const published = commands(template());
+  assert.ok(published.length > 0, `${TEMPLATE} should show commands`);
+  for (const command of published) assert.ok(shown.has(command), `${TEMPLATE} runs ${command}, which README.md doesn't show`);
 });

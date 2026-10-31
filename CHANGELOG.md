@@ -6,6 +6,12 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### Every release reaches Docker Hub, and the Hub page has a short description
+
+Releases 0.4.1 to 0.4.20 were tagged in git but never published to Docker Hub or as semver tags in
+the Gitea registry; they are now, and every later release is. The Hub page gains a one-line
+description.
+
 ### The admin example stops an administrator locking themselves out through a group
 
 On the Groups screen, unticking a permission on a group you are in, removing yourself (or a nested

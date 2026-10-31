@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 4 | 2 | 2 | 6 | 7 | code health by 2 | 1.1 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
@@ -27,17 +26,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 1. Publish every release to Docker Hub, and give the Hub page its short description.
-
-Hub's newest tag is 0.4.0, while git has v0.4.1 onwards, and the overview still says 0.4.0. No
-`release.yml` run exists for the tags auto-release pushes as `renovate-bot`; find out why Gitea
-doesn't fire `push: tags` for them, fix it, and backfill the missing tags. fejkdata did this
-(`../fejkdata`, commits `51d924a` and `34c8234`), and two parts port directly: a one-line
-description riding the existing PATCH as its `description` field, and a unit test that the
-description opens a README sentence and every command the overview shows appears in the README.
-fejkdata also syncs the page on any push to `main`, with its own token in an environment only `main`
-may use; decide whether that fits here, where `{{VERSION}}` must render a released tag.
 
 ### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
 

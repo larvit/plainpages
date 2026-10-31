@@ -1591,10 +1591,11 @@ tags sync to [Docker Hub](https://hub.docker.com/r/larvit/plainpages), releases 
 The [contract check](#contract-versioning) guards the tag before anything is published, refusing one
 whose `major.minor` disagrees with `HOST_API_VERSION` and naming the value to set.
 
-**The Docker Hub overview** is published by a separate `publish-overview` job from
-[`release-tooling/dockerhub-overview.md.tmpl`](release-tooling/dockerhub-overview.md.tmpl), with
+**The Docker Hub overview** and short description are published by a separate `publish-overview`
+job from [`release-tooling/dockerhub-overview.md.tmpl`](release-tooling/dockerhub-overview.md.tmpl), with
 `{{VERSION}}` rendered to the release, so the Plainpages tag it tells adopters to pull cannot go
-stale. Its sidecar pins are Renovate-managed and gated against this repo's own compose files, so the
+stale. The description must open a sentence of this README, and every command the overview shows
+must appear here too. Its sidecar pins are Renovate-managed and gated against this repo's own compose files, so the
 quick start stays a topology CI has actually run.
 It is its own job for two reasons: the images are already pushed and irreversible by then, so a Hub
 outage leaves the promotion green and the images untouched; and the page has its own door — run the
@@ -1665,6 +1666,16 @@ the one-shot bootstrap) — and mounts no source. Secrets come from the environm
 `REQUIRE_SECURE_SECRETS=true`, so a missing or dev-throwaway `CSRF_SECRET` fails the boot rather than
 running insecure. Before going live, supply the production secrets and any SSO credentials — the
 **only** manual prep ([What you must supply](#what-you-must-supply-the-only-manual-prep)).
+
+**From the published image**, without a clone: save the `compose.yml` the
+[Docker Hub page](https://hub.docker.com/r/larvit/plainpages) shows, then extract the Ory config the
+image ships and start, with `X.Y.Z` the release you deploy:
+
+```bash
+docker run --rm larvit/plainpages:X.Y.Z tar -cf - ory | tar -xf -
+mkdir -p plugins
+docker compose up -d
+```
 
 **Back up the `pgdata` volume.** Once a plugin declares [storage](#plugin-storage), Postgres holds
 business data that exists nowhere else, alongside Ory's identities — the stack stops being

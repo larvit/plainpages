@@ -1,5 +1,5 @@
 // Publishes the Docker Hub repository overview from dockerhub-overview.md.tmpl, rendering
-// `{{VERSION}}` to the release being published.
+// `{{VERSION}}` to the release being published, and the short description.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -7,6 +7,8 @@ import { join } from "node:path";
 const HUB = "https://hub.docker.com/v2";
 const TIMEOUT_MS = 30_000;
 const VERSION = /^\d+\.\d+\.\d+$/;
+
+export const DESCRIPTION = "A self-hostable foundation for server-rendered web applications";
 
 export function renderOverview(source: string, version: string): string {
   return source.replaceAll("{{VERSION}}", version);
@@ -81,21 +83,21 @@ async function main(): Promise<number> {
   if (!jwt) return fail("Docker Hub login returned no token");
 
   const res = await post(`${HUB}/repositories/${repo}/`, {
-    body: JSON.stringify({ full_description: body }),
+    body: JSON.stringify({ description: DESCRIPTION, full_description: body }),
     headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
     method: "PATCH",
   });
   if ("error" in res) return fail(`Docker Hub unreachable: ${res.error}`);
   if (!res.ok) {
     return fail(
-      `Docker Hub overview PATCH failed: ${res.status} ${res.text}` +
+      `Docker Hub description and overview PATCH failed: ${res.status} ${res.text}` +
         (res.status === 403
           ? "\n403 means DOCKERHUB_TOKEN lacks the delete scope — editing the overview needs " +
             "read/write/delete, which pushing images alone does not (README -> CI/CD)."
           : ""),
     );
   }
-  process.stdout.write(`Docker Hub overview updated for ${repo} at ${version}\n`);
+  process.stdout.write(`Docker Hub description and overview updated for ${repo} at ${version}\n`);
   return 0;
 }
 

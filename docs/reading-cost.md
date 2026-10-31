@@ -192,3 +192,20 @@ Read most (opens and searches):
 - `ci.sh` 1
 - `examples/plugins/admin/admin-clients.test.ts` 1
 - `examples/plugins/admin/admin-grants.test.ts` 1
+
+## Reading cost, chunk 4a8c9037acde, finished 2026-10-31T10:07:56Z
+
+126616 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app-admin.test.ts` 7
+- `examples/plugins/admin/admin-groups.ts` 4
+- `README.md` 3
+- `todo.md` 3
+- `AGENTS.md` 2
+- `examples/plugins/admin/README.md` 2
+- `examples/plugins/admin/admin-grants.ts` 2
+- `examples/plugins/admin/i18n/en-US.ts` 2
+- `CHANGELOG.md` 1
+- `examples/plugins/admin/admin-groups.test.ts` 1
