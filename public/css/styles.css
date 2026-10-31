@@ -191,9 +191,9 @@ summary { list-style: none; cursor: pointer; }
      • CLICKABLE = label is <a href>      → navigates on click.
        STATIC    = label is <span>        → not a navigation target.
    So "header" and "clickable" are independent: any combination works.
-   Children sit in a sibling <ul class="nav-children">. Where :has() works, it
-   folds them unless THIS row's own <details open> (scoped with > so a node
-   only ever controls its own subtree — infinite depth, no JS); elsewhere
+   Children sit in a sibling <ul class="nav-children">. Where :has() works, a
+   branch is folded unless THIS row's own <details open> (scoped with > so a node
+   only ever controls its own subtree — infinite depth, no JS). Without :has()
    every branch stays open, since nothing could reopen one.
    ============================================================ */
 .nav-row { display: flex; align-items: center; gap: 2px; }
@@ -262,8 +262,7 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
   padding: 8px; display: flex; flex-direction: column; gap: 6px;
 }
 
-/* theme segmented control — every theme rule is a :has(), so without it the switch is inert */
-@supports not selector(:has(a)) { .theme-switch { display: none; } }
+/* theme segmented control */
 .theme-switch {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 2px; padding: 2px;
@@ -283,6 +282,13 @@ span.nav-self { cursor: default; }                 /* static / non-clickable */
 }
 .theme-switch label:has(input:focus-visible) {
   outline: 2px solid var(--focus); outline-offset: 1px;
+}
+
+/* Without :has() every branch is open and every theme rule is inert: neither control does anything.
+   After the base rules, since @supports adds no specificity. */
+@supports not selector(:has(a)) {
+  .nav-disc { visibility: hidden; }  /* keeps its width, so the labels stay aligned */
+  .theme-switch { display: none; }
 }
 
 .footer-actions { display: flex; align-items: center; gap: 4px; }

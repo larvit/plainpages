@@ -174,6 +174,45 @@ test("the public landing at / is ungated and links to sign in + register", async
   await shot(page, "live-05-public-landing");
 });
 
+// Measured on the rendered button, so a theme block that drops --on-accent fails here.
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`the primary button's text reaches 4.5:1 in ${colorScheme} mode`, async ({ page, context }) => {
+    await context.clearCookies();
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/");
+    const ratio = await page.locator(".landing .btn-primary").first().evaluate((el) => {
+      const luminance = (rgb: string): number => {
+        const [r = 0, g = 0, b = 0] = (rgb.match(/[\d.]+/g) ?? []).map((c) => {
+          const v = Number(c) / 255;
+          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const style = getComputedStyle(el);
+      const [hi = 0, lo = 0] = [luminance(style.color), luminance(style.backgroundColor)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+}
+
+test("a nav branch is folded until its toggle opens it — no JavaScript", async ({ page }) => {
+  await page.goto("/dashboard");
+  const child = page.locator('.sidebar a[href="/scheduling"]');
+  await expect(child).toBeHidden();
+  await page.locator('.sidebar summary[aria-label="Toggle Scheduling"]').click();
+  await expect(child).toBeVisible();
+});
+
+test("the reference plugin's lead text is inset by --pad-x, like the bars around it", async ({ page }) => {
+  await page.goto("/scheduling");
+  const [inset, padX] = await page.locator(".scheduling-page > p").evaluate((p) => [
+    p.getBoundingClientRect().left - (p.parentElement as HTMLElement).getBoundingClientRect().left,
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pad-x")),
+  ] as const);
+  expect(inset).toBe(padX);
+});
+
 test("unknown routes serve the 404 page (a real user-facing flow, covered end-to-end)", async ({ page }) => {
   allowConsole(/status of 404 .*\/no-such-page$/); // the navigation under test, which Chromium and WebKit log — not a sub-resource of it
   const res = await page.goto("/no-such-page");

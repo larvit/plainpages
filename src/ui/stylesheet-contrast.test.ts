@@ -36,8 +36,3 @@ for (const theme of ["l", "d"]) {
     assert.ok(contrast(token(`${theme}-on-accent`), token(`${theme}-accent`)) >= 4.5);
   });
 }
-
-test("the primary button and the current page button use --on-accent", () => {
-  assert.match(css, /\.btn-primary\s*\{[^}]*color:\s*var\(--on-accent\)/);
-  assert.match(css, /\.page-btn\[aria-current="page"\]\s*\{[^}]*color:\s*var\(--on-accent\)/);
-});

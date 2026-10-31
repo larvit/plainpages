@@ -4,7 +4,7 @@
 .scheduling-page .table-wrap {
   margin-top: var(--space-3, 0.75rem);
 }
-/* Inset the elements that sit directly in the pane like the filter bar, table and pager around them. */
+/* Inset what sits directly in the pane by --pad-x, as the filter bar, table and pager already are. */
 .scheduling-page > p,
 .scheduling-page > .alert,
 .scheduling-page > .btn {

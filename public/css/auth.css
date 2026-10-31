@@ -1,8 +1,3 @@
-/* =============================================================
-   Auth flow — login / register / forgot password
-   Built on the shared tokens in styles.css. Pure HTML/CSS.
-   ============================================================= */
-
 .auth-stage {
   min-height: 100dvh;
   display: grid; place-items: center;
@@ -126,7 +121,6 @@
 .auth-aside a { color: var(--accent); }
 .auth-aside a:hover { text-decoration: underline; }
 
-/* field-level error, shown under a field the server marked .has-error */
 .field-error {
   display: none; align-items: center; gap: 6px; margin: 0;
   font-size: var(--fz-xs); color: var(--neg);

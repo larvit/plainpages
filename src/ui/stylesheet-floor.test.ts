@@ -16,17 +16,30 @@ for (const file of readdirSync(cssDir).filter((f) => f.endsWith(".css"))) {
 
 const stylesheet = readFileSync(join(cssDir, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
-// Below Chromium 105 nothing but `:has()` reveals a folded branch, so the fold may only exist where
-// the engine can undo it.
-test("styles.css hides .nav-children only inside @supports selector(:has(a))", () => {
-  const guard = stylesheet.indexOf("@supports selector(:has(a))");
-  assert.ok(guard >= 0, "no @supports selector(:has(a)) guard");
-  const hide = /\.nav-node\s*>\s*\.nav-children\s*\{\s*display:\s*none/.exec(stylesheet);
-  assert.ok(hide && hide.index > guard, "the fold rule is missing or precedes the guard");
-  const between = stylesheet.slice(guard, hide.index);
-  assert.equal(between.split("{").length - between.split("}").length, 1, "the guard closes before the fold rule");
+// The text is all there is to check: Playwright's engines all support `:has()`, so no E2E sees the
+// stylesheet an older engine gets.
+// Chromium below 105 and Firefox below 121 have no `:has()`, and nothing else reveals a folded
+// branch there, so the fold may only exist where `:has()` works.
+test("styles.css folds .nav-children only inside @supports selector(:has(a))", () => {
+  const open = stylesheet.indexOf("@supports selector(:has(a)) {");
+  assert.ok(open >= 0, "no @supports selector(:has(a)) block");
+  let depth = 0;
+  let close = open;
+  for (; close < stylesheet.length; close++) {
+    if (stylesheet[close] === "{") depth++;
+    if (stylesheet[close] === "}" && --depth === 0) break;
+  }
+  const outside = stylesheet.slice(0, open) + stylesheet.slice(close + 1);
+  assert.ok(!/\.nav-children\s*\{[^}]*display:\s*none/.test(outside), "a .nav-children rule hides it outside the guard");
+  assert.match(stylesheet.slice(open, close), /\.nav-children\s*\{\s*display:\s*none/, "the fold rule is gone");
 });
 
-test("styles.css hides the theme switch where :has() is missing", () => {
-  assert.match(stylesheet, /@supports not selector\(:has\(a\)\)\s*\{\s*\.theme-switch\s*\{\s*display:\s*none/);
+// `@supports` adds no specificity, so the hiding rule has to come after the base `.theme-switch` rule.
+test("styles.css hides the theme switch and the nav toggles where :has() is missing, after their base rules", () => {
+  const guard = stylesheet.indexOf("@supports not selector(:has(a)) {");
+  assert.ok(guard >= 0, "no @supports not selector(:has(a)) block");
+  assert.ok(guard > stylesheet.lastIndexOf(".theme-switch {", guard), "the guard precedes the base .theme-switch rule");
+  const block = stylesheet.slice(guard, stylesheet.indexOf("\n}", guard));
+  assert.match(block, /\.theme-switch\s*\{\s*display:\s*none/);
+  assert.match(block, /\.nav-disc\s*\{\s*visibility:\s*hidden/);
 });
