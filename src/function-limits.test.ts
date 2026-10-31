@@ -115,6 +115,7 @@ test("measure counts lines and complexity as ESLint does", () => {
     "  switch (a) { case 1: break; default: }",
     "  a ||= 2; a &&= 3; a ??= 4;",
     "  b?.();",
+    "  y.map(() => {});",
     "  const inner = () => (a ? 1 : 2);",
     "  const o = { prop() {}, key: function () {} };",
     "  (function () { if (a) {} })();",
@@ -122,7 +123,8 @@ test("measure counts lines and complexity as ESLint does", () => {
     "class K { method() {} }",
   ].join("\n");
   assert.deepEqual(measure(source), [
-    { name: "outer", lines: 15, complexity: 16 },
+    { name: "outer", lines: 16, complexity: 16 },
+    { name: "outer > anonymous", lines: 1, complexity: 1 },
     { name: "outer > inner", lines: 1, complexity: 2 },
     { name: "outer > prop", lines: 1, complexity: 1 },
     { name: "outer > key", lines: 1, complexity: 1 },
