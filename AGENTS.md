@@ -434,11 +434,11 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   Don't funnel many routes into one dispatcher that re-parses `ctx.url.pathname`: it duplicates the
   URL shape, ignores the router's params, and has to re-handle HEAD. Factor shared per-request setup
   into a small `withX` wrapper — see `examples/plugins/admin/`.
-- **`handleRequest` (`src/http/app.ts`) is a known complexity hotspot** — ~160 lines tracking
-  canonical host, static, locale, session + re-mint, CSRF, chrome, hooks, plugin routing, builtin
-  routing, 405/404 and error mapping. The pure parts are already extracted and separately tested;
-  what remains is orchestration. Planned split along those seams; don't grow it further without
-  taking one out.
+- **A function stays within 50 lines and complexity 20** (ESLint's defaults, measured by
+  `src/function-limits.test.ts`). Split one that outgrows them; never add it to the grandfathered
+  list or raise its ceiling there. The largest entry, `handleRequest`, is orchestration whose pure
+  parts are already extracted; it splits along the seams it tracks (canonical host, static, locale,
+  session, CSRF, hooks, routing, error mapping).
 - Reviews are maintainer-triggered (e.g. via the larv-review skill) — never auto-run reviewer agents.
 - **A user-visible string belongs in a catalog, not in the code or a view.** Core strings go in
   `src/i18n/locales/en-US.ts` (then every other locale, or the boot fails); a plugin's go in its own
