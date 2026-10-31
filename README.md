@@ -1493,6 +1493,7 @@ Type check and unit tests run off the Ory stack — `--no-deps` keeps `web` from
 ```bash
 docker compose run --rm --no-deps web npm run typecheck   # strict tsc --noEmit
 docker compose run --rm --no-deps web npm test            # node --test (units)
+docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --user "$(id -u):$(id -g)" --rm --no-deps --build e2e npm run typecheck   # the E2E specs
 ```
 
 ### End-to-end (Playwright)
@@ -1502,7 +1503,7 @@ no Node/browsers on the host. Five suites, each on its own stack:
 
 | Suite | Compose overlay | Covers |
 | --- | --- | --- |
-| `visual.spec.ts` + `language.spec.ts` | `e2e-tests/compose.visual.yml` | Ory-free: the rendered design system (app shell at five widths from 1920px to 320px, theme switch, mobile off-canvas, icon sprite, CSRF-guarded sign-out, landing, 404), plugin permission-gating, and [language switching](#languages-i18n) |
+| `visual.spec.ts` + `language.spec.ts` | `e2e-tests/compose.visual.yml` | Ory-free: the rendered design system (app shell, theme switch, mobile off-canvas, icon sprite, CSRF-guarded sign-out, landing, 404), plugin permission-gating, and [language switching](#languages-i18n) |
 | `auth-refresh.spec.ts` | `e2e-tests/compose.auth.yml` | The real Ory stack with the session→JWT TTL cut to 8s: a lapsed JWT is silently re-minted from the live Kratos session, and once revoked the stale cookie is cleared |
 | `oauth-login.spec.ts` | `e2e-tests/compose.oauth.yml` | Another app logging in through us — register a client, start an authorization flow, `/oauth2/login` accept, `/oauth2/consent` Allow → authorization code |
 | `full-flow.spec.ts` | `e2e-tests/compose.full.yml` | The browser UI: password + mocked-SSO login, menu filtering by permission, admin users/groups/permissions CRUD, OAuth2-clients register → one-time secret → delete, a gated plugin page, logout |

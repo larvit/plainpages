@@ -358,6 +358,7 @@ Docker Compose. **Never run `node`, `npm`, or `tsc` on the host.**
 ```bash
 docker compose up                                       # dev server, live reload
 docker compose run --rm --no-deps web npm run typecheck  # strict type check (--no-deps: skip Ory)
+docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --user "$(id -u):$(id -g)" --rm --no-deps --build e2e npm run typecheck  # the E2E specs
 docker compose run --rm --no-deps web npm test           # tests
 docker compose -f compose.yml up --build -d              # production
 ```
@@ -391,7 +392,7 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   If a file genuinely must be plain JavaScript, use `.js`; `"type": "module"` is set in both
   `package.json`s, so `.js` is ESM.
 - **No build step** and no compiled artifacts — do not add a bundler or `tsc` emit.
-- Before finishing a change, run the typecheck and tests above; both must pass.
+- Before finishing a change, run the typechecks and tests above; all must pass.
 - Tests use the built-in `node --test` runner — no test framework dependency.
 - English everywhere.
 - Pin all dependencies and Docker images to exact, human-readable **semantic versions** — never

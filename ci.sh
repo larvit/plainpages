@@ -53,8 +53,8 @@ docker compose build web
 step "Typecheck"
 docker compose run --rm --no-deps web npm run typecheck
 
-# The specs import @playwright/test, which only the runner image carries, so the host's tsc can't
-# resolve them: typecheck them in that image. --no-deps skips web and Ory; any suite's file builds it.
+# The specs import @playwright/test, which only the runner image installs, so they typecheck there
+# rather than in the web image. --no-deps skips web; the visual file just names the e2e service.
 step "Typecheck e2e-tests"
 docker compose -f compose.yml -f e2e-tests/compose.visual.yml run --user "$(id -u):$(id -g)" --rm --no-deps --build e2e npm run typecheck
 

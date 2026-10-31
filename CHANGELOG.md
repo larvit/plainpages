@@ -8,8 +8,9 @@ at boot. Entries start at 0.3.0.
 
 ### Every page carries a smaller icon sprite
 
-The inlined sprite no longer holds `i-chart`, `i-copy` and `i-download`, which nothing in the host or
-the example plugins referenced. A plugin that referenced one renders a blank icon until the host registers it again.
+`i-chart`, `i-copy` and `i-download` are gone from the inlined icon sprite, so a plugin that
+referenced one now renders a blank icon. Nothing in the host or the example plugins used them. Pick
+another id from `views/partials/icons.ejs`, or inline your own SVG.
 
 ### The README defines its terms and states its intended scale
 

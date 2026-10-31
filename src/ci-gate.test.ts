@@ -29,7 +29,7 @@ test("the commit-hash image is pushed even when the gate no-ops", () => {
 	assert.doesNotMatch(step("docker push"), /^\s*if:/m);
 });
 
-test("every E2E suite the gate runs writes its artifacts as the invoking user", () => {
+test("every E2E runner container the gate starts runs as the invoking user", () => {
 	// The documented hand-run commands carry the same flag (src/compose.test.ts).
 	const runs = gate.split("\n").filter((l) => /docker compose .*\brun\b.*\be2e\b/.test(l));
 	assert.equal(runs.length, 3, "the e2e-tests typecheck, the suite helper and the devstack run");

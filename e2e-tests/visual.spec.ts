@@ -10,7 +10,7 @@ const SESSION_COOKIE = "plainpages_jwt"; // src/auth/login.ts — web verifies i
 const shot = (page: Page, name: string): Promise<Buffer> =>
   page.screenshot({ fullPage: true, path: `artifacts/screenshots/${test.info().project.name}/${name}.png` });
 
-// Large desktop down to a small phone, either side of the stylesheet's 860px and 560px breakpoints.
+// Either side of the stylesheet's 860px and 560px breakpoints.
 const VIEWPORTS = [
   { name: "desktop-xl", width: 1920, height: 1080 },
   { name: "laptop", width: 1280, height: 800 },
