@@ -13,7 +13,6 @@
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 21 | 0.4.21 |  |  | **Fail the gate on a function that exceeds a size or complexity limit.** | 3 | 1 | 1 | 3 | 5 | code health by 4 | 7.2 |
-| 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 3 | 1 | 1 | 3 | 4 | code health by 2 | 6.0 |
 | 20 | 0.4.21 |  |  | **Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 4 | 0.4.21 |  |  | **Refuse a permission save whose baseline no longer matches Keto, so concurrent edits are not silently lost.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
 | 7 | 0.4.21 |  |  | **Confirm a successful permission save, and report a partial failure instead of hiding it.** | 2 | 2 | 2 | 4 | 4 | 2 by 4 | 2.8 |
@@ -21,6 +20,7 @@
 | 34 | 0.4.21 |  |  | **Serve every stylesheet and script under a content-versioned URL with a year-long immutable `Cache-Control`, so a page view downloads none of them again.** | 4 | 2 | 3 | 7 | 6 | 8 by 6, 2 by 2 | 1.8 |
 | 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
+| 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 4 | 2 | 2 | 6 | 7 | code health by 2 | 1.1 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
 | 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
@@ -36,12 +36,6 @@
 ### 21. Fail the gate on a function that exceeds a size or complexity limit.
 
 Only `tsc --strict` runs today. A new tool is a new dependency, so justify it.
-
-### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
-
-Nothing checks README → "Two browser floors", and no E2E engine is old enough to show a break.
-Lint every stylesheet, the examples' included, against Chromium 87, Safari 15 and Firefox 115, and
-allow a feature only inside an `@supports` that guards it.
 
 ### 20. Redirect an anonymous hit on a session-needing flow page to sign-in, instead of a 500.
 
@@ -113,6 +107,12 @@ description riding the existing PATCH as its `description` field, and a unit tes
 description opens a README sentence and every command the overview shows appears in the README.
 fejkdata also syncs the page on any push to `main`, with its own token in an environment only `main`
 may use; decide whether that fits here, where `{{VERSION}}` must render a released tag.
+
+### 32. Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.
+
+Nothing checks README → "Two browser floors", and no E2E engine is old enough to show a break.
+Lint every stylesheet, the examples' included, against Chromium 87, Safari 15 and Firefox 115, and
+allow a feature only inside an `@supports` that guards it.
 
 ### 13. Accept a verification code pasted with surrounding whitespace.
 
