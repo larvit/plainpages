@@ -47,3 +47,15 @@ Read most (opens and searches):
 - `examples/plugins/scheduling/views/overview.ejs` 1
 - `examples/plugins/scheduling/views/shifts.ejs` 1
 - `src/http/app.test.ts` 1
+
+## Reading cost, chunk 91d11dbe63f9, finished 2026-10-31T01:13:44Z
+
+69010 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 7
+- `README.md` 4
+- `public/css/styles.css` 4
+- `CHANGELOG.md` 1
+- `src/ui/stylesheet-floor.test.ts` 1
