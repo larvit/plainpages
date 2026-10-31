@@ -1,19 +1,17 @@
-// Fails the gate on a function over ESLint's default limits, measured as ESLint measures them:
-// `max-lines-per-function` (50 lines, blanks and comments included, IIFEs skipped) and `complexity`
-// (20). acorn parses what Node's own type stripping leaves, which is the code Node runs. Not ESLint
-// itself: parsing TypeScript takes typescript-eslint, which needs the compiler API TypeScript 7 no
-// longer ships. acorn has no dependencies.
+// The limits and the counting are ESLint's defaults: `max-lines-per-function` (blank lines and
+// comments count, an IIFE is not held to it) and `complexity`. Not ESLint itself: parsing TypeScript
+// takes typescript-eslint, which needs the compiler API TypeScript 7 no longer ships. So acorn parses
+// what Node's own type stripping leaves, which is the code Node runs.
 import assert from "node:assert/strict";
 import { globSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
 import { parse } from "acorn";
 
-const MAX_LINES = 50;
-const MAX_COMPLEXITY = 20;
+const LIMITS = { lines: 50, complexity: 20 };
 
-// Each function over a limit when the gate began, at its size then. It may shrink but never grow,
-// and a metric leaves its entry once it fits.
+// Each function over a limit, at its measurement. A ceiling follows its function down, and a metric
+// leaves the entry once it fits, so a function that shrank can't grow back.
 const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
   "src/http/app.ts createApp": { lines: 318, complexity: 28 },
   "src/http/app.ts createApp > handleRequest": { lines: 168, complexity: 43 },
@@ -67,8 +65,8 @@ function nameOf(fn: AstNode, parent: AstNode | undefined): string {
 }
 
 // A function is named by the path of names from the outermost one, e.g. `createApp > handleRequest`,
-// so an entry above survives edits that move it.
-export function measure(source: string): Measured[] {
+// so an entry above doesn't depend on line numbers.
+function measure(source: string): Measured[] {
   const found: Measured[] = [];
   const visit = (node: AstNode, parent: AstNode | undefined, enclosing: Measured | undefined): void => {
     let current = enclosing;
@@ -92,48 +90,68 @@ export function measure(source: string): Measured[] {
 }
 
 const root = new URL("..", import.meta.url);
-// The drop-in mounts hold an operator's code, not this repo's; tests read top to bottom as a script.
+// The drop-in mounts hold an operator's code, not this repo's. Tests are left out: each is a flat
+// script, and a `describe` block wraps many of them.
 const files = globSync("**/*.ts", {
   cwd: root,
   exclude: ["**/node_modules/**", "plugins/**", "config/**", "locales/**", "**/*.d.ts", "**/*.test.ts", "**/*.spec.ts"],
 });
-const measured = new Map<string, Measured>(
-  files.flatMap((file) => measure(readFileSync(new URL(file, root), "utf8")).map((m) => [`${file} ${m.name}`, m] as const)),
+// A list, not a map: two unnamed siblings share a key, and each must be checked.
+const measured = files.flatMap((file) =>
+  measure(readFileSync(new URL(file, root), "utf8")).map((m) => ({ ...m, key: `${file} ${m.name}` })),
 );
+const METRICS = ["lines", "complexity"] as const;
 
 test("measure counts lines and complexity as ESLint does", () => {
   const source = [
     "function outer(a = 1): void {",
     "  if (a && b?.c) {}",
+    "  for (const x of y) {}",
+    "  for (const k in y) {}",
+    "  for (;;) break;",
+    "  while (a) a--;",
+    "  do {} while (a);",
+    "  try {} catch {}",
+    "  switch (a) { case 1: break; default: }",
+    "  a ||= 2; a &&= 3; a ??= 4;",
+    "  b?.();",
     "  const inner = () => (a ? 1 : 2);",
+    "  const o = { prop() {}, key: function () {} };",
     "  (function () { if (a) {} })();",
     "}",
+    "class K { method() {} }",
   ].join("\n");
   assert.deepEqual(measure(source), [
-    { name: "outer", lines: 5, complexity: 5 },
+    { name: "outer", lines: 15, complexity: 16 },
     { name: "outer > inner", lines: 1, complexity: 2 },
+    { name: "outer > prop", lines: 1, complexity: 1 },
+    { name: "outer > key", lines: 1, complexity: 1 },
     { name: "outer > anonymous", lines: 0, complexity: 2 },
+    { name: "method", lines: 1, complexity: 1 },
   ]);
 });
 
-test(`every function fits ${MAX_LINES} lines and complexity ${MAX_COMPLEXITY}, or its grandfathered ceiling`, () => {
-  assert.ok(files.length > 50, "scans the repo's TypeScript");
-  const over = [...measured].flatMap(([key, m]) => {
-    const ceiling = grandfathered[key] ?? {};
-    const lines = m.lines > (ceiling.lines ?? MAX_LINES) ? [`${key}: ${m.lines} lines`] : [];
-    const complexity = m.complexity > (ceiling.complexity ?? MAX_COMPLEXITY) ? [`${key}: complexity ${m.complexity}`] : [];
-    return [...lines, ...complexity];
-  });
+test(`every function fits ${LIMITS.lines} lines and complexity ${LIMITS.complexity}, or its grandfathered ceiling`, () => {
+  assert.ok(files.length > 50, "found too few files: is the glob broken?");
+  const over = measured.flatMap((m) =>
+    METRICS.filter((metric) => m[metric] > (grandfathered[m.key]?.[metric] ?? LIMITS[metric])).map(
+      (metric) => `${m.key}: ${metric} ${m[metric]}`,
+    ),
+  );
   assert.deepEqual(over, [], "split the function; never raise a ceiling");
 });
 
-test("every grandfathered metric is still over its limit", () => {
-  const fits = Object.entries(grandfathered).flatMap(([key, ceiling]) => {
-    const m = measured.get(key);
-    if (!m) return [`${key}: gone`];
-    const lines = ceiling.lines !== undefined && m.lines <= MAX_LINES ? [`${key}: lines fit`] : [];
-    const complexity = ceiling.complexity !== undefined && m.complexity <= MAX_COMPLEXITY ? [`${key}: complexity fits`] : [];
-    return [...lines, ...complexity];
+test("every grandfathered ceiling equals its function's measurement, which is over the limit", () => {
+  const stale = Object.entries(grandfathered).flatMap(([key, ceiling]) => {
+    const found = measured.filter((m) => m.key === key);
+    if (found.length === 0) return [`${key}: no such function; rename the entry if it moved, else delete it`];
+    return METRICS.flatMap((metric) => {
+      const allowed = ceiling[metric];
+      if (allowed === undefined) return [];
+      const now = Math.max(...found.map((m) => m[metric]));
+      if (now <= LIMITS[metric]) return [`${key}: ${metric} ${now} fits; delete it`];
+      return now < allowed ? [`${key}: ${metric} ${now}; lower the ceiling to it`] : [];
+    });
   });
-  assert.deepEqual(fits, [], "delete what fits from the grandfathered list");
+  assert.deepEqual(stale, []);
 });
