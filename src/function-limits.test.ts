@@ -15,8 +15,6 @@ const LIMITS = { lines: 50, complexity: 20 };
 const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
   "src/http/app.ts createApp": { lines: 318, complexity: 28 },
   "src/http/app.ts createApp > handleRequest": { lines: 168, complexity: 43 },
-  "src/auth/routes.ts flowPage": { lines: 64 },
-  "src/auth/routes.ts flowPage > anonymous": { lines: 62, complexity: 23 },
   "src/auth/flow-view.ts buildFlowView": { complexity: 24 },
   "src/auth/hydra-admin.ts createHydraAdmin": { lines: 87 },
   "src/auth/kratos-admin.ts createKratosAdmin": { lines: 68 },

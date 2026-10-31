@@ -240,6 +240,19 @@ test("return_to: a deep link while logged out returns to that page after login",
   await expect(page.locator("h1")).toHaveText("Users");
 });
 
+test("settings: an anonymous visit signs in first, then lands on the settings page", async ({ page }) => {
+  test.setTimeout(90_000);
+  // /settings is public (recovery lands there with a Kratos session but no app JWT), so Kratos' 401
+  // for an anonymous settings flow must send the visitor to sign in, not to the 500 page.
+  await page.goto("/settings");
+  await expect(page).toHaveURL(/\/login(\?|$)/);
+  await page.fill('input[name="identifier"]', ADMIN_EMAIL);
+  await page.fill('input[name="password"]', ADMIN_PASSWORD);
+  await page.locator('.auth-form button[type="submit"]').click();
+  await expect(page).toHaveURL(/\/settings(\?|$)/);
+  await expect(page.locator("h1")).toHaveText("Account settings");
+});
+
 test("mocked SSO login: the provider button signs a user in via OIDC", async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/login");

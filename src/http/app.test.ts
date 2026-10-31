@@ -792,6 +792,24 @@ test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via 
   assert.equal((await fetch(url2 + "/login", { redirect: "manual" })).status, 500);
 });
 
+test("themed auth GET: an anonymous hit on /settings (Kratos 401) bounces to sign-in with the page as return_to, never 500", async (t) => {
+  // /settings stays public (recovery lands there with a Kratos session but no app JWT), so Kratos' 401
+  // for a settings flow with no session is the signal to sign in. /login itself must not redirect to
+  // itself, so a 401 there stays the catch-all 500.
+  const unauthorized = new KratosError("Kratos init settings flow failed (401)", 401, "");
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => { throw unauthorized; }), initBrowserFlow: async () => { throw unauthorized; } } });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  const init = await fetch(url + "/settings", { redirect: "manual" });
+  assert.equal(init.status, 303);
+  assert.equal(init.headers.get("location"), "/login?return_to=%2Fsettings");
+  const existing = await fetch(url + "/settings?flow=f1", { redirect: "manual" });
+  assert.equal(existing.headers.get("location"), "/login?return_to=%2Fsettings");
+  assert.equal((await fetch(url + "/login", { redirect: "manual" })).status, 500);
+});
+
 // return_to: a deep-link login lands back on the requested page. The gate redirects to
 // /login?return_to=<host-relative path>; /login bakes that into the Kratos flow so completion
 // returns there — but a first-party path must route via /auth/complete first (to mint the JWT).

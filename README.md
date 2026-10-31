@@ -1506,7 +1506,7 @@ no Node/browsers on the host. Five suites, each on its own stack:
 | `visual.spec.ts` + `language.spec.ts` | `e2e-tests/compose.visual.yml` | Ory-free: the rendered design system (app shell, theme switch, mobile off-canvas, icon sprite, CSRF-guarded sign-out, landing, 404), plugin permission-gating, and [language switching](#languages-i18n) |
 | `auth-refresh.spec.ts` | `e2e-tests/compose.auth.yml` | The real Ory stack with the session→JWT TTL cut to 8s: a lapsed JWT is silently re-minted from the live Kratos session, and once revoked the stale cookie is cleared |
 | `oauth-login.spec.ts` | `e2e-tests/compose.oauth.yml` | Another app logging in through us — register a client, start an authorization flow, `/oauth2/login` accept, `/oauth2/consent` Allow → authorization code |
-| `full-flow.spec.ts` | `e2e-tests/compose.full.yml` | The browser UI: password + mocked-SSO login, menu filtering by permission, admin users/groups/permissions CRUD, OAuth2-clients register → one-time secret → delete, a gated plugin page, logout |
+| `full-flow.spec.ts` | `e2e-tests/compose.full.yml` | The browser UI: password + mocked-SSO login, menu filtering by permission, admin users/groups/permissions CRUD, OAuth2-clients register → one-time secret → delete, a gated plugin page, an anonymous `/settings` visit signing in first, logout |
 | `devstack-login.spec.ts` | `compose.override.yml` + `e2e-tests/compose.devstack.yml` | The plain `docker compose up` topology on the **host network**: sign-in works both from the banner's `localhost:3000` and from `127.0.0.1:3000` via the [canonical-host redirect](#canonical-host-one-public-url) |
 
 ```bash

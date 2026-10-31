@@ -38,11 +38,56 @@ const FORBIDDEN: RouteResult = { status: 403, view: "403" };
 const selfOrigin = (ctx: RequestContext, secure: boolean): string =>
   `${secure ? "https" : "http"}://${ctx.req.headers.host ?? "127.0.0.1:3000"}`;
 
+// Where Kratos lands the browser after a freshly initialised flow, or undefined for its default
+// completion route. A first-party deep link (host-relative, from the gate's return_to) is wrapped
+// through /auth/complete so the session JWT is minted before the user reaches the page; an absolute
+// target (the OAuth2 login challenge) is passed as-is — Kratos allow-lists it. localPath rejects an
+// off-origin "//evil.com". The target is the host's, not Kratos', so the language the visitor picked
+// on the sign-in page survives the round-trip and lands on the page after it; without this the
+// most-travelled path in the product (pick Swedish → sign in) drops back to Accept-Language.
+function flowReturnTo(ctx: RequestContext, secureCookies: boolean): string | undefined {
+  const raw = ctx.url.searchParams.get("return_to");
+  const local = localPath(raw);
+  const chosen = chosenLocale(ctx);
+  if (!local && !chosen) return raw ?? undefined;
+  const complete = new URL(`${selfOrigin(ctx, secureCookies)}/auth/complete`);
+  if (local) complete.searchParams.set("return_to", ctx.localeHref(local));
+  if (chosen) complete.searchParams.set("locale", chosen);
+  return complete.toString();
+}
+
+// What a failed Kratos call renders instead of the flow; rethrows what is genuinely unexpected.
+function flowFailure(err: unknown, ctx: RequestContext, flowType: FlowType): RouteResult {
+  const pathname = ctx.url.pathname;
+  // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
+  if (err instanceof KratosError && [403, 404, 410].includes(err.status)) return { redirect: pathname };
+  // No Kratos session on a page that needs one (/settings is public, so the gate never sent them
+  // to sign in): sign in, then come back. Not for /login itself, which would redirect to itself.
+  if (err instanceof KratosError && err.status === 401 && flowType !== "login") {
+    return { redirect: `/login?return_to=${encodeURIComponent(pathname)}` };
+  }
+  // Already authenticated at Kratos but no app JWT yet (e.g. straight after registration, whose
+  // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.user
+  // is null and the "already signed in" short-circuit can't fire). Initialising a login/
+  // registration flow then returns Kratos 400 `session_already_available`. Recover by completing
+  // login (mint the JWT from the live session), honouring return_to — never a 500.
+  if (err instanceof KratosError && err.status === 400 && err.body.includes("session_already_available")) {
+    const local = localPath(ctx.url.searchParams.get("return_to"));
+    return { redirect: local ? `/auth/complete?return_to=${encodeURIComponent(local)}` : "/auth/complete" };
+  }
+  // Ory unreachable (Kratos 5xx / connection refused / timeout): "Ory down ⇒ no logins" is
+  // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
+  if (!(err instanceof KratosError) || err.status >= 500) {
+    ctx.log.warn("auth flow failed (Ory unreachable?)", { error: String(err), path: pathname });
+    return { status: 503, view: "503" };
+  }
+  throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
+}
+
 // Themed Kratos self-service page (one route per AUTH_FLOWS entry: login/registration/recovery/
 // verification/settings).
 function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boolean): BuiltinRoute["handler"] {
   return async (ctx: RequestContext, csrf: RequestCsrf): Promise<RouteResult> => {
-    const pathname = ctx.url.pathname;
     // Already signed in? Re-authenticating / re-registering is pointless — send them to the app
     // dashboard. (/settings, /recovery, /verification stay reachable — a signed-in user can use those.)
     if (ctx.user && (flowType === "login" || flowType === "registration")) return { redirect: "/dashboard" };
@@ -54,49 +99,14 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
     try {
       if (!flowId) {
         // No flow yet: init one server-side, relay Kratos' CSRF cookie, bounce to ?flow=<id>.
-        // A `return_to` is baked into the flow so Kratos lands there after login instead of the
-        // default completion route. A first-party deep link (host-relative, from the gate's
-        // return_to) is wrapped through /auth/complete so the session JWT is minted before the
-        // user reaches the page; an absolute target (the OAuth2 login challenge) is passed
-        // as-is — Kratos allow-lists it. localPath rejects an off-origin "//evil.com".
-        const raw = ctx.url.searchParams.get("return_to");
-        const local = localPath(raw);
-        const chosen = chosenLocale(ctx);
-        let returnTo: string | undefined;
-        if (local || chosen) {
-          // The flow's return target is the host's, not Kratos' — so the language the visitor picked
-          // on the sign-in page survives the round-trip through Kratos and lands on the page after
-          // it. Without this the most-travelled path in the product (pick Swedish → sign in) drops
-          // straight back to Accept-Language.
-          const complete = new URL(`${selfOrigin(ctx, secureCookies)}/auth/complete`);
-          if (local) complete.searchParams.set("return_to", ctx.localeHref(local));
-          if (chosen) complete.searchParams.set("locale", chosen);
-          returnTo = complete.toString();
-        } else if (raw) returnTo = raw;
+        const returnTo = flowReturnTo(ctx, secureCookies);
         const { flow: initiated, setCookie } = await kratos.initBrowserFlow(flowType, { ...(cookie ? { cookie } : {}), ...(returnTo ? { returnTo } : {}) });
         if (setCookie.length) ctx.res.appendHeader("set-cookie", setCookie);
-        return { redirect: `${pathname}?flow=${initiated.id}` };
+        return { redirect: `${ctx.url.pathname}?flow=${initiated.id}` };
       }
       flow = await kratos.getFlow(flowType, flowId, cookie ? { cookie } : {});
     } catch (err) {
-      // Expired/unknown flow → restart by re-initialising (drop the stale ?flow=).
-      if (err instanceof KratosError && [403, 404, 410].includes(err.status)) return { redirect: pathname };
-      // Already authenticated at Kratos but no app JWT yet (e.g. straight after registration, whose
-      // `session` hook signs the user in but routes to verification, not /auth/complete — so ctx.user
-      // is null and the "already signed in" short-circuit above can't fire). Initialising a login/
-      // registration flow then returns Kratos 400 `session_already_available`. Recover by completing
-      // login (mint the JWT from the live session), honouring return_to — never a 500.
-      if (err instanceof KratosError && err.status === 400 && err.body.includes("session_already_available")) {
-        const local = localPath(ctx.url.searchParams.get("return_to"));
-        return { redirect: local ? `/auth/complete?return_to=${encodeURIComponent(local)}` : "/auth/complete" };
-      }
-      // Ory unreachable (Kratos 5xx / connection refused / timeout): "Ory down ⇒ no logins" is
-      // documented, so render an honest 503 rather than the catch-all "error on our end" 500.
-      if (!(err instanceof KratosError) || err.status >= 500) {
-        ctx.log.warn("auth flow failed (Ory unreachable?)", { error: String(err), path: pathname });
-        return { status: 503, view: "503" };
-      }
-      throw err; // any other Kratos 4xx → the catch-all (genuinely unexpected)
+      return flowFailure(err, ctx, flowType);
     }
     // Rendered inside the unified app shell, so set a fresh CSRF cookie when minted — the
     // shell's Sign-out form (shown on /settings, where the user is signed in) needs the token.

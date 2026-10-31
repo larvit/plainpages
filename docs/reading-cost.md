@@ -105,3 +105,20 @@ Read most (opens and searches):
 - `src/ui/chrome.ts` 1
 - `views/index.ejs` 1
 - `views/partials/shell.ejs` 1
+
+## Reading cost, chunk e4d3bb0ac092, finished 2026-10-31T08:02:27Z
+
+154733 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 10
+- `README.md` 6
+- `package.json` 3
+- `.gitignore` 1
+- `.npmrc` 1
+- `AGENTS.md` 1
+- `ci.sh` 1
+- `public/css/styles.css` 1
+- `renovate.json` 1
+- `src/e2e-console-guard.test.ts` 1
