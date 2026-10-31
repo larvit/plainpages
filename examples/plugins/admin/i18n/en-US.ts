@@ -53,9 +53,12 @@ const messages = {
   "admin.grants.inherited": "Greyed-out permissions come from a group. Change them on that group.",
   "admin.grants.legend": "Permissions",
   "admin.grants.none": "No installed plugin declares a permission, so there is nothing to grant.",
+  "admin.grants.partial": "Saving stopped part-way because the permission service failed, so only some changes were applied. The list shows what is stored now. Save again to finish.",
   "admin.grants.pending": "Members get this at their next sign-in (up to 10 minutes).",
   "admin.grants.save": "Save permissions",
+  "admin.grants.saved": "Permissions saved.",
   "admin.grants.selfRevoke": "You can't revoke your own permissions — ask another administrator, so you can't lock yourself out.",
+  "admin.grants.stale": "These permissions changed while you had the page open, so nothing was saved. The list now shows the current state. Review it and save again.",
 
   "admin.groups.actions": "Group actions",
   "admin.groups.addMember": "Add a member",

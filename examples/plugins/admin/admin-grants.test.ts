@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PermissionDecl } from "@plainpages/plugin-api";
-import { buildPermissionPicker, grantDiff, grantTuple, groupSubject, userSubject } from "./admin-grants.ts";
+import type { KetoClient } from "@plainpages/plugin-api";
+import { applyGrants, baselineToken, buildPermissionPicker, grantDiff, grantTuple, groupSubject, userSubject } from "./admin-grants.ts";
 
 const declared: PermissionDecl[] = [
   { description: "View users", name: "users:read" },
@@ -80,4 +81,38 @@ test("buildPermissionPicker says so when no plugin declares a permission, rather
   const picker = buildPermissionPicker({ action: "/x", declared: [], direct: [] });
   assert.deepEqual(picker.choices, []);
   assert.ok(picker.empty);
+});
+
+// The concurrency token of the permission form: equal exactly when the direct grants it offered are.
+test("baselineToken depends on the offered grants held, not on their order or on undeclared ones", () => {
+  const token = baselineToken(declared, ["users:read", "users:write"]);
+  assert.match(token, /^[0-9a-f]+$/);
+  assert.equal(baselineToken(declared, ["users:write", "users:read"]), token);
+  assert.equal(baselineToken(declared, ["users:read", "users:write", "legacy:thing"]), token); // undeclared: never shown, never saved
+  assert.notEqual(baselineToken(declared, ["users:read"]), token);
+  assert.notEqual(baselineToken(declared, []), token);
+  assert.notEqual(baselineToken(declared, []), ""); // an empty set is a state too, not an absent token
+  assert.equal(buildPermissionPicker({ action: "/x", declared, direct: ["users:read", "users:write"] }).baseline, token);
+});
+
+test("applyGrants applies writes then deletes, and on a Keto failure stops and reports what was applied", async () => {
+  const log: string[] = [];
+  const keto = (failOn?: string): KetoClient => ({
+    check: async () => false,
+    deleteTuple: async (tp) => { if (tp.object === failOn) throw new Error("boom"); log.push(`delete ${tp.object}`); },
+    expand: async () => ({ type: "leaf" }),
+    listRelations: async () => ({ nextPageToken: null, tuples: [] }),
+    writeTuple: async (tp) => { if (tp.object === failOn) throw new Error("boom"); log.push(`write ${tp.object}`); },
+  });
+  const diff = { grant: ["a:read", "b:read"], revoke: ["c:read"] };
+
+  const ok = await applyGrants(keto(), userSubject("u1"), diff);
+  assert.deepEqual(ok, { applied: diff });
+  assert.deepEqual(log, ["write a:read", "write b:read", "delete c:read"]);
+
+  log.length = 0;
+  const failed = await applyGrants(keto("b:read"), userSubject("u1"), diff);
+  assert.deepEqual(failed.applied, { grant: ["a:read"], revoke: [] });
+  assert.ok(failed.error instanceof Error);
+  assert.deepEqual(log, ["write a:read"]); // nothing after the failure was attempted
 });

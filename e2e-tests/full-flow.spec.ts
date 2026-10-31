@@ -150,6 +150,8 @@ test.describe.serial("authenticated admin journey", () => {
     // Permissions are declared in plugin code, so the group's detail page offers them as a fixed
     // checkbox list rather than a create form — there is no Permissions screen to visit.
     await page.goto(`/admin/groups/${group}`);
+    const staleTab = await watchedPage(page.context()); // opened now, so it holds this page's grants
+    await staleTab.goto(`/admin/groups/${group}`);
     const scheduling = page.locator('input[name="permission"][value="scheduling:read"]');
     await expect(scheduling).toHaveCount(1); // declared by the reference plugin, so it's on offer
     await expect(scheduling).not.toBeChecked();
@@ -157,7 +159,16 @@ test.describe.serial("authenticated admin journey", () => {
     await page.locator('form:has(input[name="permission"]) button[type="submit"]').click();
 
     await expect(page).toHaveURL(new RegExp(`/admin/groups/${group}`));
+    await expect(page.getByText("Permissions saved.")).toBeVisible();
     await expect(page.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
+
+    // The other tab no longer matches Keto, so its save is refused and shows the grant made above.
+    await staleTab.locator('input[name="permission"][value="scheduling:write"]').check();
+    await staleTab.locator('form:has(input[name="permission"]) button[type="submit"]').click();
+    await expect(staleTab.getByText("changed while you had the page open")).toBeVisible();
+    await expect(staleTab.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
+    await expect(staleTab.locator('input[name="permission"][value="scheduling:write"]')).not.toBeChecked();
+    await staleTab.close();
   });
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {

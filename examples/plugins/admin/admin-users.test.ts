@@ -60,6 +60,14 @@ test("buildUsersListModel filters by search + status, sorts, and paginates", () 
 
   // Edit link points at the per-identity route.
   assert.match(all.table.rows[0]!.actions![0]!.href!, new RegExp(`/admin/users/${people[0]!.id}$`));
+  assert.deepEqual([all.table.rows[0]!.actions![0]!.icon, all.table.rows[0]!.actions![0]!.label], ["i-edit", "Edit"]);
+});
+
+// The detail page of a `users:read` holder is read-only, so the row action must not promise an edit.
+test("buildUsersListModel: a read-only holder's row action says View, with the same target", () => {
+  const people: Identity[] = [{ id: "u1", traits: { email: "a@x.io" } }];
+  const action = buildUsersListModel({ canWrite: false, identities: people, url: "http://x/admin/users" }).table.rows[0]!.actions![0]!;
+  assert.deepEqual([action.icon, action.label, action.href], ["i-eye", "View", "/admin/users/u1"]);
 });
 
 test("buildUserFormModel: create mode has an editable email + password, no edit actions", () => {

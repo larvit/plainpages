@@ -6,11 +6,14 @@
 // what the installed plugins declare in code. Nothing here invents a name, which is why the old
 // Permissions screen is gone: a grant is a property of a user or a group, edited where they are.
 
+import { createHash } from "node:crypto";
 import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate } from "@plainpages/plugin-api";
 
 const PERMISSION_NS = "Permission";
 const GRANTED = "granted";
 export const PERMISSIONS_FIELD = "permission"; // the checkbox name the two forms post
+export const BASELINE_FIELD = "baseline"; // the hidden field carrying baselineToken
+export const SAVED_NOTICE = "permissions-saved"; // the `info-msg` a successful save redirects with
 
 export type GrantSubject = { subject_id: string } | { subject_set: SubjectSet };
 
@@ -53,6 +56,7 @@ export interface PermissionChoice {
 
 export interface PermissionPicker {
   action: string;
+  baseline: string; // baselineToken of the direct grants this form was rendered from
   choices: PermissionChoice[];
   empty: string | undefined; // set when no plugin declares a permission — the picker has nothing to offer
   error?: string; // a rejected save (e.g. the self-revoke guard), rendered above the list
@@ -60,6 +64,7 @@ export interface PermissionPicker {
   hint: string;
   inheritedNote: string | undefined; // set when at least one choice is group-held, to explain the disabled row
   legend: string;
+  notice?: string; // a confirmation, rendered above the list
   // Set for a group: its members hold these transitively, so a change reaches them at their next
   // re-mint rather than at once. The user picker revokes live tokens, so it says nothing.
   pending: string | undefined;
@@ -90,6 +95,7 @@ export function buildPermissionPicker(opts: {
   }));
   return {
     action: opts.action,
+    baseline: baselineToken(opts.declared, opts.direct),
     choices,
     empty: opts.declared.length === 0 ? t("admin.grants.none") : undefined,
     field: PERMISSIONS_FIELD,
@@ -107,7 +113,7 @@ export function buildPermissionPicker(opts: {
 // What a submitted set changes. Pure so the diff is testable without Keto: only declared names are
 // considered, so a crafted POST cannot grant something no plugin gates on, and a held-but-undeclared
 // name (left over from an uninstalled plugin) is never silently revoked by an unrelated save.
-export function grantDiff(declared: readonly PermissionDecl[], held: string[], wanted: string[]): { grant: string[]; revoke: string[] } {
+export function grantDiff(declared: readonly PermissionDecl[], held: string[], wanted: string[]): GrantChange {
   const offered = new Set(declared.map((d) => d.name));
   const heldSet = new Set(held);
   const wantedSet = new Set(wanted.filter((name) => offered.has(name)));
@@ -117,7 +123,30 @@ export function grantDiff(declared: readonly PermissionDecl[], held: string[], w
   };
 }
 
-export async function applyGrants(keto: KetoClient, subject: GrantSubject, diff: { grant: string[]; revoke: string[] }): Promise<void> {
-  for (const name of diff.grant) await keto.writeTuple(grantTuple(name, subject));
-  for (const name of diff.revoke) await keto.deleteTuple(grantTuple(name, subject));
+// Proves which direct grants a form was rendered from, so a save made after someone else changed
+// them is refused rather than silently undoing that change. Covers only the declared names the form
+// offered, like grantDiff, and is a digest so an empty set is still a token and a missing field is not.
+export function baselineToken(declared: readonly PermissionDecl[], held: string[]): string {
+  const offered = new Set(declared.map((d) => d.name));
+  return createHash("sha256").update(held.filter((name) => offered.has(name)).sort().join("\n")).digest("hex").slice(0, 16);
+}
+
+// True when the submitted token is missing or no longer matches Keto.
+export const isStale = (form: { get(name: string): string | null }, declared: readonly PermissionDecl[], held: string[]): boolean =>
+  form.get(BASELINE_FIELD) !== baselineToken(declared, held);
+
+export interface GrantChange { grant: string[]; revoke: string[] }
+
+// Keto has no transaction, so the writes and deletes run one by one and stop at the first failure.
+// What was applied by then is returned beside the error, so the caller can still revoke live tokens
+// and tell the admin the save is only partly done.
+export async function applyGrants(keto: KetoClient, subject: GrantSubject, diff: GrantChange): Promise<{ applied: GrantChange; error?: unknown }> {
+  const applied: GrantChange = { grant: [], revoke: [] };
+  try {
+    for (const name of diff.grant) { await keto.writeTuple(grantTuple(name, subject)); applied.grant.push(name); }
+    for (const name of diff.revoke) { await keto.deleteTuple(grantTuple(name, subject)); applied.revoke.push(name); }
+  } catch (error) {
+    return { applied, error };
+  }
+  return { applied };
 }

@@ -122,3 +122,20 @@ Read most (opens and searches):
 - `public/css/styles.css` 1
 - `renovate.json` 1
 - `src/e2e-console-guard.test.ts` 1
+
+## Reading cost, chunk 2f36d29bd746, finished 2026-10-31T08:19:09Z
+
+85029 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `e2e-tests/full-flow.spec.ts` 4
+- `README.md` 3
+- `src/auth/routes.test.ts` 3
+- `todo.md` 3
+- `src/auth/kratos-public.ts` 2
+- `src/http/app.test.ts` 2
+- `ci.sh` 1
+- `compose.yml` 1
+- `e2e-tests/auth-refresh.spec.ts` 1
+- `src/auth/flow-view.ts` 1

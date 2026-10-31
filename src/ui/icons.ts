@@ -13,6 +13,7 @@ export const ICON_NAMES: Record<string, string> = {
   "i-chev": "chevron-right",
   "i-cols": "columns-3",
   "i-edit": "pencil",
+  "i-eye": "eye",
   "i-globe": "globe",
   "i-grid": "layout-grid",
   "i-kebab": "ellipsis-vertical",

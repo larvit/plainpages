@@ -46,7 +46,8 @@ function flowReturnTo(ctx: RequestContext, secureCookies: boolean): string | und
   const raw = ctx.url.searchParams.get("return_to");
   const local = localPath(raw);
   const chosen = chosenLocale(ctx);
-  if (!local && !chosen) return raw ?? undefined;
+  if (raw && !local) return raw; // beside a chosen language too: the target wins, the language is lost
+  if (!local && !chosen) return undefined;
   const complete = new URL(`${selfOrigin(ctx, secureCookies)}/auth/complete`);
   if (local) complete.searchParams.set("return_to", ctx.localeHref(local));
   if (chosen) complete.searchParams.set("locale", chosen);

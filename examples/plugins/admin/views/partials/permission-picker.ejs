@@ -7,12 +7,18 @@
   there) and every row when `readOnly` (the viewer holds :read but not :write). Neither can be diffed
   into an accidental revoke, because grantDiff compares against the direct grants only.
 
-  Locals: csrfToken, permissions ({ action, choices, empty, error, field, hint, inheritedNote, legend, pending, readOnly, submit }).
+  The hidden `baseline` is a token for the direct grants this page showed: a save made after they changed
+  is refused (see baselineToken in admin-grants.ts).
+
+  Locals: csrfToken, permissions ({ action, baseline, choices, empty, error, field, hint, inheritedNote, legend, notice, pending, readOnly, submit }).
 %>
   <section class="form-card" aria-labelledby="permissions-h">
     <h2 class="card-title" id="permissions-h"><%= permissions.legend %></h2>
 <% if (permissions.error) { -%>
 <%- include("partials/alert", { text: permissions.error, tone: "neg" }) %>
+<% } -%>
+<% if (permissions.notice) { -%>
+<%- include("partials/alert", { text: permissions.notice, tone: "pos" }) %>
 <% } -%>
 <% if (permissions.empty) { -%>
     <p class="cell-muted"><%= permissions.empty %></p>
@@ -28,6 +34,7 @@
 <% } else { -%>
     <form method="post" action="<%= localeHref(permissions.action) %>">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="baseline" value="<%= permissions.baseline %>">
       <fieldset class="check-group">
         <legend class="sr-only"><%= permissions.legend %></legend>
 <% permissions.choices.forEach((c) => { -%>

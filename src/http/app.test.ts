@@ -855,6 +855,11 @@ test("login return_to: a chosen language alone still routes through /auth/comple
   assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?locale=sv-SE$/);
   await fetch(url + "/login?locale=sv-SE&return_to=" + encodeURIComponent("/admin/users"), { redirect: "manual" });
   assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?return_to=%2Fadmin%2Fusers%3Flocale%3Dsv-SE&locale=sv-SE$/);
+
+  // An absolute target still reaches Kratos beside a chosen language; the language is lost instead.
+  const abs = "http://localhost/oauth2/login?login_challenge=abc";
+  await fetch(url + "/login?locale=sv-SE&return_to=" + encodeURIComponent(abs), { redirect: "manual" });
+  assert.equal(lastReturnTo, abs);
 });
 
 // "Ory down ⇒ no logins" is documented; the auth path should say so honestly (503), not the
@@ -953,6 +958,8 @@ async function adminHarness(t: TestContext, opts: AppOptions = {}) {
 // What the plugin itself declares — the harness holds every screen's read and write, so a screen
 // test exercises the screen rather than the gate. assertAdminGate covers the refusals.
 const ADMIN_ALL = (adminManifest.permissions ?? []).map((p) => p.name);
+// The permission form's concurrency token, read off the page the way a browser would post it back.
+const baselineOf = (html: string): string => /name="baseline" value="([0-9a-f]+)"/.exec(html)?.[1] ?? "";
 // Every admin route is gated: anonymous → /login, a signed-in non-admin → 403.
 async function assertAdminGate(url: string, get: (path: string, permissions?: string[]) => Promise<Response>, path: string) {
   const anon = await fetch(url + path, { redirect: "manual" });
@@ -1313,7 +1320,8 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
 
   // Give it a permission first, so the delete below has an orphan to avoid leaving behind.
-  await post("/admin/groups/eng/permissions", `_csrf=${token}&permission=users%3Aread`);
+  const permissionsBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
+  await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${permissionsBaseline}&permission=users%3Aread`);
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "users:read" && tp.subject_set?.object === "eng"));
 
   // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
@@ -1349,9 +1357,11 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   }
   assert.match(edit, /value="users:read"[^>]*checked/); // held → ticked
   assert.doesNotMatch(edit, /value="groups:write"[^>]*checked/); // not held → unticked
+  assert.doesNotMatch(edit, /Permissions saved/); // no confirmation before a save
 
   // Save a new set: users:write is added, users:read is dropped — the POST is the whole truth.
-  const saved = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Awrite&permission=groups%3Aread`);
+  const baseline = baselineOf(edit);
+  const saved = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(saved.status, 303);
   assert.deepEqual(
     tuples.filter((tp) => tp.subject_id === `user:${ada}`).map((tp) => tp.object).sort(),
@@ -1359,14 +1369,91 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   );
   assert.equal(denylist.isRevoked(ada, 0), true); // a change to your own grants revokes live tokens
 
+  // The redirect lands on a page that confirms the save, and shows the new state.
+  const landing = saved.headers.get("location") ?? "";
+  assert.match(landing, new RegExp(`^/admin/users/${ada}\\?info-msg=permissions-saved$`));
+  const confirmed = await (await get(landing)).text();
+  assert.match(confirmed, /Permissions saved/);
+  assert.match(confirmed, /value="users:write"[^>]*checked/);
+
   // A crafted POST can't grant something no plugin declares.
-  await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Awrite&permission=superuser%3Aall`);
+  await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(confirmed)}&permission=users%3Awrite&permission=superuser%3Aall`);
   assert.ok(!tuples.some((tp) => tp.object === "superuser:all"));
 
   // The same picker on a group writes the group's subject_set, which Keto resolves transitively.
   tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
-  await post("/admin/groups/eng/permissions", `_csrf=${token}&permission=groups%3Aread`);
+  const groupBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
+  const groupSaved = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread`);
+  assert.equal(groupSaved.headers.get("location"), "/admin/groups/eng?info-msg=permissions-saved");
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
+});
+
+// Two admins open the same page; the second save would silently undo the first. The form carries a
+// token for the grants it was rendered from, and a save made from any other state is refused.
+test("admin permission grants: a save from a stale page is refused, and the page re-renders the current state", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${ada}` }];
+  const keto = fakeKeto(tuples);
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
+  const stale = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+
+  // Another admin grants users:write while this page is open.
+  tuples.push({ namespace: "Permission", object: "users:write", relation: "granted", subject_id: `user:${ada}` });
+  const before = JSON.stringify(tuples);
+  const refused = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=groups%3Aread`);
+  assert.equal(refused.status, 409);
+  const page = await refused.text();
+  assert.match(page, /changed while you had the page open/);
+  assert.equal(JSON.stringify(tuples), before, "nothing was applied");
+  assert.match(page, /value="users:write"[^>]*checked/); // the re-render shows the other admin's grant
+  assert.notEqual(baselineOf(page), stale);
+
+  // Saving from the re-rendered page goes through.
+  const retried = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(page)}&permission=users%3Aread&permission=users%3Awrite&permission=groups%3Aread`);
+  assert.equal(retried.status, 303);
+  assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === `user:${ada}`));
+
+  // A POST with no token at all (a crafted request, or a form rendered before this check existed) is stale too.
+  assert.equal((await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Aread`)).status, 409);
+
+  // Groups are checked the same way.
+  tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
+  const groupStale = baselineOf(await (await get("/admin/groups/eng")).text());
+  tuples.push({ namespace: "Permission", object: "groups:read", relation: "granted", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
+  const groupRefused = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupStale}&permission=users%3Aread`);
+  assert.equal(groupRefused.status, 409);
+  assert.match(await groupRefused.text(), /changed while you had the page open/);
+  assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the group keeps its grant");
+});
+
+// applyGrants is not a transaction: a Keto error midway leaves some changes applied. The save says
+// so, instead of the generic error page, and still revokes the tokens of what did change.
+test("admin permission grants: a Keto failure midway reports a partial save and keeps what was applied", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [];
+  let writes = 0;
+  const keto = fakeKeto(tuples, {
+    writeTuple: async (tp) => {
+      if (++writes === 2) throw new Error("keto unreachable");
+      tuples.push(tp);
+    },
+  });
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const denylist = createDenylist();
+  const { get, post, token } = await adminHarness(t, { denylist, keto, kratosAdmin });
+  const baseline = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+
+  const res = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread&permission=users%3Awrite`);
+  assert.equal(res.status, 502);
+  const page = await res.text();
+  assert.match(page, /stopped part-way/);
+  assert.match(page, /value="groups:read"[^>]*checked/); // the first write landed, and the page shows what is stored
+  assert.doesNotMatch(page, /value="users:write"[^>]*checked/);
+  assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
+  assert.equal(denylist.isRevoked(ada, 0), true); // the half that was applied still revokes live tokens
 });
 
 // Revoking your own grants can remove the last users:write on the deployment, and the instant-revoke
@@ -1377,15 +1464,16 @@ test("admin permission grants: you can't revoke your own permissions, but you ca
   const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:write", relation: "granted", subject_id: "user:admin1" }];
   const keto = fakeKeto(tuples);
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const { post, token } = await adminHarness(t, { keto, kratosAdmin });
+  const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
+  const baseline = baselineOf(await (await get("/admin/users/admin1")).text());
 
-  const refused = await post("/admin/users/admin1/permissions", `_csrf=${token}`); // every box cleared
+  const refused = await post("/admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}`); // every box cleared
   assert.equal(refused.status, 400);
   assert.match(await refused.text(), /lock yourself out/);
   assert.ok(tuples.some((tp) => tp.object === "users:write" && tp.subject_id === "user:admin1"), "nothing was revoked");
 
   // Granting yourself more is not a lockout, so it goes through.
-  const granted = await post("/admin/users/admin1/permissions", `_csrf=${token}&permission=users%3Awrite&permission=groups%3Aread`);
+  const granted = await post("/admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(granted.status, 303);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === "user:admin1"));
 });

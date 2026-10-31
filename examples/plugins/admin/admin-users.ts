@@ -4,7 +4,7 @@
 // a shared `withUser` gate.
 
 import { can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, type PermissionPicker, PERMISSIONS_FIELD, userSubject } from "./admin-grants.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
@@ -138,12 +138,12 @@ export function buildUsersListModel(opts: {
     canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, all.length, t),
     pagination: listPagination(state, page, t),
-    table: listTable(rows, state, sort, t),
+    table: listTable(rows, state, sort, t, opts.canWrite !== false),
     title: t("admin.users.title"),
   };
 }
 
-function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null, t: Translate) {
+function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "desc"; field: string } | null, t: Translate, canWrite: boolean) {
   return {
     actions: true,
     caption: t("admin.users.title"),
@@ -153,7 +153,7 @@ function listTable(rows: UserView[], state: ListState, sort: { dir: "asc" | "des
       return { href: listHref(state, { page: 1, sort: next }), label: t(c.label), sort: dir, sortable: true };
     }),
     rows: rows.map((u) => ({
-      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: "i-edit", label: t("common.edit") }],
+      actions: [{ href: `${ADMIN_USERS_BASE}/${encodeURIComponent(u.id)}`, icon: canWrite ? "i-edit" : "i-eye", label: t(canWrite ? "common.edit" : "common.view") }],
       cells: [
         { user: { initials: u.initials, name: u.name } },
         u.email,
@@ -329,7 +329,9 @@ export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx
 
 // GET /admin/users/:id — the edit form, prefilled.
 export const usersEditForm = withTarget(async (deps, identity, id) => {
-  const permissions = await userPermissionPicker(deps, id);
+  // `info-msg` is honored only as the exact value a save redirects with, so a crafted link can't put words on the page.
+  const saved = deps.ctx.url.searchParams.get("info-msg") === SAVED_NOTICE;
+  const permissions = await userPermissionPicker(deps, id, undefined, saved ? deps.ctx.t("admin.grants.saved") : undefined);
   return formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), identity, ...(permissions ? { permissions } : {}) });
 });
 
@@ -338,7 +340,7 @@ const canWriteUsers = (ctx: RequestContext): boolean => can(ctx, permissionName(
 // The checkbox list of declared permissions: ticked where this user holds one, and disabled where
 // the grant comes from a group (real, but removed on that group). Undefined when Keto isn't wired —
 // the rest of the edit page still works.
-async function userPermissionPicker(deps: UsersDeps, id: string, error?: string): Promise<PermissionPicker | undefined> {
+async function userPermissionPicker(deps: UsersDeps, id: string, error?: string, notice?: string): Promise<PermissionPicker | undefined> {
   if (!deps.keto) return undefined;
   const subject = userSubject(id);
   const [direct, effective] = await Promise.all([
@@ -355,6 +357,7 @@ async function userPermissionPicker(deps: UsersDeps, id: string, error?: string)
       t: deps.ctx.t,
     }),
     ...(error ? { error } : {}),
+    ...(notice ? { notice } : {}),
   };
 }
 
@@ -366,21 +369,30 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
   const form = (await guardedForm(ctx))!;
   if (!keto) return unavailable(ctx, ctx.t("admin.capability.keto"));
   const subject = userSubject(id);
-  const diff = grantDiff(ctx.declaredPermissions, await heldPermissions(keto, subject), form.getAll(PERMISSIONS_FIELD));
+  const held = await heldPermissions(keto, subject);
+  const refuse = async (error: string, status: number): Promise<RouteResult> => {
+    const permissions = await userPermissionPicker(deps, id, error);
+    return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), identity, ...(permissions ? { permissions } : {}) }), status };
+  };
+  if (isStale(form, ctx.declaredPermissions, held)) return refuse(ctx.t("admin.grants.stale"), 409);
+  const diff = grantDiff(ctx.declaredPermissions, held, form.getAll(PERMISSIONS_FIELD));
   // Self-lockout guard, matching the self-deactivate/self-delete ones: revoking your own grants can
   // remove the last `users:write` on the deployment, and the instant-revoke hook lands it on the very
   // next request — leaving a `curl` against Keto as the only way back in.
   if (id === user.id && diff.revoke.length > 0) {
     ctx.log.warn("admin: refused a self-revoke of permissions", { actor: user.id, refused: diff.revoke.join(",") });
-    const permissions = await userPermissionPicker(deps, id, ctx.t("admin.grants.selfRevoke"));
-    return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), identity, ...(permissions ? { permissions } : {}) }), status: 400 };
+    return refuse(ctx.t("admin.grants.selfRevoke"), 400);
   }
-  await applyGrants(keto, subject, diff);
-  if (diff.grant.length > 0 || diff.revoke.length > 0) {
+  const { applied, error } = await applyGrants(keto, subject, diff);
+  if (applied.grant.length > 0 || applied.revoke.length > 0) {
     revoke?.(id);
-    ctx.log.info("admin: user permissions changed", { actor: user.id, granted: diff.grant.join(","), revoked: diff.revoke.join(","), target: id });
+    ctx.log.info("admin: user permissions changed", { actor: user.id, granted: applied.grant.join(","), revoked: applied.revoke.join(","), target: id });
   }
-  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
+  if (error) {
+    ctx.log.error("admin: user permissions only partly saved", { actor: user.id, error: String(error), target: id });
+    return refuse(ctx.t("admin.grants.partial"), 502);
+  }
+  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${SAVED_NOTICE}` };
 });
 
 // POST /admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).
