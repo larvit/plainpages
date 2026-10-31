@@ -132,7 +132,7 @@ export function createApp(options: AppOptions = {}): Server {
     t: ctx.t,
     url: ctx.url,
   });
-  // i18n locals and `assetHref` (static.ts) go last: their names are reserved, so a handler's
+  // i18n locals and `assetHref` go last: their names are reserved, so a handler's
   // colliding key loses instead of breaking the shell around it.
   const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
   const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });

@@ -39,8 +39,8 @@ export interface StaticRoute {
 
 // Route a `/public/<rest>` request to a base dir + sub-path: a leading segment naming a discovered
 // plugin serves from plugins/<id>/public/, anything else from the core public/. Plugin ids are
-// URL-safe (no %-encoding), so the raw segment compares directly to the id set; the sub-path is
-// decoded and traversal-guarded after.
+// URL-safe (no %-encoding), so the raw segment compares directly to the id set; the caller decodes
+// and traversal-guards the sub-path.
 export function routePublic(restPath: string, publicDir: string, pluginsDir: string, pluginIds: Set<string>): StaticRoute {
   const slash = restPath.indexOf("/");
   const first = slash === -1 ? restPath : restPath.slice(0, slash);
@@ -52,13 +52,15 @@ export function routePublic(restPath: string, publicDir: string, pluginsDir: str
 
 // Caching: the host renders every /public/ href through assetHref, which appends `?v=<hash of the
 // file's content>`. A request whose `v` is the current hash is cached for a year as immutable, so a
-// repeat page view downloads no asset; a release changes the hash, and with it the URL. Any other
+// repeat page view downloads no asset; a changed file gets a new hash, and with it a new URL. Any other
 // request — an href a plugin's own markup emits, a stale `v` mid-deploy — is cached for five minutes,
-// then revalidated against the ETag (that same hash) or Last-Modified.
+// then revalidated against the ETag (that same hash) or Last-Modified. A plugin has no way to version
+// its own hrefs yet: `assetHref` is a reserved local but not contract, since offering it is a minor.
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const SHORT = "public, max-age=300";
 
-// Keyed on mtime and size, so a file edited in place (a dev bind mount) gets a new hash.
+// An entry holds while the file's mtime and size match, so a file edited in place (a dev bind mount)
+// gets a new hash.
 const hashes = new Map<string, { hash: string; mtimeMs: number; size: number }>();
 
 function contentHash(filePath: string, info: Stats): string {
@@ -70,7 +72,7 @@ function contentHash(filePath: string, info: Stats): string {
 }
 
 // Synchronous because EJS templates are: a view calls it mid-render. The stat per href is the
-// price of picking up an edited file; the hash itself is read once per file version.
+// price of picking up an edited file; the file is read and hashed once per version.
 function versioned(href: string, route: StaticRoute): string {
   try {
     const filePath = resolveStaticPath(route.dir, decodeURIComponent(route.subPath));
@@ -141,11 +143,10 @@ async function serveStatic(route: StaticRequest, req: IncomingMessage, res: Serv
 
 export interface PublicAssets {
   href: (href: string) => string; // a /public/ href with its version; any other href unchanged
-  // onError handles a mid-stream read failure (headers already sent), e.g. with the request logger.
+  // onError handles a mid-stream read failure (headers already sent).
   serve: (url: URL, req: IncomingMessage, res: ServerResponse, onError: (err: Error) => void) => Promise<void>;
 }
 
-// The /public/ namespace both ways: the hrefs views render, and the requests those hrefs make.
 export function publicAssets(publicDir: string, pluginsDir: string, pluginIds: Set<string>): PublicAssets {
   const route = (pathname: string): StaticRoute => routePublic(pathname.slice("/public/".length), publicDir, pluginsDir, pluginIds);
   return {

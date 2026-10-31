@@ -10,8 +10,8 @@ at boot. Entries start at 0.3.0.
 
 Every `/public/` URL the host renders carries `?v=<hash of the file>` and is cached for a year as
 immutable: the shell's stylesheets, favicon and logo, the `styles` a plugin passes to the shell, and
-the standalone error and consent pages. A release changes the hash, so browsers fetch a changed file
-at once. A plugin names its stylesheets exactly as before. Any other `/public/` URL, such as a script
+the stylesheets of the standalone error and consent pages. A changed file gets a new hash, so
+browsers fetch it at once. A plugin names its stylesheets exactly as before. Any other `/public/` URL, such as a script
 a plugin's own markup links, is cached for five minutes, then revalidated with `ETag` or
 `Last-Modified`. A cache or CDN in front of Plainpages may now store `/public/` responses.
 
