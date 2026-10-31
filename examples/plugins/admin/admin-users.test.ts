@@ -100,10 +100,17 @@ test("buildUserFormModel: edit mode prefills, locks email, and exposes state/del
   assert.equal(buildUserFormModel({ identity: identity(4, { state: "inactive" }) }).edit!.nextLabel, "Reactivate");
 });
 
-test("buildUserFormModel: a users:read holder sees the page titled View user, with a View breadcrumb", () => {
-  const m = buildUserFormModel({ canWrite: false, identity: identity(3) });
-  assert.equal(m.title, "View user");
-  assert.deepEqual(m.breadcrumbs.at(-1), { label: "View" });
+test("buildUserFormModel: the title and breadcrumb say New, Edit, or View for a users:read holder", () => {
+  const cases: [Parameters<typeof buildUserFormModel>[0], string, string][] = [
+    [{}, "New user", "New"],
+    [{ identity: identity(3) }, "Edit user", "Edit"],
+    [{ canWrite: false, identity: identity(3) }, "View user", "View"],
+  ];
+  for (const [opts, title, crumb] of cases) {
+    const m = buildUserFormModel(opts);
+    assert.equal(m.title, title);
+    assert.deepEqual(m.breadcrumbs, [{ href: "/admin/users", label: "Users" }, { label: crumb }]);
+  }
 });
 
 test("createIdentityPayload: schema/state/traits, name only when given, password only when set", () => {

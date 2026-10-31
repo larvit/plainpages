@@ -293,33 +293,30 @@ async function groupExists(keto: KetoClient, name: string): Promise<boolean> {
   return page.tuples.length > 0;
 }
 
-// Self-lockout guard, the group-side twin of the Users screen's self-revoke one: a change that would
-// take from the acting user a permission they hold through this group, and not directly, is refused.
-// One they also hold through another group counts as lost: telling the two apart needs a reverse
-// Keto query, and a false refusal only costs asking another administrator.
-async function locksSelfOut(keto: KetoClient, actor: string, group: string, lost: readonly string[]): Promise<boolean> {
-  if (lost.length === 0) return false;
-  if (!(await keto.check({ namespace: GROUP_NS, object: group, relation: MEMBERS, subject_id: `user:${actor}` }))) return false;
+const isMember = (keto: KetoClient, actor: string, group: string): Promise<boolean> =>
+  keto.check({ namespace: GROUP_NS, object: group, relation: MEMBERS, subject_id: `user:${actor}` });
+
+// The self-lockout guard, the group-side twin of the Users screen's self-revoke one: of the permissions
+// a change takes from a group the actor is in, those they don't hold directly. One they also hold
+// through another group is included, since telling those apart needs a reverse Keto query.
+async function lostToSelf(keto: KetoClient, actor: string, taken: readonly string[]): Promise<string[]> {
+  if (taken.length === 0) return [];
   const direct = new Set(await heldPermissions(keto, userSubject(actor)));
-  return lost.some((name) => !direct.has(name));
+  return taken.filter((name) => !direct.has(name));
 }
 
-// Leaving the group or deleting it loses everything the group confers, including through its own parents.
-async function leavingLocksSelfOut({ ctx, keto, user }: GroupsDeps, group: string): Promise<boolean> {
-  return locksSelfOut(keto, user.id, group, await effectivePermissions(keto, groupSubject(group), ctx.declaredPermissions));
+// Leaving a group takes everything it confers, including through its own parents.
+async function lostOnLeaving({ ctx, keto, user }: GroupsDeps, group: string): Promise<string[]> {
+  return lostToSelf(keto, user.id, await effectivePermissions(keto, groupSubject(group), ctx.declaredPermissions));
 }
 
-// True when removing this member value takes the actor out of the group: it is them, or a nested group they are in.
-async function removesSelf(keto: KetoClient, actor: string, value: string): Promise<boolean> {
-  const subject = parseSubject(value);
-  if (!subject) return false;
-  if ("subject_id" in subject) return subject.subject_id === `user:${actor}`;
-  return keto.check({ namespace: GROUP_NS, object: subject.subject_set.object, relation: MEMBERS, subject_id: `user:${actor}` });
+async function lostOnDelete(deps: GroupsDeps, group: string): Promise<string[]> {
+  return (await isMember(deps.keto, deps.user.id, group)) ? lostOnLeaving(deps, group) : [];
 }
 
-async function refuseSelfLockout(deps: GroupsDeps, name: string, refused: string): Promise<RouteResult> {
-  deps.ctx.log.warn("admin: refused a group change that would lock the actor out", { actor: deps.user.id, group: name, refused });
-  return { ...(await groupDetailPage(deps, name, { pageError: deps.ctx.t("admin.groups.error.selfLockout") })), status: 400 };
+async function refuseSelfLockout(deps: GroupsDeps, name: string, action: string, lost: string[]): Promise<RouteResult> {
+  deps.ctx.log.warn("admin: refused a group change that would lock the actor out", { action, actor: deps.user.id, group: name, lost: lost.join(",") });
+  return { ...(await groupDetailPage(deps, name, { pageError: deps.ctx.t("admin.groups.error.selfLockout", { permissions: lost.join(", ") }) })), status: 400 };
 }
 
 // Shared per-request deps for the Groups screen, resolved by `withGroups`: the gate (`groups:read` on
@@ -376,8 +373,8 @@ export const groupsCreate = withGroups(async (deps) => {
 // GET /admin/groups/new — the create form.
 export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}), "write");
 
-// The detail + membership page. `notice` and `error` ride the permission picker, which is where a save
-// reports; `pageError` tops the page, for a refused membership change or delete.
+// The detail + membership page. `notice` and `error` ride the permission picker; `pageError` tops the
+// page, for any change refused because it would lock the actor out.
 async function groupDetailPage({ ctx, keto, kratosAdmin }: GroupsDeps, name: string, say: { error?: string; notice?: string; pageError?: string } = {}): Promise<RouteResult> {
   const { emailById, options } = await memberCandidates(keto, kratosAdmin);
   const members = (await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS })).map((t) => memberView(t, emailById));
@@ -413,7 +410,8 @@ export const groupsPermissions = withGroupName(async (deps, name) => {
   const held = await heldPermissions(keto, subject);
   const diff = grantDiff(ctx.declaredPermissions, held, form.getAll(PERMISSIONS_FIELD));
   if (isStale(form, ctx.declaredPermissions, held, diff)) return { ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.stale") })), status: 409 };
-  if (await locksSelfOut(keto, user.id, name, diff.revoke)) return refuseSelfLockout(deps, name, diff.revoke.join(","));
+  const lost = diff.revoke.length > 0 && await isMember(keto, user.id, name) ? await lostToSelf(keto, user.id, diff.revoke) : [];
+  if (lost.length > 0) return refuseSelfLockout(deps, name, "save", lost);
   const { applied, error } = await applyGrants(keto, subject, diff);
   if (applied.grant.length > 0 || applied.revoke.length > 0) {
     ctx.log.info("admin: group permissions changed", { actor: user.id, granted: applied.grant.join(","), group: name, revoked: applied.revoke.join(",") });
@@ -435,7 +433,8 @@ export const groupsAddMember = withGroupName(async ({ ctx, keto }, name) => {
 
 // GET /admin/groups/:name/delete — the deliberate confirm step.
 export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
-  if (await leavingLocksSelfOut(deps, name)) return refuseSelfLockout(deps, name, "delete");
+  const lost = await lostOnDelete(deps, name);
+  if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
   const base = detailHref(name);
   const tt = deps.ctx.t;
   return { data: { chrome: deps.ctx.chrome, model: buildConfirmModel({
@@ -449,7 +448,8 @@ export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
 export const groupsDelete = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (await leavingLocksSelfOut(deps, name)) return refuseSelfLockout(deps, name, "delete");
+  const lost = await lostOnDelete(deps, name);
+  if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
   // Drop what the group *holds* before what it *contains*: a Keto set exists only through its
   // tuples, so leaving the grants behind would resurrect every permission the moment someone
   // re-created a group with the same name.
@@ -465,10 +465,12 @@ export const groupsDelete = withGroupName(async (deps, name) => {
 export const groupsRemoveMember = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   const form = (await guardedForm(ctx))!;
-  const value = (form.get("member") ?? "").trim();
-  const tuple = memberTuple(name, value);
+  const tuple = memberTuple(name, (form.get("member") ?? "").trim());
   if (!tuple) return { redirect: detailHref(name) };
-  if (await removesSelf(keto, user.id, value) && await leavingLocksSelfOut(deps, name)) return refuseSelfLockout(deps, name, value);
+  // Removing the actor, or a nested group they are in, can take them out of this group.
+  const removesSelf = tuple.subject_set ? await isMember(keto, user.id, tuple.subject_set.object) : tuple.subject_id === `user:${user.id}`;
+  const lost = removesSelf ? await lostOnLeaving(deps, name) : [];
+  if (lost.length > 0) return refuseSelfLockout(deps, name, "remove", lost);
   await keto.deleteTuple(tuple);
   return { redirect: detailHref(name) };
 });

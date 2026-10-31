@@ -430,7 +430,7 @@ test("admin permission grants: you can't revoke your own permissions, but you ca
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === "user:admin1"));
 });
 
-// Keto's check over the tuple array, expanding nested groups the way Keto does.
+// A check over the tuple array that expands nested groups.
 function resolvingCheck(tuples: RelationTuple[]) {
   const reaches = (q: RelationTuple, ns: string, object: string, relation: string, seen: Set<string>): boolean => {
     const key = `${ns}:${object}#${relation}`;
@@ -444,9 +444,7 @@ function resolvingCheck(tuples: RelationTuple[]) {
   return async (q: RelationTuple) => reaches(q, q.namespace, q.object, q.relation, new Set());
 }
 
-// The group paths can strip your access as surely as the user path: a group change reaches your
-// token at its next re-mint. Each is refused when you are in the group and would lose a permission
-// you don't hold directly. A member value must be a UUID, so this test signs in as `you`.
+// A member value must be a UUID, so this test signs in as `you`.
 test("admin groups: you can't take away permissions you hold only through a group you are in", async (t) => {
   const ada = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b01";
   const you = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b02";
@@ -465,19 +463,23 @@ test("admin groups: you can't take away permissions you hold only through a grou
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token } = await adminHarness(t, { keto, kratosAdmin }, you);
   const baseline = baselineOf(await (await get("/admin/groups/eng")).text());
-  const refusedWithMessage = async (res: Response) => {
+  // A refusal renders that group's own page and names what you would lose.
+  const refusedWithMessage = async (res: Response, group: string, lost: string) => {
     assert.equal(res.status, 400);
-    assert.match(await res.text(), /lock yourself out/);
+    const html = await res.text();
+    assert.match(html, new RegExp(`lock you out of ${lost}, which`));
+    assert.match(html, new RegExp(`action="/admin/groups/${group}/members"`));
   };
 
   // Unticking users:write on eng would take it from you: refused, nothing revoked.
   const before = JSON.stringify(tuples);
-  await refusedWithMessage(await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=groups%3Awrite`));
-  // Leaving eng, removing eng from leads, or deleting eng (the confirm step too) are refused the same way.
-  await refusedWithMessage(await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${you}`));
-  await refusedWithMessage(await post("/admin/groups/leads/members/delete", `_csrf=${token}&member=group:eng`));
-  await refusedWithMessage(await get("/admin/groups/eng/delete"));
-  await refusedWithMessage(await post("/admin/groups/eng/delete", `_csrf=${token}`));
+  await refusedWithMessage(await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=groups%3Awrite`), "eng", "users:write");
+  // Leaving eng, removing eng from leads, or deleting eng (the confirm step too) are refused the same
+  // way; leaving eng also loses what it gets from leads.
+  await refusedWithMessage(await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${you}`), "eng", "oauth2-clients:write, users:write");
+  await refusedWithMessage(await post("/admin/groups/leads/members/delete", `_csrf=${token}&member=group:eng`), "leads", "oauth2-clients:write");
+  await refusedWithMessage(await get("/admin/groups/eng/delete"), "eng", "oauth2-clients:write, users:write");
+  await refusedWithMessage(await post("/admin/groups/eng/delete", `_csrf=${token}`), "eng", "oauth2-clients:write, users:write");
   assert.equal(JSON.stringify(tuples), before, "nothing changed");
 
   // You hold groups:write directly too, so unticking it on eng costs you nothing.
