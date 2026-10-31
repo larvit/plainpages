@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 43`
+`Next ID = 44`
 
 ## Items
 
@@ -22,6 +22,7 @@
 | 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
+| 43 | 0.5.0 |  |  | **Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.** | 2 | 2 | 1 | 3 | 3 | 8 by 3, 7 by 2 | 5.0 |
 | 28 | 0.5.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
@@ -103,6 +104,15 @@ is ungrantable from the GUI and answers a permanent 403. A warning, not an error
 
 Every list screen bridges `parseListQuery`/`paginate` to the partials by hand. At minimum a
 `buildPaginationModel(page, hrefFor)`. Exported through the barrel, so it is contract surface.
+
+### 43. Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.
+
+The host versions every `/public/` href it renders (`src/http/static.ts`): the shell's stylesheets,
+favicon and logo, and a plugin's `styles`. A file a plugin's own markup links, such as fastjira's
+`board-drag.js`, keeps an unversioned URL and is revalidated every five minutes. Offering a way —
+`assetHref` documented as a view local, a `ctx.assetHref`, or a `scripts` slot in the shell — adds to
+the plugin API, hence a minor. Pick one with the plugin authors' panel, then document it in README →
+Reserved view locals.
 
 ### 28. Let a plugin add entries to the profile menu through the plugin API.
 

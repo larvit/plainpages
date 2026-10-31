@@ -511,8 +511,8 @@ export async function listThings(ctx: RequestContext) {
   `include()` the core building-block partials and its own. To load the plugin's own CSS, pass its
   `/public/<id>/x.css` href in the shell's `styles` slot — see the reference's `views/shifts.ejs`.
   The host adds the file's content hash to every `/public/` href the shell renders, so browsers and
-  any cache in front of Plainpages keep it for a year; a `/public/` URL your own markup writes is
-  kept for five minutes, then revalidated.
+  any cache in front of Plainpages keep the file for a year; a `/public/` URL your own markup writes
+  is kept for five minutes, then revalidated.
 - **Finer authorization than the route `permission`** uses the guards from `@plainpages/plugin-api`:
   `requireSession(ctx)`, `can(ctx, permission)` (coarse JWT-claim check, zero I/O), and
   `check(keto, ctx, {namespace, object, relation})` (a live Keto check; anonymous ⇒ denied). Throw
@@ -1175,7 +1175,7 @@ Rules worth knowing:
   edit/new/remove/save`, `filter.*`, `pagination.*`, `table.*` — and a plugin's lookup falls through
   to them. Keep your catalog for your domain words.
 - **Reserved view locals:** `t`, `locale`, `locales`, `localeHref`, `localeParam`, `localeSwitch`,
-  `dir`. They are merged after your `data`, so a colliding key of yours is ignored rather than
+  `dir`, and the host-internal `assetHref`. They are merged after your `data`, so a colliding key of yours is ignored rather than
   breaking the shell. `locale` is likewise reserved in `parseListQuery`, never returned as a filter.
 
 **Kratos writes the auth flow's own text** (field labels, validation errors), tagging each string

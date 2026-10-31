@@ -246,7 +246,8 @@ Revisit only if the stated reason stops holding.
 - **`locale` is a host-owned query param** — in `parseListQuery`'s reserved set, so a localized list
   page doesn't hand a plugin a phantom `locale` filter. The i18n view locals (`t`, `locale`, `locales`,
   `localeHref`, `localeParam`, `localeSwitch`, `dir`) are likewise reserved, merged after a handler's
-  `data` so a collision loses the key instead of breaking the shell.
+  `data` so a collision loses the key instead of breaking the shell — as is `assetHref`
+  (`src/http/static.ts`), which stays undocumented for plugins because calling it is not yet contract.
 - **Catalogs are checked at boot, not at render.** Every locale is compared against its set's `en-US`
   — keys, string-vs-plural kind, and the plural categories `Intl.PluralRules` requires — and a
   mismatch stops startup. A plugin may ship fewer locales than the host (its strings fall back to
