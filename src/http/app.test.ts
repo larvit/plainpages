@@ -793,11 +793,9 @@ test("themed auth GET: an existing Kratos session (no app JWT yet) recovers via 
 });
 
 test("themed auth GET: an anonymous hit on /settings (Kratos 401) bounces to sign-in with the page as return_to, never 500", async (t) => {
-  // /settings stays public (recovery lands there with a Kratos session but no app JWT), so Kratos' 401
-  // for a settings flow with no session is the signal to sign in. /login itself must not redirect to
-  // itself, so a 401 there stays the catch-all 500.
-  const unauthorized = new KratosError("Kratos init settings flow failed (401)", 401, "");
-  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(async () => { throw unauthorized; }), initBrowserFlow: async () => { throw unauthorized; } } });
+  let failure = new KratosError("Kratos init settings flow failed (401)", 401, "");
+  const throwing = async (): Promise<never> => { throw failure; };
+  const app = createApp({ jwks: staticJwks([ecJwk]), kratos: { ...mockKratos(throwing), initBrowserFlow: throwing } });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
@@ -807,7 +805,11 @@ test("themed auth GET: an anonymous hit on /settings (Kratos 401) bounces to sig
   assert.equal(init.headers.get("location"), "/login?return_to=%2Fsettings");
   const existing = await fetch(url + "/settings?flow=f1", { redirect: "manual" });
   assert.equal(existing.headers.get("location"), "/login?return_to=%2Fsettings");
+  // /login redirecting to itself would loop, so a 401 there stays the catch-all 500.
   assert.equal((await fetch(url + "/login", { redirect: "manual" })).status, 500);
+  // Only a 401 means "sign in": an Ory outage on /settings is still the honest 503.
+  failure = new KratosError("Kratos init settings flow failed (500)", 500, "");
+  assert.equal((await fetch(url + "/settings", { redirect: "manual" })).status, 503);
 });
 
 // return_to: a deep-link login lands back on the requested page. The gate redirects to
@@ -836,6 +838,23 @@ test("login return_to: a first-party deep link is wrapped through /auth/complete
   assert.equal(lastReturnTo, abs);
   await fetch(url + "/login?return_to=" + encodeURIComponent("//evil.com"), { redirect: "manual" });
   assert.equal(lastReturnTo, "//evil.com");
+});
+
+test("login return_to: a chosen language alone still routes through /auth/complete, so it survives the sign-in", async (t) => {
+  let lastReturnTo: string | undefined;
+  const kratos: KratosPublic = {
+    ...mockKratos(async (_t, id) => loginFlow(id)),
+    initBrowserFlow: async (_t: FlowType, opts = {}) => { lastReturnTo = opts.returnTo; return { flow: { id: "new1", ui: { action: "", method: "post", nodes: [] } }, setCookie: [] }; },
+  };
+  const app = createApp({ i18n: createI18n(await loadI18n()), kratos });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  await fetch(url + "/login?locale=sv-SE", { redirect: "manual" });
+  assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?locale=sv-SE$/);
+  await fetch(url + "/login?locale=sv-SE&return_to=" + encodeURIComponent("/admin/users"), { redirect: "manual" });
+  assert.match(lastReturnTo ?? "", /^http:\/\/[^/]+\/auth\/complete\?return_to=%2Fadmin%2Fusers%3Flocale%3Dsv-SE&locale=sv-SE$/);
 });
 
 // "Ory down ⇒ no logins" is documented; the auth path should say so honestly (503), not the
