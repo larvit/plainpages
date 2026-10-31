@@ -6,11 +6,11 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
-### The admin's recovery-code notice links to the flow the code was minted on
+### The admin's recovery-code notice links to the recovery flow the code belongs to
 
-After an admin generates a recovery code for a user, the notice's link opens the recovery flow the
-code belongs to, where the user enters it. Before, it opened a new recovery flow at its email step,
-which doesn't accept the code.
+After an admin generates a recovery code for a user, the notice asks them to send the user both the
+code and its link. The link opens the recovery flow the code belongs to, where the user enters it.
+Before, the notice linked a new recovery flow at its email step, which doesn't accept the code.
 
 ### A verification or recovery code pasted with whitespace around it is accepted
 
