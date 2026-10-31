@@ -6,13 +6,14 @@
 
 `Bar = 1`
 
-`Next ID = 37`
+`Next ID = 38`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 36 | 0.4.21 |  | defect | **Keep the mobile nav reachable at 860px and narrower on an engine without `:has()`, and move it off-canvas only where `:has()` works.** | 2 | 2 | 2 | 4 | 3 | 4 by 6 | 26.9 |
+| 37 | 0.4.21 |  |  | **Replace the stale architecture comment at the top of `public/css/styles.css` so it no longer says the design tokens use `light-dark()`.** | 1 | 2 | 1 | 2 | 1 | code health by 2 | 14.4 |
 | 26 | 0.4.21 |  |  | **Add a domain glossary and the project's intended horizon to the README.** | 1 | 2 | 1 | 2 | 3 | 9 by 3, code health by 2 | 11.9 |
 | 8 | 0.4.21 |  |  | **Run the visual E2E specs at viewports from a large desktop down to a small phone.** | 2 | 1 | 1 | 2 | 4 | code health by 3 | 9.0 |
 | 9 | 0.4.21 |  |  | **Typecheck `e2e-tests/` in the gate.** | 1 | 1 | 1 | 1 | 3 | code health by 2 | 9.0 |
@@ -48,6 +49,13 @@ back. Below Chromium 105 (webOS TV 22 and 23) the hamburger does nothing at that
 behind the nav can be reached. Move the off-canvas rules inside `@supports selector(:has(a))`, and
 keep the sidebar in the flow outside it, with the hamburger hidden. The desktop tree and the theme
 switch are already guarded. Test it beside `src/ui/stylesheet-floor.test.ts`.
+
+### 37. Replace the stale architecture comment at the top of `public/css/styles.css` so it no longer says the design tokens use `light-dark()`.
+
+The header (lines 4-6) says the tokens use `light-dark()`, but the TOKENS comment below it says the
+stylesheet avoids `light-dark()` and `color-scheme` for app colours, because engines resolve them
+unreliably, and maps raw `--l-*`/`--d-*` palettes in three theme blocks instead. A reader trusting
+the header looks for `light-dark()` that does not exist. Found by a comprehension-panel reader.
 
 ### 26. Add a domain glossary and the project's intended horizon to the README.
 
