@@ -213,10 +213,11 @@ Revisit only if the stated reason stops holding.
   form, a delete-confirm page) is the exception to `actionForMethod` and gates on `:write`. Two
   grant-specific guards go with it: you cannot revoke your own **direct** grants (self-lockout would
   need a `curl` against Keto to undo), and a permission held *through a group* renders
-  ticked-but-disabled, because unticked stated the opposite of the truth. **Known gap:** the group
-  paths are unguarded — unticking a permission on a group you belong to, leaving it, or deleting it
-  can still strip your own access. The robust "last effective holder" check needs a reverse Keto
-  query and is deferred.
+  ticked-but-disabled, because unticked stated the opposite of the truth. The group paths are
+  guarded too: unticking a permission on a group you are in, removing yourself or a group you are in,
+  or deleting the group is refused when you would lose a permission you don't hold directly. One also
+  held through another group counts as lost — telling them apart needs a reverse Keto query, and a
+  false refusal costs only asking another administrator.
 - **`users:write` and `groups:write` are equivalent to full administrative access**: `groups:write`
   adds you to any group, including one holding every permission; `users:write` mints a recovery code
   for any account. The containment the split buys is real on the **read** half only (`users:read` is

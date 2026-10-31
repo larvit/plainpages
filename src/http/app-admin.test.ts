@@ -26,7 +26,7 @@ const adminPlugin: Plugin = { ...adminManifest, id: "admin" };
 // Shared harness for the admin-screen HTTP tests: an app on a random port with an admin JWT +
 // CSRF cookie. get(path, permissions)/post(path, body) carry them; `token` is the matching CSRF field.
 const ADMIN_CSRF = "admin-secret";
-async function adminHarness(t: TestContext, opts: AppOptions = {}) {
+async function adminHarness(t: TestContext, opts: AppOptions = {}, sub = "admin1") {
   // Mount the plugin's catalogs the way server.ts does, so its screens render words, not keys.
   const i18n = createI18n(await loadI18n({ pluginIds: [adminPlugin.id], pluginsDir: examplesPluginsDir }));
   const app = createApp({ csrfSecret: ADMIN_CSRF, i18n, jwks: staticJwks([ecJwk]), pluginsDir: examplesPluginsDir, plugins: [adminPlugin], ...opts });
@@ -35,7 +35,7 @@ async function adminHarness(t: TestContext, opts: AppOptions = {}) {
   const url = `http://localhost:${(app.address() as AddressInfo).port}`;
   const token = issueCsrfToken(ADMIN_CSRF);
   const nowSec = Math.floor(Date.now() / 1000);
-  const cookie = (permissions: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, permissions, sub: "admin1" })}; ${CSRF_COOKIE}=${token}`;
+  const cookie = (permissions: string[]) => `${SESSION_COOKIE}=${mintJwt({ email: "admin@x", exp: nowSec + 600, permissions, sub })}; ${CSRF_COOKIE}=${token}`;
   const get = (path: string, permissions: string[] = ADMIN_ALL) => fetch(url + path, { headers: { cookie: cookie(permissions) }, redirect: "manual" });
   const post = (path: string, body: string) =>
     fetch(url + path, { body, headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookie(ADMIN_ALL) }, method: "POST", redirect: "manual" });
@@ -428,6 +428,65 @@ test("admin permission grants: you can't revoke your own permissions, but you ca
   const granted = await post("/admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(granted.status, 303);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === "user:admin1"));
+});
+
+// Keto's check over the tuple array, expanding nested groups the way Keto does.
+function resolvingCheck(tuples: RelationTuple[]) {
+  const reaches = (q: RelationTuple, ns: string, object: string, relation: string, seen: Set<string>): boolean => {
+    const key = `${ns}:${object}#${relation}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return tuples.some((tp) => tp.namespace === ns && tp.object === object && tp.relation === relation && (
+      (q.subject_id !== undefined && tp.subject_id === q.subject_id) ||
+      (q.subject_set !== undefined && tp.subject_set?.namespace === q.subject_set.namespace && tp.subject_set.object === q.subject_set.object) ||
+      (tp.subject_set !== undefined && reaches(q, tp.subject_set.namespace, tp.subject_set.object, tp.subject_set.relation, seen))));
+  };
+  return async (q: RelationTuple) => reaches(q, q.namespace, q.object, q.relation, new Set());
+}
+
+// The group paths can strip your access as surely as the user path: a group change reaches your
+// token at its next re-mint. Each is refused when you are in the group and would lose a permission
+// you don't hold directly. A member value must be a UUID, so this test signs in as `you`.
+test("admin groups: you can't take away permissions you hold only through a group you are in", async (t) => {
+  const ada = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b01";
+  const you = "01902d5e-7b6c-7e3a-9f21-3c8d1e0a4b02";
+  const identities: Identity[] = [{ id: you, traits: { email: "you@example.com" } }, { id: ada, traits: { email: "ada@example.com" } }];
+  const member = (group: string, subject: string): RelationTuple => ({ namespace: "Group", object: group, relation: "members", subject_id: subject });
+  const nested = (group: string, child: string): RelationTuple => ({ namespace: "Group", object: group, relation: "members", subject_set: { namespace: "Group", object: child, relation: "members" } });
+  const grant = (permission: string, group: string): RelationTuple => ({ namespace: "Permission", object: permission, relation: "granted", subject_set: { namespace: "Group", object: group, relation: "members" } });
+  const tuples: RelationTuple[] = [
+    member("eng", `user:${you}`), member("eng", `user:${ada}`), grant("users:write", "eng"), grant("groups:write", "eng"),
+    { namespace: "Permission", object: "groups:write", relation: "granted", subject_id: `user:${you}` }, // also held directly
+    nested("leads", "eng"), grant("oauth2-clients:write", "leads"), // reached through eng
+    member("social", `user:${you}`), // confers nothing
+    member("design", `user:${ada}`), grant("users:write", "design"), // you are not in it
+  ];
+  const keto = fakeKeto(tuples, { check: resolvingCheck(tuples) });
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { get, post, token } = await adminHarness(t, { keto, kratosAdmin }, you);
+  const baseline = baselineOf(await (await get("/admin/groups/eng")).text());
+  const refusedWithMessage = async (res: Response) => {
+    assert.equal(res.status, 400);
+    assert.match(await res.text(), /lock yourself out/);
+  };
+
+  // Unticking users:write on eng would take it from you: refused, nothing revoked.
+  const before = JSON.stringify(tuples);
+  await refusedWithMessage(await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=groups%3Awrite`));
+  // Leaving eng, removing eng from leads, or deleting eng (the confirm step too) are refused the same way.
+  await refusedWithMessage(await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${you}`));
+  await refusedWithMessage(await post("/admin/groups/leads/members/delete", `_csrf=${token}&member=group:eng`));
+  await refusedWithMessage(await get("/admin/groups/eng/delete"));
+  await refusedWithMessage(await post("/admin/groups/eng/delete", `_csrf=${token}`));
+  assert.equal(JSON.stringify(tuples), before, "nothing changed");
+
+  // You hold groups:write directly too, so unticking it on eng costs you nothing.
+  assert.equal((await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite`)).status, 303);
+  // Removing someone else, leaving a group that confers nothing, and deleting a group you are not in all go through.
+  assert.equal((await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ada}`)).status, 303);
+  assert.equal((await post("/admin/groups/social/members/delete", `_csrf=${token}&member=user:${you}`)).status, 303);
+  assert.equal((await post("/admin/groups/design/delete", `_csrf=${token}`)).status, 303);
+  assert.ok(!tuples.some((tp) => tp.object === "design" || tp.subject_set?.object === "design"));
 });
 
 // The read/write split is only honest if the UI models it: a users:read holder must not be shown

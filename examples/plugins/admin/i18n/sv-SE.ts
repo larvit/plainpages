@@ -68,6 +68,7 @@ const messages: AdminMessages = {
   "admin.groups.create": "Skapa grupp",
   "admin.groups.delete": "Radera grupp",
   "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det går inte att ångra.",
+  "admin.groups.error.selfLockout": "Det här skulle ta ifrån dig behörigheter du har genom den här gruppen — be en annan administratör, så att du inte låser ute dig själv.",
   "admin.groups.field.name": "Gruppnamn",
   "admin.groups.field.nameHint": "Små bokstäver, siffror, bindestreck och understreck.",
   "admin.groups.filter": "Filtrera grupper",
@@ -153,6 +154,7 @@ const messages: AdminMessages = {
   "admin.users.status.label": "Status",
   "admin.users.title": "Användare",
   "admin.users.view": "Visa",
+  "admin.users.viewTitle": "Visa användare",
 };
 
 export default messages;

@@ -6,6 +6,18 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### The admin example stops an administrator locking themselves out through a group
+
+On the Groups screen, unticking a permission on a group you are in, removing yourself or a group
+you are in, or deleting the group is refused when it would take away a permission you don't hold
+directly. The page says so, and another administrator can make the change. A permission you also
+hold through another group counts as lost, so such a change is refused as well.
+
+### The admin example titles a read-only user page "View user"
+
+A holder of `users:read` without `users:write` sees the user page titled "View user", with a "View"
+breadcrumb, instead of "Edit user".
+
 ### Browsers cache stylesheets instead of downloading them on every page
 
 Every `/public/` URL the host renders carries `?v=<hash of the file>` and is cached for a year as

@@ -12,8 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 3 | 0.4.21 |  |  | **Guard the group paths against self-lockout, or accept the gap explicitly.** | 3 | 2 | 2 | 5 | 6 | 2 by 6 | 1.4 |
-| 40 | 0.4.21 |  |  | **Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".** | 1 | 2 | 1 | 2 | 2 | 2 by 1 | 1.4 |
 | 1 | 0.4.21 |  | owner | **Publish every release to Docker Hub, and give the Hub page its short description.** | 3 | 3 | 2 | 6 | 5 | 1 by 3 | 1.3 |
 | 32 | 0.4.21 |  |  | **Fail the gate on a stylesheet feature the browser floor lacks, unless it is guarded.** | 4 | 2 | 2 | 6 | 7 | code health by 2 | 1.1 |
 | 13 | 0.4.21 |  |  | **Accept a verification code pasted with surrounding whitespace.** | 4 | 2 | 3 | 7 | 7 | 2 by 8 | 1.0 |
@@ -29,20 +27,6 @@
 | 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 3. Guard the group paths against self-lockout, or accept the gap explicitly.
-
-The self-revoke guard covers only your own direct grants on the Users screen. Unticking a permission
-on a group you belong to, leaving that group, or deleting it can still strip your own access with no
-warning. AGENTS.md records this as a known gap. The robust fix is a "last effective holder" check,
-which needs a reverse Keto query.
-
-### 40. Show a `users:read` holder "View user" as the user page's heading and breadcrumb, not "Edit user".
-
-The users list now says View for a read-only holder, but the page it opens still titles itself
-`admin.users.edit` ("Edit user") with an "Edit" breadcrumb. `buildUserFormModel` in
-`examples/plugins/admin/admin-users.ts` already receives `canWrite`; the two admin catalog keys it
-needs are new.
 
 ### 1. Publish every release to Docker Hub, and give the Hub page its short description.
 

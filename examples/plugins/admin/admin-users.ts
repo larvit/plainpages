@@ -243,8 +243,9 @@ export function buildUserFormModel(opts: {
   if (!editing) fields.push({ autocomplete: "new-password", hint: t("admin.users.field.passwordHint"), icon: "i-lock", id: "password", label: t("admin.users.field.password"), name: "password", optional: true, type: "password" });
 
   const canWrite = opts.canWrite !== false;
+  const mode = !editing ? "new" : canWrite ? "edit" : "view";
   return {
-    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: editing ? t("common.edit") : t("common.new") }],
+    breadcrumbs: [{ href: ADMIN_USERS_BASE, label: t("admin.users.title") }, { label: t({ edit: "common.edit", new: "common.new", view: "admin.users.view" }[mode]) }],
     canWrite, // the view drops every write affordance when false; the host already 403s the POSTs
     edit: editing ? {
       deleteAction: `${idPath}/delete`,
@@ -258,7 +259,7 @@ export function buildUserFormModel(opts: {
     form: { action: idPath, cancelHref: ADMIN_USERS_BASE, csrfToken: opts.csrfToken ?? "", fields, submitLabel: editing ? t("admin.users.save") : t("admin.users.create") },
     permissions: editing ? opts.permissions : undefined,
     recovery: opts.recovery,
-    title: editing ? t("admin.users.edit") : t("admin.users.new"),
+    title: t({ edit: "admin.users.edit", new: "admin.users.new", view: "admin.users.viewTitle" }[mode]),
   };
 }
 

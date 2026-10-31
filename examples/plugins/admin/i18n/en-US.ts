@@ -68,6 +68,7 @@ const messages = {
   "admin.groups.create": "Create group",
   "admin.groups.delete": "Delete group",
   "admin.groups.deleteMessage": "Delete group {{name}}? This can't be undone.",
+  "admin.groups.error.selfLockout": "This would take away permissions you hold through this group — ask another administrator, so you can't lock yourself out.",
   "admin.groups.field.name": "Group name",
   "admin.groups.field.nameHint": "Lowercase letters, digits, dashes and underscores.",
   "admin.groups.filter": "Filter groups",
@@ -153,6 +154,7 @@ const messages = {
   "admin.users.status.label": "Status",
   "admin.users.title": "Users",
   "admin.users.view": "View",
+  "admin.users.viewTitle": "View user",
 };
 
 export type AdminMessages = typeof messages;
