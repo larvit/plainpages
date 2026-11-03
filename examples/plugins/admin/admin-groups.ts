@@ -364,7 +364,7 @@ export const groupsCreate = withGroups(async (deps) => {
   const reject = async (error: string): Promise<RouteResult> => ({ ...(await groupFormResult(deps, { error, values: { member, name } })), status: 400 });
   if (!isValidGroupName(name)) return reject(ctx.t("admin.groups.validation.name"));
   if (!tuple) return reject(ctx.t("admin.groups.validation.member"));
-  if (await groupExists(keto, name)) return reject("A group with that name already exists.");
+  if (await groupExists(keto, name)) return reject(ctx.t("admin.groups.error.duplicate"));
   await keto.writeTuple(tuple);
   ctx.log.info("admin: group created", { actor: user.id, group: name });
   return { redirect: detailHref(name) };

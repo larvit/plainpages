@@ -124,7 +124,7 @@ export function isValidPluginId(id: string): boolean {
 // one — discovery refuses it. "/" is owned by the `home` field, not a route, so it needs no
 // reservation; `admin` is deliberately absent, the admin screens being a drop-in plugin.
 export const RESERVED_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  "auth", "dashboard", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
+  "auth", "dashboard", "error", "login", "logout", "oauth2", "public", "recovery", "registration", "settings", "verification",
 ]);
 
 export interface Semver {

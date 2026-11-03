@@ -191,7 +191,9 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
   assert.equal((await post("/admin/groups", `_csrf=${token}&name=Bad Name&member=user:${grace}`)).status, 400);
-  assert.equal((await post("/admin/groups", `_csrf=${token}&name=eng&member=user:${grace}`)).status, 400); // already exists
+  const duplicate = await post("/admin/groups?locale=sv-SE", `_csrf=${token}&name=eng&member=user:${grace}`);
+  assert.equal(duplicate.status, 400);
+  assert.match(await duplicate.text(), /Det finns redan en grupp med det namnet\./);
   assert.equal((await post("/admin/groups", `name=x&member=user:${grace}`)).status, 403);
   assert.equal(tuples.length, before);
 

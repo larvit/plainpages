@@ -1271,9 +1271,9 @@ override sets `APP_URL=http://localhost:3000`, and `127.0.0.1` is canonicalised 
 A clean clone needs **none** of the above. What can't be auto-generated is **production-only**:
 
 1. **Production secrets** — every value below ships as a committed dev throwaway and **must** be
-   replaced before a deploy faces the internet. Only the first is enforced:
-   `REQUIRE_SECURE_SECRETS=true` refuses to boot on a missing or throwaway `CSRF_SECRET` and
-   **nothing else** — the rest fail silently, so treat this as a checklist.
+   replaced before a deploy faces the internet. Of these, `REQUIRE_SECURE_SECRETS=true` checks only
+   `CSRF_SECRET` (its [Configuration](#configuration) row lists the other secrets it checks); the
+   rest fail silently, so treat this as a checklist.
 
    | Secret | Where | Protects |
    | --- | --- | --- |
@@ -1439,8 +1439,8 @@ unauthenticated Ory ports. Install only what you trust, and let the plugin's own
 
 Hardening a real deploy is `REQUIRE_SECURE_SECRETS=true`, `SECURE_COOKIES=true`, and replacing
 **every** committed dev secret ([what you must supply](#what-you-must-supply-the-only-manual-prep)).
-`REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`; nothing fails loud if you ship Ory's, Postgres'
-or the demo admin's throwaways.
+`REQUIRE_SECURE_SECRETS` guards only the secrets its [Configuration](#configuration) row lists;
+nothing fails loud if you ship Ory's, Postgres' or the demo admin's throwaways.
 
 ## Email
 

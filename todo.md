@@ -12,54 +12,22 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 56 | 0.4.22 |  |  | **Correct the README's two statements that `REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`.** | 1 | 2 | 1 | 2 | 1 | code health by 2 | 14.4 |
-| 19 | 0.5.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
-| 16 | 0.5.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
-| 48 | 0.5.0 |  |  | **Correct the Keto tuple in the `login.ts` and `bootstrap.ts` comments to the `granted` relation the code writes.** | 1 | 1 | 1 | 1 | 1 | code health by 4 | 28.7 |
 | 51 | 0.5.0 |  |  | **Move the test-only tooling out of the runtime folders `src/ui/` and `src/http/`, and keep the README file map true.** | 2 | 1 | 1 | 2 | 3 | code health by 4 | 18.0 |
 | 52 | 0.5.0 | 51 |  | **Make `positive` in `stylesheet-floor.ts` readable without tracing it by hand, and state why a custom property's value is checked.** | 2 | 1 | 1 | 2 | 3 | code health by 5 | 22.5 |
-| 53 | 0.5.0 |  |  | **Say at `codeFlowSubmit` which branches of `flowFailure` can fire there.** | 1 | 1 | 1 | 1 | 1 | code health by 3 | 21.6 |
-| 49 | 0.5.0 |  |  | **Render the admin's "group already exists" refusal from the catalog, in every locale.** | 1 | 2 | 1 | 2 | 1 | code health by 2 | 14.4 |
 | 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
 | 43 | 0.5.0 |  |  | **Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.** | 2 | 2 | 1 | 3 | 3 | 8 by 3, 7 by 2 | 5.0 |
-| 47 | 0.5.0 |  |  | **Refuse the plugin id `error`, and make the drift guard cover the `/error` mount.** | 1 | 1 | 2 | 2 | 1 | 7 by 3 | 4.9 |
-| 28 | 0.5.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
-| 50 | 0.5.0 |  |  | **Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.** | 3 | 1 | 3 | 5 | 7 | code health by 7 | 3.7 |
-| 54 | 0.5.0 |  |  | **List the `setting` conflict kind in the README's Conflict rules table.** | 1 | 1 | 1 | 1 | 1 | 9 by 2 | 3.1 |
-| 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
-| 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
-| 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
-| 14 | 0.5.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
+| 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
+| 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
+| 28 | 0.6.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
+| 50 | 0.6.0 |  |  | **Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.** | 3 | 1 | 3 | 5 | 7 | code health by 7 | 3.7 |
+| 54 | 0.6.0 |  |  | **List the `setting` conflict kind in the README's Conflict rules table.** | 1 | 1 | 1 | 1 | 1 | 9 by 2 | 3.1 |
+| 2 | 0.6.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
+| 5 | 0.6.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
+| 41 | 0.6.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
+| 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Details
-
-### 56. Correct the README's two statements that `REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`.
-
-README → What you must supply (about `:1275`: "refuses to boot on a missing or throwaway
-`CSRF_SECRET` and **nothing else**") and README → Security model (about `:1442`:
-"`REQUIRE_SECURE_SECRETS` guards only `CSRF_SECRET`") contradict the Configuration table row (about
-`:1216`), `src/config.ts:59` and `:190`, and `src/plugin-host/settings.ts`. The flag also refuses a
-missing or throwaway `PLUGIN_DB_SECRET` once `PLUGIN_DB_URL` is set, and every plugin setting
-declared `secret`. An operator following the checklist underrates the toggle. Make both passages say
-what the flag enforces by pointing to the table row, its one home. Four comprehension seats raised it
-independently. Markdown only.
-
-### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
-
-Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
-`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
-
-### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
-
-Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
-project's "no catch-all names" rule applied to namespaces.
-
-### 48. Correct the Keto tuple in the `login.ts` and `bootstrap.ts` comments to the `granted` relation the code writes.
-
-`login.ts:40` and `bootstrap.ts:31` write `Permission:<name>#members@user:<id>`; the code, the OPL
-file and the README use `granted`, and `members` is the Group relation. Raised by every comprehension
-seat that read them.
 
 ### 51. Move the test-only tooling out of the runtime folders `src/ui/` and `src/http/`, and keep the README file map true.
 
@@ -73,17 +41,6 @@ Most scoring seats named `positive` (`:119`) with `walk` and `property` as opaqu
 into named steps, say in the header that an unsupported value in a custom property blanks every
 `var()` that reads it, and keep the README's "Two browser floors" pointing here. It is the home of
 the 3am answer.
-
-### 53. Say at `codeFlowSubmit` which branches of `flowFailure` can fire there.
-
-`submitFlow` throws only on a 5xx, so on the submit path only the 503 branch can fire; three seats
-found that by opening a second file.
-
-### 49. Render the admin's "group already exists" refusal from the catalog, in every locale.
-
-`examples/plugins/admin/admin-groups.ts` returns the English string "A group with that name already
-exists." where AGENTS.md puts every user-visible string in a catalog (`admin/i18n/en-US.ts`, then
-`sv-SE.ts`).
 
 ### 6. Warn at discovery when a route or nav node gates on a permission no plugin declares.
 
@@ -104,11 +61,15 @@ favicon and logo, and a plugin's `styles`. A file a plugin's own markup links, s
 the plugin API, hence a minor. Pick one with the plugin authors' panel, then document it in README →
 Reserved view locals.
 
-### 47. Refuse the plugin id `error`, and make the drift guard cover the `/error` mount.
+### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
-`/error` is Kratos' error sink (`src/auth/routes.ts`), and plugin routes resolve before built-ins, so
-a plugin with id `error` and a `/` route shadows it. Add `error` to `RESERVED_PLUGIN_IDS` and to the
-mount list in `plugin.test.ts`'s drift guard, whose comment claims every built-in is derived.
+Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
+`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
+
+### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
+
+Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
+project's "no catch-all names" rule applied to namespaces.
 
 ### 28. Let a plugin add entries to the profile menu through the plugin API.
 

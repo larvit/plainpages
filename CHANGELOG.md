@@ -6,6 +6,16 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### Discovery refuses a plugin with the id `error`
+
+`/error` is the page Kratos sends a failed sign-in flow to, and a plugin named `error` would shadow
+it. Discovery now refuses that id at boot, like the other reserved ids. Rename such a plugin's folder
+before upgrading.
+
+### The admin's "group already exists" refusal is translated
+
+Creating a group whose name is taken shows the refusal in the page's language, not always in English.
+
 ### A malformed URL variable's boot error no longer prints the value
 
 When a URL variable such as `PLUGIN_DB_URL`, `PLUGIN_DB_ADMIN_URL` or `OTLP_ENDPOINT` can't be parsed,

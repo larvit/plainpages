@@ -140,8 +140,8 @@ test("findConflicts: each single slot (`home`/`dashboard`) may have one owner �
 });
 
 // Drift guard: RESERVED_PLUGIN_IDS is a hand-maintained mirror of the host's own top-level mounts —
-// a folder claiming one would silently shadow a built-in route. Derive the segments from the real
-// route constants so adding a new auth flow or provider route without reserving its id fails here.
+// a folder claiming one would silently shadow a built-in route. Only the auth flows derive from
+// AUTH_FLOWS; every other mount is listed by hand, so a new top-level route needs a line here too.
 test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / field) and `admin` (a plugin) are NOT reserved", () => {
   const seg = (path: string): string => path.split("/")[1] ?? ""; // first segment of "/x/y"
   const builtins = new Set<string>([
@@ -151,6 +151,7 @@ test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / f
     "oauth2", // /oauth2/login · /consent · /logout (Hydra provider)
     "dashboard", // the gated app home
     "public", // static assets
+    "error", // /error (Kratos' error sink)
   ]);
   for (const id of builtins) assert.ok(RESERVED_PLUGIN_IDS.has(id), `built-in mount "${id}" must be a reserved plugin id`);
   // "/" is owned by the `home` manifest field (not a /<id> route), so it cannot be shadowed and is
