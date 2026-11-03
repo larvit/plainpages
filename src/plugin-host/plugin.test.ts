@@ -139,9 +139,8 @@ test("findConflicts: each single slot (`home`/`dashboard`) may have one owner â€
   assert.deepEqual(findConflicts([p({ id: "a", dashboard: handler, home: handler }), p({ id: "b" })]).filter((c) => c.kind === "home" || c.kind === "dashboard"), []);
 });
 
-// Drift guard: RESERVED_PLUGIN_IDS is a hand-maintained mirror of the host's own top-level mounts â€”
-// a folder claiming one would silently shadow a built-in route. Only the auth flows derive from
-// AUTH_FLOWS; every other mount is listed by hand, so a new top-level route needs a line here too.
+// Drift guard: every mount but the auth flows is listed by hand, so a new top-level built-in route
+// needs a line here too.
 test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / field) and `admin` (a plugin) are NOT reserved", () => {
   const seg = (path: string): string => path.split("/")[1] ?? ""; // first segment of "/x/y"
   const builtins = new Set<string>([

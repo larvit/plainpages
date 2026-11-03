@@ -39,7 +39,7 @@ export interface CompletedLogin {
 
 // The coarse permissions a user holds — directly (`Permission:<name>#granted@user:<id>`) or transitively via a
 // group granted the permission. Enumerates the defined permissions (the distinct objects in the Permission
-// namespace) and asks Keto to resolve each membership, so a permission granted to a group reaches the JWT —
+// namespace) and asks Keto to check each grant, so a permission granted to a group reaches the JWT —
 // matching the OPL model and the admin "Effective access" view. At login/refresh only, never per
 // request; permission count is small, so the per-permission checks are cheap and run in parallel.
 export async function readPermissions(keto: KetoClient, userId: string): Promise<string[]> {

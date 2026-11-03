@@ -8,9 +8,9 @@ at boot. Entries start at 0.3.0.
 
 ### Discovery refuses a plugin with the id `error`
 
-`/error` is the page Kratos sends a failed sign-in flow to, and a plugin named `error` would shadow
-it. Discovery now refuses that id at boot, like the other reserved ids. Rename such a plugin's folder
-before upgrading.
+`/error` is the page Kratos sends a failed self-service flow to, and a plugin named `error` would
+shadow it. Discovery now refuses that id at boot, like the other reserved ids. Rename such a plugin's
+folder before upgrading.
 
 ### The admin's "group already exists" refusal is translated
 

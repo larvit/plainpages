@@ -117,8 +117,8 @@ function flowPage(kratos: KratosPublic, flowType: FlowType, secureCookies: boole
 // A code flow's POST (flow-view.ts → CODE_FLOWS). Trims the pasted one-time code, since Kratos
 // refuses one with whitespace around it, then passes the form on to Kratos and sends the browser
 // where Kratos redirects. Kratos' csrf_token field guards the POST, so the host's own CSRF token
-// isn't checked here. `submitFlow` throws only on a 5xx or an unreachable Kratos, so of
-// `flowFailure`'s branches only the 503 fires here.
+// isn't checked here. `submitFlow` throws only on a 5xx or an unreachable Kratos, so only
+// `flowFailure`'s 503 branch can fire here.
 function codeFlowSubmit(kratos: KratosPublic, flowType: FlowType, secureCookies: boolean): BuiltinRoute["handler"] {
   return async (ctx: RequestContext): Promise<RouteResult> => {
     const pathname = ctx.url.pathname;

@@ -417,7 +417,7 @@ URL/path-safe (`isValidPluginId`: lowercase `a–z`, digits, dashes) and also na
 `views/`, its `/public/<id>/` assets, and by convention its nav/permission names.
 
 `RESERVED_PLUGIN_IDS` are refused at discovery — the gated `dashboard`, the Kratos auth flows
-(`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`), the `oauth2`
+(`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`) and their `error` page, the `oauth2`
 provider routes, and `public` — since plugin routes resolve first and a folder claiming one would
 silently shadow a built-in. `admin` is **not** reserved: the admin screens are themselves a plugin.
 
@@ -1271,9 +1271,9 @@ override sets `APP_URL=http://localhost:3000`, and `127.0.0.1` is canonicalised 
 A clean clone needs **none** of the above. What can't be auto-generated is **production-only**:
 
 1. **Production secrets** — every value below ships as a committed dev throwaway and **must** be
-   replaced before a deploy faces the internet. Of these, `REQUIRE_SECURE_SECRETS=true` checks only
-   `CSRF_SECRET` (its [Configuration](#configuration) row lists the other secrets it checks); the
-   rest fail silently, so treat this as a checklist.
+   replaced before a deploy faces the internet. Of them, `REQUIRE_SECURE_SECRETS=true` checks only
+   `CSRF_SECRET`, and the flag's [Configuration](#configuration) row lists what else it checks; the
+   rest fail silently, so treat the table as a checklist.
 
    | Secret | Where | Protects |
    | --- | --- | --- |
