@@ -27,6 +27,11 @@
 | 41 | 0.6.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
+## Renamed
+
+- 0.4.21 renamed to 0.5.0
+- 0.4.22 renamed to 0.5.0
+
 ## Details
 
 ### 51. Move the test-only tooling out of the runtime folders `src/ui/` and `src/http/`, and keep the README file map true.
