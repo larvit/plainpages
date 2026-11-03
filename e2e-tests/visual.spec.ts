@@ -264,7 +264,9 @@ test("a repeat page view fetches no stylesheet again", async ({ page }) => {
 
   await page.goto("/");
   const repeat = await stylesheets();
-  expect(repeat.map(({ name }) => name)).toEqual(first.map(({ name }) => name));
+  // A cache hit completes in no set order, so the two views list the same files in any order.
+  const names = (entries: { name: string }[]): string[] => entries.map(({ name }) => name).sort();
+  expect(names(repeat)).toEqual(names(first));
   for (const { name, transferSize } of repeat) expect(transferSize, `${name} on the repeat view`).toBe(0);
 });
 
