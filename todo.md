@@ -82,7 +82,7 @@ choice). Trusting the header from anyone would let a caller write any IP into th
 
 A caller's IP and user agent are personal data, so the README says the host logs them, and a
 deployment's privacy policy must say so too. bender-infra's Requests dashboard (its todo.md item
-116) reads these names, and fastjira (its item 161) is the first plugin to send them.
+117) reads these names, and fastjira (its item 161) is the first plugin to send them.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
