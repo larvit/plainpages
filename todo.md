@@ -50,7 +50,7 @@ Conflict rules omits it.
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 
-Candidates: `auth-admin`, `users-groups-admin`. The id is also the mount path, so the compose files,
+The new name is `auth-admin`, chosen by the maintainer. The id is also the mount path, so the compose files,
 E2E stacks and README move with it.
 
 ### 5. List grants that no installed plugin declares, with a remove action.
