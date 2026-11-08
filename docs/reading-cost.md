@@ -320,3 +320,20 @@ Read most (opens and searches):
 - `src/config.ts` 1
 - `src/plugin-host/storage-provisioning.ts` 1
 - `src/plugin-host/storage.ts` 1
+
+## Reading cost, chunk 80e22d10c810, finished 2026-11-08T13:06:23Z
+
+130001 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 6
+- `todo.md` 4
+- `examples/plugins/admin/admin-groups.ts` 2
+- `src/auth/bootstrap.ts` 2
+- `src/auth/login.ts` 2
+- `src/http/app-admin.test.ts` 2
+- `AGENTS.md` 1
+- `CHANGELOG.md` 1
+- `examples/plugins/admin/i18n/sv-SE.ts` 1
+- `src/auth/routes.ts` 1
