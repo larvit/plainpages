@@ -418,7 +418,7 @@ URL/path-safe (`isValidPluginId`: lowercase `a–z`, digits, dashes) and also na
 `RESERVED_PLUGIN_IDS` are refused at discovery — the gated `dashboard`, the Kratos auth flows
 (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`) and their `error` page, the `oauth2`
 provider routes, and `public` — since plugin routes resolve first and a folder claiming one would
-silently shadow a built-in. `auth-admin` is **not** reserved: the admin screens are themselves a plugin.
+silently shadow a built-in.
 
 Installing a plugin is "drop the folder, restart"; removing one is "delete the folder, restart".
 
@@ -1003,9 +1003,9 @@ The menu is **driven entirely by config** and assembled from two sources:
 
 1. **Plugin fragments** — each plugin contributes its own `nav` (above).
 2. **A central override** — `config/menu.ts` (loaded by `src/ui/menu-config.ts`, validated at
-   boot) — where the operator reorders, renames, groups, or hides items (by node `id`), hides or
-   renames a profile-menu entry (by its `id`), and sets branding (app name, logo, default theme). The override always wins, applied before
-   the per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
+   boot) — where the operator reorders, renames, groups or hides nav nodes and renames or hides
+   profile-menu entries, each by its `id`, and sets branding (app name, logo, default theme). The
+   override always wins, applied before the per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
 
    `config/` is an **empty drop-in mount point** (like `plugins/`): it ships empty, and you
    supply `config/menu.ts` by copying the template ([`examples/config/menu.ts`](examples/config/menu.ts))

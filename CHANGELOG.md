@@ -21,10 +21,10 @@ set of ids, so the boot refuses an entry whose `id` another entry or nav node al
 ### The admin example plugin is now `auth-admin`, and its screens live at `/auth-admin/*`
 
 The Users, Groups, OAuth2-clients and Plugin-settings screens move from `/admin/*` to
-`/auth-admin/*`. An installed `plugins/admin/` keeps working until you replace it: delete it, copy
-`examples/plugins/auth-admin/` into `plugins/`, and move any `locales/plugins/admin/` to
-`locales/plugins/auth-admin/`. The boot refuses the two installed together, since both declare the
-nav section `admin`.
+`/auth-admin/*`, and nothing redirects the old paths, so update any proxy rule, bookmark, alert or
+log query that matches `/admin/`. An installed `plugins/admin/` still declares `apiVersion` 0.4, so
+the boot refuses it: delete it, copy `examples/plugins/auth-admin/` into `plugins/`, and move any
+`locales/plugins/admin/` to `locales/plugins/auth-admin/`.
 
 ### The `request` log line renames `method`, `path`, `status` and `ms`, and gains the caller, site and route
 
@@ -152,7 +152,7 @@ Two administrators editing one user's or group's permissions no longer overwrite
 form carries a token for the grants it showed. A save that would change something, made after those
 grants changed, is refused with "These permissions changed while you had the page open", and the page
 shows the current grants. A POST with no token is refused the same way, so a script posting to
-`/admin/users/:id/permissions` or `/admin/groups/:name/permissions` must first read the token from the
+`/auth-admin/users/:id/permissions` or `/auth-admin/groups/:name/permissions` must first read the token from the
 page's `baseline` field.
 
 ### The admin example confirms a permission save and reports a partial one
@@ -165,7 +165,7 @@ changes that landed still reach the user's live sessions at once when the revoca
 
 A holder of `users:read` without `users:write` gets a "View" row action with an eye icon. The admin
 example's catalogs gain `admin.grants.partial`, `admin.grants.saved`, `admin.grants.stale` and
-`admin.users.view`, so a translated catalog mounted under `locales/plugins/admin/` must add them.
+`admin.users.view`, so a translated catalog mounted under `locales/plugins/auth-admin/` must add them.
 
 ### Every page carries a smaller icon sprite
 

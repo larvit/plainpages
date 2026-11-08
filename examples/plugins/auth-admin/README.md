@@ -1,8 +1,8 @@
-# auth-admin — the plugin that administers users, groups, permissions and OAuth2 clients
+# auth-admin — the plugin that administers users, groups, permissions, OAuth2 clients and plugin settings
 
 The Users / Groups / OAuth2-clients screens for running Plainpages itself, shipped as a **drop-in
 example plugin** so a fresh clone has no admin GUI until you opt in. Copy this folder into `plugins/`
-(it keeps the id and mount path `auth-admin`, so the screens live at `/auth-admin/*`) and restart:
+(its folder name `auth-admin` is its id and mount path, so the screens live at `/auth-admin/*`) and restart:
 
 ```bash
 cp -r examples/plugins/auth-admin plugins/auth-admin
