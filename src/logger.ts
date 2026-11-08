@@ -38,7 +38,7 @@ export function createLogger(opts: LoggerOptions = {}): Log {
 // The ambient per-request Log (see the header); set by runWithLog, read by currentLog/tracedFetch.
 const requestStore = new AsyncLocalStorage<Log>();
 
-// Run `fn` with `log` as the ambient request logger (app.ts wraps each request). currentLog() reads
+// Run `fn` with `log` as the ambient request logger (request-tracking.ts wraps each request). currentLog() reads
 // it back; returns undefined outside any request (boot, tests) so callers use `currentLog()?.info(…)`.
 export function runWithLog<T>(log: Log, fn: () => T): T {
   return requestStore.run(log, fn);
@@ -50,7 +50,7 @@ export function currentLog(): Log | undefined {
 // A drop-in `fetch` that traces through the active request log — a client span under the request
 // span, with a W3C `traceparent` injected so the downstream service continues the same trace.
 // Outside a request, or for a non-string/URL input, it is a plain `fetch`. Note log.fetch throws
-// synchronously once the request log has ended; app.ts ends it only after the handler unwinds.
+// synchronously once the request log has ended; request-tracking.ts ends it only after the handler unwinds.
 export const tracedFetch: typeof fetch = (input, init) => {
   const log = currentLog();
   if (log && (typeof input === "string" || input instanceof URL)) return log.fetch(input, init);

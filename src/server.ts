@@ -23,7 +23,7 @@ const config = loadConfig(); // validates the env (incl. enforced secrets) — f
 // depth, not a boundary (AGENTS.md) — and only ever move this line earlier, never later.
 delete process.env["PLUGIN_DB_SECRET"];
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
-// per request for access logging + a trace span (src/http/app.ts); console-only otherwise.
+// per request for access logging + a trace span (src/http/request-tracking.ts); console-only otherwise.
 const log = createLogger({ format: config.logFormat, level: config.logLevel, otlpEndpoint: config.otlpEndpoint, otlpProtocol: config.otlpProtocol, serviceName: config.serviceName });
 const menu = await loadMenuConfig(); // config/menu.ts override + branding — fails loud if malformed
 // Every outbound Ory call is traced through the active request's logger (a client span continuing

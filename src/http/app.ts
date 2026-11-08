@@ -183,7 +183,7 @@ export function createApp(options: AppOptions = {}): Server {
     { handler: serveDashboard, method: "GET", path: "/dashboard", session: true },
   ];
 
-  // The request handler. Run inside runWithLog (below) so the per-request logger is ambient: every
+  // The request handler. Run inside runWithLog (request-tracking.ts) so the per-request logger is ambient: every
   // outbound fetch (the Ory clients via tracedFetch) and any deep module joins this request's trace
   // and correlation with no logger threaded through their signatures.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
