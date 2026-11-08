@@ -93,7 +93,7 @@ function profileLinks(opts: ChromeOptions, t: Translate, carryLocale: (href: str
     const pluginT = opts.translatorFor?.(plugin.id) ?? t;
     const shown = (plugin.profileMenu ?? []).filter((entry) => allows(entry, user) && !(entry.id != null && hide.includes(entry.id)));
     return shown.map((entry) => {
-      const renamed = entry.id != null ? rename[entry.id] : undefined;
+      const renamed = entry.id != null && Object.hasOwn(rename, entry.id) ? rename[entry.id] : undefined;
       return {
         href: carryLocale(entry.href),
         ...(entry.icon != null ? { icon: entry.icon } : {}),

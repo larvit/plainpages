@@ -52,7 +52,7 @@ export function composeNav(
 
 function renameTree(nodes: NavNode[], rename: Record<string, string>): NavNode[] {
   return nodes.map((n) => {
-    const renamed = n.id != null ? rename[n.id] : undefined;
+    const renamed = n.id != null && Object.hasOwn(rename, n.id) ? rename[n.id] : undefined;
     return {
       ...n,
       label: renamed != null ? renamed : n.label,

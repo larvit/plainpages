@@ -95,7 +95,7 @@ test("checkApiVersion: semver compat — equal/patch ok, older minor warns, newe
 
 // Drift guard: every mount but the auth flows is listed by hand, so a new top-level built-in route
 // needs a line here too.
-test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / field) and `admin` (a plugin) are NOT reserved", () => {
+test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / field), `admin` and `auth-admin` (plugins) are NOT reserved", () => {
   const seg = (path: string): string => path.split("/")[1] ?? ""; // first segment of "/x/y"
   const builtins = new Set<string>([
     ...Object.keys(AUTH_FLOWS).map(seg), // /login, /recovery, /registration, /settings, /verification
@@ -109,7 +109,9 @@ test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / f
   for (const id of builtins) assert.ok(RESERVED_PLUGIN_IDS.has(id), `built-in mount "${id}" must be a reserved plugin id`);
   // "/" is owned by the `home` manifest field (not a /<id> route), so it cannot be shadowed and is
   // deliberately not reserved — a plugin folder named "home" is legal. `auth-admin` is likewise free:
-  // the admin screens ship as a drop-in plugin mounted at /auth-admin, not a built-in route.
+  // the admin screens ship as a drop-in plugin mounted at /auth-admin, not a built-in route; and so
+  // is `admin`, the id an operator's pre-0.5 copy of that plugin still carries.
   assert.equal(RESERVED_PLUGIN_IDS.has("home"), false);
   assert.equal(RESERVED_PLUGIN_IDS.has("auth-admin"), false);
+  assert.equal(RESERVED_PLUGIN_IDS.has("admin"), false);
 });

@@ -1,5 +1,6 @@
 // Central menu config: config/menu.ts lets an operator set branding (app name, logo,
-// default theme) and reorder/rename/group/hide nav nodes across all plugins. The reorder/rename/
+// default theme), reorder/rename/group/hide nav nodes and rename/hide profile-menu entries across
+// all plugins. The reorder/rename/
 // group/hide part is the NavOverride composeNav already applies (the override always wins, before
 // the per-user permission filter). Authored as TypeScript (defineMenu types it); loaded once at
 // boot — fail-loud on a malformed file, defaults when absent (clean clone needs no config).

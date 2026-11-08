@@ -114,7 +114,7 @@ test("profile menu entries are gated like nav nodes, translated by their plugin 
   assert.deepEqual(entries({ signedIn: false }).map((e) => e.label), []); // an anonymous visitor has no profile menu
 });
 
-test("the central override hides and renames a profile-menu entry by its id, which is not rendered", () => {
+test("the central override hides and renames a profile-menu entry by its id; the host translates the new label", () => {
   const links = buildPluginChrome({
     menu: { ...DEFAULT_MENU, override: { hide: ["help"], rename: { settings: "Preferences" } } },
     plugins: [{
@@ -122,9 +122,13 @@ test("the central override hides and renames a profile-menu entry by its id, whi
       profileMenu: [
         { href: "/account/settings", id: "settings", label: "account.settings", session: true },
         { href: "/account/help", id: "help", label: "Help", public: true },
+        { href: "/account/keys", id: "toString", label: "Keys", session: true },
       ],
     }],
+    t: (key) => `host:${key}`,
+    translatorFor: () => (key) => `plugin:${key}`,
     user: { email: "ada@x.io", id: "u1", permissions: [] },
   }).user.profileLinks;
-  assert.deepEqual(links, [{ href: "/account/settings", label: "Preferences" }]);
+  // An id that names an Object.prototype member is renamed only when the override says so.
+  assert.deepEqual(links, [{ href: "/account/settings", label: "host:Preferences" }, { href: "/account/keys", label: "plugin:Keys" }]);
 });

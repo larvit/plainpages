@@ -39,7 +39,7 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     for (const entry of plugin.profileMenu ?? []) if (entry.id != null) push(entry.id);
   };
   collect(plugins, overrideTargets).forEach((owners, id) => {
-    if (owners.length > 1) out.push({ kind: "nav-id", level: "error", message: `nav id "${id}" used ${owners.length}×; override targets ids, so they must be unique`, plugins: uniq(owners) });
+    if (owners.length > 1) out.push({ kind: "nav-id", level: "error", message: `id "${id}" used ${owners.length}× across nav nodes and profile-menu entries; the menu override targets ids, so they must be unique`, plugins: uniq(owners) });
   });
 
   collect(plugins, (plugin, push) => {
