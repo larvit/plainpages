@@ -1,6 +1,3 @@
-// Cross-plugin conflict detection over the discovered set; discovery throws on any "error" and logs
-// every "warn". The per-plugin rules live in plugin.ts.
-
 import type { NavNode } from "../ui/nav.ts";
 import { declaredPermissions, fullPath, type Plugin } from "./plugin.ts";
 import { envName } from "./settings.ts";

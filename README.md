@@ -1584,8 +1584,7 @@ gate runs them serially, one stack up/down per suite.
 
 ## CI/CD
 
-The pipeline, merge gate, releases, GitHub mirror, Renovate and one-time CI setup are in
-[`docs/ci-cd.md`](docs/ci-cd.md).
+[The pipeline, releases and CI setup](docs/ci-cd.md).
 
 ## Production & deployment
 
