@@ -143,7 +143,6 @@ export function createApp(options: AppOptions = {}): Server {
   const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | PluginOwned> => {
     csrf.setCookie();
     if (!homePlugin) return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
-    // The plugin owns this page, so it runs on its own context — its catalog first, then core.
     const pluginCtx = contextFor(homePlugin.id);
     return { ctx: pluginCtx, pluginId: homePlugin.id, result: (await homePlugin.home(pluginCtx)) ?? null };
   };
@@ -154,7 +153,7 @@ export function createApp(options: AppOptions = {}): Server {
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
     csrf.setCookie();
     if (!dashboardPlugin) return { data: { chrome: ctx.chrome }, view: "dashboard" };
-    const pluginCtx = contextFor(dashboardPlugin.id); // as serveHome: the owner's own translator
+    const pluginCtx = contextFor(dashboardPlugin.id);
     return { ctx: pluginCtx, pluginId: dashboardPlugin.id, result: (await dashboardPlugin.dashboard(pluginCtx)) ?? null };
   };
 
@@ -168,9 +167,8 @@ export function createApp(options: AppOptions = {}): Server {
 
   const host: Host = { anyRequestHooks, anyResponseHooks, assets, authOptions, builtinRoutes, csrfSecret, i18n, jwks, keto, kratos, kratosAdmin, menu, permissionCatalog, pluginViewsFor, plugins, secureCookies, settingsCatalog, system, viewsFor };
 
-  // Static files, the canonical-host redirect and prepareRequest come first; then the answering
-  // stages in order — onRequest hook, plugin route, built-in route, else 404/405. A stage that
-  // returns a boolean returns true once it has answered the request, and false to pass it on.
+  // A stage that returns a boolean returns true once it has answered the request, and false to
+  // pass the request to the next stage.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
@@ -358,8 +356,7 @@ async function answerBuiltinRoute(host: Host, state: RequestState): Promise<bool
     return true;
   }
   const answer = await builtin.handler(ctx, csrf, contextFor);
-  if (answer && "pluginId" in answer) {
-    // A plugin-owned landing slot answers as a plugin route does: its hooks observe it, its views render it.
+  if ("pluginId" in answer) {
     if (host.anyResponseHooks) await runResponseHooks(host.plugins, contextFor, answer.result);
     await sendResult(ctx.res, answer.result, host.pluginViewsFor(answer.ctx, answer.pluginId), carryLocale);
   } else {

@@ -78,12 +78,15 @@ test("a plugin that owns a landing page, or short-circuits a hook, translates fr
   mkdirSync(join(dir, "demo", "i18n"), { recursive: true });
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   writeFileSync(join(dir, "demo", "i18n", "en-US.ts"), 'const m = { "demo.hello": "Hello from the plugin" };\nexport default m;\n');
+  mkdirSync(join(dir, "demo", "views"), { recursive: true });
+  writeFileSync(join(dir, "demo", "views", "landing.ejs"), '<%= t("demo.hello") %>');
 
   // Every plugin-owned render path: the public landing, the gated dashboard, and a hook short-circuit.
+  // The landings return a view, so the host's choice of views and context shows in the output.
   const demo: Plugin = {
     apiVersion: "1.0.0",
-    dashboard: (ctx) => ({ html: ctx.t("demo.hello") }),
-    home: (ctx) => ({ html: ctx.t("demo.hello") }),
+    dashboard: () => ({ view: "landing" }),
+    home: () => ({ view: "landing" }),
     hooks: { onRequest: (ctx) => (ctx.url.pathname === "/hooked" ? { html: ctx.t("demo.hello") } : undefined) },
     id: "demo",
   };
@@ -98,6 +101,17 @@ test("a plugin that owns a landing page, or short-circuits a hook, translates fr
   assert.equal(await (await fetch(`${url}/`)).text(), "Hello from the plugin");
   assert.equal(await (await fetch(`${url}/hooked`)).text(), "Hello from the plugin");
   assert.equal(await (await fetch(`${url}/dashboard`, { headers: { cookie } })).text(), "Hello from the plugin");
+});
+
+test("a redirect from a plugin-owned landing keeps the visitor's chosen locale", async (t) => {
+  const demo: Plugin = { apiVersion: "1.0.0", home: () => ({ redirect: "/demo/next" }), id: "demo" };
+  const app = createApp({ i18n: createI18n(await loadI18n()), plugins: [demo] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+  const res = await fetch(`${url}/?locale=sv-SE`, { redirect: "manual" });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "/demo/next?locale=sv-SE");
 });
 
 test("an error page renders without composing the menu — it exists for when the shell's data is what failed", async (t) => {

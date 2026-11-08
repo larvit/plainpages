@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { type BuiltinRoute, matchBuiltinRoute } from "./builtin-route.ts";
 
-const entry = (method: "GET" | "POST", path: string): BuiltinRoute => ({ handler: () => null, method, path });
+const entry = (method: "GET" | "POST", path: string): BuiltinRoute => ({ handler: () => ({ html: "" }), method, path });
 
 test("matches exact path + method; GET also answers HEAD", () => {
   const get = entry("GET", "/error");

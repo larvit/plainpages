@@ -1,8 +1,6 @@
 // The host's internal route table: each built-in endpoint (the auth/OAuth2 group, the landing
 // slots, /error) is a named handler with the plugin RouteHandler shape, plus the request's CSRF
-// mint (host-only — a plugin reads the token via ctx.chrome instead). app.ts matches this table
-// after plugin routes — exact path, a GET route also answering HEAD like the plugin router — and
-// sends the result against the core views, or against the owning plugin's where it is a PluginOwned.
+// mint (host-only — a plugin reads the token via ctx.chrome instead).
 import type { Gate } from "../auth/gate.ts";
 import type { RequestContext } from "./context.ts";
 import type { RouteResult } from "../plugin-host/plugin.ts";
@@ -20,8 +18,8 @@ export interface RequestCsrf {
 // own context — otherwise the plugin's keys render as bare keys on the pages it owns.
 export type PluginContextFactory = (pluginId: string) => RequestContext;
 
-// A landing slot's result when a plugin owns it: the host renders it against that plugin's views
-// on `ctx`, and shows it to the response hooks like a plugin route's result.
+// What a landing slot returns when a plugin owns it. The host renders `result` with that plugin's
+// views and `ctx`, and passes it to every plugin's onResponse hook, as it does for a plugin route.
 export interface PluginOwned {
   ctx: RequestContext; // the owner's own context, from PluginContextFactory
   pluginId: string;
@@ -29,8 +27,7 @@ export interface PluginOwned {
 }
 
 export interface BuiltinRoute extends Gate {
-  // Returns a RouteResult, or null when the handler wrote to ctx.res itself.
-  handler: (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory) => Promise<RouteResult | PluginOwned | null> | RouteResult | PluginOwned | null;
+  handler: (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory) => Promise<RouteResult | PluginOwned> | RouteResult | PluginOwned;
   method: "GET" | "POST"; // a GET route also answers HEAD, like plugin routes
   path: string; // exact pathname
 }
