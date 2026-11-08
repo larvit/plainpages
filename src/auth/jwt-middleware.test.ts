@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync, sign, type JsonWebKey, type KeyObject } from "node:crypto";
+import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { test } from "node:test";
-import { staticJwks } from "./jwks.ts";
+import { staticJwks, type JsonWebKey } from "./jwks.ts";
 import { authenticate, claimsToUser, resolveSession, verifyToken } from "./jwt-middleware.ts";
 import { SESSION_COOKIE } from "./login.ts";
 

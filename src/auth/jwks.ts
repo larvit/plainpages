@@ -1,4 +1,4 @@
-import type { JsonWebKey } from "node:crypto";
+import type { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { currentLog } from "../logger.ts";
@@ -8,6 +8,9 @@ import { currentLog } from "../logger.ts";
 // (or re-reads a mounted file), caches for a TTL, and reloads once on a `kid` miss so a rotated-
 // in key is picked up without a restart (README: zero-downtime rotation). `createJwksProvider`
 // picks the right one from the configured URL scheme and primes it at boot (fail loud).
+// node:crypto exports the JWK type only under webcrypto since @types/node 26.
+export type JsonWebKey = webcrypto.JsonWebKey;
+
 export interface JwksProvider {
   getKey(kid: string | undefined): Promise<JsonWebKey | null>;
 }

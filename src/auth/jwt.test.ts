@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
-import type { JsonWebKey, KeyObject } from "node:crypto";
+import type { KeyObject } from "node:crypto";
+import type { JsonWebKey } from "./jwks.ts";
 import { test } from "node:test";
 import { decodeJws, verifyJws } from "./jwt.ts";
 

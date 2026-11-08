@@ -1,4 +1,5 @@
-import { generateKeyPairSync, sign, type JsonWebKey } from "node:crypto";
+import { generateKeyPairSync, sign } from "node:crypto";
+import type { JsonWebKey } from "../auth/jwks.ts";
 import type { AddressInfo } from "node:net";
 import type { TestContext } from "node:test";
 import type { HydraAdmin } from "../auth/hydra-admin.ts";
