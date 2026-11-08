@@ -6,12 +6,13 @@
 
 `Bar = 1`
 
-`Next ID = 60`
+`Next ID = 61`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 60 | 0.5.0 |  |  | **Move the decisions out of AGENTS.md into `docs/decisions.md`, leaving only each decision's title in AGENTS.md.** | 3 | 2 | 2 | 5 | 6 | code health by 4 | 4.0 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
@@ -26,6 +27,17 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
+
+### 60. Move the decisions out of AGENTS.md into `docs/decisions.md`, leaving only each decision's title in AGENTS.md.
+
+AGENTS.md is loaded into every session, and about 400 of its 474 lines are the "Deliberate
+architectural deviations". Each becomes a `docs/decisions.md` entry per `~/.claude/rules/decisions.md`:
+a one-line title stating what holds, the reasoning and its "valid while", and the README goal or
+principle it serves. AGENTS.md keeps the priorities, Docker commands, README structure, Rules, Comments
+and Scoring run, plus the list of titles. Repoint the code comments that cite "(AGENTS.md)" for a
+decision, and make `allows` in `src/auth/gate.ts` easier to read: a seat found its reason only in
+AGENTS.md. No test reads AGENTS.md; `rank_todo.py` and larv-review start reading `docs/decisions.md`
+once it exists, so run `rank_todo.py --check` on it.
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 
