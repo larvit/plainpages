@@ -60,7 +60,9 @@
             <% if (user.email) { %>
             <%# Signed in: the same popover block as the menu partial, hand-rolled because this one's
                 trigger composes escaped user values and its Sign-out item is a CSRF POST form, neither of
-                which the partial's Item shapes cover (docs/decisions.md). Keep the two in step. %>
+                which the partial's Item shapes cover (docs/decisions.md → "A dropdown is a
+                `<button popovertarget>` and a `[popover]`, never a `<details>`"). Keep the two in
+                step. %>
             <div class="menu" style="flex:1 1 auto">
               <button class="profile" type="button" popovertarget="profile-menu">
                 <span class="avatar" aria-hidden="true"><%= user.initials %></span>

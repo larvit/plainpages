@@ -1,6 +1,7 @@
 # Decisions
 
-"Goal N" is README → Goals; "code health" is the goal every project shares.
+"Goal N" is README → Goals. "Code health" is the goal every project shares: the code is easy to
+understand and change safely.
 
 ## `src/` is grouped by concern, and the core ships no domain screens
 
@@ -14,7 +15,8 @@ is a drop-in plugin (`examples/plugins/admin/`).
 
 ## Plugins and config import the host only through the two barrels
 
-2026-08-17, the maintainer. Goal 7. Valid while the barrels are the contract surface.
+2026-08-17, the maintainer. Goal 7. Valid while plugin authors typecheck against a host tree rather
+than a published package.
 
 `@plainpages/plugin-api` → `plugin-api/index.ts` → `src/plugin-host/plugin-api.ts`, and
 `#menu-config` → `src/ui/menu-config.ts`; never a relative `../../src/*` path. These two barrels are
@@ -22,7 +24,7 @@ the whole contract surface, so don't "fix" either back to a relative path.
 
 ## The Ory client types are contract-visible through the barrel
 
-2026-07-02, the maintainer. Goal 7. Valid while the barrel re-exports them.
+2026-07-02, the maintainer. Goal 7. Valid while plugins get Ory admin clients through `ctx.system`.
 
 `@plainpages/plugin-api` re-exports `KratosAdmin`, `KetoClient`, `HydraAdmin`, their DTOs and their
 error classes. Changing those shapes needs a major `apiVersion` bump, not a free refactor.
@@ -87,8 +89,8 @@ uploads.
 
 Per-plugin databases and roles bound accidents, not hostile plugins: `PLUGIN_DB_SECRET` is in
 `web`'s environment during `onBoot`, and a plugin already holds `ctx.system`'s Ory admin clients. So
-cross-plugin DB isolation is containment, and README says so rather than implying a sandbox. This
-follows AGENTS.md → priority 7: crash-isolation is a non-goal.
+cross-plugin DB isolation is containment, and README says so. This follows AGENTS.md → priority 7:
+crash-isolation is a non-goal.
 
 `server.ts` still deletes the secret from `process.env` right after `loadConfig`, before discovery
 imports any plugin module. That ordering is the whole point: move the line earlier if anything,
@@ -118,8 +120,9 @@ and `src/compose.test.ts` for a rename.
 
 2026-08-19, the maintainer. Goal 7. Valid while no plugin needs an orderly drain of its pools.
 
-Adding to the context costs a minor bump and removing from it a major, so the shape errs small
-elsewhere. Pools handed to a plugin are reaped on process exit.
+Removing any field from the context costs a major bump, so all six stay. Adding one costs only a
+minor, so the context otherwise gains a field only when a plugin needs it. Pools handed to a plugin
+are reaped on process exit.
 
 ## `config/` is a plain dir with no `package.json` of its own
 
@@ -132,10 +135,10 @@ override ever needs dependencies, `config/` needs the package treatment `plugins
 
 2026-08-18, the maintainer. Goal 7. Valid while nothing is installed in the wild.
 
-Allowing it would cost a warning and a re-parse per file, not a break: Node detects module syntax,
-so even a `.js` helper loads. And an operator on a read-only third-party mount cannot apply the
-remedy. Refused anyway because that direction is safe: refuse→warn relaxes freely, while warn→refuse
-breaks installed plugins.
+Refusing is the safe direction: refuse→warn relaxes freely, while warn→refuse breaks installed
+plugins. Allowing it would cost only a warning and a re-parse per file, not a break: Node detects
+module syntax, so even a `.js` helper loads. The cost of refusing is that an operator on a read-only
+third-party mount cannot apply the remedy.
 
 ## `examples/` mirrors the drop-in mount dirs
 
@@ -163,10 +166,9 @@ the plugin's own keys render as bare keys on the pages it owns.
 
 ## Email is delegated to Kratos
 
-2026-06-23, the maintainer. Goal 3. Valid while Kratos sends recovery and verification mail.
+2026-06-23, the maintainer. Goal 3. Valid while Kratos owns the recovery and verification flows.
 
-Kratos renders and sends recovery and verification mail; `web` never touches SMTP. Customization is
-Kratos' `courier.template_override_path`, not app code.
+`web` never touches SMTP. Mail is customized through Kratos' `courier.template_override_path`.
 
 ## The vocabulary is `User` → `Group` → `Permission`, and there is no `Role`
 
@@ -182,9 +184,10 @@ per-row tier.
 2026-08-05, the maintainer. Goal 7. Valid while permissions are named by plugin authors.
 
 Examples: `scheduling:read`, `users:write`. A bare word names who someone is (a role), and roles are
-groups here. `isValidPermissionName` in `plugin-host/plugin.ts`, checked by `shapeError` over every
-route, nav and profile-menu `permission` and every declared name, refuses the boot like any other
-manifest rule. It is not left to the admin GUI, which an operator removes by not copying it in.
+groups here. `shapeError` checks every route, nav and profile-menu `permission`, and every declared
+name, with `isValidPermissionName` (`plugin-host/plugin.ts`). A bad name refuses the boot like any
+other manifest rule. The check is not left to the admin GUI, which an operator removes by not
+copying it in.
 
 ## Permission names are authored in plugin code; only grants live in Keto
 
@@ -236,16 +239,13 @@ function of the transport verb, and a route table must answer "what does this ne
 
 ## A gate is one of `public`, `session` or `permission`, named exactly once
 
-2026-09-02, the maintainer. Goal 7. Valid while the central override's `groups` builds header nodes
-without a gate.
+2026-09-02, the maintainer. Goal 7. Valid while routes and nav nodes are declared in plugin
+manifests.
 
 A route or nav node names exactly one gate. Discovery refuses none, two, and a flag spelled anything
 but `true`, so a forgotten gate fails the boot rather than publishing a page. `src/auth/gate.ts` is
 the one home of the rule that the plugin router, the host's own route table and the menu all read.
-
-Exactly-one-gate is a discovery-time rule on manifests, not a runtime invariant. `allows({}, user)`
-stays open by design, because the central override's `groups` builds header nodes that carry no
-gate; making `allows` fail closed would hide every operator-grouped section.
+The rule binds manifests only; the comment on `allows` says why a node without a gate passes it.
 
 `session` exists because a plugin whose data is the visitor's own (their upstream account, their own
 tokens) has no distinction a permission could name. The alternative, granting every newly
@@ -258,7 +258,8 @@ user-changeable and can be reassigned to someone who would then inherit the prev
 2026-09-02, the maintainer. Goal 9. Valid while `examples/plugins/scheduling` stays a teaching
 artifact rather than a maintained product.
 
-An example is read far more often than it is changed, and each page reads top to bottom on its own.
+Each page then reads top to bottom on its own, and an example rarely changes, so the two copies cost
+little.
 
 ## A `:read`-only holder is never shown a write affordance
 
@@ -269,19 +270,20 @@ remove. The permission picker still renders, disabled, because seeing who holds 
 of `:read`. A write-intent GET (a create form, a delete-confirm page) is the exception to
 `actionForMethod` and gates on `:write`.
 
-Guards against self-lockout go with it, since undoing one needs a `curl` against Keto:
+Three guards go with it:
 
-- You cannot revoke your own direct grants.
+- You cannot revoke your own direct grants, since undoing that self-lockout needs a `curl` against
+  Keto.
 - A permission held through a group renders ticked but disabled, because unticked would state the
   opposite of the truth.
 - Unticking a permission on a group you are in, removing yourself (or a nested group you are in)
   from its members, or deleting the group is refused when you would lose a permission you don't hold
-  directly.
+  directly. Undoing that self-lockout would need a `curl` against Keto too.
 
 ## `users:write` and `groups:write` each amount to full administrative access
 
-2026-08-05, the maintainer. Goal 2. Valid while `groups:write` can add anyone to any group and
-`users:write` can mint a recovery code.
+2026-08-05, the maintainer. Goal 2. Valid while the admin GUI splits its write permissions by
+resource.
 
 `groups:write` adds you to any group, including one holding every permission; `users:write` mints a
 recovery code for any account. The containment the split buys is real on the read half only:
@@ -291,8 +293,8 @@ recovery code for any account. The containment the split buys is real on the rea
 
 2026-10-30, the maintainer. Goal 5. Valid while the session cookie stays `SameSite=Lax` or stricter.
 
-`src/auth/csrf.ts`; README → Security model. It is the usual cost of a signed double-submit token,
-covered by `SameSite=Lax` and HSTS.
+Leaving the token unbound is the usual cost of a signed double-submit token (`src/auth/csrf.ts`;
+README → Security model). `SameSite=Lax` and HSTS cover that cost.
 
 ## Plainpages says "user" everywhere, where Ory says "identity"
 
@@ -305,11 +307,11 @@ House style, not a renamed concept. The single exception is the `Identity` DTO i
 
 2026-08-03, the maintainer. Goal 5. Valid while a page's language should show in its address.
 
-The order is `?locale=sv-SE` → `Accept-Language` → `en-US`, and when the URL asked for a locale the
-host carries it onto the links it renders. A cookie would make a page's language invisible in its
-address and unshareable; the cost is that a plugin wraps its own hrefs. Matching is exact on a full
-tag (`sv-FI` ≠ `sv-SE`), except that a lone language from `Accept-Language` takes the first regional
-catalog for it.
+The host resolves the locale from `?locale=sv-SE`, then `Accept-Language`, then `en-US`. When the
+URL asked for a locale, the host carries it onto the links it renders. A cookie would make a page's
+language invisible in its address and unshareable; the cost is that a plugin wraps its own hrefs.
+Matching is exact on a full tag (`sv-FI` ≠ `sv-SE`), except that a lone language from
+`Accept-Language` takes the first regional catalog for it.
 
 ## The core building blocks carry the locale, so a plugin doesn't have to
 
@@ -407,8 +409,7 @@ by `.table-wrap`'s `overflow`. Four rules hold it together:
 That `aria-expanded` guarantee is the declarative attribute's alone: open a panel from script and no
 engine applies it, so "enhancing" one of these triggers would cost it its accessibility. `<details>`
 stays where it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same
-block for the profile menu, because its trigger composes escaped user values and its Sign-out item
-is a CSRF POST form. Keep the two in step.
+block for the profile menu, and its comment says why. Keep the two in step.
 
 ## The document is the one scroller
 
@@ -495,18 +496,23 @@ destination, so `git mv src/app.ts notes.md` would otherwise read as docs and sk
 source file that was gone. `src/ci-gate.test.ts` locks the flags as a text guard, since the test
 image ships neither `git` nor `bash`.
 
-This is why the Docker Hub overview is `release-tooling/dockerhub-overview.md.tmpl` and not a `.md`:
-a release reads it and a unit test guards it, so a `.md` name would let a broken `{{VERSION}}` merge
-with its own guard skipped. `README.md` is the one markdown tests read, and a README-only change
-skips them. Accepted: the `apiVersion` samples `release-tooling/contract-version.test.ts` checks are
-illustrative, and the copies that matter (`examples/`, `views/`, the template) are gated. A Hub page
-command the README dropped (`release-tooling/dockerhub-overview.test.ts`) fails the next gated
-change.
+Because a `.md` change skips the gate, the Docker Hub overview is
+`release-tooling/dockerhub-overview.md.tmpl`. A release reads it and a unit test guards it, so under
+a `.md` name a broken `{{VERSION}}` would merge with that guard skipped.
+
+`README.md` is the one markdown file tests read, so a README-only change skips them. That leaves two
+gaps:
+
+- An `apiVersion` sample in the README can go stale unchecked by
+  `release-tooling/contract-version.test.ts`. Accepted, because the README's samples are
+  illustrative; the copies authors build from (`examples/`, `views/`, the template) are gated.
+- A README-only change that drops a command the Hub page shows fails only the next gated change, in
+  `release-tooling/dockerhub-overview.test.ts`.
 
 ## CI docker logins share the runner host's Docker config
 
-2026-07-04, the maintainer. Code health. Valid while releases keep a single-maintainer cadence;
-serialize with a workflow `concurrency` group if it ever bites.
+2026-07-04, the maintainer. Code health. Valid while releases keep a single-maintainer cadence; if
+these races start costing re-runs, serialize the workflows with a `concurrency` group.
 
 The act_runner is host-mode, so `docker login` and `logout` in the workflows mutate one shared
 `~/.docker/config.json`. Concurrent jobs can race: one job's logout can 401 another's push, and the

@@ -10,8 +10,9 @@ change, sweep the prose you touched — this file, `README.md`, the example READ
 comments — and cut it back to what a competent reader could not infer:
 
 - **Delete history.** Git holds it. No "this moved from X", "used to be Y", "was tried and
-  rejected", "(declined twice)", dated changelog entries, or the symptom that prompted a fix. Record
-  the decision and the reason it *currently* turns on, nothing else.
+  rejected", "(declined twice)", dated changelog entries (a decision's date in `docs/decisions.md`
+  is not one), or the symptom that prompted a fix. Record the decision and the reason it
+  *currently* turns on, nothing else.
 - **Delete restatement.** A comment that says what the adjacent line says, a doc paragraph that
   re-explains a table above it, a file-map entry that expands the filename. The fix is deletion,
   not trimming.
@@ -69,8 +70,10 @@ branch, create a PR and merge it when the CI/CD turns green.
 
 ## Decisions
 
-In `docs/decisions.md`, each with its reasoning and the premise it rests on. A review honours them
-rather than re-raising them.
+Each title below is an entry in `docs/decisions.md`, with its reasoning and the premise it rests
+on; a review honours them.
+
+### Structure & contracts
 
 - `src/` is grouped by concern, and the core ships no domain screens
 - Plugins and config import the host only through the two barrels
@@ -88,6 +91,9 @@ rather than re-raising them.
 - `ctx.chrome` is lazily memoized, never built unconditionally
 - A plugin-owned render always runs on that plugin's context
 - Email is delegated to Kratos
+
+### Authorization
+
 - The vocabulary is `User` → `Group` → `Permission`, and there is no `Role`
 - A permission name is always `<resource>:<action>`, enforced at discovery
 - Permission names are authored in plugin code; only grants live in Keto
@@ -101,6 +107,9 @@ rather than re-raising them.
 - `users:write` and `groups:write` each amount to full administrative access
 - The CSRF token is unbound to the session
 - Plainpages says "user" everywhere, where Ory says "identity"
+
+### i18n
+
 - The locale lives in the URL, never in a cookie
 - The core building blocks carry the locale, so a plugin doesn't have to
 - `locale` and the i18n view locals are reserved by the host
@@ -110,9 +119,15 @@ rather than re-raising them.
 - An unknown translation key renders as itself
 - `t()` returns raw text, and the view escapes it
 - RTL is out of scope until there is a real use case
+
+### UI
+
 - A dropdown is a `<button popovertarget>` and a `[popover]`, never a `<details>`
 - The document is the one scroller
 - `ICON_NAMES` is a host-owned registry, not a plugin contract
+
+### Build, test & release
+
 - Dependencies install to `/node_modules`, above `WORKDIR /app`
 - A container whose output a human then edits or deletes runs as the invoking user
 - Anything the browser logs fails the E2E test that provoked it
