@@ -110,7 +110,8 @@ test("a one-shot bootstrap seeds the stack before web starts", () => {
 });
 
 test("deps live above WORKDIR, so no mount creates a root-owned dir in the checkout", () => {
-  // A volume at /app/node_modules would leave a root-owned dir in the checkout (AGENTS.md).
+  // A volume at /app/node_modules would leave a root-owned dir in the checkout
+  // (docs/decisions.md → "Dependencies install to `/node_modules`, above `WORKDIR /app`").
   const dockerfile = read("Dockerfile");
   // split() returns the whole file when the marker is missing, widening "before" to "anywhere".
   assert.ok(dockerfile.includes("WORKDIR /app"), "the app dir is /app");
