@@ -50,12 +50,11 @@ export function routePublic(restPath: string, publicDir: string, pluginsDir: str
   return { dir: publicDir, subPath: restPath };
 }
 
-// Caching: the host renders every /public/ href through assetHref, which appends `?v=<hash of the
-// file's content>`. A request whose `v` is the current hash is cached for a year as immutable, so a
-// repeat page view downloads no asset; a changed file gets a new hash, and with it a new URL. Any other
-// request — an href a plugin's own markup emits, a stale `v` mid-deploy — is cached for five minutes,
-// then revalidated against the ETag (that same hash) or Last-Modified. A plugin has no way to version
-// its own hrefs yet: `assetHref` is a reserved local but not contract, since offering it is a minor.
+// Caching: every /public/ href rendered through assetHref (the host's, and a plugin's through the view
+// local or ctx.assetHref) gets `?v=<hash of the file's content>`. A request whose `v` is the current
+// hash is cached for a year as immutable, so a repeat page view downloads no asset; a changed file gets
+// a new hash, and with it a new URL. Any other request — an unwrapped href, a stale `v` mid-deploy — is
+// cached for five minutes, then revalidated against the ETag (that same hash) or Last-Modified.
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const SHORT = "public, max-age=300";
 

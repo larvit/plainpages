@@ -5,7 +5,7 @@
 // PRG redirect (mirrors the Users "trigger recovery" one-time code). Below the builders are thin
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
-import { can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
+import { buildPaginationModel, can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import { ADMIN_CLIENTS_BASE, ADMIN_EN, type AdminAction, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -122,7 +122,7 @@ export function buildClientsListModel(opts: {
     breadcrumbs: [{ href: ADMIN_CLIENTS_BASE, label: t("admin.nav.section") }, { label: t("admin.clients.title") }],
     canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, t),
-    pagination: listPagination(state, page, t),
+    pagination: buildPaginationModel(page, (n) => listHref(state, { page: n }), { label: t("admin.clients.pagination"), pageSizes: PAGE_SIZES }),
     table: listTable(rows, t),
     title: t("admin.clients.title"),
   };
@@ -158,21 +158,6 @@ function listFilterBar(state: ListState, t: Translate) {
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
-  const hidden: { name: string; value: string }[] = [];
-  if (state.q) hidden.push({ name: "q", value: state.q });
-  return {
-    label: t("admin.clients.pagination"),
-    next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
-    pages: page.pages.map((p) =>
-      p.ellipsis ? { ellipsis: true }
-        : p.current ? { current: true, label: String(p.page) }
-          : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
-    prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: t("pagination.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("pagination.go"), value: state.pageSize },
-    summary: { from: page.from, to: page.to, total: page.total },
-  };
-}
 
 // ---- register form + detail view models ----
 

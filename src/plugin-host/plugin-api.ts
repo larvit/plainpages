@@ -32,8 +32,8 @@ export type { Catalog, PluralMessage } from "../i18n/catalog.ts";
 // missing key is a type error in the editor rather than a wall of boot errors.
 export type { CoreMessages } from "../i18n/locales/en-US.ts";
 export { parseListQuery } from "../ui/list-query.ts";
-export { paginate } from "../ui/paginate.ts";
-export type { PageModel } from "../ui/paginate.ts";
+export { buildPaginationModel, paginate } from "../ui/paginate.ts";
+export type { PageModel, PaginationModel, PaginationModelOptions } from "../ui/paginate.ts";
 export { readFormBody } from "../http/body.ts";
 export { CSRF_FIELD } from "../auth/csrf.ts";
 // System capabilities for a privileged/system plugin (ctx.system) — the Ory admin clients + the

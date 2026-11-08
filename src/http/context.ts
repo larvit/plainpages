@@ -22,6 +22,10 @@ export interface User {
 }
 
 export interface RequestContext {
+  // A /public/ href with `?v=<content hash>`, so the browser caches the file for a year; any other
+  // href, or one already carrying a query or fragment, comes back unchanged. The same function is
+  // the `assetHref` view local, for hrefs a handler builds into `data`.
+  assetHref(href: string): string;
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).
   chrome: PageChrome;
@@ -66,6 +70,7 @@ export interface RequestContext {
 }
 
 export interface BuildContextOptions {
+  assetHref?: (href: string) => string;
   // Lazy chrome factory: composing the global menu is only paid for if the handler actually reads
   // ctx.chrome (a json/redirect handler, or the public "/" with a standalone home, pays nothing).
   // The host's factory is memoised, so the menu composes at most once per request across contexts.
@@ -99,6 +104,7 @@ export function buildContext(
   const buildChrome = options.chrome;
   let chromeMemo: PageChrome | undefined; // resolve the factory at most once per context
   return {
+    assetHref: options.assetHref ?? ((href) => href),
     get chrome(): PageChrome { return (chromeMemo ??= buildChrome ? buildChrome() : ANON_CHROME); },
     declaredPermissions: options.declaredPermissions ?? [],
     declaredSettings: options.declaredSettings ?? [],

@@ -392,6 +392,22 @@ test("renders the 500 HTML page when a handler throws", async () => {
   }
 });
 
+test("a plugin versions the /public/ files its own markup links, through the assetHref view local or ctx.assetHref", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pp-plugins-"));
+  mkdirSync(join(dir, "drag", "views"), { recursive: true });
+  mkdirSync(join(dir, "drag", "public"), { recursive: true });
+  writeFileSync(join(dir, "drag", "views", "page.ejs"), `<script src="<%= assetHref("/public/drag/board.js") %>"></script><img src="<%= logo %>" alt="">`);
+  writeFileSync(join(dir, "drag", "public", "board.js"), "void 0;");
+  writeFileSync(join(dir, "drag", "public", "logo.svg"), "<svg/>");
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const drag: Plugin = { apiVersion: "1.0.0", id: "drag", routes: [{ handler: (ctx) => ({ data: { logo: ctx.assetHref("/public/drag/logo.svg") }, view: "page" }), method: "GET", path: "/page", public: true }] };
+  const url = await startApp(t, [drag], dir);
+
+  const html = await (await fetch(url + "/drag/page")).text();
+  assert.match(html, /src="\/public\/drag\/board\.js\?v=[\w-]+"/);
+  assert.match(html, /src="\/public\/drag\/logo\.svg\?v=[\w-]+"/);
+});
+
 // Every /public/ reference in the page, as written in the HTML.
 const publicRefs = (html: string): string[] => [...html.matchAll(/(?:href|src)="(\/public\/[^"]*)"/g)].map((m) => m[1] ?? "");
 

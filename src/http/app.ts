@@ -268,9 +268,9 @@ export function createApp(options: AppOptions = {}): Server {
 
       // Base context (no route params), for the built-in routes. Every plugin-owned render — a
       // landing slot, a hook short-circuit, a plugin route — gets `contextFor(id)` instead.
-      const ctx = buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
+      const ctx = buildContext(req, res, { assetHref: assets.href, chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(), log: reqLog, verifyCsrf, ...(system ? { system } : {}) });
       const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext =>
-        buildContext(req, res, { chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
+        buildContext(req, res, { assetHref: assets.href, chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, user, ...i18nFor(pluginId), log: reqLog, ...(params ? { params } : {}), verifyCsrf, ...(system ? { system } : {}) });
       renderPage = viewsFor(ctx);
 
       // Plugin onRequest hooks run before routing and may short-circuit the request.

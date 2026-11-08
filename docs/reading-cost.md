@@ -337,3 +337,20 @@ Read most (opens and searches):
 - `CHANGELOG.md` 1
 - `examples/plugins/admin/i18n/sv-SE.ts` 1
 - `src/auth/routes.ts` 1
+
+## Reading cost, chunk b94ae3839c24, finished 2026-11-08T13:27:14Z
+
+87251 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 9
+- `README.md` 7
+- `src/plugin-host/plugin.test.ts` 6
+- `src/plugin-host/plugin.ts` 5
+- `src/test-tooling/stylesheet-floor.ts` 4
+- `AGENTS.md` 3
+- `src/test-tooling/app-harness.ts` 3
+- `src/plugin-host/discovery.ts` 2
+- `src/test-tooling/stylesheet-floor.test.ts` 2
+- `.dockerignore` 1

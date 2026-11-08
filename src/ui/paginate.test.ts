@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { paginate, type PageModel } from "./paginate.ts";
+import { buildPaginationModel, paginate, type PageModel } from "./paginate.ts";
 
 // Compact view of the page sequence: ellipsis → "…", current → "[n]", else the number.
 const shape = (m: PageModel): (number | string | null)[] =>
@@ -40,4 +40,40 @@ test("paginate windows the sequence: single gaps fill, wider gaps ellipsize, sib
   // Wider sibling window and more boundary pages.
   assert.deepEqual(shape(paginate(200, 10, 10, { siblings: 2 })), [1, "…", 8, 9, "[10]", 11, 12, "…", 20]);
   assert.deepEqual(shape(paginate(200, 10, 10, { boundaries: 2 })), [1, 2, "…", 9, "[10]", 11, "…", 19, 20]);
+});
+
+test("buildPaginationModel maps a page to the pagination partial's model, every href from hrefFor", () => {
+  const hrefFor = (n: number): string => `/users?q=ann&sort=-name${n > 1 ? `&page=${n}` : ""}`;
+  assert.deepEqual(buildPaginationModel(paginate(100, 2, 25), hrefFor, { label: "User pages", pageSizes: [25, 50] }), {
+    label: "User pages",
+    next: { href: "/users?q=ann&sort=-name&page=3" },
+    pages: [
+      { href: "/users?q=ann&sort=-name", label: "1" },
+      { current: true, label: "2" },
+      { href: "/users?q=ann&sort=-name&page=3", label: "3" },
+      { href: "/users?q=ann&sort=-name&page=4", label: "4" },
+    ],
+    prev: { href: "/users?q=ann&sort=-name" },
+    rows: { hidden: [{ name: "q", value: "ann" }, { name: "sort", value: "-name" }], name: "pageSize", options: [25, 50], value: 25 },
+    summary: { from: 26, to: 50, total: 100 },
+  });
+});
+
+test("buildPaginationModel disables the step off either end, keeps ellipses, and omits what wasn't asked for", () => {
+  const m = buildPaginationModel(paginate(100, 1, 10), (n) => `/l?page=${n}`);
+  assert.deepEqual(m.prev, {});
+  assert.deepEqual(m.pages[m.pages.length - 2], { ellipsis: true });
+  assert.equal("label" in m, false);
+  assert.equal("rows" in m, false);
+  assert.deepEqual(buildPaginationModel(paginate(100, 10, 10), (n) => `/l?page=${n}`).next, {});
+});
+
+test("buildPaginationModel's rows form carries the links' list state, minus page, page size and locale", () => {
+  const m = buildPaginationModel(paginate(10, 1, 50), () => "/l?status=active&status=locked&page=2&pageSize=50&locale=sv-SE", { pageSizes: [50] });
+  assert.deepEqual(m.rows?.hidden, [{ name: "status", value: "active" }, { name: "status", value: "locked" }]);
+});
+
+test("buildPaginationModel follows renamed page and page-size params, as parseListQuery takes them", () => {
+  const m = buildPaginationModel(paginate(10, 1, 5), () => "/l?q=x&p=2&size=5", { pageParam: "p", pageSizeParam: "size", pageSizes: [5] });
+  assert.deepEqual(m.rows, { hidden: [{ name: "q", value: "x" }], name: "size", options: [5], value: 5 });
 });

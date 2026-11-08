@@ -6,7 +6,7 @@
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
-import { can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
+import { buildPaginationModel, can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, partialSave, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
@@ -143,7 +143,7 @@ export function buildGroupsListModel(opts: {
     breadcrumbs: [{ href: ADMIN_GROUPS_BASE, label: t("admin.nav.section") }, { label: t("admin.groups.title") }],
     canWrite: opts.canWrite !== false,
     filterBar: listFilterBar(state, t),
-    pagination: listPagination(state, page, t),
+    pagination: buildPaginationModel(page, (n) => listHref(state, { page: n }), { label: t("admin.groups.pagination"), pageSizes: PAGE_SIZES }),
     table: listTable(rows, state, sort, t),
     title: t("admin.groups.title"),
   };
@@ -179,22 +179,6 @@ function listFilterBar(state: ListState, t: Translate) {
   };
 }
 
-function listPagination(state: ListState, page: ReturnType<typeof paginate>, t: Translate) {
-  const hidden: { name: string; value: string }[] = [];
-  if (state.q) hidden.push({ name: "q", value: state.q });
-  if (state.sort) hidden.push({ name: "sort", value: state.sort });
-  return {
-    label: t("admin.groups.pagination"),
-    next: { href: page.next ? listHref(state, { page: page.next }) : undefined },
-    pages: page.pages.map((p) =>
-      p.ellipsis ? { ellipsis: true }
-        : p.current ? { current: true, label: String(p.page) }
-          : { href: listHref(state, { page: p.page as number }), label: String(p.page) }),
-    prev: { href: page.prev ? listHref(state, { page: page.prev }) : undefined },
-    rows: { hidden, label: t("pagination.rows"), name: "pageSize", options: PAGE_SIZES, submitLabel: t("pagination.go"), value: state.pageSize },
-    summary: { from: page.from, to: page.to, total: page.total },
-  };
-}
 
 // ---- create form + detail view models ----
 

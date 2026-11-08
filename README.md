@@ -47,7 +47,7 @@ folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.
 import { definePlugin } from "@plainpages/plugin-api";
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.5.0",
   nav: [{ href: "/hello", id: "hello", label: "Hello", public: true }],
   routes: [
     { method: "GET", path: "/", public: true, handler: () => ({ html: "<h1>Hello from my plugin</h1>" }) },
@@ -437,7 +437,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { listThings, createThings } from "./handlers.ts";
 
 export default definePlugin({
-  apiVersion: "0.4.0",                // semver string of the host contract this plugin was built against (see Versioning)
+  apiVersion: "0.5.0",                // semver string of the host contract this plugin was built against (see Versioning)
 
   // Nav fragment, merged into the global menu and gate-filtered per user.
   // `icon` is a Lucide icon by its sprite id (src/ui/icons.ts).
@@ -521,8 +521,10 @@ export async function listThings(ctx: RequestContext) {
   `include()` the core building-block partials and its own. To load the plugin's own CSS, pass its
   `/public/<id>/x.css` href in the shell's `styles` slot — see the reference's `views/shifts.ejs`.
   The host adds the file's content hash to every `/public/` href the shell renders, so browsers and
-  any cache in front of Plainpages keep the file for a year; a `/public/` URL your own markup writes
-  is kept for five minutes, then revalidated.
+  any cache in front of Plainpages keep the file for a year. Get the same for a script or image your
+  own markup links by wrapping its href: `<script src="<%= assetHref("/public/<id>/x.js") %>" defer>`
+  in a view, `ctx.assetHref(href)` in a handler. An unwrapped `/public/` URL is kept for five
+  minutes, then revalidated.
 - **Finer authorization than the route `permission`** uses the guards from `@plainpages/plugin-api`:
   `requireSession(ctx)`, `can(ctx, permission)` (coarse JWT-claim check, zero I/O), and
   `check(keto, ctx, {namespace, object, relation})` (a live Keto check; anonymous ⇒ denied). Throw
@@ -561,7 +563,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 import { landing, board } from "./pages.ts";
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.5.0",
   home: landing,     // owns "/" — the public front page
   dashboard: board,  // owns "/dashboard" — the post-login app home
 });
@@ -593,6 +595,7 @@ interface RequestContext {
   locale: string;                    // the locale being served, e.g. "sv-SE"
   locales: string[];                 // every installed locale, sorted
   localeHref(href): string;          // carry an explicitly chosen locale onto a link this page renders
+  assetHref(href): string;           // version a /public/ href so it is cached for a year; any other href unchanged
   query: URLSearchParams;            // alias of url.searchParams
   req: IncomingMessage;
   res: ServerResponse;
@@ -850,7 +853,7 @@ camel humps both becoming underscores — so `upstream` on the `scheduling` plug
 
 ```ts
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.5.0",
   settings: [
     { key: "upstream", type: "url", required: true, description: "Base URL of the backend" },
     { key: "pageSize", type: "number", default: 25 },
@@ -904,7 +907,7 @@ import { definePlugin } from "@plainpages/plugin-api";
 let sql: ReturnType<typeof postgres>;
 
 export default definePlugin({
-  apiVersion: "0.4.0",
+  apiVersion: "0.5.0",
   storage: true,
   hooks: {
     onBoot: async (boot) => {
@@ -1039,9 +1042,24 @@ fully styled and zero-JS:
 - **Partials:** app shell, nav tree, filter bar, data table (sort / select / row actions),
   pagination, form fields, badges, menus, auth cards.
 - **Helpers:** `composeNav` (menu from config), `parseListQuery`
-  (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math), and the
+  (`?q=…&status=…&sort=…&page=…` → filter/sort/pagination), `paginate` (page math),
+  `buildPaginationModel` (page math → the pagination partial, sketched below), and the
   auth guards (`src/auth/guards.ts`): `requireSession`, `can(permission)` (coarse JWT-claim check,
   zero I/O), `check(relation, object)` (the one live Keto call).
+
+A list page's pagination, from URL to partial (`examples/plugins/admin/admin-users.ts` is the full
+page):
+
+```ts
+const query = parseListQuery(ctx.url);                           // { q, filters, sort, page, pageSize }
+const page = paginate(rows.length, query.page, query.pageSize);  // or an upstream's total
+const visible = rows.slice(page.from - 1, page.to);
+const pagination = buildPaginationModel(page, (n) => listHref({ ...query, page: n }), { pageSizes: [25, 50, 100] });
+// view: <%- include("partials/pagination", pagination) %>
+```
+
+`listHref` is yours: the list's URL with all its state. The rows-per-page form's hidden inputs are
+read off it, so it carries the same filters, search and sort as the page links.
 
 ## Interactivity: zero-JS spine
 
@@ -1188,7 +1206,7 @@ Rules worth knowing:
   edit/new/remove/save`, `filter.*`, `pagination.*`, `table.*` — and a plugin's lookup falls through
   to them. Keep your catalog for your domain words.
 - **Reserved view locals:** `t`, `locale`, `locales`, `localeHref`, `localeParam`, `localeSwitch`,
-  `dir`, and the host-internal `assetHref`. They are merged after your `data`, so a colliding key of yours is ignored rather than
+  `dir`, and `assetHref`. They are merged after your `data`, so a colliding key of yours is ignored rather than
   breaking the shell. `locale` is likewise reserved in `parseListQuery`, never returned as a filter.
 
 **Kratos writes the auth flow's own text** (field labels, validation errors), tagging each string

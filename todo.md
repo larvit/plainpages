@@ -12,8 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
-| 43 | 0.5.0 |  |  | **Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.** | 2 | 2 | 1 | 3 | 3 | 8 by 3, 7 by 2 | 5.0 |
 | 57 | 0.5.0 |  | owner | **Put the caller's IP, user agent and host on every request's span and `request` log line, under OpenTelemetry's HTTP semantic conventions, reading the IP through a proxy only where configuration names it trusted.** | 2 | 2 | 2 | 4 | 3 | 1 by 3 | 3.3 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
@@ -31,20 +29,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 23. Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.
-
-Every list screen bridges `parseListQuery`/`paginate` to the partials by hand. At minimum a
-`buildPaginationModel(page, hrefFor)`. Exported through the barrel, so it is contract surface.
-
-### 43. Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.
-
-The host versions every `/public/` href it renders (`src/http/static.ts`): the shell's stylesheets,
-favicon and logo, and a plugin's `styles`. A file a plugin's own markup links, such as fastjira's
-`board-drag.js`, keeps an unversioned URL and is revalidated every five minutes. Offering a way —
-`assetHref` documented as a view local, a `ctx.assetHref`, or a `scripts` slot in the shell — adds to
-the plugin API, hence a minor. Pick one with the plugin authors' panel, then document it in README →
-Reserved view locals.
 
 ### 57. Put the caller's IP, user agent and host on every request's span and `request` log line, under OpenTelemetry's HTTP semantic conventions, reading the IP through a proxy only where configuration names it trusted.
 

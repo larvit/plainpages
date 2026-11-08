@@ -1,7 +1,7 @@
-// paginate: pagination math → the model pagination.ejs renders. Pure and
-// URL-free (README signature `paginate(total, page, pageSize)`); the caller maps each
-// page number to an href. Inputs are clamped/guarded so it never produces a broken model:
-// page is pinned to [1, pageCount], total/pageSize coerced to sane integers.
+// paginate: pagination math → a PageModel. Pure and URL-free (README signature
+// `paginate(total, page, pageSize)`); buildPaginationModel then maps it, with the caller's
+// page → href function, to the model pagination.ejs renders. Inputs are clamped/guarded so it never
+// produces a broken model: page is pinned to [1, pageCount], total/pageSize coerced to sane integers.
 
 export interface PageItem {
   current: boolean;
@@ -43,6 +43,48 @@ export function paginate(total: number, page: number, pageSize: number, options:
     to: Math.min(current * size, t),
     total: t,
   };
+}
+
+export interface PaginationModelOptions {
+  label?: string; // the nav's aria-label; the partial defaults it
+  pageParam?: string; // as parseListQuery's options (default "page")
+  pageSizeParam?: string; // as parseListQuery's options (default "pageSize")
+  pageSizes?: number[]; // the rows-per-page choices; omitted ⇒ no rows-per-page form
+}
+
+export interface PaginationModel {
+  label?: string;
+  next: { href?: string };
+  pages: ({ ellipsis: true } | { current: true; label: string } | { href: string; label: string })[];
+  prev: { href?: string };
+  rows?: { hidden: { name: string; value: string }[]; name: string; options: number[]; value: number };
+  summary: { from: number; to: number; total: number };
+}
+
+// `hrefFor(n)` is the list's URL on page n, carrying all its other state. The rows-per-page form is a
+// GET, which replaces the whole query string, so its hidden inputs are read off that same URL: the
+// form then carries exactly the state the links do. `locale` is left to the partial, which adds it.
+export function buildPaginationModel(page: PageModel, hrefFor: (page: number) => string, options: PaginationModelOptions = {}): PaginationModel {
+  const step = (n: number | null): { href?: string } => (n === null ? {} : { href: hrefFor(n) });
+  const model: PaginationModel = {
+    next: step(page.next),
+    pages: page.pages.map((p) =>
+      p.page === null ? { ellipsis: true as const }
+        : p.current ? { current: true as const, label: String(p.page) }
+          : { href: hrefFor(p.page), label: String(p.page) }),
+    prev: step(page.prev),
+    summary: { from: page.from, to: page.to, total: page.total },
+  };
+  if (options.label !== undefined) model.label = options.label;
+  if (options.pageSizes) {
+    const name = options.pageSizeParam ?? "pageSize";
+    const omit = new Set([options.pageParam ?? "page", name, "locale"]);
+    const hidden = [...new URL(hrefFor(page.page), "http://x").searchParams]
+      .filter(([key]) => !omit.has(key))
+      .map(([key, value]) => ({ name: key, value }));
+    model.rows = { hidden, name, options: options.pageSizes, value: page.pageSize };
+  }
+  return model;
 }
 
 const item = (page: number, current = false): PageItem => ({ current, ellipsis: false, page });
