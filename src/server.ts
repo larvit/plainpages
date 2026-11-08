@@ -107,6 +107,7 @@ const server = createApp({
   plugins,
   secureCookies: config.secureCookies,
   settingsCatalog: settings.catalog,
+  trustedProxies: config.trustedProxies,
 }).listen(config.port, () => {
   log.info("listening", { apiVersion: HOST_API_VERSION, port: config.port, url: config.appUrl ?? `http://localhost:${config.port}` });
 });

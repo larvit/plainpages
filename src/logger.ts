@@ -61,9 +61,10 @@ export const tracedFetch: typeof fetch = (input, init) => {
 // request its own root trace, so requests aren't all nested under one app-lifetime span, while
 // inheriting the parent's level/format/streams/OTLP. A valid upstream `traceparent` is adopted;
 // malformed ⇒ ignored, a fresh trace starts. `end()` on response finish exports the span.
-export function requestLogger(appLog: Log, opts: { requestId: string; traceparent?: string | undefined }): Log {
+// `attributes` ride the context, so they land on the span and on every line the request logs.
+export function requestLogger(appLog: Log, opts: { attributes?: Record<string, string>; requestId: string; traceparent?: string | undefined }): Log {
   return appLog.clone({
-    context: { ...appLog.context, requestId: opts.requestId },
+    context: { ...appLog.context, ...opts.attributes, requestId: opts.requestId },
     spanName: "request",
     ...(opts.traceparent ? { traceparent: opts.traceparent } : {}),
   });

@@ -97,6 +97,13 @@ test("SERVICE_NAME is overridable so an implementer brands their own logs/traces
   assert.equal(loadConfig({ SERVICE_NAME: "" }).serviceName, "plainpages"); // empty ⇒ default
 });
 
+test("TRUSTED_PROXIES: a comma-separated list of IPs/CIDRs, empty by default, a bad entry refuses the boot", () => {
+  assert.deepEqual(loadConfig({}).trustedProxies, []); // trust nobody's X-Forwarded-For unless told
+  assert.deepEqual(loadConfig({ TRUSTED_PROXIES: "" }).trustedProxies, []); // compose passes ${TRUSTED_PROXIES:-}
+  assert.deepEqual(loadConfig({ TRUSTED_PROXIES: "10.0.0.0/8, ::1" }).trustedProxies, ["10.0.0.0/8", "::1"]);
+  assert.throws(() => loadConfig({ TRUSTED_PROXIES: "10.0.0.1,proxy.internal" }), /TRUSTED_PROXIES/);
+});
+
 test("LOG_LEVEL/LOG_FORMAT/OTLP_PROTOCOL are validated enums; OTLP_ENDPOINT an optional URL", () => {
   assert.equal(loadConfig({ LOG_LEVEL: "debug" }).logLevel, "debug");
   assert.equal(loadConfig({ LOG_LEVEL: "none" }).logLevel, "none");

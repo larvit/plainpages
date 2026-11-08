@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 57 | 0.5.0 |  | owner | **Put the caller's IP, user agent and host on every request's span and `request` log line, under OpenTelemetry's HTTP semantic conventions, reading the IP through a proxy only where configuration names it trusted.** | 2 | 2 | 2 | 4 | 3 | 1 by 3 | 3.3 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 28 | 0.6.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
@@ -29,23 +28,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 57. Put the caller's IP, user agent and host on every request's span and `request` log line, under OpenTelemetry's HTTP semantic conventions, reading the IP through a proxy only where configuration names it trusted.
-
-Today the `request` line and span in `src/http/app.ts` carry only method, path, status and `ms`, so
-a dashboard can't filter requests by site or tell one caller from another. Add `server.address`
-(the `Host`), `user_agent.original`, `client.address` and `http.route` where a route matched, and
-rename the four fields already there to their convention names (`http.request.method`, `url.path`,
-`http.response.status_code`, and the span's own duration for `ms`). Every plugin gains them with no
-code of its own.
-
-`client.address` is the socket's peer unless a new setting, such as `TRUSTED_PROXIES`, lists that
-peer. Only then does the host take the address `X-Forwarded-For` names (goal 10: an explicit
-choice). Trusting the header from anyone would let a caller write any IP into the logs.
-
-A caller's IP and user agent are personal data, so the README says the host logs them, and a
-deployment's privacy policy must say so too. bender-infra's Requests dashboard (its todo.md item
-117) reads these names, and fastjira (its item 161) is the first plugin to send them.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

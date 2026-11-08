@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,7 +21,7 @@ import { resolveSession, type VerifyOptions } from "../auth/jwt-middleware.ts";
 import type { KetoClient } from "../auth/keto-client.ts";
 import type { KratosAdmin } from "../auth/kratos-admin.ts";
 import type { KratosPublic } from "../auth/kratos-public.ts";
-import { createLogger, type Log, requestLogger, runWithLog } from "../logger.ts";
+import { createLogger, type Log } from "../logger.ts";
 import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
 import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
@@ -30,6 +30,8 @@ import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allows, type Gate } from "../auth/gate.ts";
 import { allowedMethods, matchRoute } from "../plugin-host/router.ts";
 import { buildAuthRoutes } from "../auth/routes.ts";
+import { parseTrustedProxies } from "./request-fields.ts";
+import { trackRequest } from "./request-tracking.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
 import { publicAssets } from "./static.ts";
@@ -58,6 +60,7 @@ export interface AppOptions {
   publicDir?: string;
   secureCookies?: boolean; // set Secure on our session/CSRF cookies (config.secureCookies; off in dev http)
   settingsCatalog?: readonly PluginSettings[]; // resolved at boot (server.ts, needs the env); → ctx.declaredSettings
+  trustedProxies?: readonly string[]; // IPs/CIDRs whose X-Forwarded-For names the caller (config.trustedProxies); omitted ⇒ the socket peer
   viewsDir?: string;
 }
 
@@ -73,6 +76,7 @@ export function createApp(options: AppOptions = {}): Server {
   const canonicalOrigin = canonical?.origin; // scheme + host[:port], no trailing slash
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
+  const trustedProxies = parseTrustedProxies(options.trustedProxies);
   const hydra = options.hydra;
   const i18n = options.i18n ?? ENGLISH_I18N;
   const jwks = options.jwks;
@@ -214,12 +218,9 @@ export function createApp(options: AppOptions = {}): Server {
       // the themed forms and the cross-origin Kratos POST share one cookie host — otherwise the
       // host-scoped Kratos CSRF cookie is lost and login dumps onto /error. GET/HEAD only: a 308
       // must not replay a cross-host POST.
-      if (canonicalHost && (method === "GET" || method === "HEAD")) {
-        const host = req.headers.host;
-        if (host !== undefined && host !== canonicalHost) {
-          res.writeHead(308, { location: canonicalOrigin + (req.url ?? "/") }).end();
-          return;
-        }
+      if (canonicalHost && (method === "GET" || method === "HEAD") && req.headers.host !== undefined && req.headers.host !== canonicalHost) {
+        res.writeHead(308, { location: canonicalOrigin + (req.url ?? "/") }).end();
+        return;
       }
 
       // `explicit` (the URL asked for a locale) is what makes the choice travel: the chrome, this
@@ -294,6 +295,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       const match = matchRoute(plugins, method, pathname);
       if (match) {
+        reqLog.context["http.route"] = match.route.path;
         const routeCtx = contextFor(match.plugin.id, match.params);
         if (!allows(match.route, routeCtx.user)) {
           await refuse(match.route, routeCtx);
@@ -310,6 +312,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
       if (builtin) {
+        reqLog.context["http.route"] = builtin.path;
         if (!allows(builtin, ctx.user)) { await refuse(builtin, ctx); return; }
         await sendResult(res, await builtin.handler(ctx, csrfMint, contextFor), viewsFor(ctx), carryLocale);
         return;
@@ -350,34 +353,7 @@ export function createApp(options: AppOptions = {}): Server {
     }
   };
 
-  return createServer((req, res) => {
-    // "close" (not "finish") fires on both a completed response and a premature disconnect, so an
-    // aborted request is still logged and its span flushed.
-    const startMs = Date.now();
-    const reqLog = requestLogger(log, {
-      requestId: randomUUID(),
-      ...(typeof req.headers.traceparent === "string" ? { traceparent: req.headers.traceparent } : {}),
-    });
-    // end() must run exactly once, after BOTH the handler has unwound AND the response has closed.
-    // Earlier would throw "already ended" from a still-running handler's ctx.log on a client abort,
-    // or drop the access line on the happy path (the handler settles before close).
-    let settled = false;
-    let closed = false;
-    const finalize = (): void => { if (settled && closed) void reqLog.end().catch(() => {}); };
-    res.on("close", () => {
-      closed = true;
-      try {
-        // path only (no query — it may carry tokens); method/status are header-safe here.
-        reqLog.info("request", { method: req.method ?? "GET", ms: Date.now() - startMs, path: (req.url ?? "/").split("?", 1)[0] ?? "/", status: res.statusCode });
-      } catch { /* never let logging crash a served request */ }
-      finalize();
-    });
-    // Make reqLog ambient for the whole handler so all outbound fetch is traced. The .catch logs a
-    // pathological escape via the app logger — not reqLog, which may be the thing that broke.
-    void runWithLog(reqLog, () => handleRequest(req, res, reqLog))
-      .catch((err) => log.error("request handler escaped its try/catch", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) }))
-      .finally(() => { settled = true; finalize(); });
-  });
+  return createServer((req, res) => trackRequest(log, trustedProxies, req, res, handleRequest));
 }
 
 // The Referer as a host-relative path, when it is one of ours — the page a form was submitted

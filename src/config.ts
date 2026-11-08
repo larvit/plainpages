@@ -2,6 +2,8 @@
 // secret, a bad URL or an out-of-range port throws here, never at request time. Every value has a
 // working dev default, so `docker compose up` runs with zero config.
 
+import { parseTrustedProxies } from "./http/request-fields.ts";
+
 // Log verbosity, most→least severe; "none" silences everything (matches @larvit/log's levels).
 export const LOG_LEVELS = ["error", "warn", "info", "verbose", "debug", "silly", "none"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -61,6 +63,7 @@ export interface Config {
   revocationTtlSec: number; // how long a revoke entry lives; keep ≥ tokenizer TTL + clock skew
   secureCookies: boolean;
   serviceName: string; // OTLP service.name — an implementer brands their own logs/traces
+  trustedProxies: string[]; // IPs/CIDRs whose X-Forwarded-For names the caller; empty ⇒ the socket peer is the caller
 }
 
 type Env = Record<string, string | undefined>;
@@ -149,6 +152,12 @@ function readPosInt(env: Env, key: string, devDefault: number): number {
   return n;
 }
 
+function readTrustedProxies(env: Env): string[] {
+  const entries = (env["TRUSTED_PROXIES"] ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+  parseTrustedProxies(entries); // throws on a bad entry; the app parses the list again
+  return entries;
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
@@ -176,8 +185,7 @@ export function loadConfig(env: Env = process.env): Config {
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
-    // observability. Console-only by default (clean clone). Setting OTLP_ENDPOINT to an
-    // OpenTelemetry Collector exports structured logs + per-request spans there (Loki/Tempo).
+    // Console-only by default; OTLP_ENDPOINT exports logs + per-request spans to an OpenTelemetry Collector.
     logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),
     logLevel: readEnum(env, "LOG_LEVEL", LOG_LEVELS, "info"),
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),
@@ -199,5 +207,6 @@ export function loadConfig(env: Env = process.env): Config {
     // Set Secure on our session/CSRF cookies. Off by default (dev runs http); prod (https) sets it.
     secureCookies: readBool(env, "SECURE_COOKIES", false),
     serviceName: env["SERVICE_NAME"] || "plainpages", // OTLP service.name; empty ⇒ default
+    trustedProxies: readTrustedProxies(env),
   };
 }
