@@ -290,3 +290,28 @@ Inherited architect, would restructure first:
 - Locality, Shape, Overall: `src/http/app.ts:185` `handleRequest`: stage order lives only in line order, in a grandfathered complexity-43 function
 - Shape, Navigation: `src/auth/routes.ts:275` `buildAuthRoutes`: 19 flat modules in `src/auth/`, and the next flow lands here
 - Shape, Navigation: `src/ui/stylesheet-floor.ts:15` `FLOOR`: the 3am rule's home is a test-only module under `ui/`
+
+## 2026-11-08T13:22:47Z, PR #214 at 84368ea, against c2389f8
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | better | same | better | better | better |
+| Inherited architect | better | same | better | better | better |
+
+Mid A, decided by:
+
+- Navigation, Shape, Overall: `src/test-tooling/stylesheet-floor.ts:1` `floorViolations`: test-only modules no longer sit beside runtime code in `ui/` and `http/`, and `AGENTS.md:77` names the folder
+- Self-sufficiency: `src/auth/login.ts:40` `readPermissions`: the comment now names `#granted`, which the code queries
+- Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: grouping and the per-group decision are separate named units
+- Self-sufficiency: `src/test-tooling/stylesheet-floor.ts:10` file header: says why a custom property's value is checked for functions and units
+- Self-sufficiency: `src/plugin-host/plugin.ts:234` `undeclaredGates`: its comment says why an undeclared gate matters
+
+Inherited architect, decided by:
+
+- Self-sufficiency, Shape, Overall: `src/auth/login.ts:40` `readPermissions`: the comment now names the relation the code queries
+- Self-sufficiency: `src/auth/bootstrap.ts:31` `permissionTuple`: the contradicting comment is gone
+- Navigation: `src/test-tooling/stylesheet-floor.ts:1` `floorViolations`: the folder is named in AGENTS.md and the README file map
+- Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: one loop split into `parenGroups`, `Group` and `keepGroup`
+- Self-sufficiency: `src/auth/routes.ts:117` `codeFlowSubmit`: a comment says which `flowFailure` branch can fire there
