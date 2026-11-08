@@ -7,9 +7,9 @@
 // as false; media range and `or` syntax fail. A partial implementation counts as support, since MDN
 // marks edge gaps that way, such as `outline` ignoring `border-radius` before Chrome 94. A
 // vendor-prefixed name is one engine's by design and is skipped, as are `font-family` names: an engine
-// skips a family it lacks. A custom property's value is checked too, for functions and units though
-// not keywords: a value a floor engine can't parse makes every `var()` reading it invalid, so each
-// declaration using it is dropped, wherever the property is declared.
+// skips a family it lacks. A custom property's value is checked for functions and units, though not
+// keywords: one a floor engine can't parse is invalid at computed-value time, so every declaration
+// reading it through `var()` computes as `unset`, and a fallback declared before it doesn't help.
 // Not checked: the body of an at-rule other than @media and @supports.
 import bcd from "@mdn/browser-compat-data" with { type: "json" };
 import type { CompatStatement, Identifier, SimpleSupportStatement, SupportBlock } from "@mdn/browser-compat-data";
@@ -116,8 +116,9 @@ function mediaQuery(sheet: Sheet, guards: string[], condition: string, offset: n
   }
 }
 
-// The parts of an @supports condition that must hold for its block to apply, as text a guard can
-// search: the condition without its `not (…)` groups and without any group joined by `or`, at every depth.
+// The parts of an @supports condition that must hold for its block to apply, as text a
+// `Feature.guard` can search: the condition without its `not (…)` groups and without any group
+// joined by `or`, at every depth.
 function positive(condition: string): string {
   const { groups, tail } = parenGroups(condition);
   if (OR.test(groups.map((g) => g.head).join("") + tail)) return "";
@@ -125,7 +126,7 @@ function positive(condition: string): string {
 }
 
 interface Group {
-  // The text between the previous group and this one's "(".
+  // The text before this group's "(", back to the previous group or the start of the condition.
   head: string;
   inner: string;
 }

@@ -6,6 +6,12 @@ at boot. Entries start at 0.3.0.
 
 ## Unreleased
 
+### Discovery warns when a gate names a permission no plugin declares
+
+A route or nav node that gates on a permission no installed plugin declares now logs a boot warning
+naming the plugin and the permission. The admin screens offer only declared permissions, so nobody can
+be granted such a gate from them. Add the name to the plugin's `permissions` to silence the warning.
+
 ### Discovery refuses a plugin with the id `error`
 
 `/error` is the page Kratos sends a failed self-service flow to, and a plugin named `error` would

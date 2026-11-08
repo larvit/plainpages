@@ -231,8 +231,9 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   return out;
 }
 
-// Declaring is optional, but the admin screens offer only declared names: a gate on one nobody
-// declares answers 403 until someone writes the Keto tuple by hand.
+// Declaring is optional, but the admin screens offer only declared names: a route gated on one nobody
+// declares answers 403 (a nav node is hidden) until the Keto tuple is written by hand or
+// ADMIN_PERMISSIONS seeds it.
 function undeclaredGates(plugins: Plugin[]): PluginConflict[] {
   const declared = new Set(declaredPermissions(plugins).map((decl) => decl.name));
   const out: PluginConflict[] = [];
@@ -241,7 +242,7 @@ function undeclaredGates(plugins: Plugin[]): PluginConflict[] {
     for (const route of plugin.routes ?? []) if (route.permission != null) gated.add(route.permission);
     collectNavPermissions(plugin.nav, (name) => gated.add(name));
     for (const name of [...gated].sort()) {
-      if (!declared.has(name)) out.push({ kind: "permission", level: "warn", message: `plugin "${plugin.id}" gates on "${name}", which no installed plugin declares, so the admin screens can't grant it; add it to a plugin's \`permissions\``, plugins: [plugin.id] });
+      if (!declared.has(name)) out.push({ kind: "permission", level: "warn", message: `plugin "${plugin.id}" gates on "${name}", which no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's \`permissions\``, plugins: [plugin.id] });
     }
   }
   return out;

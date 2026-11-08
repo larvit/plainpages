@@ -75,8 +75,8 @@ Revisit only if the stated reason stops holding.
 ### Structure & contracts
 
 - **`src/` is grouped by concern**, not flat — `http/`, `auth/`, `i18n/`, `plugin-host/`, `ui/`,
-  and `test-tooling/` (modules only tests import), with `server.ts`/`config.ts`/`logger.ts` and the
-  topology-guard `*.test.ts` at the root; tests are co-located. Add a new module to the folder owning its concern. The core ships **no domain
+  and `test-tooling/` (modules only tests import), with `server.ts`/`config.ts`/`logger.ts` and
+  the topology-guard `*.test.ts` at the root; tests are co-located. Add a new module to the folder owning its concern. The core ships **no domain
   screens** — even the admin GUI is a drop-in plugin (`examples/plugins/admin/`).
 - **Plugins and config import the host only through a barrel** — `@plainpages/plugin-api` →
   `plugin-api/index.ts` → `src/plugin-host/plugin-api.ts`, `#menu-config` → `src/ui/menu-config.ts`,

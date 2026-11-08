@@ -131,19 +131,19 @@ test("findConflicts: duplicate nav id is an error, a shared permission name only
 
 const noopHandler = () => {};
 
-test("findConflicts: a route or nav node gating on a permission no plugin declares warns once per plugin and name", () => {
+test("findConflicts: a route or nav node gating on a permission no plugin declares warns once per plugin and name, sorted", () => {
   const gated = findConflicts([
-    p({ id: "a", nav: [{ children: [{ id: "a:x", label: "X", permission: "ghost:read" }], id: "a:root", label: "A", session: true }], routes: [
-      { handler: noopHandler, method: "GET", path: "/x", permission: "ghost:read" },
-      { handler: noopHandler, method: "GET", path: "/y", permission: "other:write" },
-    ] }),
-    p({ id: "b", permissions: [{ name: "other:write" }] }),
+    p({ id: "a", nav: [{ children: [{ id: "a:x", label: "X", permission: "navonly:read" }], id: "a:root", label: "A", session: true }], routes: [
+      { handler: noopHandler, method: "GET", path: "/x", permission: "routeonly:read" },
+      { handler: noopHandler, method: "GET", path: "/y", permission: "both:read" },
+      { handler: noopHandler, method: "POST", path: "/y", permission: "both:read" },
+      { handler: noopHandler, method: "GET", path: "/z", permission: "declared:write" },
+    ], permissions: [] }),
+    p({ id: "b", nav: [{ id: "b:y", label: "Y", permission: "both:read" }], permissions: [{ name: "declared:write" }] }),
   ]);
-  const messages = gated.filter((c) => c.kind === "permission").map((c) => c.message);
-  assert.equal(messages.length, 1);
-  assert.match(messages[0] ?? "", /"ghost:read"/);
-  assert.deepEqual(gated[0]?.plugins, ["a"]);
-  assert.equal(gated[0]?.level, "warn");
+  assert.ok(gated.every((c) => c.kind === "permission" && c.level === "warn"));
+  assert.deepEqual(gated.map((c) => c.plugins), [["a"], ["a"], ["a"], ["b"]]);
+  assert.deepEqual(gated.map((c) => /"([^"]+:[a-z]+)"/.exec(c.message)?.[1]), ["both:read", "navonly:read", "routeonly:read", "both:read"]);
 });
 
 test("findConflicts: a gate on a permission another plugin declares, or on none, stays quiet", () => {
