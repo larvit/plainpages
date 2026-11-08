@@ -31,9 +31,9 @@
 ### 59. Lower the reading cost of the files a chunk reads most before its first commit.
 
 `reading-cost` reports a rise: the last 5 chunks' median is 87251 new input tokens before their
-first commit, the 5 before them 70583. Read most over those chunks: `todo.md` 34 times, `README.md`
-24, `src/plugin-host/plugin.ts` 11, `src/plugin-host/plugin.test.ts` 10, `AGENTS.md` 6. Cut or split
-what a chunk reads without needing it, then run `reading-cost --reset`.
+first commit, the 5 before them 70583. The files the last 5 chunks read most: `todo.md` 34 times,
+`README.md` 24, `src/plugin-host/plugin.ts` 11, `src/plugin-host/plugin.test.ts` 10, `AGENTS.md` 6.
+Cut or split what a chunk reads without needing it, then run `reading-cost --reset`.
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 

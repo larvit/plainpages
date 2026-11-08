@@ -178,24 +178,24 @@ export function createApp(options: AppOptions = {}): Server {
 
   const host: Host = { anyRequestHooks, anyResponseHooks, assets, authOptions, builtinRoutes, csrfSecret, i18n, jwks, keto, kratos, kratosAdmin, menu, permissionCatalog, pluginViewsFor, plugins, secureCookies, settingsCatalog, system, viewsFor };
 
-  // The request handler, and the one place the stage order is written: each stage either answers
-  // the request and returns true, or leaves it to the next. Run inside runWithLog
-  // (request-tracking.ts) so the per-request logger is ambient: every outbound fetch (the Ory
-  // clients via tracedFetch) and any deep module joins this request's trace and correlation with no
-  // logger threaded through their signatures.
+  // A stage that returns a boolean returns true once it has answered the request, and false to
+  // pass the request to the next stage.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
     let renderPage: ViewRenderer = (view, data) => render(view, { ...data, ...ENGLISH_LOCALS, assetHref: assets.href });
     try {
+      const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
       // Set before any branch so every response — static/redirect/error included — inherits them
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
       for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
-      if (await serveStatic(assets, url, req, res, reqLog)) return;
+      // Before the session is resolved: an asset needs no user, and verifying the JWT cookie that
+      // every asset request carries would be wasted work.
+      if (await serveStatic(assets, method, url, req, res, reqLog)) return;
       setPageCacheHeaders(res);
-      if (redirectToCanonicalHost(canonical, req, res)) return;
-      const state = await prepareRequest(host, req, res, url, reqLog);
+      if (redirectToCanonicalHost(canonical, method, req, res)) return;
+      const state = await prepareRequest(host, req, res, method, url, reqLog);
       renderPage = viewsFor(state.ctx);
       if (await answerFromHook(host, state)) return;
       if (await answerPluginRoute(host, state)) return;
@@ -243,16 +243,14 @@ interface RequestState {
   pathname: string;
 }
 
-// Before auth: assets don't need a verified user, and the JWT cookie rides every request.
-async function serveStatic(assets: PublicAssets, url: URL, req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<boolean> {
-  const method = req.method ?? "GET";
+async function serveStatic(assets: PublicAssets, method: string, url: URL, req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<boolean> {
   if (!url.pathname.startsWith("/public/") || (method !== "GET" && method !== "HEAD")) return false;
   await assets.serve(url, req, res, (err) => reqLog.error("static file error", { error: String(err) }));
   return true;
 }
 
 function setPageCacheHeaders(res: ServerResponse): void {
-  // A cache in front of us must key on the language. Set after the static branch: an asset is
+  // A cache in front of us must key on the language. Set after serveStatic: an asset is
   // the same bytes in every language, and a Vary there fragments its entry per raw header.
   res.setHeader("vary", "accept-language");
   // Fail closed: a cache in front of us must not keep a page that may carry a user's data. Not
@@ -265,16 +263,15 @@ function setPageCacheHeaders(res: ServerResponse): void {
 // Canonical host (APP_URL): send an off-host visitor to the configured origin so the browser,
 // the themed forms and the cross-origin Kratos POST share one cookie host — otherwise the
 // host-scoped Kratos CSRF cookie is lost and login dumps onto /error. GET/HEAD only: a 308
-// must not replay a cross-host POST. `URL.host` omits default ports, which matches the Host header.
-function redirectToCanonicalHost(canonical: URL | undefined, req: IncomingMessage, res: ServerResponse): boolean {
-  const method = req.method ?? "GET";
-  if (!canonical || (method !== "GET" && method !== "HEAD") || req.headers.host === undefined || req.headers.host === canonical.host) return false;
+// must not replay a cross-host POST. `URL.host` omits a default port, as the Host header does.
+function redirectToCanonicalHost(canonical: URL | undefined, method: string, req: IncomingMessage, res: ServerResponse): boolean {
+  if (!canonical?.host || (method !== "GET" && method !== "HEAD") || req.headers.host === undefined || req.headers.host === canonical.host) return false;
   res.writeHead(308, { location: canonical.origin + (req.url ?? "/") }).end();
   return true;
 }
 
 // Resolves the visitor's locale, user and CSRF token, and builds the contexts handlers run on.
-async function prepareRequest(host: Host, req: IncomingMessage, res: ServerResponse, url: URL, reqLog: Log): Promise<RequestState> {
+async function prepareRequest(host: Host, req: IncomingMessage, res: ServerResponse, method: string, url: URL, reqLog: Log): Promise<RequestState> {
   const { i18n } = host;
   // `explicit` (the URL asked for a locale) is what makes the choice travel: the chrome, this
   // request's redirects and ctx.localeHref then carry ?locale onto the links they emit.
@@ -296,12 +293,11 @@ async function prepareRequest(host: Host, req: IncomingMessage, res: ServerRespo
   const shared = { assetHref: host.assets.href, chrome, declaredPermissions: host.permissionCatalog, declaredSettings: host.settingsCatalog, locale, localeHref: carryLocale, locales: i18n.available, log: reqLog, user, verifyCsrf, ...(host.system ? { system: host.system } : {}) };
   return {
     carryLocale,
-    // Every plugin-owned render — a landing slot, a hook short-circuit, a plugin route — runs on
-    // the plugin's own translator: its catalog first, then core.
+    // The plugin's own translator: its catalog first, then core.
     contextFor: (pluginId, params) => buildContext(req, res, { ...shared, t: i18n.translator(locale, pluginId), ...(params ? { params } : {}) }),
     csrf,
     ctx: buildContext(req, res, { ...shared, t }),
-    method: req.method ?? "GET",
+    method,
     pathname: url.pathname,
   };
 }
@@ -325,7 +321,6 @@ async function resolveUser(host: Host, req: IncomingMessage, res: ServerResponse
   }
 }
 
-// Plugin onRequest hooks run before routing and may short-circuit the request.
 async function answerFromHook(host: Host, { carryLocale, contextFor, csrf, ctx }: RequestState): Promise<boolean> {
   if (!host.anyRequestHooks) return false;
   const short = await runRequestHooks(host.plugins, contextFor);
@@ -365,7 +360,6 @@ async function answerBuiltinRoute(host: Host, state: RequestState): Promise<bool
   return true;
 }
 
-// Known path, wrong method → 405 with Allow; otherwise nothing here → 404.
 async function answerUnrouted(host: Host, { ctx, pathname }: RequestState): Promise<void> {
   const allow = allowedMethods(host.plugins, pathname);
   if (allow.length) {
@@ -383,17 +377,16 @@ async function refuse(host: Host, { carryLocale, ctx, pathname }: RequestState, 
   sendHtml(ctx.res, 403, await host.viewsFor(ctx)("403", {}));
 }
 
-// A guard thrown anywhere in handling maps to a response (not a 500): a `location` ⇒ a
-// redirect (requireSession → /login), otherwise the status renders the error page.
 async function answerError(err: unknown, res: ServerResponse, reqLog: Log, renderPage: ViewRenderer): Promise<void> {
+  // A GuardError maps to its redirect (requireSession → /login) or its status page, not a 500.
   if (err instanceof GuardError) {
     if (res.headersSent) return void res.end();
     if (err.location) return void res.writeHead(303, { location: err.location }).end();
     try {
       return void sendHtml(res, err.status, await renderPage("403", {}));
     } catch (renderErr) {
-      // Same last resort as the 500 branch below: a throw here would leave the socket open
-      // (this catch is the one that would have handled it), so end the response ourselves.
+      // answerError runs inside handleRequest's catch, so a throw here would escape and leave the
+      // socket open. End the response here, as the 500 branch below does.
       reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
       return void res.writeHead(err.status, { "content-type": "text/plain; charset=utf-8" }).end("Forbidden");
     }
