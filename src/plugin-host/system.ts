@@ -1,5 +1,5 @@
-// System capabilities: privileged host services a first-party/system plugin (the built-in admin
-// screens are the reference consumer) needs but an ordinary domain plugin does not — the Ory admin
+// System capabilities: privileged host services a first-party/system plugin (the `auth-admin`
+// example plugin is the reference consumer) needs but an ordinary domain plugin does not — the Ory admin
 // clients and the instant-revoke hook. Exposed on ctx.system and re-exported via @plainpages/plugin-api.
 //
 // Every field is optional: it is present only when the host wired that dependency (Ory configured,

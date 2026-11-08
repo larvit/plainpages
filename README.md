@@ -347,8 +347,8 @@ curl -X PUT http://keto:4467/admin/relation-tuples -H 'content-type: application
 **A permission's name is authored in plugin code; only its *grants* live in Keto.** A plugin
 declares the permissions it gates on (`permissions:` in the manifest) and the host collects them
 into one catalog — `ctx.declaredPermissions` — which is the fixed list the admin screens offer.
-Nothing in a GUI invents a name, and a tuple naming something no installed plugin declares gates
-nothing.
+Nothing in a GUI invents a name; a tuple naming something no installed plugin declares is not
+offered by the admin screens, though a plugin may still gate on it.
 
 A change takes effect on the user's **next login or JWT re-mint** (~10 min) — see [Instant
 revoke](#instant-revoke-the-optional-denylist) when you need it sooner.
@@ -1363,8 +1363,8 @@ be `metadata_public`, not `metadata_admin` — the session Kratos hands the toke
 public metadata, and the user can already read these permissions in their own JWT. The projection is
 a per-login cache, authoritative nowhere; a stale one self-heals on the next login.
 
-Login resolves both direct grants and group membership, so the JWT `permissions` match what the
-admin **Effective access** view shows. Cost: **a handful of Keto reads + one identity refresh per
+Login resolves both direct grants and group membership, so the JWT `permissions` match what Keto
+says the user holds. Cost: **a handful of Keto reads + one identity refresh per
 login**, never per request. JWKS is cached, so signature verification hits the network only on key
 rotation.
 

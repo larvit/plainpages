@@ -1,8 +1,9 @@
 // One-command bootstrap (the MVP bar). One-shot compose service: runs after
 // kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
 //   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
-//   2. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   3. grant it its permissions in Keto so menu/permission checks resolve out of the box — every
+//   2. create a database and login role for each discovered plugin that declares storage;
+//   3. seed a demo admin (admin@plainpages.local / admin) in Kratos;
+//   4. grant it its permissions in Keto so menu/permission checks resolve out of the box — every
 //      discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so a dropped-in
 //      plugin is usable by the demo admin with no host config edit (the host stays plugin-agnostic).
 // Then prints a first-run banner; fails loud on any unexpected upstream error.

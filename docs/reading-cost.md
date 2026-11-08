@@ -513,3 +513,20 @@ Read most (opens and searches):
 - `AGENTS.md` 1
 - `README.md` 1
 - `docs/decisions.md` 1
+
+## Reading cost, chunk f0194a598d2a, finished 2026-11-08T23:10:24Z
+
+81419 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app-admin.test.ts` 11
+- `examples/plugins/auth-admin/admin-users.ts` 7
+- `todo.md` 6
+- `examples/plugins/auth-admin/admin-groups.test.ts` 4
+- `README.md` 3
+- `examples/plugins/auth-admin/admin-groups.ts` 3
+- `CHANGELOG.md` 2
+- `docs/reading-cost.md` 2
+- `examples/plugins/auth-admin/admin-grants.ts` 2
+- `examples/plugins/auth-admin/i18n/en-US.ts` 2

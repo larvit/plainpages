@@ -165,7 +165,7 @@ services:
 
   # Ory Hydra — OAuth2/OIDC provider (other apps log in *through* plainpages; README).
   # DSN is its own `hydra` DB (init.sql); config in ory/hydra/hydra.yml. web implements the
-  # login challenge at /oauth2/login (consent next). Dev permits the http issuer via --dev
+  # login challenge at /oauth2/login and the consent challenge at /oauth2/consent. Dev permits the http issuer via --dev
   # (compose.override.yml); prod sets an https issuer via env (URLS_SELF_ISSUER).
   hydra-migrate:
     image: oryd/hydra:v26.2.0

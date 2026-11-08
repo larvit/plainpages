@@ -46,7 +46,7 @@ A grant of a name no installed plugin declares is listed apart on the same page,
 
 ## Layout
 
-- `plugin.ts` — the manifest: the Admin nav fragment, the six permissions the plugin declares, and
+- `plugin.ts` — the manifest: the Admin nav fragment, the seven permissions the plugin declares, and
   the route table — one thin handler per method+path, gated via `permissionName(resource, actionForMethod(method))`
   so a GET needs `:read` and a POST `:write`.
 - `admin-grants.ts` — the permission picker and the grant diff, shared by the Users and Groups

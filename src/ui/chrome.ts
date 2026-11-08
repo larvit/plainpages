@@ -66,7 +66,7 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   const nav = composeNav(fragments, opts.menu.override, opts.user ?? null, t);
   if (opts.currentPath) {
     // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
-    // /admin/users/new marks the Users base leaf (/admin/users) and the dashboard marks Dashboard.
+    // /auth-admin/users/new marks the Users base leaf (/auth-admin/users) and the dashboard marks Dashboard.
     // Marked before the locale rides along, so an href still matches the plain request path.
     const target = bestHref(nav, opts.currentPath);
     if (target) markCurrent(nav, target);
@@ -140,7 +140,7 @@ function carryLocaleInto(nodes: NavNode[], carryLocale: (href: string) => string
 }
 
 // The href of the leaf that owns `path`: an exact match, else the longest href that is a parent of
-// it (href + "/" prefixes path), so /admin/users/123 resolves to the /admin/users leaf. "/" never
+// it (href + "/" prefixes path), so /auth-admin/users/123 resolves to the /auth-admin/users leaf. "/" never
 // counts as a parent (it would own everything). Returns undefined when nothing matches.
 function bestHref(nodes: NavNode[], path: string): string | undefined {
   let best: string | undefined;

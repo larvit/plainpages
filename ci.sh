@@ -6,7 +6,7 @@
 #   bash ci.sh
 #
 # Exits non-zero on the first failure. Each E2E suite OWNS a clean stack — never point two suites at
-# one backend (auth-refresh revokes the admin's sessions; full-flow writes users/groups/roles to Keto).
+# one backend (auth-refresh revokes the admin's sessions; full-flow writes users, groups and grants).
 set -euo pipefail
 cd "$(dirname "$0")"
 

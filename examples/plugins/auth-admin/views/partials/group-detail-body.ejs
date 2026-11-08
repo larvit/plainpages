@@ -1,9 +1,11 @@
 <%#
   Admin group membership body, captured into the shell content slot. Config:
     group   { name }
-    members { action, rows: { kind:"group"|"identity", label, subject }[] }   action = remove-member endpoint
+    members { action, rows: { kind:"group"|"user", label, subject }[] }   action = remove-member endpoint
     add     { action, options: {label,value}[] }                          action = add-member endpoint
     del     { action }                                                     delete the whole group
+    canWrite?     false (a `groups:read` holder) drops the add, remove and delete forms
+    permissions?  PermissionPicker; when set, the group's permission picker is rendered
     csrfToken, error?
 %><%
   const group = locals.group;
