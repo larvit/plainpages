@@ -347,8 +347,8 @@ curl -X PUT http://keto:4467/admin/relation-tuples -H 'content-type: application
 **A permission's name is authored in plugin code; only its *grants* live in Keto.** A plugin
 declares the permissions it gates on (`permissions:` in the manifest) and the host collects them
 into one catalog — `ctx.declaredPermissions` — which is the fixed list the admin screens offer.
-Nothing in a GUI invents a name; a tuple naming something no installed plugin declares is not
-offered by the admin screens, though a plugin may still gate on it.
+Nothing in a GUI invents a name. A grant of a name that no installed plugin declares still reaches
+the user's JWT, so a plugin may gate on that name without declaring it.
 
 A change takes effect on the user's **next login or JWT re-mint** (~10 min) — see [Instant
 revoke](#instant-revoke-the-optional-denylist) when you need it sooner.

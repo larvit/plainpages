@@ -35,9 +35,9 @@ screen degrades to a themed 503 rather than crashing. Everything else is an ordi
 folder-discovered, gated per route by its screen's `<resource>:<action>` permission, rendering the
 core building blocks in `views/`.
 
-Each screen is its own resource — `users`, `groups`, `oauth2-clients` — split into `:read` and
-`:write`, so a helpdesk account can be given `users:read` alone. Holding none of the six hides the
-Admin section entirely.
+Each screen is its own resource — `users`, `groups`, `oauth2-clients`, `plugin-settings` — split
+into `:read` and `:write` (`plugin-settings` has only `:read`), so a helpdesk account can be given
+`users:read` alone. Holding none of the seven hides the Admin section entirely.
 
 There is **no Permissions screen**. Permission names are declared in plugin code, not created in a
 GUI, so the host's catalog (`ctx.declaredPermissions`) is the fixed list — and holding one is a
