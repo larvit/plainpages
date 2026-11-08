@@ -373,3 +373,26 @@ Inherited architect, decided by:
 
 - Shape: `views/partials/shell.ejs:74` `user.menu`: a third meaning of `menu` beside the sidebar switch at line 19 and the `.menu` popover class
 - Shape: `src/plugin-host/plugin.ts:9` `import type { ProfileMenuEntry }`: a second contract type defined under `ui/`, with a type-only import cycle through `chrome.ts`
+
+## 2026-11-08T19:50:52Z, PR #223 at f8a6119, against b7e9780
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | better | better | better | same | better |
+| Inherited architect | better | better | better | same | better |
+
+Mid A, decided by:
+
+- Navigation, Locality, Shape: `src/http/app.ts:183` `handleRequest`: a 20-line list of named stages replaces a 170-line closure
+- Locality: `src/http/app.ts:213` `Host`: 19 fields passed to every stage, broader than any stage needs
+- Shape, Navigation: `src/ui/chrome.ts:29` `ShellUser.profileLinks`: the name says what the field holds
+- Navigation, Shape: `src/plugin-host/conflicts.ts:15` `findConflicts`: collision rules have their own file
+
+Inherited architect, decided by:
+
+- Locality, Shape, Navigation: `src/http/app.ts:183` `handleRequest`: named stages replace one 165-line closure
+- Locality: `src/http/app.ts:213` `Host`: a 19-field bag wider than any stage needs
+- Shape: `src/ui/chrome.ts:29` `ShellUser.profileLinks`: no longer collides with `MenuConfig` and the `menu` partial
+- Navigation: `.gitea/workflows/release.yml:60` error pointer: names `docs/ci-cd.md`, one hop from the failure
