@@ -32,7 +32,7 @@ export interface RelationList {
 
 // Keto's expand tree: a node is a set operation (union/…) or a leaf. The resolved subject
 // (subject_id xor subject_set) rides on `tuple`, not the node itself — verified against Keto
-// v26.2.0. A `subject_set` node carries its members as `children` ("effective access" view).
+// v26.2.0. A `subject_set` node carries its members as `children`.
 export interface ExpandTree {
   children?: ExpandTree[];
   tuple?: RelationTuple;

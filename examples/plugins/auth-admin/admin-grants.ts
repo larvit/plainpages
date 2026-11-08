@@ -3,8 +3,8 @@
 // resolves a group's grant transitively at login.
 //
 // The set of permissions that *exist* is `ctx.declaredPermissions` — the host's catalog, built from
-// what the installed plugins declare in code. Nothing here invents a name, which is why the old
-// Permissions screen is gone: a grant is a property of a user or a group, edited where they are.
+// what the installed plugins declare in code. Nothing here invents a name: a grant is a property of a
+// user or a group, edited where they are.
 
 import { createHash } from "node:crypto";
 import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate } from "@plainpages/plugin-api";
