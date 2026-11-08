@@ -457,3 +457,20 @@ Read most (opens and searches):
 - `src/auth/gate.ts` 1
 - `src/auth/jwt.ts` 1
 - `src/server.ts` 1
+
+## Reading cost, chunk ac2b7411e145, finished 2026-11-08T20:50:21Z
+
+105677 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 15
+- `src/http/app-admin.test.ts` 7
+- `todo.md` 5
+- `CHANGELOG.md` 3
+- `ci.sh` 3
+- `examples/README.md` 3
+- `examples/plugins/auth-admin/admin-shared.test.ts` 3
+- `src/plugin-host/conflicts.ts` 3
+- `AGENTS.md` 2
+- `compose.yml` 2
