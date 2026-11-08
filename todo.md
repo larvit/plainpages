@@ -6,19 +6,17 @@
 
 `Bar = 1`
 
-`Next ID = 71`
+`Next ID = 72`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 62 | 0.5.0 |  |  | **Delete a group's grants and its membership set in one Keto transaction, so a failure cannot leave it half-deleted.** | 1 | 2 | 2 | 3 | 2 | code health by 2, 2 by 3 | 16.2 |
 | 63 | 0.5.0 |  |  | **Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.** | 2 | 2 | 1 | 3 | 3 | code health by 3, 9 by 2 | 15.4 |
 | 68 | 0.5.0 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
-| 69 | 0.5.0 |  |  | **Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.** | 1 | 2 | 2 | 3 | 2 | code health by 2 | 12.0 |
-| 64 | 0.5.0 |  |  | **Keep the permissions section on the user form when a self-deactivate or self-delete is refused.** | 1 | 2 | 1 | 2 | 2 | 2 by 3, code health by 1 | 10.2 |
 | 66 | 0.5.0 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
 | 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
+| 71 | 0.5.0 |  |  | **Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.** | 1 | 2 | 2 | 3 | 2 | 2 by 3 | 4.2 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
@@ -31,14 +29,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 62. Delete a group's grants and its membership set in one Keto transaction, so a failure cannot leave it half-deleted.
-
-`groupsDelete` in `examples/plugins/auth-admin/admin-groups.ts` drops each held grant with its own
-`deleteTuple`, then the membership tuple, so a Keto failure part-way leaves a group with some grants
-gone and its members still listed. Send all the deletes through `KetoClient.transactTuples`, as
-`applyGrants` in `admin-grants.ts` does. The comment on delete order stays true inside one
-transaction.
 
 ### 63. Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.
 
@@ -80,24 +70,6 @@ result with whatever names its renderer and let the one send stage render it. Ma
 `prepareRequest` and `handleRequest` easier to read, places the seats found hard. The 19-field
 `Host` bag is left alone: no checkable target for it came out of the scoring run.
 
-### 69. Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.
-
-`index.ejs` renders `/dashboard` (`src/http/app.ts` ~L168); `home.ejs` renders `/` and matches the
-manifest's `home` slot, so it keeps its name. Core `views/` is an `include()` root for plugin views
-(`src/plugin-host/view-resolver.ts`), so a plugin may include `index` today: the rename changes the
-contract surface (AGENTS.md → Rules) and ships in a minor. Update `docs/reading-cost.md` and the
-README file map. Make `views/index.ejs` easier to find, a place the seats found hard.
-
-### 64. Keep the permissions section on the user form when a self-deactivate or self-delete is refused.
-
-In `examples/plugins/auth-admin/admin-users.ts`, the self-refusals in `usersState` (~L405),
-`usersDeleteConfirm` (~L415) and `usersDelete` (~L429) call `formResult` without
-`...(await pickerOrNothing(deps, id))` or `canWrite`, so the re-rendered form loses its permissions
-section; `usersUpdate` and `usersRecovery` keep it, and `pickerOrNothing`'s comment promises it.
-The groups side re-renders through `groupDetailPage`, which keeps it. Make `usersPermissions` and
-the `pickerOrNothing` contract easier to read, a place the seats found hard. Not exempt: a
-comprehension finding, not a 🔴, and no maintain goal is broken.
-
 ### 66. Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.
 
 `seedAdminAndPermissions` (~L221-233) reads `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `KETO_WRITE_URL`,
@@ -120,6 +92,15 @@ easier to read, a place the seats found hard.
 - `buildPluginChrome` (`src/ui/chrome.ts:55`) builds the chrome for every page, core pages
   included; rename it, its test and the README ~L1027 mention. Make `buildPluginChrome` easier to
   read, a place the seats found hard.
+
+### 71. Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.
+
+Groups nest: a parent holds `Group:<parent>#members` with `subject_set` `Group:<child>#members`.
+`groupsDelete` in `examples/plugins/auth-admin/admin-groups.ts` drops the child's own member tuples
+and held grants, but not those parent tuples, so a group re-created with the deleted name is back
+in every parent, the orphan class its comment already guards against for grants. List them with
+`pagedTuples` filtered on `subject_set` (`namespace: GROUP_NS`, `object: name`, `relation: MEMBERS`)
+and add them to the same `transactTuples` delete; extend the comment to say so.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

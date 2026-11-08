@@ -391,7 +391,6 @@ export const usersUpdate = withTarget(async (deps, identity, id) => {
   try {
     await kratosAdmin.updateIdentity(id, updateIdentityPayload(identity, input));
   } catch (err) {
-    // Re-render with the picker, or the permissions section vanishes off the page on a failed save.
     if (err instanceof KratosError) return refuseForm(deps, identity, id, ctx.t("admin.users.error.save"));
     throw err;
   }
@@ -443,7 +442,8 @@ export const usersRecovery = withTarget(async (deps, identity, id) => {
   return formResult(ctx, { canWrite: canWriteUsers(ctx), identity, recovery, ...(await pickerOrNothing(deps, id)) });
 });
 
-// The 400 re-render of the user's form with `error`: the form every refusal of a user action shows.
+// The 400 re-render of the user's form with `error` above it. `usersPermissions` refuses through its
+// own `refuse`, which puts the error in the permissions section instead.
 async function refuseForm(deps: UsersDeps, identity: Identity, id: string, error: string): Promise<RouteResult> {
   return { ...formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), error, identity, ...(await pickerOrNothing(deps, id)) }), status: 400 };
 }

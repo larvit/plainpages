@@ -12,6 +12,12 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 `0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
 `RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
+### The core dashboard view is `dashboard`, not `index`
+
+`views/index.ejs` is now `views/dashboard.ejs`. The `apiVersion` check can't see this: a plugin view
+that still does `include("index")` fails when it renders, with the 500 page. Change it to
+`include("dashboard")`.
+
 ### `KetoClient.transactTuples` applies inserts and deletes as one transaction
 
 `transactTuples({ delete, insert })` sends both lists to Keto in one `PATCH /admin/relation-tuples`,
@@ -26,13 +32,7 @@ and answers with the error page. It used to leave some grants gone and the membe
 
 ### The admin example keeps a user's permissions section when it refuses a self-deactivate or self-delete
 
-The refusal page used to drop the permissions section of the user form. It now shows the section, as
-every other re-render of the form does.
-
-### The core dashboard view is `dashboard`, not `index`
-
-`views/index.ejs` is now `views/dashboard.ejs`, named for the `/dashboard` page it renders. A plugin
-view that does `include("index")` must include `dashboard` instead.
+The refusal page used to drop the permissions section of the user form.
 
 ### The admin example lists a user's or group's grants that no installed plugin declares, with a Remove
 

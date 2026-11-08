@@ -11,6 +11,7 @@ import { staticJwks } from "../auth/jwks.ts";
 import type { OAuth2Client } from "../auth/hydra-admin.ts";
 import type { RelationTuple } from "../auth/keto-client.ts";
 import type { Identity } from "../auth/kratos-admin.ts";
+import { KratosError } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import adminManifest from "../../examples/plugins/auth-admin/plugin.ts";
@@ -213,6 +214,11 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
 
   // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
   assert.match(await (await get("/auth-admin/groups/eng/delete")).text(), /Cancel/);
+  const bystanders: RelationTuple[] = [
+    { namespace: "Group", object: "ops", relation: "members", subject_id: `user:${ada}` },
+    { namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${ada}` },
+  ];
+  tuples.push(...bystanders);
   const del = await post("/auth-admin/groups/eng/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.equal(del.headers.get("location"), "/auth-admin/groups");
@@ -220,6 +226,7 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   // …and the permissions it held go with it. A Keto set exists only through its tuples, so an
   // orphaned grant would resurrect the moment someone re-created a group with the same name.
   assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.subject_set?.object === "eng"));
+  assert.ok(bystanders.every((tp) => tuples.includes(tp)), "only the deleted group's own tuples go");
 
   // An invalid group name in the path → 404; malformed %-encoding doesn't 500.
   assert.equal((await get("/auth-admin/groups/Bad%20Name")).status, 404);
@@ -374,15 +381,34 @@ test("admin users: a refused self-deactivate or self-delete keeps the permission
   const { get, post, token } = await adminHarness(t, { keto: fakeKeto(), kratosAdmin });
   assert.notEqual(baselineOf(await (await get("/auth-admin/users/admin1")).text()), "", "the plain form carries the section");
 
-  const refusals = [
-    await post("/auth-admin/users/admin1/state", `_csrf=${token}`),
-    await get("/auth-admin/users/admin1/delete"),
-    await post("/auth-admin/users/admin1/delete", `_csrf=${token}`),
+  const refusals: [Response, RegExp][] = [
+    [await post("/auth-admin/users/admin1/state", `_csrf=${token}`), /deactivate your own account/],
+    [await get("/auth-admin/users/admin1/delete"), /delete your own account/],
+    [await post("/auth-admin/users/admin1/delete", `_csrf=${token}`), /delete your own account/],
   ];
-  for (const res of refusals) {
+  for (const [res, reason] of refusals) {
     assert.equal(res.status, 400);
-    assert.notEqual(baselineOf(await res.text()), "");
+    const html = await res.text();
+    assert.match(html, reason);
+    assert.notEqual(baselineOf(html), "");
   }
+});
+
+test("admin users: a Kratos rejection of a save re-renders the form with its permissions, any other failure is a 500", async (t) => {
+  const identities: Identity[] = [{ id: "ada", traits: { email: "ada@example.com" } }];
+  let failure: Error = new KratosError("rejected", 400, "");
+  const kratosAdmin = stubAdmin({
+    getIdentity: async (id) => identities.find((i) => i.id === id) ?? null,
+    listIdentities: async () => ({ identities, nextPageToken: null }),
+    updateIdentity: async () => { throw failure; },
+  });
+  const { post, token } = await adminHarness(t, { keto: fakeKeto(), kratosAdmin });
+
+  const rejected = await post("/auth-admin/users/ada", `_csrf=${token}&first=Ada`);
+  assert.equal(rejected.status, 400);
+  assert.notEqual(baselineOf(await rejected.text()), "");
+  failure = new Error("kratos unreachable");
+  assert.equal((await post("/auth-admin/users/ada", `_csrf=${token}&first=Ada`)).status, 500);
 });
 
 test("admin group delete: a Keto failure leaves the group's grants and members in place", async (t) => {
