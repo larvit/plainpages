@@ -7,7 +7,7 @@
 // each returning a RouteResult.
 
 import { buildPaginationModel, can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, grantsNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, REMOVED_NOTICE, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
@@ -381,7 +381,7 @@ async function groupDetailPage({ ctx, keto, kratosAdmin }: GroupsDeps, name: str
 
 // GET /auth-admin/groups/:name — the detail + membership page.
 export const groupsDetail = withGroupName((deps, name) =>
-  groupDetailPage(deps, name, isSavedNotice(deps.ctx.url) ? { notice: deps.ctx.t("admin.grants.saved") } : {}));
+  groupDetailPage(deps, name, { notice: grantsNotice(deps.ctx.url, deps.ctx.t) ?? "" }));
 
 // POST /auth-admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold
 // a group's permissions transitively, so the change reaches them at their next login or re-mint —
@@ -403,12 +403,11 @@ export const groupsPermissions = withGroupName(async (deps, name) => {
 });
 
 // POST /auth-admin/groups/:name/permissions/remove — drop one grant no installed plugin declares.
-// No self-lockout guard: this screen's own gates are declared, so they are never what is removed here.
 export const groupsPermissionsRemove = withGroupName(async ({ ctx, keto, user }, name) => {
   const form = (await guardedForm(ctx))!;
   const removed = await removeUndeclaredGrant(keto, groupSubject(name), ctx.declaredPermissions, form.get(REMOVE_FIELD));
   if (removed) ctx.log.info("admin: undeclared group permission removed", { actor: user.id, group: name, removed });
-  return { redirect: `${detailHref(name)}?info-msg=${SAVED_NOTICE}` };
+  return { redirect: `${detailHref(name)}?info-msg=${REMOVED_NOTICE}` };
 });
 
 // POST /auth-admin/groups/:name/members — add a member (skip an invalid member or a self-nest).

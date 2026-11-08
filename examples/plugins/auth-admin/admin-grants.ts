@@ -15,9 +15,14 @@ export const PERMISSIONS_FIELD = "permission"; // the checkbox name the two form
 export const REMOVE_FIELD = "remove"; // the hidden field naming the undeclared grant a Remove form drops
 export const BASELINE_FIELD = "baseline"; // the hidden field carrying baselineToken
 export const SAVED_NOTICE = "permissions-saved"; // the `info-msg` a successful save redirects with
+export const REMOVED_NOTICE = "permission-removed"; // the `info-msg` a Remove redirects with; its own words, since the checkboxes were not saved
 
-// Only that exact value counts, so a crafted link can't put words on the page.
-export const isSavedNotice = (url: URL): boolean => url.searchParams.get("info-msg") === SAVED_NOTICE;
+// Only these exact values count, so a crafted link can't put words on the page.
+export function grantsNotice(url: URL, t: Translate): string | undefined {
+  const msg = url.searchParams.get("info-msg");
+  if (msg === SAVED_NOTICE) return t("admin.grants.saved");
+  return msg === REMOVED_NOTICE ? t("admin.grants.removed") : undefined;
+}
 
 export type GrantSubject = { subject_id: string } | { subject_set: SubjectSet };
 
@@ -153,8 +158,9 @@ export function grantDiff(declared: readonly PermissionDecl[], held: string[], w
   };
 }
 
-// Deletes one held grant of a name no plugin declares; returns the name, or undefined when there was
-// nothing to do (a declared name, which the picker owns, or one already gone, as after a double click).
+// Deletes one held grant of a name no plugin declares and returns the name. Deletes nothing for a
+// declared name, which the picker owns (so a Remove can't take away this plugin's own gates and needs
+// no self-lockout guard), or for one not held, as after a double click.
 export async function removeUndeclaredGrant(keto: KetoClient, subject: GrantSubject, declared: readonly PermissionDecl[], name: string | null): Promise<string | undefined> {
   if (name === null || declared.some((d) => d.name === name)) return undefined;
   if (!(await heldPermissions(keto, subject)).includes(name)) return undefined;
@@ -178,6 +184,5 @@ export const isStale = (form: { get(name: string): string | null }, declared: re
 
 export interface GrantChange { grant: string[]; revoke: string[] }
 
-// One Keto transaction, so a failure leaves the subject's grants exactly as they were.
 export const applyGrants = (keto: KetoClient, subject: GrantSubject, diff: GrantChange): Promise<void> =>
   keto.transactTuples({ delete: diff.revoke.map((name) => grantTuple(name, subject)), insert: diff.grant.map((name) => grantTuple(name, subject)) });

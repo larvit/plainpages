@@ -4,7 +4,7 @@
 // a shared `withUser` gate.
 
 import { buildPaginationModel, can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, grantsNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, REMOVED_NOTICE, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
 import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
@@ -312,7 +312,7 @@ export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx
 
 // GET /auth-admin/users/:id — the edit form, prefilled.
 export const usersEditForm = withTarget(async (deps, identity, id) => {
-  const permissions = await userPermissionPicker(deps, id, undefined, isSavedNotice(deps.ctx.url) ? deps.ctx.t("admin.grants.saved") : undefined);
+  const permissions = await userPermissionPicker(deps, id, undefined, grantsNotice(deps.ctx.url, deps.ctx.t));
   return formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), identity, ...(permissions ? { permissions } : {}) });
 });
 
@@ -373,7 +373,6 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
 });
 
 // POST /auth-admin/users/:id/permissions/remove — drop one direct grant no installed plugin declares.
-// No self-lockout guard: this screen's own gates are declared, so they are never what is removed here.
 export const usersPermissionsRemove = withTarget(async ({ ctx, keto, revoke, user }, _identity, id) => {
   const form = (await guardedForm(ctx))!;
   if (!keto) return unavailable(ctx, ctx.t("admin.capability.keto"));
@@ -382,7 +381,7 @@ export const usersPermissionsRemove = withTarget(async ({ ctx, keto, revoke, use
     revoke?.(id);
     ctx.log.info("admin: undeclared user permission removed", { actor: user.id, removed, target: id });
   }
-  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${SAVED_NOTICE}` };
+  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${REMOVED_NOTICE}` };
 });
 
 // POST /auth-admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).

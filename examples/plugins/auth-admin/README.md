@@ -42,6 +42,7 @@ Admin section entirely.
 There is **no Permissions screen**. Permission names are declared in plugin code, not created in a
 GUI, so the host's catalog (`ctx.declaredPermissions`) is the fixed list — and holding one is a
 property of a user or a group, edited as a checkbox list on those two screens (`admin-grants.ts`).
+A grant of a name no installed plugin declares is listed apart on the same page, with a Remove.
 
 ## Layout
 

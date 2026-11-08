@@ -55,11 +55,12 @@ const messages: AdminMessages = {
   "admin.grants.none": "Ingen installerad plugin deklarerar någon behörighet, så det finns inget att tilldela.",
   "admin.grants.pending": "Medlemmar får detta vid nästa inloggning (upp till 10 minuter).",
   "admin.grants.remove": "Ta bort",
+  "admin.grants.removed": "Behörigheten är borttagen.",
   "admin.grants.save": "Spara behörigheter",
   "admin.grants.saved": "Behörigheterna är sparade.",
   "admin.grants.selfRevoke": "Du kan inte återkalla dina egna behörigheter — be en annan administratör, så att du inte låser ute dig själv.",
   "admin.grants.stale": "Behörigheterna ändrades medan du hade sidan öppen, så ingenting sparades. Listan visar nu aktuellt läge. Granska den och spara igen.",
-  "admin.grants.undeclaredHint": "Innehas här, men ingen installerad plugin deklarerar dem, så listan ovan kan inte ändra dem. Installerar du en plugin som spärrar på någon av dem blir den aktiv igen. Ta bort dem du inte känner igen.",
+  "admin.grants.undeclaredHint": "Behörigheterna innehas här, men ingen installerad plugin deklarerar dem, så listan ovan kan inte ändra dem. En plugin kan ändå kontrollera någon av dem utan att deklarera den.",
   "admin.grants.undeclaredLegend": "Behörigheter som ingen installerad plugin deklarerar",
 
   "admin.groups.actions": "Gruppåtgärder",

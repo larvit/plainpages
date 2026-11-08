@@ -55,11 +55,12 @@ const messages = {
   "admin.grants.none": "No installed plugin declares a permission, so there is nothing to grant.",
   "admin.grants.pending": "Members get this at their next sign-in (up to 10 minutes).",
   "admin.grants.remove": "Remove",
+  "admin.grants.removed": "Permission removed.",
   "admin.grants.save": "Save permissions",
   "admin.grants.saved": "Permissions saved.",
   "admin.grants.selfRevoke": "You can't revoke your own permissions — ask another administrator, so you can't lock yourself out.",
   "admin.grants.stale": "These permissions changed while you had the page open, so nothing was saved. The list now shows the current state. Review it and save again.",
-  "admin.grants.undeclaredHint": "Held here, but no installed plugin declares them, so the list above can't change them. Installing a plugin that gates on one would activate it again. Remove any you don't recognise.",
+  "admin.grants.undeclaredHint": "These permissions are held here, but no installed plugin declares them, so the list above can't change them. A plugin may still check one without declaring it.",
   "admin.grants.undeclaredLegend": "Permissions no installed plugin declares",
 
   "admin.groups.actions": "Group actions",

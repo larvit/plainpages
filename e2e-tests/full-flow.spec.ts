@@ -195,8 +195,7 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(staleTab.locator('input[name="permission"][value="scheduling:write"]')).not.toBeChecked();
     await staleTab.context().close();
 
-    // The picker offers only declared names, so a grant no plugin declares can't be unticked: it is
-    // listed apart, and its own Remove deletes it. Keto is written directly, as only a removed plugin leaves one.
+    // No screen can grant a name no plugin declares, so write one to Keto directly.
     const stray = "retired:write";
     const put = await fetch(`${KETO_WRITE}/admin/relation-tuples`, {
       body: JSON.stringify({ namespace: "Permission", object: stray, relation: "granted", subject_set: { namespace: "Group", object: group, relation: "members" } }),
@@ -207,7 +206,7 @@ test.describe.serial("authenticated admin journey", () => {
     await page.goto(`/auth-admin/groups/${group}`);
     await expect(page.getByRole("heading", { name: "Permissions no installed plugin declares" })).toBeVisible();
     await page.getByRole("button", { name: `Remove ${stray}` }).click();
-    await expect(page.getByText("Permissions saved.")).toBeVisible();
+    await expect(page.getByText("Permission removed.")).toBeVisible();
     await expect(page.getByText(stray)).toHaveCount(0);
     await expect(page.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked(); // the declared grant stays
   });
