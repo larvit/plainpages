@@ -10,10 +10,14 @@ export interface Gate {
   session?: boolean; // any signed-in user, no grant to hold; anonymous is sent to /login
 }
 
+// A gate naming none of the three allows everyone. Discovery refuses one on a route or a plugin's
+// nav node, so only the header nodes `config/menu.ts`'s `groups` builds get here without a gate,
+// and failing closed would hide every section an operator grouped.
 export function allows(gate: Gate, user: User | null): boolean {
   if (gate.public === true) return true;
   if (gate.session === true) return user !== null;
-  return gate.permission == null || (user?.permissions.includes(gate.permission) ?? false);
+  if (gate.permission == null) return true;
+  return user?.permissions.includes(gate.permission) ?? false;
 }
 
 export function gatesSet(gate: Gate | null | undefined): string[] {

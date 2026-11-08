@@ -29,7 +29,8 @@ export function permissionName(resource: AdminResource, action: AdminAction): st
 
 // Every screen reads on GET/HEAD and mutates on POST. The route table and the in-handler guard both
 // go through this rather than each spelling the permission out, so they cannot drift. Deliberately
-// local: generalised, it would make authorization a function of the transport verb (AGENTS.md).
+// local: generalised, it would make authorization a function of the transport verb
+// (docs/decisions.md).
 export function actionForMethod(method: string): AdminAction {
   const verb = method.toUpperCase();
   return verb === "GET" || verb === "HEAD" ? "read" : "write";

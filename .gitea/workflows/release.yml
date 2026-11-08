@@ -69,8 +69,8 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
-          # Cleanup, and the runner's Docker config is shared (AGENTS.md) — a lost race here must not
-          # fail a release that published, nor skip the overview job that follows.
+          # Cleanup, and the runner's Docker config is shared (docs/decisions.md) — a lost race here
+          # must not fail a release that published, nor skip the overview job that follows.
           docker logout gitea.larvit.se || true
           docker logout docker.io || true
 

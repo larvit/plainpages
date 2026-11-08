@@ -20,7 +20,7 @@ import { buildCredentials, storagePluginIds, type StorageCredentials } from "./p
 const config = loadConfig(); // validates the env (incl. enforced secrets) — fails loud at boot
 // The storage secret is in `config` now, so drop it from the environment before ANY plugin code
 // runs: a plugin module's top level evaluates during discovery, long before onBoot. Defence in
-// depth, not a boundary (AGENTS.md) — and only ever move this line earlier, never later.
+// depth, not a boundary (docs/decisions.md) — and only ever move this line earlier, never later.
 delete process.env["PLUGIN_DB_SECRET"];
 // App-level logger: structured, OTLP-capable when OTLP_ENDPOINT is set. The hot path clones it
 // per request for access logging + a trace span (src/http/request-tracking.ts); console-only otherwise.
