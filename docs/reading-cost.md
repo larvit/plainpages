@@ -423,3 +423,20 @@ Read most (opens and searches):
 - `src/plugin-host/hooks.ts` 1
 
 ## Reading cost reset, 2026-11-08T19:39:42Z
+
+## Reading cost, chunk 385be0aa8aef, finished 2026-11-08T19:57:05Z
+
+87493 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 19
+- `src/plugin-host/plugin.ts` 14
+- `src/plugin-host/plugin.test.ts` 9
+- `todo.md` 9
+- `AGENTS.md` 4
+- `docs/ci-cd.md` 4
+- `src/compose.test.ts` 2
+- `src/ci-gate.test.ts` 1
+- `src/function-limits.test.ts` 1
+- `src/plugin-host/discovery.ts` 1
