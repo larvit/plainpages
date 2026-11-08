@@ -12,6 +12,7 @@ import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate }
 const PERMISSION_NS = "Permission";
 const GRANTED = "granted";
 export const PERMISSIONS_FIELD = "permission"; // the checkbox name the two forms post
+export const REMOVE_FIELD = "remove"; // the hidden field naming the undeclared grant a Remove form drops
 export const BASELINE_FIELD = "baseline"; // the hidden field carrying baselineToken
 export const SAVED_NOTICE = "permissions-saved"; // the `info-msg` a successful save redirects with
 
@@ -73,6 +74,18 @@ export interface PermissionPicker {
   pending: string | undefined;
   readOnly: boolean; // the viewer holds :read but not :write — show the state, offer no save
   submit: string;
+  undeclared: UndeclaredGrants | undefined; // set when the subject holds a name no installed plugin declares
+}
+
+// Direct grants of names nobody declares (their plugin was uninstalled, or the name was written to
+// Keto by hand). grantDiff never touches them, so they get their own list and a Remove per name.
+export interface UndeclaredGrants {
+  action: string; // where each Remove posts
+  field: string;
+  hint: string;
+  legend: string;
+  names: string[];
+  remove: string | undefined; // the button label; unset for a reader, who is shown the names only
 }
 
 // The checkbox list: every declared permission, ticked where this subject holds it. A fixed list
@@ -89,6 +102,7 @@ export function buildPermissionPicker(opts: {
 }): PermissionPicker {
   const t = opts.t ?? ((k: string) => k);
   const directSet = new Set(opts.direct);
+  const undeclared = undeclaredHeld(opts.declared, opts.direct);
   const effectiveSet = new Set(opts.effective ?? opts.direct);
   const choices = opts.declared.map((decl) => ({
     checked: directSet.has(decl.name) || effectiveSet.has(decl.name),
@@ -110,8 +124,21 @@ export function buildPermissionPicker(opts: {
     pending: opts.transitive === true ? t("admin.grants.pending") : undefined,
     readOnly: opts.readOnly === true,
     submit: t("admin.grants.save"),
+    undeclared: undeclared.length === 0 ? undefined : {
+      action: `${opts.action}/remove`,
+      field: REMOVE_FIELD,
+      hint: t("admin.grants.undeclaredHint"),
+      legend: t("admin.grants.undeclaredLegend"),
+      names: undeclared,
+      remove: opts.readOnly === true ? undefined : t("admin.grants.remove"),
+    },
   };
 }
+
+const undeclaredHeld = (declared: readonly PermissionDecl[], held: readonly string[]): string[] => {
+  const offered = new Set(declared.map((d) => d.name));
+  return held.filter((name) => !offered.has(name)).sort();
+};
 
 // What a submitted set changes. Pure so the diff is testable without Keto: only declared names are
 // considered, so a crafted POST cannot grant something no plugin gates on, and a held-but-undeclared
@@ -124,6 +151,15 @@ export function grantDiff(declared: readonly PermissionDecl[], held: string[], w
     grant: [...wantedSet].filter((name) => !heldSet.has(name)).sort(),
     revoke: [...heldSet].filter((name) => offered.has(name) && !wantedSet.has(name)).sort(),
   };
+}
+
+// Deletes one held grant of a name no plugin declares; returns the name, or undefined when there was
+// nothing to do (a declared name, which the picker owns, or one already gone, as after a double click).
+export async function removeUndeclaredGrant(keto: KetoClient, subject: GrantSubject, declared: readonly PermissionDecl[], name: string | null): Promise<string | undefined> {
+  if (name === null || declared.some((d) => d.name === name)) return undefined;
+  if (!(await heldPermissions(keto, subject)).includes(name)) return undefined;
+  await keto.deleteTuple(grantTuple(name, subject));
+  return name;
 }
 
 // A token for the direct grants a form was rendered from. Like grantDiff it covers only the declared
@@ -142,16 +178,6 @@ export const isStale = (form: { get(name: string): string | null }, declared: re
 
 export interface GrantChange { grant: string[]; revoke: string[] }
 
-// KetoClient writes one tuple per call, so the writes and deletes run one by one and stop at the first
-// failure. What was applied by then is returned beside the error, so the caller can still revoke live
-// tokens and tell the admin the save is only partly done.
-export async function applyGrants(keto: KetoClient, subject: GrantSubject, diff: GrantChange): Promise<{ applied: GrantChange; error?: unknown }> {
-  const applied: GrantChange = { grant: [], revoke: [] };
-  try {
-    for (const name of diff.grant) { await keto.writeTuple(grantTuple(name, subject)); applied.grant.push(name); }
-    for (const name of diff.revoke) { await keto.deleteTuple(grantTuple(name, subject)); applied.revoke.push(name); }
-  } catch (error) {
-    return { applied, error };
-  }
-  return { applied };
-}
+// One Keto transaction, so a failure leaves the subject's grants exactly as they were.
+export const applyGrants = (keto: KetoClient, subject: GrantSubject, diff: GrantChange): Promise<void> =>
+  keto.transactTuples({ delete: diff.revoke.map((name) => grantTuple(name, subject)), insert: diff.grant.map((name) => grantTuple(name, subject)) });

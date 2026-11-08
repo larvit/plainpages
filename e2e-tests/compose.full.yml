@@ -122,6 +122,7 @@ services:
         condition: service_healthy
     environment:
       BASE_URL: http://proxy
+      KETO_WRITE_URL: http://keto:4467
       KRATOS_ADMIN_URL: http://kratos:4434
       MAILPIT_URL: http://mailpit:8025
     volumes:

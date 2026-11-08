@@ -15,6 +15,7 @@ const ADMIN_PASSWORD = "admin";
 const SSO_EMAIL = "sso-user@plainpages.local"; // minted by the mock OIDC provider on first SSO login
 const suffix = randomUUID().slice(0, 8); // unique per run so re-runs don't collide on names
 const KRATOS_ADMIN = process.env.KRATOS_ADMIN_URL ?? "http://kratos:4434";
+const KETO_WRITE = process.env.KETO_WRITE_URL ?? "http://keto:4467";
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
 
 // Drive the themed password login form → Kratos → /auth/complete → dashboard, signed in.
@@ -193,6 +194,22 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(staleTab.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
     await expect(staleTab.locator('input[name="permission"][value="scheduling:write"]')).not.toBeChecked();
     await staleTab.context().close();
+
+    // The picker offers only declared names, so a grant no plugin declares can't be unticked: it is
+    // listed apart, and its own Remove deletes it. Keto is written directly, as only a removed plugin leaves one.
+    const stray = "retired:write";
+    const put = await fetch(`${KETO_WRITE}/admin/relation-tuples`, {
+      body: JSON.stringify({ namespace: "Permission", object: stray, relation: "granted", subject_set: { namespace: "Group", object: group, relation: "members" } }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+    expect(put.ok).toBe(true);
+    await page.goto(`/auth-admin/groups/${group}`);
+    await expect(page.getByRole("heading", { name: "Permissions no installed plugin declares" })).toBeVisible();
+    await page.getByRole("button", { name: `Remove ${stray}` }).click();
+    await expect(page.getByText("Permissions saved.")).toBeVisible();
+    await expect(page.getByText(stray)).toHaveCount(0);
+    await expect(page.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked(); // the declared grant stays
   });
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {

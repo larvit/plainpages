@@ -12,6 +12,23 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 `0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
 `RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
+### `KetoClient.transactTuples` applies inserts and deletes as one transaction
+
+`transactTuples({ delete, insert })` sends both lists to Keto in one `PATCH /admin/relation-tuples`,
+so all of them apply or none does. A `KetoClient` you build by hand, such as a test stub, must add the
+method. The admin example saves a user's or group's permissions through it: a Keto failure now
+changes nothing and answers with the error page, instead of a "stopped part-way" report. Its
+catalogs lose `admin.grants.partial`.
+
+### The admin example lists a user's or group's grants that no installed plugin declares, with a Remove
+
+A direct grant of a name no installed plugin declares, such as one left by an uninstalled plugin,
+used to stay invisible and unchangeable, and reinstalling the plugin silently reactivated it. The
+user and group pages now list these apart from the checkboxes, each with a Remove button (hidden from
+a `:read`-only holder). The example's catalogs gain `admin.grants.remove`, `admin.grants.undeclaredHint`
+and `admin.grants.undeclaredLegend`, and its routes gain `POST /auth-admin/users/:id/permissions/remove`
+and `POST /auth-admin/groups/:name/permissions/remove`.
+
 ### An operator can hide or rename a plugin's profile-menu entry
 
 A `profileMenu` entry takes an optional `id`, and `config/menu.ts`'s `override.hide` and

@@ -12,8 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
-| 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
@@ -24,19 +22,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 5. List grants that no installed plugin declares, with a remove action.
-
-`grantDiff` never revokes an undeclared name, and nothing shows one either, so it can't be audited or
-cleaned, and reinstalling its plugin silently reactivates access nobody remembers granting.
-
-### 41. Apply a permission save as one Keto call, so it cannot stop part-way.
-
-`applyGrants` writes and deletes one tuple per request and reports a partial save when one fails.
-**Check first:** Keto documents `PATCH /admin/relation-tuples`, which should apply a list of inserts
-and deletes in one transaction; confirm that against the Keto version `ory/` pins. If so, add the
-call to `KetoClient`, which is contract surface (`@plainpages/plugin-api`) and so needs 0.5.0, and the
-partial-failure path in the admin example can go.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

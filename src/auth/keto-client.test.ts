@@ -104,3 +104,20 @@ test("deleteTuple DELETEs the write API by query params (204 resolves; non-204 t
     (e: unknown) => e instanceof KetoError && e.status === 404,
   );
 });
+
+test("transactTuples PATCHes every insert and delete in one request (204 resolves; non-204 throws; empty sends nothing)", async () => {
+  const add = { namespace: "Permission", object: "a:read", relation: "granted", subject_id: USER };
+  const drop = { namespace: "Permission", object: "b:read", relation: "granted", subject_id: USER };
+  const { calls, fetchImpl } = recorder(() => res(204));
+  await keto(fetchImpl).transactTuples({ delete: [drop], insert: [add] });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.method, "PATCH");
+  assert.equal(calls[0]!.url, `${WRITE}/admin/relation-tuples`);
+  assert.deepEqual(JSON.parse(calls[0]!.body!), [{ action: "insert", relation_tuple: add }, { action: "delete", relation_tuple: drop }]);
+  await keto(fetchImpl).transactTuples({ delete: [], insert: [] });
+  assert.equal(calls.length, 1, "an empty change is not a request");
+  await assert.rejects(
+    keto((async () => res(400, { error: "bad" })) as typeof fetch).transactTuples({ delete: [], insert: [add] }),
+    (e: unknown) => e instanceof KetoError && e.status === 400,
+  );
+});

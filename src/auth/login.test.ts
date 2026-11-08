@@ -16,6 +16,7 @@ const ketoStub = (over: Partial<KetoClient> = {}): KetoClient => ({
   deleteTuple: async () => {},
   expand: async () => ({ type: "leaf" }),
   listRelations: async () => ({ nextPageToken: null, tuples: [] }),
+  transactTuples: async () => {},
   writeTuple: async () => {},
   ...over,
 });

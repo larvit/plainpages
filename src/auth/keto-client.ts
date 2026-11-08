@@ -1,6 +1,6 @@
 // Keto client: typed `fetch` wrappers over Ory Keto's relation-tuple APIs —
 // `check` a permission, `listRelations`/`expand` to inspect them (read API), `writeTuple`/
-// `deleteTuple` to grant/revoke them (write API). Built-in `fetch` only, no SDK dep (AGENTS.md);
+// `deleteTuple`/`transactTuples` to grant/revoke them (write API). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable like the kratos clients. Read/write split onto the two ports config.ts
 // targets (ketoReadUrl 4466 / ketoWriteUrl 4467).
 
@@ -56,6 +56,8 @@ export interface KetoClient {
   deleteTuple(tuple: RelationTuple): Promise<void>;
   expand(set: SubjectSet, opts?: { maxDepth?: number }): Promise<ExpandTree>;
   listRelations(query?: RelationQuery): Promise<RelationList>;
+  // Inserts and deletes in one Keto transaction: all of them apply or none does.
+  transactTuples(changes: { delete: RelationTuple[]; insert: RelationTuple[] }): Promise<void>;
   writeTuple(tuple: RelationTuple): Promise<void>;
 }
 
@@ -75,16 +77,14 @@ function tupleParams(t: Partial<RelationTuple>): URLSearchParams {
   return p;
 }
 
-export function createKetoClient(config: { fetchImpl?: typeof fetch; readUrl: string; writeUrl: string }): KetoClient {
-  const read = config.readUrl.replace(/\/+$/, "");
-  const write = config.writeUrl.replace(/\/+$/, "");
-  const http = config.fetchImpl ?? fetch;
-  const tuples = `${write}/admin/relation-tuples`;
+async function fail(action: string, res: Response): Promise<never> {
+  throw new KetoError(`Keto ${action} failed (${res.status})`, res.status, await res.text());
+}
 
-  async function fail(action: string, res: Response): Promise<never> {
-    throw new KetoError(`Keto ${action} failed (${res.status})`, res.status, await res.text());
-  }
+type ReadApi = Pick<KetoClient, "check" | "expand" | "listRelations">;
+type WriteApi = Pick<KetoClient, "deleteTuple" | "transactTuples" | "writeTuple">;
 
+function readApi(http: typeof fetch, read: string): ReadApi {
   return {
     async check(tuple, opts = {}) {
       const params = tupleParams(tuple);
@@ -93,11 +93,6 @@ export function createKetoClient(config: { fetchImpl?: typeof fetch; readUrl: st
       // Keto answers 200 {allowed:true} or 403 {allowed:false}; both carry the verdict.
       if (res.status !== 200 && res.status !== 403) return fail("check", res);
       return ((await res.json()) as { allowed?: boolean }).allowed === true;
-    },
-
-    async deleteTuple(tuple) {
-      const res = await http(`${tuples}?${tupleParams(tuple)}`, { method: "DELETE" });
-      if (res.status !== 204) await fail("delete tuple", res);
     },
 
     async expand(set, opts = {}) {
@@ -117,11 +112,37 @@ export function createKetoClient(config: { fetchImpl?: typeof fetch; readUrl: st
       const body = (await res.json()) as { next_page_token?: string; relation_tuples?: RelationTuple[] };
       return { nextPageToken: body.next_page_token || null, tuples: body.relation_tuples ?? [] };
     },
+  };
+}
+
+function writeApi(http: typeof fetch, write: string): WriteApi {
+  const tuples = `${write}/admin/relation-tuples`;
+  const json = { "content-type": "application/json" };
+  return {
+    async deleteTuple(tuple) {
+      const res = await http(`${tuples}?${tupleParams(tuple)}`, { method: "DELETE" });
+      if (res.status !== 204) await fail("delete tuple", res);
+    },
+
+    async transactTuples(changes) {
+      const patches = [
+        ...changes.insert.map((relation_tuple) => ({ action: "insert", relation_tuple })),
+        ...changes.delete.map((relation_tuple) => ({ action: "delete", relation_tuple })),
+      ];
+      if (patches.length === 0) return;
+      const res = await http(tuples, { body: JSON.stringify(patches), headers: json, method: "PATCH" });
+      if (res.status !== 204) await fail("transact tuples", res);
+    },
 
     // PUT is idempotent — re-asserting an existing tuple is a no-op grant.
     async writeTuple(tuple) {
-      const res = await http(tuples, { body: JSON.stringify(tuple), headers: { "content-type": "application/json" }, method: "PUT" });
+      const res = await http(tuples, { body: JSON.stringify(tuple), headers: json, method: "PUT" });
       if (!res.ok) await fail("write tuple", res);
     },
   };
+}
+
+export function createKetoClient(config: { fetchImpl?: typeof fetch; readUrl: string; writeUrl: string }): KetoClient {
+  const http = config.fetchImpl ?? fetch;
+  return { ...readApi(http, config.readUrl.replace(/\/+$/, "")), ...writeApi(http, config.writeUrl.replace(/\/+$/, "")) };
 }

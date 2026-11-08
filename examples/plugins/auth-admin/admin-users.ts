@@ -4,8 +4,8 @@
 // a shared `withUser` gate.
 
 import { buildPaginationModel, can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, partialSave, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -364,14 +364,23 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
     ctx.log.warn("admin: refused a self-revoke of permissions", { actor: user.id, refused: diff.revoke.join(",") });
     return refuse(ctx.t("admin.grants.selfRevoke"), 400);
   }
-  const { applied, error } = await applyGrants(keto, subject, diff);
-  if (applied.grant.length > 0 || applied.revoke.length > 0) {
+  await applyGrants(keto, subject, diff);
+  if (diff.grant.length > 0 || diff.revoke.length > 0) {
     revoke?.(id);
-    ctx.log.info("admin: user permissions changed", { actor: user.id, granted: applied.grant.join(","), revoked: applied.revoke.join(","), target: id });
+    ctx.log.info("admin: user permissions changed", { actor: user.id, granted: diff.grant.join(","), revoked: diff.revoke.join(","), target: id });
   }
-  if (error) {
-    ctx.log.error("admin: user permissions only partly saved", { actor: user.id, error: String(error), target: id });
-    return partialSave(ctx, () => refuse(ctx.t("admin.grants.partial"), 502));
+  return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${SAVED_NOTICE}` };
+});
+
+// POST /auth-admin/users/:id/permissions/remove — drop one direct grant no installed plugin declares.
+// No self-lockout guard: this screen's own gates are declared, so they are never what is removed here.
+export const usersPermissionsRemove = withTarget(async ({ ctx, keto, revoke, user }, _identity, id) => {
+  const form = (await guardedForm(ctx))!;
+  if (!keto) return unavailable(ctx, ctx.t("admin.capability.keto"));
+  const removed = await removeUndeclaredGrant(keto, userSubject(id), ctx.declaredPermissions, form.get(REMOVE_FIELD));
+  if (removed) {
+    revoke?.(id);
+    ctx.log.info("admin: undeclared user permission removed", { actor: user.id, removed, target: id });
   }
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${SAVED_NOTICE}` };
 });

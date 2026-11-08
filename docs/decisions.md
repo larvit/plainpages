@@ -198,7 +198,7 @@ The host collects every installed plugin's declarations into one catalog (`decla
 Permissions admin screen: nothing in a GUI invents a name, and holding one is a property of a user
 or group, edited as a checkbox list there. A Keto tuple naming something no installed plugin
 declares gates nothing, is not offered, and is never revoked by an unrelated save: the picker only
-speaks for what it showed.
+speaks for what it showed. The subject's page lists such a direct grant apart, with a Remove of its own.
 
 ## A permission's `<resource>` is global, not plugin-scoped
 

@@ -57,14 +57,19 @@ export const matchesTuple = (t: RelationTuple, f: Partial<RelationTuple>): boole
   (f.subject_id === undefined || t.subject_id === f.subject_id) &&
   (f.subject_set === undefined || sameSet(t.subject_set, f.subject_set));
 // A stateful in-memory KetoClient over a tuple array (writes mutate it); used by login + the admin screens.
-export const fakeKeto = (tuples: RelationTuple[] = [], over: Partial<KetoClient> = {}): KetoClient => ({
-  check: async () => false,
-  deleteTuple: async (f) => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); },
-  expand: async () => ({ type: "leaf" }),
-  listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((t) => matchesTuple(t, q)) }),
-  writeTuple: async (tp) => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); },
-  ...over,
-});
+export const fakeKeto = (tuples: RelationTuple[] = [], over: Partial<KetoClient> = {}): KetoClient => {
+  const remove = (f: Partial<RelationTuple>): void => { for (let i = tuples.length - 1; i >= 0; i--) if (matchesTuple(tuples[i]!, f)) tuples.splice(i, 1); };
+  const add = (tp: RelationTuple): void => { if (!tuples.some((t) => matchesTuple(t, tp) && sameSet(t.subject_set, tp.subject_set))) tuples.push(tp); };
+  return {
+    check: async () => false,
+    deleteTuple: async (f) => remove(f),
+    expand: async () => ({ type: "leaf" }),
+    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((t) => matchesTuple(t, q)) }),
+    transactTuples: async (c) => { c.insert.forEach(add); c.delete.forEach(remove); },
+    writeTuple: async (tp) => add(tp),
+    ...over,
+  };
+};
 export const withWhoami = (whoami: KratosPublic["whoami"]): KratosPublic => ({ ...mockKratos(async () => { throw new Error("unused"); }), whoami });
 
 // OAuth2 login challenge: another app logs in *through* us; Hydra hands the browser here.

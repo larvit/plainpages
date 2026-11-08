@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PermissionDecl } from "@plainpages/plugin-api";
 import type { KetoClient } from "@plainpages/plugin-api";
-import { applyGrants, baselineToken, buildPermissionPicker, grantDiff, grantTuple, groupSubject, isStale, userSubject } from "./admin-grants.ts";
+import { applyGrants, baselineToken, buildPermissionPicker, grantDiff, grantTuple, groupSubject, isStale, removeUndeclaredGrant, userSubject } from "./admin-grants.ts";
 
 const declared: PermissionDecl[] = [
   { description: "View users", name: "users:read" },
@@ -106,24 +106,55 @@ test("isStale refuses a missing or old token, but only for a save that would cha
   assert.equal(isStale(old, declared, held, nothing), false); // a repeated save has nothing to refuse
 });
 
-test("applyGrants applies writes then deletes, and on a Keto failure stops and reports what was applied", async () => {
-  const log: string[] = [];
-  const keto = (failOn?: string): KetoClient => ({
+test("applyGrants sends the whole change as one Keto transaction, and a failure applies none of it", async () => {
+  const calls: { delete: string[]; insert: string[] }[] = [];
+  const keto = (fail = false): KetoClient => ({
     check: async () => false,
-    deleteTuple: async (tp) => { if (tp.object === failOn) throw new Error("boom"); log.push(`delete ${tp.object}`); },
+    deleteTuple: async () => { throw new Error("unused"); },
     expand: async () => ({ type: "leaf" }),
     listRelations: async () => ({ nextPageToken: null, tuples: [] }),
-    writeTuple: async (tp) => { if (tp.object === failOn) throw new Error("boom"); log.push(`write ${tp.object}`); },
+    transactTuples: async (c) => {
+      if (fail) throw new Error("boom");
+      calls.push({ delete: c.delete.map((tp) => tp.object), insert: c.insert.map((tp) => tp.object) });
+    },
+    writeTuple: async () => { throw new Error("unused"); },
   });
   const diff = { grant: ["a:read", "b:read"], revoke: ["c:read"] };
 
-  const ok = await applyGrants(keto(), userSubject("u1"), diff);
-  assert.deepEqual(ok, { applied: diff });
-  assert.deepEqual(log, ["write a:read", "write b:read", "delete c:read"]);
+  await applyGrants(keto(), userSubject("u1"), diff);
+  assert.deepEqual(calls, [{ delete: ["c:read"], insert: ["a:read", "b:read"] }]);
+  await assert.rejects(applyGrants(keto(true), userSubject("u1"), diff), /boom/);
+});
 
-  log.length = 0;
-  const failed = await applyGrants(keto("b:read"), userSubject("u1"), diff);
-  assert.deepEqual(failed.applied, { grant: ["a:read"], revoke: [] });
-  assert.ok(failed.error instanceof Error);
-  assert.deepEqual(log, ["write a:read"]); // nothing after the failure was attempted
+// grantDiff never touches a held name nobody declares, so the picker lists them apart and offers a
+// Remove for each. A reader is told what is held but offered no button.
+test("buildPermissionPicker lists direct grants no plugin declares, with a remove action only for a writer", () => {
+  const direct = ["zed:read", "users:read", "old:write"];
+  const picker = buildPermissionPicker({ action: "/auth-admin/users/u1/permissions", declared, direct });
+  assert.deepEqual(picker.undeclared?.names, ["old:write", "zed:read"]);
+  assert.equal(picker.undeclared?.action, "/auth-admin/users/u1/permissions/remove");
+  assert.ok(picker.undeclared?.remove);
+  assert.equal(buildPermissionPicker({ action: "/x", declared, direct, readOnly: true }).undeclared?.remove, undefined);
+  assert.equal(buildPermissionPicker({ action: "/x", declared, direct: ["users:read"] }).undeclared, undefined);
+  assert.equal(picker.baseline, buildPermissionPicker({ action: "/x", declared, direct: ["users:read"] }).baseline, "an undeclared grant doesn't make a form stale");
+});
+
+test("removeUndeclaredGrant deletes one held, undeclared grant and refuses anything else", async () => {
+  const subject = userSubject("u1");
+  const tuples = [grantTuple("old:write", subject), grantTuple("users:read", subject), grantTuple("old:write", userSubject("u2"))];
+  const deleted: string[] = [];
+  const keto: KetoClient = {
+    check: async () => false,
+    deleteTuple: async (tp) => { deleted.push(`${tp.object} ${tp.subject_id}`); },
+    expand: async () => ({ type: "leaf" }),
+    listRelations: async (q = {}) => ({ nextPageToken: null, tuples: tuples.filter((tp) => tp.subject_id === q.subject_id) }),
+    transactTuples: async () => { throw new Error("unused"); },
+    writeTuple: async () => { throw new Error("unused"); },
+  };
+  assert.equal(await removeUndeclaredGrant(keto, subject, declared, "old:write"), "old:write");
+  assert.deepEqual(deleted, ["old:write user:u1"]);
+  assert.equal(await removeUndeclaredGrant(keto, subject, declared, "users:read"), undefined, "a declared name is the picker's to change");
+  assert.equal(await removeUndeclaredGrant(keto, subject, declared, "never:held"), undefined);
+  assert.equal(await removeUndeclaredGrant(keto, subject, declared, null), undefined);
+  assert.deepEqual(deleted, ["old:write user:u1"]);
 });

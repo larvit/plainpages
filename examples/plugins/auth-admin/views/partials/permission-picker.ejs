@@ -7,7 +7,10 @@
   there) and every row when `readOnly` (the viewer holds :read but not :write). Neither can be diffed
   into an accidental revoke, because grantDiff compares against the direct grants only.
 
-  Locals: csrfToken, permissions ({ action, baseline, choices, empty, error, field, hint, inheritedNote, legend, notice, pending, readOnly, submit }).
+  Locals: csrfToken, permissions ({ action, baseline, choices, empty, error, field, hint, inheritedNote, legend, notice, pending, readOnly, submit, undeclared }).
+
+  `undeclared` lists direct grants of names no plugin declares, outside the form above because grantDiff
+  never revokes one. Each has its own Remove form, and a reader gets the names without the button.
 %>
   <section class="form-card" aria-labelledby="permissions-h">
     <h2 class="card-title" id="permissions-h"><%= permissions.legend %></h2>
@@ -50,5 +53,25 @@
 <% if (permissions.pending) { -%>
     <p class="cell-muted"><%= permissions.pending %></p>
 <% } -%>
+<% } -%>
+<% if (permissions.undeclared) { const u = permissions.undeclared; -%>
+    <h3 class="card-title" id="undeclared-h"><%= u.legend %></h3>
+    <p class="cell-muted"><%= u.hint %></p>
+    <ul class="plain-list" aria-labelledby="undeclared-h">
+<% u.names.forEach((name) => { -%>
+      <li>
+<% if (u.remove) { -%>
+        <form method="post" action="<%= localeHref(u.action + '#permissions-h') %>">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="<%= u.field %>" value="<%= name %>">
+          <span class="cell-muted"><%= name %></span>
+          <button class="btn btn-danger" type="submit"><%= u.remove %><span class="sr-only"> <%= name %></span></button>
+        </form>
+<% } else { -%>
+        <span class="cell-muted"><%= name %></span>
+<% } -%>
+      </li>
+<% }) -%>
+    </ul>
 <% } -%>
   </section>

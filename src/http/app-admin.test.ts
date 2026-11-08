@@ -16,7 +16,7 @@ import type { Plugin } from "../plugin-host/plugin.ts";
 import adminManifest from "../../examples/plugins/auth-admin/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import { loadI18n } from "../i18n/load.ts";
-import { ecJwk, fakeKeto, matchesTuple, mintJwt, stubAdmin, stubHydra } from "../test-tooling/app-harness.ts";
+import { ecJwk, fakeKeto, mintJwt, stubAdmin, stubHydra } from "../test-tooling/app-harness.ts";
 
 // The HTTP-level admin tests mount the example plugin via createApp — stub Ory clients on
 // ctx.system, views from examples/plugins — exactly as an operator would after copying it in.
@@ -314,31 +314,28 @@ test("admin permission grants: a save from a stale page is refused, and the page
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the group keeps its grant");
 });
 
-// A Keto error midway leaves some changes applied; the save says so and still revokes the user's live tokens.
-test("admin permission grants: a Keto failure midway reports a partial save and keeps what was applied", async (t) => {
+// The grant changes go to Keto as one transaction, so a Keto failure applies none of them and
+// there is nothing to revoke: the host's error page answers, and the stored grants are unchanged.
+test("admin permission grants: a Keto failure applies none of the changes and revokes no live token", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
-  const tuples: RelationTuple[] = [];
-  let writes = 0;
-  const keto = fakeKeto(tuples, {
-    writeTuple: async (tp) => {
-      if (++writes === 2) throw new Error("keto unreachable");
-      tuples.push(tp);
-    },
-  });
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${ada}` }];
+  const keto = fakeKeto(tuples, { transactTuples: async () => { throw new Error("keto unreachable"); } });
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const denylist = createDenylist();
   const { get, post, token } = await adminHarness(t, { denylist, keto, kratosAdmin });
   const baseline = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
 
-  const res = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread&permission=users%3Awrite`);
-  assert.equal(res.status, 502);
-  const page = await res.text();
-  assert.match(page, /stopped part-way/);
-  assert.match(page, /value="groups:read"[^>]*checked/); // the first write landed, and the page shows what is stored
-  assert.doesNotMatch(page, /value="users:write"[^>]*checked/);
-  assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
-  assert.equal(denylist.isRevoked(ada, 0), true); // the half that was applied still revokes live tokens
+  const res = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Awrite`);
+  assert.equal(res.status, 500);
+  assert.deepEqual(tuples.map((tp) => tp.object), ["users:read"]);
+  assert.equal(denylist.isRevoked(ada, 0), false);
+
+  tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
+  const groupBaseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
+  const groupRes = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread`);
+  assert.equal(groupRes.status, 500);
+  assert.equal(tuples.filter((tp) => tp.subject_set?.object === "eng").length, 0);
 });
 
 // A double-clicked Save posts twice from one page; the second post finds the first one's result.
@@ -360,54 +357,50 @@ test("admin permission grants: a save that changes nothing is not refused for a 
   assert.equal(denylist.isRevoked(ada, 0), false);
 });
 
-// Keto answered the writes but not the re-read: the report must still reach the admin.
-test("admin permission grants: a partial save is still reported when Keto cannot be read again", async (t) => {
+// grantDiff never revokes a name nobody declares, so the page lists it apart and Remove is the only way out.
+test("admin permission grants: a grant no plugin declares is listed with a Remove, which deletes it and revokes live tokens", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
-  const tuples: RelationTuple[] = [];
-  let writes = 0;
-  let down = false;
-  let failureTakesKetoDown = true;
-  const keto = fakeKeto(tuples, {
-    listRelations: async (q = {}) => {
-      if (down) throw new Error("keto unreachable");
-      return { nextPageToken: null, tuples: tuples.filter((tp) => matchesTuple(tp, q)) };
-    },
-    writeTuple: async (tp) => {
-      if (++writes === 2) { down = failureTakesKetoDown; throw new Error("keto unreachable"); }
-      tuples.push(tp);
-    },
-  });
+  const held = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Permission", object, relation: "granted", ...subject });
+  const eng = { subject_set: { namespace: "Group", object: "eng", relation: "members" } };
+  const tuples: RelationTuple[] = [
+    held("users:read", { subject_id: `user:${ada}` }), held("old:write", { subject_id: `user:${ada}` }),
+    held("old:write", eng), held("old:write", { subject_id: "user:someone-else" }),
+    { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` },
+  ];
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
-  const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
-  const baseline = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
+  const denylist = createDenylist();
+  const { get, post, token } = await adminHarness(t, { denylist, keto: fakeKeto(tuples), kratosAdmin });
 
-  const res = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread`);
-  assert.equal(res.status, 502);
-  assert.match(await res.text(), /stopped part-way/);
-  assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
+  const page = await (await get(`/auth-admin/users/${ada}`)).text();
+  assert.match(page, /Permissions no installed plugin declares/);
+  assert.match(page, new RegExp(`action="/auth-admin/users/${ada}/permissions/remove#permissions-h"`));
+  assert.match(page, /name="remove" value="old:write"/);
+  assert.doesNotMatch(page, /name="remove" value="users:read"/, "a declared name has no Remove");
+  const readerPage = await (await get(`/auth-admin/users/${ada}`, ["users:read"])).text();
+  assert.match(readerPage, /old:write/);
+  assert.doesNotMatch(readerPage, /permissions\/remove/);
 
-  // The same on a group, whose page needs Keto for its members as well.
-  down = false;
-  writes = 0;
-  tuples.length = 0;
-  tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
-  const groupBaseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
-  const groupRes = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread&permission=users%3Aread`);
-  assert.equal(groupRes.status, 502);
-  assert.match(await groupRes.text(), /stopped part-way/);
-  assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the first write landed");
+  // A declared name is the picker's to change, so a crafted Remove for one does nothing.
+  const declared = await post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${token}&remove=users%3Aread`);
+  assert.equal(declared.status, 303);
+  assert.equal(tuples.length, 5);
+  assert.equal(denylist.isRevoked(ada, 0), false);
 
-  // With Keto still answering, the group page itself reports it and shows what is stored.
-  failureTakesKetoDown = false;
-  down = false;
-  writes = 0;
-  tuples.length = 1;
-  const again = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${baselineOf(await (await get("/auth-admin/groups/eng")).text())}&permission=groups%3Aread&permission=users%3Aread`);
-  assert.equal(again.status, 502);
-  const page = await again.text();
-  assert.match(page, /stopped part-way/);
-  assert.match(page, /value="groups:read"[^>]*checked/);
+  const removed = await post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${token}&remove=old%3Awrite`);
+  assert.equal(removed.status, 303);
+  assert.equal(tuples.length, 4);
+  assert.ok(!tuples.some((tp) => tp.object === "old:write" && tp.subject_id === `user:${ada}`));
+  assert.ok(tuples.some((tp) => tp.object === "old:write" && tp.subject_set?.object === "eng"), "the group's grant is untouched");
+  assert.equal(denylist.isRevoked(ada, 0), true);
+  assert.equal((await post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${token}&remove=old%3Awrite`)).status, 303, "a second click is harmless");
+  assert.equal((await post(`/auth-admin/users/${ada}/permissions/remove`, "remove=old%3Awrite")).status, 403, "CSRF-guarded");
+
+  const groupPage = await (await get("/auth-admin/groups/eng")).text();
+  assert.match(groupPage, /action="\/auth-admin\/groups\/eng\/permissions\/remove#permissions-h"/);
+  assert.equal((await post("/auth-admin/groups/eng/permissions/remove", `_csrf=${token}&remove=old%3Awrite`)).status, 303);
+  assert.ok(!tuples.some((tp) => tp.object === "old:write" && tp.subject_set?.object === "eng"));
+  assert.ok(tuples.some((tp) => tp.object === "old:write" && tp.subject_id === "user:someone-else"), "another subject's grant is untouched");
 });
 
 // Revoking your own grants can remove the last users:write on the deployment, and the instant-revoke

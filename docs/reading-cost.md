@@ -474,3 +474,14 @@ Read most (opens and searches):
 - `src/plugin-host/conflicts.ts` 3
 - `AGENTS.md` 2
 - `compose.yml` 2
+
+## Reading cost, chunk 0d9d4ffb47aa, finished 2026-11-08T20:58:38Z
+
+48347 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app.ts` 4
+- `src/http/app.test.ts` 2
+- `todo.md` 2
+- `src/plugin-host/plugin.ts` 1

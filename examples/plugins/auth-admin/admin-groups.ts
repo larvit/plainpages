@@ -7,8 +7,8 @@
 // each returning a RouteResult.
 
 import { buildPaginationModel, can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
-import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, partialSave, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, isSavedNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 import type { FieldConfig } from "./admin-users.ts";
 
 const GROUP_NS = "Group";
@@ -395,14 +395,19 @@ export const groupsPermissions = withGroupName(async (deps, name) => {
   if (isStale(form, ctx.declaredPermissions, held, diff)) return { ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.stale") })), status: 409 };
   const lost = diff.revoke.length > 0 && await isMember(keto, user.id, name) ? await lostToSelf(keto, user.id, diff.revoke) : [];
   if (lost.length > 0) return refuseSelfLockout(deps, name, "save", lost);
-  const { applied, error } = await applyGrants(keto, subject, diff);
-  if (applied.grant.length > 0 || applied.revoke.length > 0) {
-    ctx.log.info("admin: group permissions changed", { actor: user.id, granted: applied.grant.join(","), group: name, revoked: applied.revoke.join(",") });
+  await applyGrants(keto, subject, diff);
+  if (diff.grant.length > 0 || diff.revoke.length > 0) {
+    ctx.log.info("admin: group permissions changed", { actor: user.id, granted: diff.grant.join(","), group: name, revoked: diff.revoke.join(",") });
   }
-  if (error) {
-    ctx.log.error("admin: group permissions only partly saved", { actor: user.id, error: String(error), group: name });
-    return partialSave(ctx, async () => ({ ...(await groupDetailPage(deps, name, { error: ctx.t("admin.grants.partial") })), status: 502 }));
-  }
+  return { redirect: `${detailHref(name)}?info-msg=${SAVED_NOTICE}` };
+});
+
+// POST /auth-admin/groups/:name/permissions/remove — drop one grant no installed plugin declares.
+// No self-lockout guard: this screen's own gates are declared, so they are never what is removed here.
+export const groupsPermissionsRemove = withGroupName(async ({ ctx, keto, user }, name) => {
+  const form = (await guardedForm(ctx))!;
+  const removed = await removeUndeclaredGrant(keto, groupSubject(name), ctx.declaredPermissions, form.get(REMOVE_FIELD));
+  if (removed) ctx.log.info("admin: undeclared group permission removed", { actor: user.id, group: name, removed });
   return { redirect: `${detailHref(name)}?info-msg=${SAVED_NOTICE}` };
 });
 

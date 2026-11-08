@@ -6,9 +6,9 @@
 
 import { definePlugin, type HttpMethod, type Route, type RouteHandler } from "@plainpages/plugin-api";
 import { clientsCreate, clientsDeleteConfirm, clientsDelete, clientsDetail, clientsList, clientsNewForm } from "./admin-clients.ts";
-import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsPermissions, groupsRemoveMember } from "./admin-groups.ts";
+import { groupsAddMember, groupsCreate, groupsDelete, groupsDeleteConfirm, groupsDetail, groupsList, groupsNewForm, groupsPermissions, groupsPermissionsRemove, groupsRemoveMember } from "./admin-groups.ts";
 import { pluginSettingsList } from "./admin-plugin-settings.ts";
-import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersPermissions, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
+import { usersCreate, usersDeleteConfirm, usersDelete, usersEditForm, usersList, usersNewForm, usersPermissions, usersPermissionsRemove, usersRecovery, usersState, usersUpdate } from "./admin-users.ts";
 import { ADMIN_NAV, actionForMethod, type AdminAction, type AdminResource, permissionName } from "./admin-shared.ts";
 
 // One route factory per screen: a GET gates on `<resource>:read` and a POST on `<resource>:write`,
@@ -54,6 +54,7 @@ export default definePlugin({
     users("POST", "/users/:id/delete", usersDelete),
     users("POST", "/users/:id/recovery", usersRecovery),
     users("POST", "/users/:id/permissions", usersPermissions),
+    users("POST", "/users/:id/permissions/remove", usersPermissionsRemove),
     // Groups
     groups("GET", "/groups", groupsList),
     groups("POST", "/groups", groupsCreate),
@@ -64,6 +65,7 @@ export default definePlugin({
     groups("POST", "/groups/:name/delete", groupsDelete),
     groups("POST", "/groups/:name/members/delete", groupsRemoveMember),
     groups("POST", "/groups/:name/permissions", groupsPermissions),
+    groups("POST", "/groups/:name/permissions/remove", groupsPermissionsRemove),
     // OAuth2 clients
     clients("GET", "/clients", clientsList),
     clients("POST", "/clients", clientsCreate),
