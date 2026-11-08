@@ -18,7 +18,7 @@ function fakeCtx(opts: { body?: string; permissions?: string[]; url?: string; us
   const url = new URL(opts.url ?? "http://localhost/scheduling/shifts");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   return {
-    chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
+    assetHref: (href) => href, chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: new Log("none"), params: {},
     query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.permissions ?? [], t, url,
     verifyCsrf: opts.verifyCsrf ?? (() => true),
   };

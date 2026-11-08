@@ -19,7 +19,7 @@ function fakeCtx(opts: { body?: string; method?: string; user?: User | null; ver
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   req.method = opts.method ?? "GET";
   return {
-    chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: {} as Log, params: {},
+    assetHref: (href) => href, chrome: CHROME, declaredPermissions: [], declaredSettings: [], user: opts.user ?? null, locale: "en-US", localeHref: (href) => href, locales: ["en-US"], log: {} as Log, params: {},
     query: url.searchParams, req, res: {} as ServerResponse, permissions: opts.user?.permissions ?? [], t: ADMIN_EN, url,
     verifyCsrf: opts.verifyCsrf ?? (() => true),
   };

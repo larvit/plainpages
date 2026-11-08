@@ -50,8 +50,7 @@ export function routePublic(restPath: string, publicDir: string, pluginsDir: str
   return { dir: publicDir, subPath: restPath };
 }
 
-// Caching: every /public/ href rendered through assetHref (the host's, and a plugin's through the view
-// local or ctx.assetHref) gets `?v=<hash of the file's content>`. A request whose `v` is the current
+// Caching: every /public/ href rendered through assetHref gets `?v=<hash of the file's content>`. A request whose `v` is the current
 // hash is cached for a year as immutable, so a repeat page view downloads no asset; a changed file gets
 // a new hash, and with it a new URL. Any other request — an unwrapped href, a stale `v` mid-deploy — is
 // cached for five minutes, then revalidated against the ETag (that same hash) or Last-Modified.

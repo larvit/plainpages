@@ -1,7 +1,7 @@
 // paginate: pagination math → a PageModel. Pure and URL-free (README signature
-// `paginate(total, page, pageSize)`); buildPaginationModel then maps it, with the caller's
-// page → href function, to the model pagination.ejs renders. Inputs are clamped/guarded so it never
-// produces a broken model: page is pinned to [1, pageCount], total/pageSize coerced to sane integers.
+// `paginate(total, page, pageSize)`); buildPaginationModel maps it to pagination.ejs's model. Inputs
+// are clamped/guarded so it never produces a broken model: page is pinned to [1, pageCount],
+// total/pageSize coerced to sane integers.
 
 export interface PageItem {
   current: boolean;
@@ -47,8 +47,9 @@ export function paginate(total: number, page: number, pageSize: number, options:
 
 export interface PaginationModelOptions {
   label?: string; // the nav's aria-label; the partial defaults it
-  pageParam?: string; // as parseListQuery's options (default "page")
-  pageSizeParam?: string; // as parseListQuery's options (default "pageSize")
+  // The two query params, named as parseListQuery was given them; pageSizeParam names the rows field.
+  pageParam?: string; // default "page"
+  pageSizeParam?: string; // default "pageSize"
   pageSizes?: number[]; // the rows-per-page choices; omitted ⇒ no rows-per-page form
 }
 

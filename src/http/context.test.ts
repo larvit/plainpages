@@ -25,6 +25,7 @@ test("buildContext parses the URL, exposes query, and defaults to an anonymous u
   assert.equal(ctx.user, null);
   assert.deepEqual(ctx.permissions, []);
   assert.deepEqual(ctx.params, {});
+  assert.equal(ctx.assetHref("/public/x.css"), "/public/x.css");
 });
 
 test("buildContext threads path params supplied by the router", () => {

@@ -1059,7 +1059,8 @@ const pagination = buildPaginationModel(page, (n) => listHref({ ...query, page: 
 ```
 
 `listHref` is yours: the list's URL with all its state. The rows-per-page form's hidden inputs are
-read off it, so it carries the same filters, search and sort as the page links.
+read off it, so the form carries the same filters, search and sort as the page links. A list that
+renamed its params in `parseListQuery` passes the same `pageParam`/`pageSizeParam` here.
 
 ## Interactivity: zero-JS spine
 

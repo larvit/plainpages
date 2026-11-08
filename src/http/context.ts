@@ -23,8 +23,8 @@ export interface User {
 
 export interface RequestContext {
   // A /public/ href with `?v=<content hash>`, so the browser caches the file for a year; any other
-  // href, or one already carrying a query or fragment, comes back unchanged. The same function is
-  // the `assetHref` view local, for hrefs a handler builds into `data`.
+  // href, or one already carrying a query or fragment, comes back unchanged. Views get the same
+  // function as the `assetHref` local; this one is for hrefs a handler builds into `data`.
   assetHref(href: string): string;
   // Page chrome (brand/global-nav/user/theme/csrf) a plugin view hands to partials/shell so its
   // page renders the native app shell; the host builds it per request (anonymous default otherwise).

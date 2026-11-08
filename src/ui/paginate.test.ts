@@ -59,7 +59,7 @@ test("buildPaginationModel maps a page to the pagination partial's model, every 
   });
 });
 
-test("buildPaginationModel disables the step off either end, keeps ellipses, and omits what wasn't asked for", () => {
+test("buildPaginationModel leaves prev/next without an href on the first/last page, keeps ellipses, and omits what wasn't asked for", () => {
   const m = buildPaginationModel(paginate(100, 1, 10), (n) => `/l?page=${n}`);
   assert.deepEqual(m.prev, {});
   assert.deepEqual(m.pages[m.pages.length - 2], { ellipsis: true });

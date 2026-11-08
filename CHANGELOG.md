@@ -9,19 +9,19 @@ at boot. Entries start at 0.3.0.
 ### Plugin contract 0.5: set `apiVersion` to `"0.5.0"`
 
 The host's contract version is now 0.5.0, so discovery refuses a plugin whose `apiVersion` is still
-`0.4.x`. Change the literal in each plugin's manifest when you upgrade; nothing else in a 0.4 plugin
-needs to change.
+`0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
+`RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
 ### `buildPaginationModel` builds the pagination partial's model
 
-`buildPaginationModel(page, hrefFor, { label?, pageSizes? })` from `@plainpages/plugin-api` turns
-`paginate()`'s result into what `partials/pagination` renders. `hrefFor(n)` is your list's URL on
-page n, and the rows-per-page form carries the same list state as the links. It replaces the hand-written
-mapping a list page needed.
+Call `buildPaginationModel(page, hrefFor, { label?, pageSizes?, pageParam?, pageSizeParam? })` from
+`@plainpages/plugin-api` in place of mapping `paginate()`'s result to `partials/pagination` by hand.
+`hrefFor(n)` is your list's URL on page n, and the rows-per-page form carries the same list state as
+the links. A list that renamed its params in `parseListQuery` passes the same names here.
 
 ### A plugin can version its own `/public/` files
 
-Wrap a script, image or other file your own markup links in `assetHref("/public/<id>/…")` in a view,
+Wrap the href of a script, image or other file your own markup links in `assetHref("/public/<id>/…")` in a view,
 or `ctx.assetHref(…)` in a handler. The href gets the file's content hash, and the browser caches the
 file for a year instead of revalidating it every five minutes.
 
