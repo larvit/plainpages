@@ -405,3 +405,21 @@ Read most (opens and searches):
 - `src/plugin-host/plugin-api.ts` 3
 - `src/ui/chrome.test.ts` 3
 - `CHANGELOG.md` 2
+
+## Reading cost, chunk f4e8ff50cb2a, finished 2026-11-08T19:37:35Z
+
+73698 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app.ts` 7
+- `src/function-limits.test.ts` 2
+- `src/http/context.ts` 2
+- `src/http/static.ts` 2
+- `src/plugin-host/plugin.ts` 2
+- `todo.md` 2
+- `AGENTS.md` 1
+- `src/http/builtin-route.ts` 1
+- `src/plugin-host/hooks.ts` 1
+
+## Reading cost reset, 2026-11-08T19:39:42Z

@@ -6,7 +6,7 @@
   "automerge": true,
   "packageRules": [
     {
-      "description": "The host's own runtime deps. Release-Bump is opt-in per surface (README → CI/CD): updateType rates the dependency's own jump, not whether it reaches a running Plainpages",
+      "description": "The host's own runtime deps. Release-Bump is opt-in per surface (docs/ci-cd.md): updateType rates the dependency's own jump, not whether it reaches a running Plainpages",
       "matchDepTypes": ["dependencies"],
       "matchFileNames": ["package.json"],
       "matchManagers": ["npm"],

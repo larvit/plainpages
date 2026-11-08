@@ -8,7 +8,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { type Gate, gatesSet } from "../auth/gate.ts";
-import { checkApiVersion, findConflicts, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
+import { findConflicts } from "./conflicts.ts";
+import { checkApiVersion, isValidPermissionName, isValidPluginId, RESERVED_PLUGIN_IDS, type Plugin, type PluginManifest } from "./plugin.ts";
 import { settingsDeclError } from "./settings.ts";
 import { isValidStoragePluginId, MAX_STORAGE_PLUGIN_ID_LENGTH } from "./storage.ts";
 

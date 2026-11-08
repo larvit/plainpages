@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 59 | 0.5.0 |  |  | **Lower the reading cost of the files a chunk reads most before its first commit.** | 2 | 2 | 1 | 3 | 4 | code health by 3 | 9.0 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
@@ -27,13 +26,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 59. Lower the reading cost of the files a chunk reads most before its first commit.
-
-`reading-cost` reports a rise: the last 5 chunks' median is 87251 new input tokens before their
-first commit, the 5 before them 70583. The files the last 5 chunks read most: `todo.md` 34 times,
-`README.md` 24, `src/plugin-host/plugin.ts` 11, `src/plugin-host/plugin.test.ts` 10, `AGENTS.md` 6.
-Cut or split what a chunk reads without needing it, then run `reading-cost --reset`.
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 

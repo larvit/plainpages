@@ -1,5 +1,5 @@
 // Pure release-version math for the Renovate auto-release (see renovate.yml → auto-release job,
-// README → CI/CD). Renovate stamps each commit with a `Release-Bump: <updateType>` trailer; the
+// docs/ci-cd.md). Renovate stamps each commit with a `Release-Bump: <updateType>` trailer; the
 // workflow feeds those values here to pick the next `vX.Y.Z` tag. Kept side-effect-free and unit
 // tested (next-version.test.ts) — the git/tag/push side lives in the workflow shell.
 

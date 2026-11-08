@@ -56,7 +56,7 @@ async function main(): Promise<number> {
   if (!version || !repo || !user || !token) {
     return fail(
       "usage: dockerhub-overview.ts <X.Y.Z>; needs DOCKERHUB_REPO, DOCKERHUB_USER and " +
-        "DOCKERHUB_TOKEN (README -> CI/CD)",
+        "DOCKERHUB_TOKEN (docs/ci-cd.md)",
     );
   }
   // The page is public, so never render a version that resolves to no image.
@@ -94,7 +94,7 @@ async function main(): Promise<number> {
       `Docker Hub description and overview PATCH failed: ${res.status} ${res.text}` +
         (res.status === 403
           ? "\n403 means DOCKERHUB_TOKEN lacks the delete scope — editing the overview needs " +
-            "read/write/delete, which pushing images alone does not (README -> CI/CD)."
+            "read/write/delete, which pushing images alone does not (docs/ci-cd.md)."
           : ""),
     );
   }

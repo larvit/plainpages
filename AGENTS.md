@@ -107,7 +107,7 @@ Revisit only if the stated reason stops holding.
   design: the prefix is `PLUGIN_SETTING_`, never bare `PLUGIN_`, because a plugin id `db` with key
   `url` would otherwise name the host's own `PLUGIN_DB_URL`; keys are camelCase so the
   `camelCase → SNAKE_CASE` mapping is total and no two keys collide, with the residual cross-plugin
-  collision caught by `findConflicts`; `required` and `default` are mutually exclusive, which is what
+  collision caught by `findConflicts` (`plugin-host/conflicts.ts`); `required` and `default` are mutually exclusive, which is what
   lets `SettingsOf` type a declared key as present rather than `T | undefined`, so no plugin author
   casts; and a secret's value reaches the plugin but never a log, an error or `ctx.declaredSettings`
   — not even as a mask or a length. An author mistake is refused at discovery, a bad operator value

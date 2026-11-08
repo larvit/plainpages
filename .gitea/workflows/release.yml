@@ -57,7 +57,7 @@ jobs:
           COMMIT=$(git rev-parse 'HEAD^{commit}')
           VERSION=${GIT_TAG#v}
           [ -n "$DOCKERHUB_USER" ] && [ -n "$DOCKERHUB_TOKEN" ] \
-            || { echo "Set the DOCKERHUB_USER variable + DOCKERHUB_TOKEN secret (README -> CI/CD)"; exit 1; }
+            || { echo "Set the DOCKERHUB_USER variable + DOCKERHUB_TOKEN secret (docs/ci-cd.md)"; exit 1; }
           printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USER" --password-stdin
           TAGS="$VERSION ${VERSION%.*} latest"
           if [ "${VERSION%%.*}" != "0" ]; then TAGS="$TAGS ${VERSION%%.*}"; fi
