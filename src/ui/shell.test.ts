@@ -131,3 +131,17 @@ test("the chrome carries the visitor's language: breadcrumb links go through loc
   assert.match(html, /<a href="\/admin\/users\?locale=sv-SE">Users<\/a>/);
   assert.match(html, /<span>Ada<\/span>/); // the current crumb has no href to carry
 });
+
+test("profile menu entries render as links above Sign out, with their icon", async () => {
+  const html = await render({
+    csrfToken: "tok.sig",
+    user: {
+      email: "ada@acme.io", initials: "AD", name: "ada",
+      menu: [{ href: "/account/settings", icon: "i-user", label: "My <settings>" }, { href: "/account/help", label: "Help" }],
+    },
+  });
+  const panel = html.slice(html.indexOf('id="profile-menu"'), html.indexOf("</aside>"));
+  assert.match(panel, /<a class="menu-item" href="\/account\/settings"><svg class="ico"><use href="#i-user" \/><\/svg>My &lt;settings&gt;<\/a>/);
+  assert.match(panel, /<a class="menu-item" href="\/account\/help">Help<\/a>/);
+  assert.ok(panel.indexOf("/account/help") < panel.indexOf('class="menu-item-form"'), "Sign out stays last");
+});

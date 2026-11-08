@@ -6,6 +6,7 @@
 
 import type { Gate } from "../auth/gate.ts";
 import type { RequestContext } from "../http/context.ts";
+import type { ProfileMenuEntry } from "../ui/chrome.ts";
 import type { NavNode } from "../ui/nav.ts";
 import { envName, type SettingDecl, type SettingsOf } from "./settings.ts";
 import type { StorageCredentials } from "./storage.ts";
@@ -89,6 +90,9 @@ export interface PluginManifest<S extends readonly SettingDecl[] = readonly Sett
   hooks?: PluginHooks<S>;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
+  // Links added above Sign out in the profile dropdown, each gated like a nav node and shown only to a
+  // signed-in visitor; `icon` is a Lucide sprite id, and a `label` naming a catalog key is translated.
+  profileMenu?: ProfileMenuEntry[];
   routes?: Route[];
   // Operator-supplied configuration, one PLUGIN_SETTING_<ID>_<KEY> variable per key; the resolved
   // values arrive on onBoot's BootContext, typed from these declarations (settings.ts).
@@ -241,6 +245,7 @@ function undeclaredGates(plugins: Plugin[]): PluginConflict[] {
     const gated = new Set<string>();
     for (const route of plugin.routes ?? []) if (route.permission != null) gated.add(route.permission);
     collectNavPermissions(plugin.nav, (name) => gated.add(name));
+    for (const entry of plugin.profileMenu ?? []) if (entry.permission != null) gated.add(entry.permission);
     for (const name of [...gated].sort()) {
       if (!declared.has(name)) out.push({ kind: "permission", level: "warn", message: `plugin "${plugin.id}" gates on "${name}", which no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's \`permissions\``, plugins: [plugin.id] });
     }

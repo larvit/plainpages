@@ -468,6 +468,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Every node names [exactly one gate](#public-pages--menu-items). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
+| `profileMenu` | no | `ProfileMenuEntry[]`: `{ href, label, icon?, …gate }` links added above Sign out in the profile dropdown, shown only to a signed-in visitor. Each names [exactly one gate](#public-pages--menu-items); `icon` and `label` follow the same rules as a `nav` node. The host hands the visitor's entries to the shell as `chrome.user.menu`. |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 | `settings` | no | Configuration this plugin accepts, one `PLUGIN_SETTING_<ID>_<KEY>` variable per key, resolved and validated at boot and handed to `onBoot`. See [Plugin settings](#plugin-settings). |
@@ -607,7 +608,7 @@ interface RequestContext {
 }
 ```
 
-**`ctx.chrome`** — `{ brand, csrfToken, nav, signInHref, theme, user }`. Hand each field to the
+**`ctx.chrome`** — `{ brand, csrfToken, nav, signInHref, theme, user }` (`user.menu` holds the profile-dropdown links). Hand each field to the
 matching `partials/shell` local and a `view` result renders the **native app shell**, exactly as
 `examples/plugins/scheduling/views/overview.ejs` does; a field you omit falls back to its shell
 default rather than erroring. `chrome.nav` is the whole global menu — every installed plugin's
@@ -732,13 +733,14 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 | `id` | error | Two plugins share an `id` (folder name). Ids must be globally unique — they namespace the mount path, views/static, and the override target. |
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
+| `setting` | error | Two settings resolve to the same `PLUGIN_SETTING_` variable name; rename a key or a plugin folder ([Plugin settings](#plugin-settings)). |
 | `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
-| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. Also warned: a route or nav node gates on a permission no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's `permissions`. |
+| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. Also warned: a route, nav node or profile-menu entry gates on a permission no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's `permissions`. |
 
 Mount-path uniqueness needs no rule of its own — it follows from the id check. Discovery also
-rejects **per-manifest shape errors**: a non-array `nav`/`routes`/`permissions`, a non-function
+rejects **per-manifest shape errors**: a non-array `nav`/`profileMenu`/`routes`/`permissions`, a non-function
 `home`/`dashboard`, a permission name that isn't [`<resource>:<action>`](#naming-a-permission), or a
-route/nav node that does not name [exactly one gate](#public-pages--menu-items).
+route, nav node or profile-menu entry that does not name [exactly one gate](#public-pages--menu-items).
 
 ### Hooks
 

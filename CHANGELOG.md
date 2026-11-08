@@ -33,6 +33,12 @@ Call `buildPaginationModel(page, hrefFor, { label?, pageSizes?, pageParam?, page
 `hrefFor(n)` is your list's URL on page n, and the rows-per-page form carries the same list state as
 the links. A list that renamed its params in `parseListQuery` passes the same names here.
 
+### A plugin can add links to the profile menu
+
+Declare `profileMenu: [{ href, label, icon?, …gate }]` in the manifest. Each entry names exactly one
+gate like a nav node, and shows above Sign out to a signed-in visitor who passes it. Discovery
+refuses an entry with no `href` or no gate.
+
 ### A plugin can version its own `/public/` files
 
 Wrap the href of a script, image or other file your own markup links in `assetHref("/public/<id>/…")` in a view,

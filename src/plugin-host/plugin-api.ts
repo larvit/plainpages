@@ -11,7 +11,7 @@ export type { BootContext, HttpMethod, Plugin, PluginHooks, PluginManifest, Perm
 export type { PluginSettings, SettingDecl, SettingSummary, SettingType, SettingValue } from "./settings.ts";
 export type { StorageCredentials } from "./storage.ts";
 export type { RequestContext, User } from "../http/context.ts";
-export type { PageChrome } from "../ui/chrome.ts";
+export type { PageChrome, ProfileMenuEntry } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";
 export { can, check, GuardError, requireSession } from "../auth/guards.ts";
 // The three coarse gates a route or nav node may declare — `Route` and `NavNode` both extend it.

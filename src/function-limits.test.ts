@@ -20,7 +20,6 @@ const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
   "src/auth/kratos-admin.ts createKratosAdmin": { lines: 68 },
   "src/auth/kratos-public.ts createKratosPublic": { lines: 60 },
   "src/plugin-host/discovery.ts discoverPlugins": { lines: 74, complexity: 22 },
-  "src/plugin-host/discovery.ts shapeError": { complexity: 23 },
   "src/config.ts loadConfig": { lines: 52 },
   "release-tooling/dockerhub-overview.ts main": { lines: 57 },
   "examples/plugins/admin/admin-users.ts buildUserFormModel": { complexity: 21 },

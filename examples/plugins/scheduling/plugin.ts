@@ -40,6 +40,9 @@ export default definePlugin({
     { description: "Create and edit shifts", name: WRITE },
   ],
 
+  // Also offered in the profile dropdown above Sign out, since the page is the visitor's own.
+  profileMenu: [{ href: MINE_PATH, icon: "i-cal", label: "scheduling.nav.mine", session: true }],
+
   routes: [
     { handler: overview(), method: "GET", path: "/", public: true },
     { handler: myShifts(upstream), method: "GET", path: "/mine", session: true },

@@ -133,7 +133,7 @@ function asManifest(value: unknown): PluginManifest | null {
 
 // The collection fields feed findConflicts, which iterates them — a non-array crashes it opaquely.
 function shapeError(manifest: PluginManifest): string | null {
-  for (const field of ["nav", "permissions", "routes"] as const) {
+  for (const field of ["nav", "permissions", "profileMenu", "routes"] as const) {
     if (manifest[field] !== undefined && !Array.isArray(manifest[field])) return `"${field}" must be an array`;
   }
   // `home` / `dashboard` (the landing-page overrides) are route handlers; the host calls them, so
@@ -151,9 +151,11 @@ function shapeError(manifest: PluginManifest): string | null {
     const gate = gateError(`route "${route?.method} ${route?.path}"`, route);
     if (gate) return gate;
   }
-  const navGate = findNavGateError(manifest.nav);
-  if (navGate) return navGate;
-  for (const decl of Array.isArray(manifest.permissions) ? manifest.permissions : []) {
+  return findNavGateError(manifest.nav) ?? findProfileMenuError(manifest.profileMenu) ?? findPermissionNameError(manifest.permissions);
+}
+
+function findPermissionNameError(decls: PluginManifest["permissions"]): string | null {
+  for (const decl of Array.isArray(decls) ? decls : []) {
     if (decl?.name == null || !isValidPermissionName(decl.name)) {
       return `declared permission "${decl?.name}" is not <resource>:<action>, e.g. "things:read"`;
     }
@@ -185,6 +187,16 @@ function findNavGateError(nodes: PluginManifest["nav"]): string | null {
     if (err) return err;
     const inChild = findNavGateError(node?.children);
     if (inChild) return inChild;
+  }
+  return null;
+}
+
+function findProfileMenuError(entries: PluginManifest["profileMenu"]): string | null {
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const what = `profile-menu entry "${entry?.label ?? "?"}"`;
+    if (typeof entry?.href !== "string" || entry.href === "") return `${what} needs an href`;
+    const err = gateError(what, entry);
+    if (err) return err;
   }
   return null;
 }

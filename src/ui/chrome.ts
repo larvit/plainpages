@@ -2,6 +2,7 @@
 // ctx.chrome. `nav` is the global menu — Dashboard plus every plugin's fragment — run through
 // composeNav (override + per-user filter) and current-marked for the request path.
 
+import { allows, type Gate } from "../auth/gate.ts";
 import type { User } from "../http/context.ts";
 import { ENGLISH } from "../i18n/english.ts";
 import type { Translate } from "../i18n/translate.ts";
@@ -11,9 +12,21 @@ import type { Plugin } from "../plugin-host/plugin.ts";
 
 const DASHBOARD_NAV: NavNode = { href: "/dashboard", icon: "i-grid", id: "dashboard", label: "nav.dashboard", session: true };
 
+// A link in the shell's profile dropdown, above Sign out.
+export interface ProfileLink {
+  href: string;
+  icon?: string; // a Lucide sprite id (src/ui/icons.ts)
+  label: string;
+}
+
+// What a plugin's `profileMenu` declares: a link plus the one gate that decides who sees it.
+export interface ProfileMenuEntry extends ProfileLink, Gate {}
+
+// `menu` rides on the user, which every view already hands to the shell, so no view needs a new local.
 export interface ShellUser {
   email: string;
   initials: string;
+  menu?: ProfileLink[]; // permission-filtered, translated and locale-carried; the host always sets it, a hand-built fixture may omit it
   name: string;
 }
 
@@ -66,8 +79,23 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     nav: carryLocaleInto(nav, carryLocale),
     signInHref: carryLocale(returnTo),
     ...(theme != null ? { theme } : {}),
-    user: shellUser(opts.user, t),
+    user: { ...shellUser(opts.user, t), menu: profileLinks(opts, t, carryLocale) },
   };
+}
+
+// A plugin's labels are keys in *its* catalog, hence its own translator. Only a signed-in visitor
+// has a profile menu; the gate then decides per entry.
+function profileLinks(opts: ChromeOptions, t: Translate, carryLocale: (href: string) => string): ProfileLink[] {
+  const user = opts.user ?? null;
+  if (!user) return [];
+  return (opts.plugins ?? []).flatMap((plugin) => {
+    const pluginT = opts.translatorFor?.(plugin.id) ?? t;
+    return (plugin.profileMenu ?? []).filter((entry) => allows(entry, user)).map((entry) => ({
+      href: carryLocale(entry.href),
+      ...(entry.icon != null ? { icon: entry.icon } : {}),
+      label: pluginT(entry.label),
+    }));
+  });
 }
 
 // The JWT holds only id/email/permissions, so the profile name is the email's local part.

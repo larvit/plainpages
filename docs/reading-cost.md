@@ -371,3 +371,20 @@ Read most (opens and searches):
 - `release-tooling/contract-version.test.ts` 2
 - `examples/plugins/admin/admin-clients.ts` 1
 - `examples/plugins/admin/admin-groups.ts` 1
+
+## Reading cost, chunk a6f3d52327a4, finished 2026-11-08T14:17:22Z
+
+50555 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 4
+
+## Reading cost, chunk 177d8e8081a6, finished 2026-11-08T18:14:49Z
+
+66196 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 5
+- `examples/plugins/admin/plugin.ts` 1
