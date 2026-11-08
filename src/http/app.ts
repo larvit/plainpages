@@ -113,7 +113,7 @@ export function createApp(options: AppOptions = {}): Server {
   const renderView = renderPluginView({ cache, coreViewsDir: viewsDir, pluginsDir });
 
   // Where the language picker points. Normally the page itself; after a POST that URL may answer no
-  // GET (POST /admin/users/:id/delete has no GET sibling), so fall back to the page the form was
+  // GET (POST /auth-admin/users/:id/recovery has no GET sibling), so fall back to the page the form was
   // submitted from, then to the front page — the picker is on every page, so every link must land.
   const switchBase = (req: IncomingMessage, url: URL): string => {
     const method = (req.method ?? "GET").toUpperCase();

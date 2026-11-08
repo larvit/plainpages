@@ -37,8 +37,8 @@ export type { PageModel, PaginationModel, PaginationModelOptions } from "../ui/p
 export { readFormBody } from "../http/body.ts";
 export { CSRF_FIELD } from "../auth/csrf.ts";
 // System capabilities for a privileged/system plugin (ctx.system) — the Ory admin clients + the
-// instant-revoke hook. Undefined unless the host wired them; the built-in admin plugin is the
-// reference consumer. The Ory client types + their error classes are re-exported so a system
+// instant-revoke hook. Undefined unless the host wired them; the auth-admin example plugin is
+// the reference consumer. The Ory client types + their error classes are re-exported so a system
 // plugin can type against them and `instanceof`-match their errors. See README → System capabilities.
 export type { SystemCapabilities } from "./system.ts";
 export type { Identity, KratosAdmin, RecoveryCode } from "../auth/kratos-admin.ts";
