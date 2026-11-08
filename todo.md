@@ -6,12 +6,13 @@
 
 `Bar = 1`
 
-`Next ID = 61`
+`Next ID = 62`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 61 | 0.5.0 |  |  | **Make the client-abort log test in `src/http/app.test.ts` wait on the handler, not on fixed sleeps.** | 1 | 1 | 1 | 1 | 2 | code health by 2 | 12.0 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
@@ -24,6 +25,12 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
+
+### 61. Make the client-abort log test in `src/http/app.test.ts` wait on the handler, not on fixed sleeps.
+
+"ctx.log after a client abort doesn't throw" aborts at 20 ms, lets the handler log at 120 ms and asserts
+at 200 ms. On a loaded CI runner the handler hadn't logged by then (PR #226, run 5739), so the gate went
+red on unrelated work. Await a promise the handler resolves after it logs instead.
 
 ### 5. List grants that no installed plugin declares, with a remove action.
 
