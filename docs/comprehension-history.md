@@ -340,3 +340,22 @@ Inherited architect, decided by:
 - Locality, Shape: `src/http/app.ts:271` `shared`: the two buildContext calls differ only in the translator and params
 - Self-sufficiency: `src/http/context.ts:28` `RequestContext.assetHref`: the contract field says on the spot what it does and how it differs from the view local
 - Self-sufficiency: `README.md:1050` pagination sketch: URL to partial in five lines, with the param-renaming rule
+
+## 2026-11-08T14:10:47Z, PR #216 at bb134a3, against 6ca63c6
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | better | same | better | same | better |
+| Inherited architect | same | better | better | same | better |
+
+Mid A, decided by:
+
+- Navigation, Shape: `src/http/request-tracking.ts:9` `trackRequest`: the per-request logger, span and access line now live in a named module instead of the tail of the 318-line `createApp`
+- Navigation, Shape: `src/http/request-fields.ts:33` `clientAddress`: the caller-IP and X-Forwarded-For rule has its own pure function in a file named for it
+
+Inherited architect, decided by:
+
+- Locality, Shape: `src/http/request-tracking.ts:9` `trackRequest`: the exactly-once finalize and close listener are one named unit, changeable without reading `createApp`'s other state
+- Locality, Shape: `src/http/request-fields.ts:33` `clientAddress`: pure function of peer, header and list, with the reasons for reading from the right beside it
