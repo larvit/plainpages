@@ -368,6 +368,39 @@ test("admin permission grants: a Keto failure applies none of the changes and re
   assert.equal(tuples.filter((tp) => tp.subject_set?.object === "eng").length, 0);
 });
 
+test("admin users: a refused self-deactivate or self-delete keeps the permissions section", async (t) => {
+  const identities: Identity[] = [{ id: "admin1", traits: { email: "admin@x" } }];
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { get, post, token } = await adminHarness(t, { keto: fakeKeto(), kratosAdmin });
+  assert.notEqual(baselineOf(await (await get("/auth-admin/users/admin1")).text()), "", "the plain form carries the section");
+
+  const refusals = [
+    await post("/auth-admin/users/admin1/state", `_csrf=${token}`),
+    await get("/auth-admin/users/admin1/delete"),
+    await post("/auth-admin/users/admin1/delete", `_csrf=${token}`),
+  ];
+  for (const res of refusals) {
+    assert.equal(res.status, 400);
+    assert.notEqual(baselineOf(await res.text()), "");
+  }
+});
+
+test("admin group delete: a Keto failure leaves the group's grants and members in place", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const tuples: RelationTuple[] = [
+    { namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` },
+    { namespace: "Permission", object: "users:read", relation: "granted", subject_set: { namespace: "Group", object: "eng", relation: "members" } },
+  ];
+  const keto = fakeKeto(tuples, { transactTuples: async () => { throw new Error("keto unreachable"); } });
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { post, token } = await adminHarness(t, { keto, kratosAdmin });
+
+  const res = await post("/auth-admin/groups/eng/delete", `_csrf=${token}`);
+  assert.equal(res.status, 500);
+  assert.equal(tuples.length, 2);
+});
+
 // A double-clicked Save posts twice from one page; the second post finds the first one's result.
 // A save that changes nothing has nothing to refuse and nothing to revoke.
 test("admin permission grants: a save that changes nothing is not refused for a stale page and leaves live tokens alone", async (t) => {

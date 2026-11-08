@@ -392,7 +392,7 @@ export const usersUpdate = withTarget(async (deps, identity, id) => {
     await kratosAdmin.updateIdentity(id, updateIdentityPayload(identity, input));
   } catch (err) {
     // Re-render with the picker, or the permissions section vanishes off the page on a failed save.
-    if (err instanceof KratosError) return { ...formResult(ctx, { canWrite: canWriteUsers(ctx), error: ctx.t("admin.users.error.save"), identity, ...(await pickerOrNothing(deps, id)) }), status: 400 };
+    if (err instanceof KratosError) return refuseForm(deps, identity, id, ctx.t("admin.users.error.save"));
     throw err;
   }
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
@@ -400,9 +400,10 @@ export const usersUpdate = withTarget(async (deps, identity, id) => {
 
 // POST /auth-admin/users/:id/state — toggle active/inactive; a deactivation revokes the target's live
 // tokens now (not after the JWT TTL). Self-protection: an admin can't deactivate their own account.
-export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
+export const usersState = withTarget(async (deps, identity, id) => {
+  const { ctx, kratosAdmin, revoke, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST (no fields read)
-  if (id === user.id) return { ...formResult(ctx, { error: ctx.t("admin.users.error.selfDeactivate"), identity }), status: 400 };
+  if (id === user.id) return refuseForm(deps, identity, id, ctx.t("admin.users.error.selfDeactivate"));
   const nextState = identity.state === "inactive" ? "active" : "inactive";
   await kratosAdmin.updateIdentity(id, setStatePayload(identity, nextState));
   if (nextState === "inactive") revoke?.(id);
@@ -412,7 +413,7 @@ export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, 
 
 // GET /auth-admin/users/:id/delete — the deliberate confirm step (zero-JS). Refuses self-delete.
 export const usersDeleteConfirm = withTarget((deps, identity, id) => {
-  if (id === deps.user.id) return Promise.resolve({ ...formResult(deps.ctx, { error: deps.ctx.t("admin.users.error.selfDelete"), identity }), status: 400 });
+  if (id === deps.user.id) return refuseForm(deps, identity, id, deps.ctx.t("admin.users.error.selfDelete"));
   const back = `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}`;
   const view = toUserView(identity);
   const tt = deps.ctx.t;
@@ -424,9 +425,10 @@ export const usersDeleteConfirm = withTarget((deps, identity, id) => {
 }, "write");
 
 // POST /auth-admin/users/:id/delete — perform it; revoke the gone account's live tokens. Refuses self-delete.
-export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
+export const usersDelete = withTarget(async (deps, identity, id) => {
+  const { ctx, kratosAdmin, revoke, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
-  if (id === user.id) return { ...formResult(ctx, { error: ctx.t("admin.users.error.selfDelete"), identity }), status: 400 };
+  if (id === user.id) return refuseForm(deps, identity, id, ctx.t("admin.users.error.selfDelete"));
   await kratosAdmin.deleteIdentity(id);
   revoke?.(id);
   ctx.log.info("admin: user deleted", { actor: user.id, target: id });
@@ -441,7 +443,12 @@ export const usersRecovery = withTarget(async (deps, identity, id) => {
   return formResult(ctx, { canWrite: canWriteUsers(ctx), identity, recovery, ...(await pickerOrNothing(deps, id)) });
 });
 
-// The picker as a spreadable fragment, so a re-render never silently drops the section.
+// The 400 re-render of the user's form with `error`: the form every refusal of a user action shows.
+async function refuseForm(deps: UsersDeps, identity: Identity, id: string, error: string): Promise<RouteResult> {
+  return { ...formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), error, identity, ...(await pickerOrNothing(deps, id)) }), status: 400 };
+}
+
+// The picker as a spreadable fragment, so every form re-render keeps the section.
 async function pickerOrNothing(deps: UsersDeps, id: string): Promise<{ permissions?: PermissionPicker }> {
   const permissions = await userPermissionPicker(deps, id);
   return permissions ? { permissions } : {};

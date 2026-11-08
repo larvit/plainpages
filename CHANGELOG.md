@@ -19,6 +19,21 @@ so all of them apply or none does. A `KetoClient` you build by hand, such as a t
 method. The admin example saves a user's or group's permissions through it, so a Keto failure leaves
 every grant as it was and answers with the error page.
 
+### The admin example deletes a group's grants and members in one Keto transaction
+
+A Keto failure while deleting a group now leaves the group as it was, with its grants and members,
+and answers with the error page. It used to leave some grants gone and the members still listed.
+
+### The admin example keeps a user's permissions section when it refuses a self-deactivate or self-delete
+
+The refusal page used to drop the permissions section of the user form. It now shows the section, as
+every other re-render of the form does.
+
+### The core dashboard view is `dashboard`, not `index`
+
+`views/index.ejs` is now `views/dashboard.ejs`, named for the `/dashboard` page it renders. A plugin
+view that does `include("index")` must include `dashboard` instead.
+
 ### The admin example lists a user's or group's grants that no installed plugin declares, with a Remove
 
 A direct grant of a name no installed plugin declares, such as one left by an uninstalled plugin,

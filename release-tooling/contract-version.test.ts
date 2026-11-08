@@ -26,7 +26,7 @@ test("every author-facing apiVersion sample matches the shipped contract", () =>
     "examples/plugins/auth-admin/plugin.ts",
     "examples/plugins/scheduling/plugin.ts",
     "release-tooling/dockerhub-overview.md.tmpl",
-    "views/index.ejs",
+    "views/dashboard.ejs",
   ]) {
     const found = [...readFileSync(file, "utf8").matchAll(/apiVersion: "(\d+\.\d+\.\d+)"/g)].map((m) => m[1]);
     assert.ok(found.length > 0, `${file} should carry at least one apiVersion sample`);

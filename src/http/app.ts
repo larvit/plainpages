@@ -165,7 +165,7 @@ export function createApp(options: AppOptions = {}): Server {
       await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, dashboardPlugin.id), pluginCtx.localeHref);
       return null;
     }
-    return { data: { chrome: ctx.chrome }, view: "index" };
+    return { data: { chrome: ctx.chrome }, view: "dashboard" };
   };
 
   // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/

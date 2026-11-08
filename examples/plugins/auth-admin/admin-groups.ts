@@ -431,19 +431,20 @@ export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
   }) }, view: "confirm" };
 }, "write");
 
-// POST /auth-admin/groups/:name/delete — remove every member tuple (the group ceases to exist).
+// POST /auth-admin/groups/:name/delete — remove every member tuple and held grant in one Keto
+// transaction (the group ceases to exist, and a failure leaves it whole).
 export const groupsDelete = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
   const lost = await lostOnDelete(deps, name);
   if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
-  // Drop what the group *holds* before what it *contains*: a Keto set exists only through its
+  // Drop what the group *holds* along with what it *contains*: a Keto set exists only through its
   // tuples, so leaving the grants behind would resurrect every permission the moment someone
   // re-created a group with the same name.
   const subject = groupSubject(name);
   const held = await heldPermissions(keto, subject);
-  for (const permission of held) await keto.deleteTuple(grantTuple(permission, subject));
-  await keto.deleteTuple({ namespace: GROUP_NS, object: name, relation: MEMBERS });
+  const members = await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS });
+  await keto.transactTuples({ delete: [...held.map((permission) => grantTuple(permission, subject)), ...members], insert: [] });
   ctx.log.info("admin: group deleted", { actor: user.id, group: name, revoked: held.join(",") });
   return { redirect: ADMIN_GROUPS_BASE };
 });

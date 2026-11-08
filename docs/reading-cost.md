@@ -103,7 +103,7 @@ Read most (opens and searches):
 - `src/http/app.test.ts` 1
 - `src/ui/chrome.test.ts` 1
 - `src/ui/chrome.ts` 1
-- `views/index.ejs` 1
+- `views/dashboard.ejs` 1
 - `views/partials/shell.ejs` 1
 
 ## Reading cost, chunk e4d3bb0ac092, finished 2026-10-31T08:02:27Z
@@ -485,3 +485,31 @@ Read most (opens and searches):
 - `src/http/app.test.ts` 2
 - `todo.md` 2
 - `src/plugin-host/plugin.ts` 1
+
+## Reading cost, chunk 8d5c5ad2ab7c, finished 2026-11-08T21:39:34Z
+
+145906 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app-admin.test.ts` 8
+- `README.md` 6
+- `CHANGELOG.md` 5
+- `compose.yml` 5
+- `docs/decisions.md` 5
+- `examples/plugins/auth-admin/admin-grants.test.ts` 4
+- `examples/plugins/auth-admin/admin-users.ts` 4
+- `src/auth/keto-client.ts` 4
+- `todo.md` 4
+- `examples/plugins/auth-admin/README.md` 3
+
+## Reading cost, chunk ef984469151f, finished 2026-11-08T22:01:41Z
+
+38668 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 7
+- `AGENTS.md` 1
+- `README.md` 1
+- `docs/decisions.md` 1

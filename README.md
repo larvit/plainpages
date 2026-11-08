@@ -1789,7 +1789,7 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
                      stylesheet-floor (the browser-floor check)
 
 plugin-api/          The `@plainpages/plugin-api` package — the author barrel, linked into /node_modules
-views/               Core EJS in the one app shell: home, index, auth, oauth-consent, error, 403/404/500/503,
+views/               Core EJS in the one app shell: home, dashboard, auth, oauth-consent, error, 403/404/500/503,
                      and partials/ (shell, nav tree, filter bar, data table, pagination, field, auth card,
                      alert, menu/popover, theme switch, language picker, icon sprite). Domain screens live
                      in plugins.
