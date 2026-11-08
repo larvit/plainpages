@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 63 | 0.5.0 |  |  | **Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.** | 2 | 2 | 1 | 3 | 3 | code health by 3, 9 by 2 | 15.4 |
 | 68 | 0.5.0 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
 | 66 | 0.5.0 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
 | 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
@@ -29,37 +28,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 63. Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.
-
-Prose only; no behaviour changes. Make each listed place easier to read, since the seats named
-most of them.
-
-- `src/auth/login.ts:43` and `README.md` ~L1367 name an admin "Effective access" view that doesn't
-  exist.
-- `src/plugin-host/router.ts:4` header says specificity is order-independent; `matchRoute` sorts by
-  `:param` count only, so a tie (`/a/:x/b` against `/a/b/:y`) falls to discovery order.
-- `ci.sh:9` ("users/groups/roles") and `examples/plugins/scheduling/plugin.ts:37` ("Roles", and
-  `<id>:<action>` where the rule is `<resource>:<action>`) use words the project doesn't have.
-- `src/plugin-host/system.ts:1-2` calls "the built-in admin screens" the reference consumer; they
-  are the `auth-admin` example plugin.
-- `examples/plugins/auth-admin/admin-groups.ts:18` says a Keto page; the call is Kratos
-  `listIdentities`.
-- `compose.yml` ~L166 says consent comes next; `src/auth/oauth-consent.ts` implements it.
-- `src/auth/jwt.ts:6-7`: "Signature only — adds claim checks…" lacks its subject (the caller,
-  `jwt-middleware.ts`, adds them).
-- `src/ui/chrome.ts` ~L69 and ~L143 use `/admin/users` as example paths; admin lives at
-  `/auth-admin/users`.
-- `README.md` ~L350 says a tuple naming an undeclared permission "gates nothing"; declaring stays
-  optional, so a plugin may gate on it. `examples/plugins/auth-admin/README.md:49` says six
-  permissions; `plugin.ts` declares seven.
-- `examples/plugins/auth-admin/views/partials/group-detail-body.ejs:2-7` documents member
-  `kind:"identity"` where the model says `"user"`, and omits the `canWrite` and `permissions`
-  locals.
-- `src/auth/bootstrap.ts:1-8` header lists the JWKS, admin and Keto steps, not the plugin-storage
-  step.
-- The custom-property `unset` footgun is stated only in `src/test-tooling/stylesheet-floor.ts:10-12`;
-  say it beside the tokens at `public/css/styles.css:9-23`, where an author writes one.
 
 ### 68. Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.
 
