@@ -50,7 +50,7 @@ export function isValidPermissionName(name: string): boolean {
 
 // Every permission the installed plugins declare, deduped by name and sorted — the fixed list the
 // admin screens offer when granting. Permissions are authored in code, never invented in the GUI, so
-// this *is* the catalog; a name in Keto that no plugin declares gates nothing and is not offered.
+// this *is* the catalog; a name in Keto that no plugin declares is not offered.
 // First declaration of a name wins its description (shared names are legitimate, findConflicts warns).
 export function declaredPermissions(plugins: Plugin[]): PermissionDecl[] {
   const byName = new Map<string, PermissionDecl>();

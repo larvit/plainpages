@@ -121,3 +121,12 @@ test("transactTuples PATCHes every insert and delete in one request (204 resolve
     (e: unknown) => e instanceof KetoError && e.status === 400,
   );
 });
+
+test("trailing slashes on the read and write URLs are stripped before a path is appended", async () => {
+  const { calls, fetchImpl } = recorder((url) => (url.startsWith("http://r") ? res(200, {}) : res(204)));
+  const client = createKetoClient({ fetchImpl, readUrl: "http://r//", writeUrl: "http://w/" });
+  await client.listRelations();
+  await client.transactTuples({ delete: [], insert: [{ namespace: "Permission", object: "a:read", relation: "granted", subject_id: USER }] });
+  assert.match(calls[0]!.url, /^http:\/\/r\/relation-tuples\?/);
+  assert.equal(calls[1]!.url, "http://w/admin/relation-tuples");
+});

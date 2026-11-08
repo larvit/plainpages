@@ -275,6 +275,38 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
 });
 
+// Either half of a change reaches the user's live sessions, not just a save that does both.
+test("admin permission grants: a grant-only and a revoke-only user save each revoke live tokens", async (t) => {
+  const [grantee, revokee] = [randomUUID(), randomUUID()];
+  const identities: Identity[] = [{ id: grantee, traits: { email: "g@example.com" } }, { id: revokee, traits: { email: "r@example.com" } }];
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "users:read", relation: "granted", subject_id: `user:${revokee}` }];
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const denylist = createDenylist();
+  const { get, post, token } = await adminHarness(t, { denylist, keto: fakeKeto(tuples), kratosAdmin });
+  const save = async (id: string, permissions: string) =>
+    post(`/auth-admin/users/${id}/permissions`, `_csrf=${token}&baseline=${baselineOf(await (await get(`/auth-admin/users/${id}`)).text())}${permissions}`);
+
+  await save(grantee, "&permission=users%3Aread");
+  assert.equal(denylist.isRevoked(grantee, 0), true);
+  await save(revokee, "");
+  assert.equal(denylist.isRevoked(revokee, 0), true);
+  assert.equal(tuples.filter((tp) => tp.subject_id === `user:${revokee}`).length, 0);
+});
+
+// Remove needs Keto, but not the revocation denylist.
+test("admin permission grants: Remove answers 503 without Keto, and still deletes where no denylist is wired", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const noKeto = await adminHarness(t, { kratosAdmin });
+  assert.equal((await noKeto.post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${noKeto.token}&remove=old%3Awrite`)).status, 503);
+
+  const tuples: RelationTuple[] = [{ namespace: "Permission", object: "old:write", relation: "granted", subject_id: `user:${ada}` }];
+  const noDenylist = await adminHarness(t, { keto: fakeKeto(tuples), kratosAdmin });
+  assert.equal((await noDenylist.post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${noDenylist.token}&remove=old%3Awrite`)).status, 303);
+  assert.equal(tuples.length, 0);
+});
+
 // Two admins open the same page; the second save would silently undo the first.
 test("admin permission grants: a save from a stale page is refused, and the page re-renders the current state", async (t) => {
   const ada = randomUUID();
@@ -314,8 +346,6 @@ test("admin permission grants: a save from a stale page is refused, and the page
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the group keeps its grant");
 });
 
-// The grant changes go to Keto as one transaction, so a Keto failure applies none of them and
-// there is nothing to revoke: the host's error page answers, and the stored grants are unchanged.
 test("admin permission grants: a Keto failure applies none of the changes and revokes no live token", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
@@ -357,7 +387,6 @@ test("admin permission grants: a save that changes nothing is not refused for a 
   assert.equal(denylist.isRevoked(ada, 0), false);
 });
 
-// grantDiff never revokes a name nobody declares, so the page lists it apart and Remove is the only way out.
 test("admin permission grants: a grant no plugin declares is listed with a Remove, which deletes it and revokes live tokens", async (t) => {
   const ada = randomUUID();
   const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
@@ -381,7 +410,6 @@ test("admin permission grants: a grant no plugin declares is listed with a Remov
   assert.match(readerPage, /old:write/);
   assert.doesNotMatch(readerPage, /permissions\/remove/);
 
-  // A declared name is the picker's to change, so a crafted Remove for one does nothing.
   const declared = await post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${token}&remove=users%3Aread`);
   assert.equal(declared.status, 303);
   assert.equal(tuples.length, 5);
@@ -389,6 +417,8 @@ test("admin permission grants: a grant no plugin declares is listed with a Remov
 
   const removed = await post(`/auth-admin/users/${ada}/permissions/remove`, `_csrf=${token}&remove=old%3Awrite`);
   assert.equal(removed.status, 303);
+  assert.equal(removed.headers.get("location"), `/auth-admin/users/${ada}?info-msg=permission-removed`);
+  assert.match(await (await get(removed.headers.get("location")!)).text(), /Permission removed\./);
   assert.equal(tuples.length, 4);
   assert.ok(!tuples.some((tp) => tp.object === "old:write" && tp.subject_id === `user:${ada}`));
   assert.ok(tuples.some((tp) => tp.object === "old:write" && tp.subject_set?.object === "eng"), "the group's grant is untouched");
@@ -398,7 +428,9 @@ test("admin permission grants: a grant no plugin declares is listed with a Remov
 
   const groupPage = await (await get("/auth-admin/groups/eng")).text();
   assert.match(groupPage, /action="\/auth-admin\/groups\/eng\/permissions\/remove#permissions-h"/);
-  assert.equal((await post("/auth-admin/groups/eng/permissions/remove", `_csrf=${token}&remove=old%3Awrite`)).status, 303);
+  const groupRemoved = await post("/auth-admin/groups/eng/permissions/remove", `_csrf=${token}&remove=old%3Awrite`);
+  assert.equal(groupRemoved.status, 303);
+  assert.equal(groupRemoved.headers.get("location"), "/auth-admin/groups/eng?info-msg=permission-removed");
   assert.ok(!tuples.some((tp) => tp.object === "old:write" && tp.subject_set?.object === "eng"));
   assert.ok(tuples.some((tp) => tp.object === "old:write" && tp.subject_id === "user:someone-else"), "another subject's grant is untouched");
 });
