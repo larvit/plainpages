@@ -126,8 +126,6 @@ test("applyGrants sends the whole change as one Keto transaction, and a failure 
   await assert.rejects(applyGrants(keto(true), userSubject("u1"), diff), /boom/);
 });
 
-// grantDiff never touches a held name nobody declares, so the picker lists them apart and offers a
-// Remove for each. A reader is told what is held but offered no button.
 test("buildPermissionPicker lists direct grants no plugin declares, with a remove action only for a writer", () => {
   const direct = ["zed:read", "users:read", "old:write"];
   const picker = buildPermissionPicker({ action: "/auth-admin/users/u1/permissions", declared, direct });

@@ -16,18 +16,17 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 
 `transactTuples({ delete, insert })` sends both lists to Keto in one `PATCH /admin/relation-tuples`,
 so all of them apply or none does. A `KetoClient` you build by hand, such as a test stub, must add the
-method. The admin example saves a user's or group's permissions through it: a Keto failure now
-changes nothing and answers with the error page, instead of a "stopped part-way" report. Its
-catalogs lose `admin.grants.partial`.
+method. The admin example saves a user's or group's permissions through it, so a Keto failure leaves
+every grant as it was and answers with the error page.
 
 ### The admin example lists a user's or group's grants that no installed plugin declares, with a Remove
 
 A direct grant of a name no installed plugin declares, such as one left by an uninstalled plugin,
 used to stay invisible and unchangeable, and reinstalling the plugin silently reactivated it. The
 user and group pages now list these apart from the checkboxes, each with a Remove button (hidden from
-a `:read`-only holder). The example's catalogs gain `admin.grants.remove`, `admin.grants.undeclaredHint`
-and `admin.grants.undeclaredLegend`, and its routes gain `POST /auth-admin/users/:id/permissions/remove`
-and `POST /auth-admin/groups/:name/permissions/remove`.
+a `:read`-only holder). The example's catalogs gain `admin.grants.remove`, `admin.grants.removed`,
+`admin.grants.undeclaredHint` and `admin.grants.undeclaredLegend`, and its routes gain
+`POST /auth-admin/users/:id/permissions/remove` and `POST /auth-admin/groups/:name/permissions/remove`.
 
 ### An operator can hide or rename a plugin's profile-menu entry
 
@@ -174,14 +173,13 @@ page's `baseline` field.
 
 ### The admin example confirms a permission save and reports a partial one
 
-A save now lands on the page with "Permissions saved." If the permission service fails midway, the
-page says the save stopped part-way instead of showing the generic error page. On a user, the
-changes that landed still reach the user's live sessions at once when the revocation denylist is on.
+A save now lands on the page with "Permissions saved." On a user, a changed grant reaches the user's
+live sessions at once when the revocation denylist is on.
 
 ### A read-only holder sees View, not Edit, on the admin example's users list
 
 A holder of `users:read` without `users:write` gets a "View" row action with an eye icon. The admin
-example's catalogs gain `admin.grants.partial`, `admin.grants.saved`, `admin.grants.stale` and
+example's catalogs gain `admin.grants.saved`, `admin.grants.stale` and
 `admin.users.view`, so a translated catalog mounted under `locales/plugins/auth-admin/` must add them.
 
 ### Every page carries a smaller icon sprite

@@ -1,7 +1,7 @@
 // Keto client: typed `fetch` wrappers over Ory Keto's relation-tuple APIs —
 // `check` a permission, `listRelations`/`expand` to inspect them (read API), `writeTuple`/
-// `deleteTuple`/`transactTuples` to grant/revoke them (write API). Built-in `fetch` only, no SDK dep (AGENTS.md);
-// `fetchImpl`-injectable like the kratos clients. Read/write split onto the two ports config.ts
+// `deleteTuple`/`transactTuples` to grant/revoke them (write API). Built-in `fetch` only, no SDK dep
+// (AGENTS.md); `fetchImpl`-injectable like the kratos clients. Read/write split onto the two ports config.ts
 // targets (ketoReadUrl 4466 / ketoWriteUrl 4467).
 
 // A subject set: a relation on another object (e.g. Group:eng#members), resolved
