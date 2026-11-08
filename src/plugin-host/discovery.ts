@@ -1,6 +1,6 @@
 // Plugin discovery: scan plugins/, import each folder's plugin.ts default export,
-// validate it, assemble the loaded Plugin[]. The imperative shell over plugin.ts's pure rules
-// (isValidPluginId, checkApiVersion, findConflicts). Fails loud: every per-plugin problem and
+// validate it, assemble the loaded Plugin[]. The imperative shell over the pure rules in plugin.ts
+// (isValidPluginId, checkApiVersion) and conflicts.ts (findConflicts). Fails loud: every per-plugin problem and
 // error-level conflict is collected into one boot-stopping Error; warn-level diagnostics
 // (older-minor apiVersion, shared permission name) log and load continues. Folder name = id.
 

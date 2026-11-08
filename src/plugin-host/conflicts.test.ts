@@ -71,3 +71,23 @@ test("findConflicts: each single slot (`home`/`dashboard`) may have one owner â€
   // One owner of each (even both on one plugin) is fine.
   assert.deepEqual(findConflicts([p({ id: "a", dashboard: handler, home: handler }), p({ id: "b" })]).filter((c) => c.kind === "home" || c.kind === "dashboard"), []);
 });
+
+test("findConflicts: two settings that map to one environment variable are an error", () => {
+  // `a-b` + `c` and `a` + `bC` both become A_B_C.
+  const clash = findConflicts([
+    p({ id: "a-b", settings: [{ key: "c", type: "string" }] }),
+    p({ id: "a", settings: [{ key: "bC", type: "string" }] }),
+  ]);
+  assert.ok(clash.some((c) => c.kind === "setting" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("a-b")));
+  assert.deepEqual(findConflicts([
+    p({ id: "a", settings: [{ key: "x", type: "string" }] }),
+    p({ id: "b", settings: [{ key: "x", type: "string" }] }),
+  ]), []);
+});
+
+test("findConflicts: nav nodes without an id never collide, at any depth", () => {
+  assert.deepEqual(findConflicts([
+    p({ id: "a", nav: [{ children: [{ label: "A1" }], label: "A" }] }),
+    p({ id: "b", nav: [{ children: [{ label: "B1" }], label: "B" }] }),
+  ]), []);
+});
