@@ -530,3 +530,20 @@ Read most (opens and searches):
 - `docs/reading-cost.md` 2
 - `examples/plugins/auth-admin/admin-grants.ts` 2
 - `examples/plugins/auth-admin/i18n/en-US.ts` 2
+
+## Reading cost, chunk a2d8600ec28b, finished 2026-11-08T23:23:17Z
+
+66451 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/auth/bootstrap.ts` 4
+- `src/auth/jwt-middleware.ts` 4
+- `README.md` 3
+- `ci.sh` 3
+- `examples/plugins/scheduling/plugin.ts` 3
+- `src/auth/jwt.ts` 3
+- `src/ui/chrome.ts` 3
+- `compose.yml` 2
+- `examples/plugins/auth-admin/admin-groups.ts` 2
+- `examples/plugins/auth-admin/views/partials/group-detail-body.ejs` 2
