@@ -12,15 +12,15 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 62 | 0.5.1 |  |  | **Delete a group's grants and its membership set in one Keto transaction, so a failure cannot leave it half-deleted.** | 1 | 2 | 2 | 3 | 2 | code health by 2, 2 by 3 | 16.2 |
-| 63 | 0.5.1 |  |  | **Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.** | 2 | 2 | 1 | 3 | 3 | code health by 3, 9 by 2 | 15.4 |
-| 68 | 0.5.1 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
-| 64 | 0.5.1 |  |  | **Keep the permissions section on the user form when a self-deactivate or self-delete is refused.** | 1 | 2 | 1 | 2 | 2 | 2 by 3, code health by 1 | 10.2 |
-| 66 | 0.5.1 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
-| 70 | 0.5.1 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
+| 62 | 0.5.0 |  |  | **Delete a group's grants and its membership set in one Keto transaction, so a failure cannot leave it half-deleted.** | 1 | 2 | 2 | 3 | 2 | code health by 2, 2 by 3 | 16.2 |
+| 63 | 0.5.0 |  |  | **Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.** | 2 | 2 | 1 | 3 | 3 | code health by 3, 9 by 2 | 15.4 |
+| 68 | 0.5.0 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
+| 69 | 0.5.0 |  |  | **Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.** | 1 | 2 | 2 | 3 | 2 | code health by 2 | 12.0 |
+| 64 | 0.5.0 |  |  | **Keep the permissions section on the user form when a self-deactivate or self-delete is refused.** | 1 | 2 | 1 | 2 | 2 | 2 by 3, code health by 1 | 10.2 |
+| 66 | 0.5.0 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
+| 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
-| 69 | 0.6.0 |  |  | **Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.** | 1 | 2 | 2 | 3 | 2 | code health by 2 | 12.0 |
 | 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
 | 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 4.0 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
@@ -80,6 +80,14 @@ result with whatever names its renderer and let the one send stage render it. Ma
 `prepareRequest` and `handleRequest` easier to read, places the seats found hard. The 19-field
 `Host` bag is left alone: no checkable target for it came out of the scoring run.
 
+### 69. Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.
+
+`index.ejs` renders `/dashboard` (`src/http/app.ts` ~L168); `home.ejs` renders `/` and matches the
+manifest's `home` slot, so it keeps its name. Core `views/` is an `include()` root for plugin views
+(`src/plugin-host/view-resolver.ts`), so a plugin may include `index` today: the rename changes the
+contract surface (AGENTS.md → Rules) and ships in a minor. Update `docs/reading-cost.md` and the
+README file map. Make `views/index.ejs` easier to find, a place the seats found hard.
+
 ### 64. Keep the permissions section on the user form when a self-deactivate or self-delete is refused.
 
 In `examples/plugins/auth-admin/admin-users.ts`, the self-refusals in `usersState` (~L405),
@@ -122,14 +130,6 @@ Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -
 
 Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
 project's "no catch-all names" rule applied to namespaces.
-
-### 69. Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.
-
-`index.ejs` renders `/dashboard` (`src/http/app.ts` ~L168); `home.ejs` renders `/` and matches the
-manifest's `home` slot, so it keeps its name. Core `views/` is an `include()` root for plugin views
-(`src/plugin-host/view-resolver.ts`), so a plugin may include `index` today: the rename changes the
-contract surface (AGENTS.md → Rules) and ships in a minor. Update `docs/reading-cost.md` and the
-README file map. Make `views/index.ejs` easier to find, a place the seats found hard.
 
 ### 65. Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.
 
