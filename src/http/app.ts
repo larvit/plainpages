@@ -24,7 +24,7 @@ import type { KratosPublic } from "../auth/kratos-public.ts";
 import { createLogger, type Log } from "../logger.ts";
 import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
-import { declaredPermissions, fullPath, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
+import { declaredPermissions, fullPath, type PermissionDecl, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
 import type { PluginSettings } from "../plugin-host/settings.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allows, type Gate } from "../auth/gate.ts";
@@ -34,7 +34,7 @@ import { parseTrustedProxies } from "./request-fields.ts";
 import { trackRequest } from "./request-tracking.ts";
 import { securityHeaders } from "./security-headers.ts";
 import { localPath } from "./safe-url.ts";
-import { publicAssets } from "./static.ts";
+import { type PublicAssets, publicAssets } from "./static.ts";
 import { renderPluginView } from "../plugin-host/view-resolver.ts";
 
 const NO_STORE = "private, no-store";
@@ -72,8 +72,6 @@ export function createApp(options: AppOptions = {}): Server {
   const revoke = denylist ? (sub: string): void => denylist.revoke(sub) : undefined;
   const cache = options.cache ?? false;
   const canonical = options.appUrl ? new URL(options.appUrl) : undefined;
-  const canonicalHost = canonical?.host; // host[:port], default ports omitted — matches the Host header
-  const canonicalOrigin = canonical?.origin; // scheme + host[:port], no trailing slash
   const csrfSecret = options.csrfSecret ?? randomBytes(32).toString("hex"); // server passes config; tests pass their own
   const secureCookies = options.secureCookies ?? false;
   const trustedProxies = parseTrustedProxies(options.trustedProxies);
@@ -141,11 +139,6 @@ export function createApp(options: AppOptions = {}): Server {
   const viewsFor = (ctx: RequestContext): ViewRenderer => (view, data) => render(view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
   const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
 
-  const sendHtml = (res: ServerResponse, status: number, html: string): void => {
-    res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
-    res.end(html);
-  };
-
   // The public landing "/", ungated. A plugin may own it via `home`; else the built-in intro page.
   const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
     csrf.setCookie();
@@ -183,177 +176,238 @@ export function createApp(options: AppOptions = {}): Server {
     { handler: serveDashboard, method: "GET", path: "/dashboard", session: true },
   ];
 
-  // The request handler. Run inside runWithLog (request-tracking.ts) so the per-request logger is ambient: every
-  // outbound fetch (the Ory clients via tracedFetch) and any deep module joins this request's trace
-  // and correlation with no logger threaded through their signatures.
+  const host: Host = { anyRequestHooks, anyResponseHooks, assets, authOptions, builtinRoutes, csrfSecret, i18n, jwks, keto, kratos, kratosAdmin, menu, permissionCatalog, pluginViewsFor, plugins, secureCookies, settingsCatalog, system, viewsFor };
+
+  // The request handler, and the one place the stage order is written: each stage either answers
+  // the request and returns true, or leaves it to the next. Run inside runWithLog
+  // (request-tracking.ts) so the per-request logger is ambient: every outbound fetch (the Ory
+  // clients via tracedFetch) and any deep module joins this request's trace and correlation with no
+  // logger threaded through their signatures.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
     let renderPage: ViewRenderer = (view, data) => render(view, { ...data, ...ENGLISH_LOCALS, assetHref: assets.href });
     try {
-      const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
-      const pathname = url.pathname;
-
       // Set before any branch so every response — static/redirect/error included — inherits them
       // (writeHead merges these with its own headers; a plugin's RouteResult.headers can override).
       for (const [name, value] of secHeaderEntries) res.setHeader(name, value);
-
-      // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
-      if (pathname.startsWith("/public/") && (method === "GET" || method === "HEAD")) {
-        await assets.serve(url, req, res, (err) => reqLog.error("static file error", { error: String(err) }));
-        return;
-      }
-
-      // A cache in front of us must key on the language. Set after the static branch: an asset is
-      // the same bytes in every language, and a Vary there fragments its entry per raw header.
-      res.setHeader("vary", "accept-language");
-      // Fail closed: a cache in front of us must not keep a page that may carry a user's data. Not
-      // even the signed-out `/` is shared: it and the signed-in page have one URL, and a cache keyed
-      // on URL and Accept-Language would hand the signed-out one to a signed-in visitor. A route that
-      // is the same for everyone sets its own value in RouteResult.headers; the host doesn't police it.
-      res.setHeader("cache-control", NO_STORE);
-
-      // Canonical host (APP_URL): send an off-host visitor to the configured origin so the browser,
-      // the themed forms and the cross-origin Kratos POST share one cookie host — otherwise the
-      // host-scoped Kratos CSRF cookie is lost and login dumps onto /error. GET/HEAD only: a 308
-      // must not replay a cross-host POST.
-      if (canonicalHost && (method === "GET" || method === "HEAD") && req.headers.host !== undefined && req.headers.host !== canonicalHost) {
-        res.writeHead(308, { location: canonicalOrigin + (req.url ?? "/") }).end();
-        return;
-      }
-
-      // `explicit` (the URL asked for a locale) is what makes the choice travel: the chrome, this
-      // request's redirects and ctx.localeHref then carry ?locale onto the links they emit.
-      const { explicit, locale } = i18n.resolve({ acceptLanguage: req.headers["accept-language"], param: url.searchParams.get("locale") });
-      const carryLocale = (href: string): string => localeHref(href, explicit ? locale : null);
-      const t = i18n.translator(locale);
-
-      // A lapsed token still backed by a live Kratos session is silently re-minted — "stay signed
-      // in". The only place the hot path touches Ory.
-      let user: User | null = null;
-      if (jwks) {
-        const auth = await resolveSession(req.headers.cookie, jwks, authOptions);
-        user = auth.user;
-        if (!user && auth.expired && keto && kratos && kratosAdmin) {
-          try {
-            const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: secureCookies });
-            user = reminted.user;
-            res.appendHeader("set-cookie", reminted.setCookie);
-          } catch (err) {
-            // Ory unreachable — degrade to anonymous instead of 500ing every lapsed request. Leave
-            // the cookie alone: it can re-mint once Ory recovers.
-            reqLog.warn("session re-mint failed (Ory unreachable?)", { error: String(err) });
-          }
-        }
-      }
-      const csrf = ensureCsrfToken(req.headers.cookie, csrfSecret);
-      const csrfMint: RequestCsrf = {
-        setCookie: (): void => { if (csrf.fresh) res.appendHeader("set-cookie", csrfCookie(csrf.token, { secure: secureCookies })); },
-        token: csrf.token,
-      };
-      const verifyCsrf = (submitted: string | null | undefined): boolean =>
-        verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: csrfSecret, submitted });
-      // Chrome composes the whole menu, so it is memoized and resolved lazily — a json/redirect
-      // handler, or the public "/" with a standalone home, never pays for it.
-      let chromeMemo: PageChrome | undefined;
-      const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: csrf.token, currentPath: pathname, localeHref: carryLocale, menu, plugins, t, translatorFor: (id) => i18n.translator(locale, id), user }));
-
-      // A plugin's context gets the plugin's own translator — its catalog first, then core.
-      const i18nFor = (pluginId?: string) => ({
-        locale,
-        localeHref: carryLocale,
-        locales: i18n.available,
-        t: pluginId === undefined ? t : i18n.translator(locale, pluginId),
-      });
-
-      // Base context (no route params), for the built-in routes. Every plugin-owned render — a
-      // landing slot, a hook short-circuit, a plugin route — gets `contextFor(id)` instead.
-      const shared = { assetHref: assets.href, chrome, declaredPermissions: permissionCatalog, declaredSettings: settingsCatalog, log: reqLog, user, verifyCsrf, ...(system ? { system } : {}) };
-      const ctx = buildContext(req, res, { ...shared, ...i18nFor() });
-      const contextFor = (pluginId: string, params?: Record<string, string>): RequestContext => buildContext(req, res, { ...shared, ...i18nFor(pluginId), ...(params ? { params } : {}) });
-      renderPage = viewsFor(ctx);
-
-      // Plugin onRequest hooks run before routing and may short-circuit the request.
-      if (anyRequestHooks) {
-        const short = await runRequestHooks(plugins, contextFor);
-        if (short) {
-          // Like every other page-emitting path, so a form the hook renders has its matching cookie.
-          csrfMint.setCookie();
-          await sendResult(res, short.result, pluginViewsFor(short.ctx, short.plugin.id), carryLocale);
-          return;
-        }
-      }
-
-      // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply lacks
-      // the permission gets the 403 page.
-      const refuse = async (gate: Gate, gateCtx: RequestContext): Promise<void> => {
-        if (!gateCtx.user) { res.writeHead(303, { location: carryLocale(loginRedirect(gateCtx)) }).end(); return; }
-        reqLog.warn("forbidden: missing permission", { path: pathname, required: gate.permission ?? "", sub: gateCtx.user.id });
-        sendHtml(res, 403, await renderPage("403", {}));
-      };
-
-      const match = matchRoute(plugins, method, pathname);
-      if (match) {
-        reqLog.context["http.route"] = fullPath(match.plugin.id, match.route.path);
-        const routeCtx = contextFor(match.plugin.id, match.params);
-        if (!allows(match.route, routeCtx.user)) {
-          await refuse(match.route, routeCtx);
-          return;
-        }
-        csrfMint.setCookie();
-        const result = (await match.route.handler(routeCtx)) ?? null;
-        // The responding plugin observes its own route, params and all; the others get a plain
-        // context for their own id (never another plugin's params).
-        if (anyResponseHooks) await runResponseHooks(plugins, (id) => (id === match.plugin.id ? routeCtx : contextFor(id)), result);
-        await sendResult(res, result, pluginViewsFor(routeCtx, match.plugin.id), carryLocale);
-        return;
-      }
-
-      const builtin = matchBuiltinRoute(builtinRoutes, method, pathname);
-      if (builtin) {
-        reqLog.context["http.route"] = builtin.path;
-        if (!allows(builtin, ctx.user)) { await refuse(builtin, ctx); return; }
-        await sendResult(res, await builtin.handler(ctx, csrfMint, contextFor), viewsFor(ctx), carryLocale);
-        return;
-      }
-
-      // Known path, wrong method → 405 with Allow; otherwise nothing here → 404.
-      const allow = allowedMethods(plugins, pathname);
-      if (allow.length) {
-        res.writeHead(405, { allow: allow.join(", "), "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
-        return;
-      }
-      sendHtml(res, 404, await renderPage("404", {}));
+      if (await serveStatic(assets, url, req, res, reqLog)) return;
+      setPageCacheHeaders(res);
+      if (redirectToCanonicalHost(canonical, req, res)) return;
+      const state = await prepareRequest(host, req, res, url, reqLog);
+      renderPage = viewsFor(state.ctx);
+      if (await answerFromHook(host, state)) return;
+      if (await answerPluginRoute(host, state)) return;
+      if (await answerBuiltinRoute(host, state)) return;
+      await answerUnrouted(host, state);
     } catch (err) {
-      // A guard thrown anywhere in handling maps to a response (not a 500): a `location` ⇒ a
-      // redirect (requireSession → /login), otherwise the status renders the error page.
-      if (err instanceof GuardError) {
-        if (res.headersSent) return void res.end();
-        if (err.location) return void res.writeHead(303, { location: err.location }).end();
-        try {
-          return void sendHtml(res, err.status, await renderPage("403", {}));
-        } catch (renderErr) {
-          // Same last resort as the 500 branch below: a throw here would leave the socket open
-          // (this catch is the one that would have handled it), so end the response ourselves.
-          reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
-          return void res.writeHead(err.status, { "content-type": "text/plain; charset=utf-8" }).end("Forbidden");
-        }
-      }
-      reqLog.error("unhandled request error", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
-      if (res.headersSent) return void res.end(); // a partial body is already on the wire
-      try {
-        // Render before writing: if the 500 page itself throws, headers stay unsent
-        // and we fall back to plain text below instead of a half-written response.
-        sendHtml(res, 500, await renderPage("500", {}));
-      } catch (renderErr) {
-        reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
-        res.writeHead(500, { "content-type": "text/plain; charset=utf-8" }).end("Internal Server Error");
-      }
+      await answerError(err, res, reqLog, renderPage);
     }
   };
 
   return createServer((req, res) => trackRequest(log, trustedProxies, req, res, handleRequest));
+}
+
+// What the request stages read from createApp, all fixed at boot.
+interface Host {
+  anyRequestHooks: boolean;
+  anyResponseHooks: boolean;
+  assets: PublicAssets;
+  authOptions: VerifyOptions;
+  builtinRoutes: BuiltinRoute[];
+  csrfSecret: string;
+  i18n: I18n;
+  jwks: JwksProvider | undefined;
+  keto: KetoClient | undefined;
+  kratos: KratosPublic | undefined;
+  kratosAdmin: KratosAdmin | undefined;
+  menu: MenuConfig;
+  permissionCatalog: PermissionDecl[];
+  pluginViewsFor: (ctx: RequestContext, id: string) => ViewRenderer;
+  plugins: Plugin[];
+  secureCookies: boolean;
+  settingsCatalog: readonly PluginSettings[];
+  system: SystemCapabilities | undefined;
+  viewsFor: (ctx: RequestContext) => ViewRenderer;
+}
+
+// A request once its visitor is known: what every stage after prepareRequest reads.
+interface RequestState {
+  carryLocale: (href: string) => string;
+  contextFor: (pluginId: string, params?: Record<string, string>) => RequestContext;
+  csrf: RequestCsrf;
+  ctx: RequestContext; // the base context (no route params), for the built-in routes
+}
+
+// Before auth: assets don't need a verified user, and the JWT cookie rides every request.
+async function serveStatic(assets: PublicAssets, url: URL, req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<boolean> {
+  const method = req.method ?? "GET";
+  if (!url.pathname.startsWith("/public/") || (method !== "GET" && method !== "HEAD")) return false;
+  await assets.serve(url, req, res, (err) => reqLog.error("static file error", { error: String(err) }));
+  return true;
+}
+
+function setPageCacheHeaders(res: ServerResponse): void {
+  // A cache in front of us must key on the language. Set after the static branch: an asset is
+  // the same bytes in every language, and a Vary there fragments its entry per raw header.
+  res.setHeader("vary", "accept-language");
+  // Fail closed: a cache in front of us must not keep a page that may carry a user's data. Not
+  // even the signed-out `/` is shared: it and the signed-in page have one URL, and a cache keyed
+  // on URL and Accept-Language would hand the signed-out one to a signed-in visitor. A route that
+  // is the same for everyone sets its own value in RouteResult.headers; the host doesn't police it.
+  res.setHeader("cache-control", NO_STORE);
+}
+
+// Canonical host (APP_URL): send an off-host visitor to the configured origin so the browser,
+// the themed forms and the cross-origin Kratos POST share one cookie host — otherwise the
+// host-scoped Kratos CSRF cookie is lost and login dumps onto /error. GET/HEAD only: a 308
+// must not replay a cross-host POST. `URL.host` omits default ports, which matches the Host header.
+function redirectToCanonicalHost(canonical: URL | undefined, req: IncomingMessage, res: ServerResponse): boolean {
+  const method = req.method ?? "GET";
+  if (!canonical || (method !== "GET" && method !== "HEAD") || req.headers.host === undefined || req.headers.host === canonical.host) return false;
+  res.writeHead(308, { location: canonical.origin + (req.url ?? "/") }).end();
+  return true;
+}
+
+// Resolves the visitor's locale, user and CSRF token, and builds the contexts handlers run on.
+async function prepareRequest(host: Host, req: IncomingMessage, res: ServerResponse, url: URL, reqLog: Log): Promise<RequestState> {
+  const { i18n } = host;
+  // `explicit` (the URL asked for a locale) is what makes the choice travel: the chrome, this
+  // request's redirects and ctx.localeHref then carry ?locale onto the links they emit.
+  const { explicit, locale } = i18n.resolve({ acceptLanguage: req.headers["accept-language"], param: url.searchParams.get("locale") });
+  const carryLocale = (href: string): string => localeHref(href, explicit ? locale : null);
+  const t = i18n.translator(locale);
+  const user = await resolveUser(host, req, res, reqLog);
+  const { fresh, token } = ensureCsrfToken(req.headers.cookie, host.csrfSecret);
+  const csrf: RequestCsrf = {
+    setCookie: (): void => { if (fresh) res.appendHeader("set-cookie", csrfCookie(token, { secure: host.secureCookies })); },
+    token,
+  };
+  const verifyCsrf = (submitted: string | null | undefined): boolean =>
+    verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: host.csrfSecret, submitted });
+  // Chrome composes the whole menu, so it is memoized and resolved lazily — a json/redirect
+  // handler, or the public "/" with a standalone home, never pays for it.
+  let chromeMemo: PageChrome | undefined;
+  const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: token, currentPath: url.pathname, localeHref: carryLocale, menu: host.menu, plugins: host.plugins, t, translatorFor: (id) => i18n.translator(locale, id), user }));
+  const shared = { assetHref: host.assets.href, chrome, declaredPermissions: host.permissionCatalog, declaredSettings: host.settingsCatalog, locale, localeHref: carryLocale, locales: i18n.available, log: reqLog, user, verifyCsrf, ...(host.system ? { system: host.system } : {}) };
+  return {
+    carryLocale,
+    // Every plugin-owned render — a landing slot, a hook short-circuit, a plugin route — runs on
+    // the plugin's own translator: its catalog first, then core.
+    contextFor: (pluginId, params) => buildContext(req, res, { ...shared, t: i18n.translator(locale, pluginId), ...(params ? { params } : {}) }),
+    csrf,
+    ctx: buildContext(req, res, { ...shared, t }),
+  };
+}
+
+// A lapsed token still backed by a live Kratos session is silently re-minted — "stay signed
+// in". The only place the hot path touches Ory.
+async function resolveUser(host: Host, req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<User | null> {
+  const { jwks, keto, kratos, kratosAdmin } = host;
+  if (!jwks) return null;
+  const auth = await resolveSession(req.headers.cookie, jwks, host.authOptions);
+  if (auth.user || !auth.expired || !keto || !kratos || !kratosAdmin) return auth.user;
+  try {
+    const reminted = await remintSession({ keto, kratosAdmin, kratosPublic: kratos }, req.headers.cookie, { secure: host.secureCookies });
+    res.appendHeader("set-cookie", reminted.setCookie);
+    return reminted.user;
+  } catch (err) {
+    // Ory unreachable — degrade to anonymous instead of 500ing every lapsed request. Leave
+    // the cookie alone: it can re-mint once Ory recovers.
+    reqLog.warn("session re-mint failed (Ory unreachable?)", { error: String(err) });
+    return null;
+  }
+}
+
+// Plugin onRequest hooks run before routing and may short-circuit the request.
+async function answerFromHook(host: Host, { carryLocale, contextFor, csrf, ctx }: RequestState): Promise<boolean> {
+  if (!host.anyRequestHooks) return false;
+  const short = await runRequestHooks(host.plugins, contextFor);
+  if (!short) return false;
+  // Like every other page-emitting path, so a form the hook renders has its matching cookie.
+  csrf.setCookie();
+  await sendResult(ctx.res, short.result, host.pluginViewsFor(short.ctx, short.plugin.id), carryLocale);
+  return true;
+}
+
+async function answerPluginRoute(host: Host, state: RequestState): Promise<boolean> {
+  const { carryLocale, contextFor, csrf, ctx } = state;
+  const match = matchRoute(host.plugins, ctx.req.method ?? "GET", ctx.url.pathname);
+  if (!match) return false;
+  ctx.log.context["http.route"] = fullPath(match.plugin.id, match.route.path);
+  const routeCtx = contextFor(match.plugin.id, match.params);
+  if (!allows(match.route, routeCtx.user)) {
+    await refuse(host, state, match.route, routeCtx);
+    return true;
+  }
+  csrf.setCookie();
+  const result = (await match.route.handler(routeCtx)) ?? null;
+  // The responding plugin observes its own route, params and all; the others get a plain
+  // context for their own id (never another plugin's params).
+  if (host.anyResponseHooks) await runResponseHooks(host.plugins, (id) => (id === match.plugin.id ? routeCtx : contextFor(id)), result);
+  await sendResult(ctx.res, result, host.pluginViewsFor(routeCtx, match.plugin.id), carryLocale);
+  return true;
+}
+
+async function answerBuiltinRoute(host: Host, state: RequestState): Promise<boolean> {
+  const { carryLocale, contextFor, csrf, ctx } = state;
+  const builtin = matchBuiltinRoute(host.builtinRoutes, ctx.req.method ?? "GET", ctx.url.pathname);
+  if (!builtin) return false;
+  ctx.log.context["http.route"] = builtin.path;
+  if (!allows(builtin, ctx.user)) await refuse(host, state, builtin, ctx);
+  else await sendResult(ctx.res, await builtin.handler(ctx, csrf, contextFor), host.viewsFor(ctx), carryLocale);
+  return true;
+}
+
+// Known path, wrong method → 405 with Allow; otherwise nothing here → 404.
+async function answerUnrouted(host: Host, { ctx }: RequestState): Promise<void> {
+  const allow = allowedMethods(host.plugins, ctx.url.pathname);
+  if (allow.length) {
+    ctx.res.writeHead(405, { allow: allow.join(", "), "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
+    return;
+  }
+  sendHtml(ctx.res, 404, await host.viewsFor(ctx)("404", {}));
+}
+
+// Anonymous → sign in, remembering the page as return_to; a signed-in user who simply lacks
+// the permission gets the 403 page.
+async function refuse(host: Host, { carryLocale, ctx }: RequestState, gate: Gate, gateCtx: RequestContext): Promise<void> {
+  if (!gateCtx.user) { ctx.res.writeHead(303, { location: carryLocale(loginRedirect(gateCtx)) }).end(); return; }
+  ctx.log.warn("forbidden: missing permission", { path: ctx.url.pathname, required: gate.permission ?? "", sub: gateCtx.user.id });
+  sendHtml(ctx.res, 403, await host.viewsFor(ctx)("403", {}));
+}
+
+// A guard thrown anywhere in handling maps to a response (not a 500): a `location` ⇒ a
+// redirect (requireSession → /login), otherwise the status renders the error page.
+async function answerError(err: unknown, res: ServerResponse, reqLog: Log, renderPage: ViewRenderer): Promise<void> {
+  if (err instanceof GuardError) {
+    if (res.headersSent) return void res.end();
+    if (err.location) return void res.writeHead(303, { location: err.location }).end();
+    try {
+      return void sendHtml(res, err.status, await renderPage("403", {}));
+    } catch (renderErr) {
+      // Same last resort as the 500 branch below: a throw here would leave the socket open
+      // (this catch is the one that would have handled it), so end the response ourselves.
+      reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
+      return void res.writeHead(err.status, { "content-type": "text/plain; charset=utf-8" }).end("Forbidden");
+    }
+  }
+  reqLog.error("unhandled request error", { error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
+  if (res.headersSent) return void res.end(); // a partial body is already on the wire
+  try {
+    // Render before writing: if the 500 page itself throws, headers stay unsent
+    // and we fall back to plain text below instead of a half-written response.
+    sendHtml(res, 500, await renderPage("500", {}));
+  } catch (renderErr) {
+    reqLog.error("error page render failed", { error: renderErr instanceof Error ? (renderErr.stack ?? renderErr.message) : String(renderErr) });
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" }).end("Internal Server Error");
+  }
+}
+
+function sendHtml(res: ServerResponse, status: number, html: string): void {
+  res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+  res.end(html);
 }
 
 // The Referer as a host-relative path, when it is one of ours — the page a form was submitted

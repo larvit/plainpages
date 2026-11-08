@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 50 | 0.5.0 |  |  | **Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.** | 3 | 1 | 3 | 5 | 7 | code health by 7 | 3.7 |
 | 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
@@ -27,14 +26,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 50. Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.
-
-The hardest place in all eight scoring seats of PR #200: `src/http/app.ts` `handleRequest` is about
-165 lines at complexity 43, in `createApp`'s closure, and the order of its stages (headers, static,
-canonical host, locale, session, CSRF, contexts, hooks, dispatch) is carried by comments only. Remove
-it from `grandfathered` in `src/function-limits.test.ts`. Behaviour must not change; `app-*.test.ts`
-is the net. Ships alone (R 5).
 
 ### 2. Rename the admin example plugin to a name that says what it administers.
 

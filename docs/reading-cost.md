@@ -388,3 +388,20 @@ Read most (opens and searches):
 
 - `todo.md` 5
 - `examples/plugins/admin/plugin.ts` 1
+
+## Reading cost, chunk dd4d721e79d4, finished 2026-11-08T18:52:37Z
+
+90532 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `todo.md` 8
+- `README.md` 7
+- `src/plugin-host/plugin.ts` 6
+- `src/plugin-host/plugin.test.ts` 4
+- `src/ui/chrome.ts` 4
+- `AGENTS.md` 3
+- `examples/plugins/scheduling/plugin.ts` 3
+- `src/plugin-host/plugin-api.ts` 3
+- `src/ui/chrome.test.ts` 3
+- `CHANGELOG.md` 2

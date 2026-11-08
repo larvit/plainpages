@@ -13,8 +13,7 @@ const LIMITS = { lines: 50, complexity: 20 };
 // Each function over a limit, at its measurement. A ceiling follows its function down, and a metric
 // leaves the entry once it fits, so a function that shrank can't grow back.
 const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
-  "src/http/app.ts createApp": { lines: 291, complexity: 28 },
-  "src/http/app.ts createApp > handleRequest": { lines: 166, complexity: 43 },
+  "src/http/app.ts createApp": { lines: 144, complexity: 26 },
   "src/auth/flow-view.ts buildFlowView": { complexity: 24 },
   "src/auth/hydra-admin.ts createHydraAdmin": { lines: 87 },
   "src/auth/kratos-admin.ts createKratosAdmin": { lines: 68 },
