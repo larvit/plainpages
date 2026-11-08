@@ -56,7 +56,7 @@ test("createLogger: a set endpoint actually exports log records over OTLP/HTTP",
   try {
     const log = createLogger({ otlpEndpoint: "http://collector:4318", stderr: () => {}, stdout: () => {} });
     log.info("exported");
-    await new Promise((r) => setTimeout(r, 50)); // export is fire-and-forget in the background
+    await log.flush(); // the queue batches records for up to a second
   } finally {
     globalThis.fetch = orig;
   }
