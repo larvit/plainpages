@@ -12,14 +12,14 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 28 | 0.5.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
+| 50 | 0.5.0 |  |  | **Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.** | 3 | 1 | 3 | 5 | 7 | code health by 7 | 3.7 |
+| 54 | 0.5.0 |  |  | **List the `setting` conflict kind in the README's Conflict rules table.** | 1 | 1 | 1 | 1 | 1 | 9 by 2 | 3.1 |
+| 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
+| 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
+| 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
-| 28 | 0.6.0 |  |  | **Let a plugin add entries to the profile menu through the plugin API.** | 2 | 2 | 2 | 4 | 4 | 7 by 4, 1 by 2 | 4.2 |
-| 50 | 0.6.0 |  |  | **Split `handleRequest` into named stages, so each fits the 50-line limit and the stage order is written once.** | 3 | 1 | 3 | 5 | 7 | code health by 7 | 3.7 |
-| 54 | 0.6.0 |  |  | **List the `setting` conflict kind in the README's Conflict rules table.** | 1 | 1 | 1 | 1 | 1 | 9 by 2 | 3.1 |
-| 2 | 0.6.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
-| 5 | 0.6.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
-| 41 | 0.6.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Renamed
@@ -28,16 +28,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
-
-Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
-`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
-
-### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
-
-Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
-project's "no catch-all names" rule applied to namespaces.
 
 ### 28. Let a plugin add entries to the profile menu through the plugin API.
 
@@ -75,6 +65,16 @@ cleaned, and reinstalling its plugin silently reactivates access nobody remember
 and deletes in one transaction; confirm that against the Keto version `ory/` pins. If so, add the
 call to `KetoClient`, which is contract surface (`@plainpages/plugin-api`) and so needs 0.5.0, and the
 partial-failure path in the admin example can go.
+
+### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
+
+Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
+`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
+
+### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
+
+Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
+project's "no catch-all names" rule applied to namespaces.
 
 ### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
 
