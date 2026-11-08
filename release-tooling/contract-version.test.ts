@@ -23,7 +23,7 @@ test("every author-facing apiVersion sample matches the shipped contract", () =>
   const [major, minor] = host.split(".");
   for (const file of [
     "README.md",
-    "examples/plugins/admin/plugin.ts",
+    "examples/plugins/auth-admin/plugin.ts",
     "examples/plugins/scheduling/plugin.ts",
     "release-tooling/dockerhub-overview.md.tmpl",
     "views/index.ejs",

@@ -28,17 +28,17 @@ docker compose up -d        # http://localhost:3000, live-reloads on source chan
 **`admin@plainpages.local` / `admin`**.
 
 **3. Enable user & group admin (optional).** The core ships **no admin GUI** — the Users / Groups
-/ OAuth2-clients screens are a drop-in plugin. Copy it in to mount them at `/admin/*`:
+/ OAuth2-clients screens are a drop-in plugin. Copy it in to mount them at `/auth-admin/*`:
 
 ```bash
-cp -r examples/plugins/admin plugins/admin
+cp -r examples/plugins/auth-admin plugins/auth-admin
 docker compose up -d
 ```
 
 The bootstrap grants the seeded admin every permission the installed plugins declare, so the
 **Admin** section now shows in the menu. Use `up -d`, not `restart web` — the seed runs in the
 one-shot `bootstrap` service, and only `up` re-runs it. See
-[`examples/plugins/admin/`](examples/plugins/admin/).
+[`examples/plugins/auth-admin/`](examples/plugins/auth-admin/).
 
 **4. Add your first plugin.** The clone is bind-mounted into the container, so a new
 folder under `plugins/` goes live after a restart. Create `plugins/hello/plugin.ts`:
@@ -200,11 +200,11 @@ public front with an authenticated area behind it.
 
 - **Included in the core:** themed sign-in / register / reset (Kratos-backed), the design
   system + app shell, the config-driven menu, sessions, and access control. No domain screens.
-- **Opt-in admin plugin:** the **users, groups, and OAuth2-clients** screens ship as
-  [`examples/plugins/admin/`](examples/plugins/admin/) — an ordinary plugin, reaching Ory through
+- **Opt-in auth-admin plugin:** the **users, groups, and OAuth2-clients** screens ship as
+  [`examples/plugins/auth-admin/`](examples/plugins/auth-admin/) — an ordinary plugin, reaching Ory through
   the privileged [`ctx.system`](#system-capabilities-the-ctxsystem-surface) surface.
 - **You add:** everything else domain-specific, as **plugins** — built from the same building
-  blocks the admin plugin uses.
+  blocks the auth-admin plugin uses.
 
 Identity, sessions, SSO, OAuth2 and permission checks are delegated to **Ory** sidecar
 services. The shape doesn't change as it grows: every plugin is the same self-contained folder,
@@ -321,9 +321,9 @@ Against the reference plugins' actual routes:
 | `GET /scheduling/shifts` | `scheduling:read` | ✅ | ✅ | 403 | → `/login` |
 | `GET /scheduling/shifts/new` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
 | `POST /scheduling/shifts` | `scheduling:write` | ✅ | 403 | 403 | → `/login` |
-| `GET /admin/users` | `users:read` | 403 | 403 | ✅ | → `/login` |
-| `POST /admin/users` | `users:write` | 403 | 403 | ✅ | → `/login` |
-| `GET /admin/groups` | `groups:read` | 403 | 403 | 403 | → `/login` |
+| `GET /auth-admin/users` | `users:read` | 403 | 403 | ✅ | → `/login` |
+| `POST /auth-admin/users` | `users:write` | 403 | 403 | ✅ | → `/login` |
+| `GET /auth-admin/groups` | `groups:read` | 403 | 403 | 403 | → `/login` |
 
 Bob reaches the shifts list with no direct grant — `support` → `staff` → `scheduling:read`, two hops
 resolved by Keto at his login. An anonymous visitor gets a **redirect** carrying `return_to`, not a
@@ -333,7 +333,7 @@ door they cannot open.
 
 ### Granting a permission
 
-Write the tuple. The admin plugin's **Users** and **Groups** screens do exactly this — each offers
+Write the tuple. The auth-admin plugin's **Users** and **Groups** screens do exactly this — each offers
 the declared permissions as a checkbox list — or use Keto's write API directly:
 
 ```bash
@@ -418,7 +418,7 @@ URL/path-safe (`isValidPluginId`: lowercase `a–z`, digits, dashes) and also na
 `RESERVED_PLUGIN_IDS` are refused at discovery — the gated `dashboard`, the Kratos auth flows
 (`auth`, `login`, `logout`, `recovery`, `registration`, `settings`, `verification`) and their `error` page, the `oauth2`
 provider routes, and `public` — since plugin routes resolve first and a folder claiming one would
-silently shadow a built-in. `admin` is **not** reserved: the admin screens are themselves a plugin.
+silently shadow a built-in. `auth-admin` is **not** reserved: the admin screens are themselves a plugin.
 
 Installing a plugin is "drop the folder, restart"; removing one is "delete the folder, restart".
 
@@ -467,7 +467,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Every node names [exactly one gate](#public-pages--menu-items). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
-| `profileMenu` | no | `ProfileMenuEntry[]`: `{ href, label, icon?, …gate }` links added above Sign out in the profile dropdown, shown only to a signed-in visitor. Each names [exactly one gate](#public-pages--menu-items); `icon` and `label` follow the same rules as a `nav` node. |
+| `profileMenu` | no | `ProfileMenuEntry[]`: `{ href, label, icon?, id?, …gate }` links added above Sign out in the profile dropdown, shown only to a signed-in visitor. Each names [exactly one gate](#public-pages--menu-items); `icon`, `id` and `label` follow the same rules as a `nav` node. |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 | `settings` | no | Configuration this plugin accepts, one `PLUGIN_SETTING_<ID>_<KEY>` variable per key, resolved and validated at boot and handed to `onBoot`. See [Plugin settings](#plugin-settings). |
@@ -651,7 +651,7 @@ interface SystemCapabilities {          // every field optional — present only
 
 `ctx.system` is **`undefined` unless the host wired at least one** of these. A system plugin treats
 every field as optional and **degrades when absent** — the host never fails a request over it. The
-**admin plugin** ([`examples/plugins/admin/`](examples/plugins/admin/)) is the reference consumer:
+**auth-admin plugin** ([`examples/plugins/auth-admin/`](examples/plugins/auth-admin/)) is the reference consumer:
 Users uses `kratosAdmin`, Groups and the permission pickers `keto`, OAuth2 clients `hydra`, and a
 deactivate/delete or user permission-change calls `revoke` so the change lands before the JWT TTL;
 a missing capability renders a themed 503.
@@ -731,7 +731,7 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 | --- | --- | --- |
 | `id` | error | Two plugins share an `id` (folder name). Ids must be globally unique — they namespace the mount path, views/static, and the override target. |
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
-| `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
+| `nav-id` | error | A nav node or profile-menu entry `id` is used more than once — the central override targets ids, so they must be unique across both. |
 | `setting` | error | Two settings resolve to the same `PLUGIN_SETTING_` variable name; rename a key or a plugin folder ([Plugin settings](#plugin-settings)). |
 | `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
 | `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. Also warned: a route, nav node or profile-menu entry gates on a permission no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's `permissions`. |
@@ -891,7 +891,7 @@ installed plugin declares is only *reported* — it is usually a typo in the one
 set, and naming it turns two unrelated-looking errors into one. Declaring settings without an
 `onBoot` warns too: they resolve, but nothing receives them.
 
-**Reading what a deployment is configured with.** The admin plugin's **Plugin settings** screen
+**Reading what a deployment is configured with.** The auth-admin plugin's **Plugin settings** screen
 (`plugin-settings:read`) lists every installed plugin, its declared keys, the variable that sets
 each, and whether the value came from the environment or the declared default.
 
@@ -1003,8 +1003,8 @@ The menu is **driven entirely by config** and assembled from two sources:
 
 1. **Plugin fragments** — each plugin contributes its own `nav` (above).
 2. **A central override** — `config/menu.ts` (loaded by `src/ui/menu-config.ts`, validated at
-   boot) — where the operator reorders, renames, groups, or hides items (by node `id`), and
-   sets branding (app name, logo, default theme). The override always wins, applied before
+   boot) — where the operator reorders, renames, groups, or hides items (by node `id`), hides or
+   renames a profile-menu entry (by its `id`), and sets branding (app name, logo, default theme). The override always wins, applied before
    the per-user filter. A clean clone needs no `config/menu.ts`; defaults apply.
 
    `config/` is an **empty drop-in mount point** (like `plugins/`): it ships empty, and you
@@ -1048,7 +1048,7 @@ fully styled and zero-JS:
   auth guards (`src/auth/guards.ts`): `requireSession`, `can(permission)` (coarse JWT-claim check,
   zero I/O), `check(relation, object)` (the one live Keto call).
 
-A list page's pagination, from URL to partial (`examples/plugins/admin/admin-users.ts` is the full
+A list page's pagination, from URL to partial (`examples/plugins/auth-admin/admin-users.ts` is the full
 page):
 
 ```ts
@@ -1137,7 +1137,7 @@ catalog for it. There is **no locale cookie**: the URL is the only place a choic
 link is shareable and a page is what its address says it is. When the URL asked for a language, the
 host carries `?locale=` onto every link *it* renders and `ctx.localeHref(href)` does the same for a
 plugin's. The picker lists every installed locale and renders **on every page**. After a POST the
-current URL may answer no GET (`POST /admin/users/:id/recovery` has no GET sibling), so the host
+current URL may answer no GET (`POST /auth-admin/users/:id/recovery` has no GET sibling), so the host
 points the picker at this path when it answers GET, else the page the form was submitted from, else
 `/` — switching language there leaves that POST's own result behind.
 
@@ -1425,7 +1425,7 @@ Nothing in the menu or first-party pages needs Hydra.
   post-logout redirect. The first-party `POST /logout` still owns ending the Kratos session and our
   JWT cookie.
 
-Clients are registered from the admin plugin's **OAuth2 clients** screen (`/admin/clients`): Hydra
+Clients are registered from the auth-admin plugin's **OAuth2 clients** screen (`/auth-admin/clients`): Hydra
 shows the generated `client_secret` **once**, on the confirmation page. Confidential vs public
 (PKCE) and the first-party auto-consent flag are set at registration; writes go only to Hydra.
 
@@ -1635,7 +1635,7 @@ tightened a manifest rule since. Discovery fails loud at boot rather than runnin
 honour, naming the plugin and the rule:
 
 ```bash
-rm -rf plugins/admin && cp -r examples/plugins/admin plugins/admin
+rm -rf plugins/auth-admin && cp -r examples/plugins/auth-admin plugins/auth-admin
 docker compose up -d --build
 ```
 
@@ -1668,7 +1668,7 @@ OpenTelemetry's HTTP conventions:
 - `http.request.method`, `url.path` (the query is dropped, it can carry tokens),
   `http.response.status_code`, `server.address` (the `Host`), `user_agent.original`,
   `client.address` and `requestId`.
-- `http.route`: the matched pattern, such as `/admin/users/:id`. It is absent when no route
+- `http.route`: the matched pattern, such as `/auth-admin/users/:id`. It is absent when no route
   matched (a 404, a 405, a `/public/` file, a redirect) and on a plugin's `onRequest` short-circuit.
 - Latency is the span's duration, so it reaches you only with `OTLP_ENDPOINT` set. OTLP carries every
   attribute as a string.
@@ -1799,7 +1799,7 @@ locales/             Drop-in mount: extra or replacement catalogs. Ships empty. 
 plugins/             Drop-in mount: plugin folders, scanned at /app/plugins. Ships empty.
 ory/                 Ory config — kratos/ (identity schema, oidc claims mapper, tokenizer + dev JWKS),
                      keto/ (namespaces.keto.ts OPL), hydra/, postgres/init/
-examples/            Copy-in reference mirroring the mount dirs: plugins/scheduling/, plugins/admin/,
+examples/            Copy-in reference mirroring the mount dirs: plugins/scheduling/, plugins/auth-admin/,
                      config/menu.ts, and shifts-upstream/ (the dev mock backend)
 e2e-tests/           Playwright specs + their Dockerfile and compose.{visual,auth,oauth,full,devstack}.yml;
                      proxy.ts (same-origin gateway) and mock-oidc.ts back full-flow

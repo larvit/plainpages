@@ -218,7 +218,7 @@ one-time setup. A file-map or table row gets a clause, not a paragraph.
   `{method, path}` in the manifest (the host extracts `:id`/`:name` and 404s malformed `%`-encoding).
   Don't funnel many routes into one dispatcher that re-parses `ctx.url.pathname`: it duplicates the
   URL shape, ignores the router's params, and has to re-handle HEAD. Factor shared per-request setup
-  into a small `withX` wrapper — see `examples/plugins/admin/`.
+  into a small `withX` wrapper — see `examples/plugins/auth-admin/`.
 - **A function stays within 50 lines and complexity 20** (ESLint's defaults, measured by
   `src/function-limits.test.ts`). Split one that outgrows them; never add it to the test's
   `grandfathered` list or raise a ceiling there.

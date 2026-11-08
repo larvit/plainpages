@@ -12,6 +12,20 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 `0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
 `RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
+### An operator can hide or rename a plugin's profile-menu entry
+
+A `profileMenu` entry takes an optional `id`, and `config/menu.ts`'s `override.hide` and
+`override.rename` apply to it as they do to a nav node. Nav nodes and profile-menu entries share one
+set of ids, so the boot refuses an entry whose `id` another entry or nav node already uses.
+
+### The admin example plugin is now `auth-admin`, and its screens live at `/auth-admin/*`
+
+The Users, Groups, OAuth2-clients and Plugin-settings screens move from `/admin/*` to
+`/auth-admin/*`. An installed `plugins/admin/` keeps working until you replace it: delete it, copy
+`examples/plugins/auth-admin/` into `plugins/`, and move any `locales/plugins/admin/` to
+`locales/plugins/auth-admin/`. The boot refuses the two installed together, since both declare the
+nav section `admin`.
+
 ### The `request` log line renames `method`, `path`, `status` and `ms`, and gains the caller, site and route
 
 Update dashboards and log queries: the `request` line and the request span now use OpenTelemetry's

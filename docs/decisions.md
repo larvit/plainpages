@@ -11,7 +11,7 @@ reader can name.
 The folders are `http/`, `auth/`, `i18n/`, `plugin-host/`, `ui/`, and `test-tooling/` (modules only
 tests import), with `server.ts`, `config.ts`, `logger.ts` and the topology-guard `*.test.ts` at the
 root. Tests are co-located. Add a new module to the folder owning its concern. Even the admin GUI
-is a drop-in plugin (`examples/plugins/admin/`).
+is a drop-in plugin (`examples/plugins/auth-admin/`).
 
 ## Plugins and config import the host only through the two barrels
 
@@ -233,7 +233,7 @@ read-only parent is EROFS, and the container never starts.
 
 2026-08-05, the maintainer. Code health. Valid while route tables name their permission per route.
 
-Inside the admin example it keeps the route table and the in-handler guard deriving from one
+Inside the auth-admin example it keeps the route table and the in-handler guard deriving from one
 function, so 29 routes × 2 gate sites cannot drift. Generalised, it would make authorization a
 function of the transport verb, and a route table must answer "what does this need?" on its own.
 
@@ -360,7 +360,7 @@ keys.
 2026-08-04, the maintainer. Goal 2. Valid while the picker is expected on literally every page; if
 that softens, hiding it after a POST is simpler.
 
-A POST-rendered URL often answers no GET (`POST /admin/users/:id/recovery`), so the host resolves
+A POST-rendered URL often answers no GET (`POST /auth-admin/users/:id/recovery`), so the host resolves
 the picker's target (`app.ts` → `switchBase`): this path when it answers GET, else the same-origin
 Referer, else `/`. The accepted cost: switching language there leaves that POST's own result behind.
 

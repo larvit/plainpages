@@ -13,7 +13,7 @@ import type { RelationTuple } from "../auth/keto-client.ts";
 import type { Identity } from "../auth/kratos-admin.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import adminManifest from "../../examples/plugins/admin/plugin.ts";
+import adminManifest from "../../examples/plugins/auth-admin/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import { loadI18n } from "../i18n/load.ts";
 import { ecJwk, fakeKeto, matchesTuple, mintJwt, stubAdmin, stubHydra } from "../test-tooling/app-harness.ts";
@@ -21,7 +21,7 @@ import { ecJwk, fakeKeto, matchesTuple, mintJwt, stubAdmin, stubHydra } from "..
 // The HTTP-level admin tests mount the example plugin via createApp — stub Ory clients on
 // ctx.system, views from examples/plugins — exactly as an operator would after copying it in.
 const examplesPluginsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples", "plugins");
-const adminPlugin: Plugin = { ...adminManifest, id: "admin" };
+const adminPlugin: Plugin = { ...adminManifest, id: "auth-admin" };
 
 // Shared harness for the admin-screen HTTP tests: an app on a random port with an admin JWT +
 // CSRF cookie. get(path, permissions)/post(path, body) carry them; `token` is the matching CSRF field.
@@ -72,22 +72,22 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   const denylist = createDenylist(); // a deactivate/delete should revoke the target's live tokens instantly
   const { get, post, token, url } = await adminHarness(t, { denylist, kratosAdmin });
 
-  await assertAdminGate(url, get, "/admin/users");
+  await assertAdminGate(url, get, "/auth-admin/users");
 
   // Nav: the admin plugin's section composes into the one global menu, and each screen is filtered
   // by its own read permission — proving the drop-in nav fragment. A user holding only users:read
   // sees Users and nothing else; holding none of the three, composeNav drops the emptied header.
-  assert.match(await (await get("/dashboard")).text(), /href="\/admin\/users"/);
+  assert.match(await (await get("/dashboard")).text(), /href="\/auth-admin\/users"/);
   const usersOnlyNav = await (await get("/dashboard", ["users:read"])).text();
-  assert.match(usersOnlyNav, /href="\/admin\/users"/);
-  assert.doesNotMatch(usersOnlyNav, /href="\/admin\/groups"/);
-  assert.doesNotMatch(await (await get("/dashboard", ["scheduling:read"])).text(), /href="\/admin\/users"/);
+  assert.match(usersOnlyNav, /href="\/auth-admin\/users"/);
+  assert.doesNotMatch(usersOnlyNav, /href="\/auth-admin\/groups"/);
+  assert.doesNotMatch(await (await get("/dashboard", ["scheduling:read"])).text(), /href="\/auth-admin\/users"/);
 
   // The read/write split: users:read opens the list but is refused on every mutation, and the
   // resources don't leak — a users holder is not a groups holder.
-  assert.equal((await get("/admin/users", ["users:read"])).status, 200);
-  assert.equal((await get("/admin/groups", ["users:read", "users:write"])).status, 403);
-  const readOnlyPost = await fetch(url + "/admin/users", {
+  assert.equal((await get("/auth-admin/users", ["users:read"])).status, 200);
+  assert.equal((await get("/auth-admin/groups", ["users:read", "users:write"])).status, 403);
+  const readOnlyPost = await fetch(url + "/auth-admin/users", {
     body: `_csrf=${token}&email=nope@example.com`,
     headers: { "content-type": "application/x-www-form-urlencoded", cookie: `${SESSION_COOKIE}=${mintJwt({ email: "r@x", exp: Math.floor(Date.now() / 1000) + 600, permissions: ["users:read"], sub: "reader1" })}; ${CSRF_COOKIE}=${token}` },
     method: "POST",
@@ -97,44 +97,44 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.equal(store.some((i) => i.traits?.email === "nope@example.com"), false);
 
   // List: the admin sees the rows + the "add" link; the status filter narrows server-side.
-  const listHtml = await (await get("/admin/users")).text();
+  const listHtml = await (await get("/auth-admin/users")).text();
   assert.match(listHtml, /ada@example\.com/);
-  assert.match(listHtml, /href="\/admin\/users\/new"/);
-  assert.doesNotMatch(await (await get("/admin/users?status=inactive")).text(), /ada@example\.com/);
+  assert.match(listHtml, /href="\/auth-admin\/users\/new"/);
+  assert.doesNotMatch(await (await get("/auth-admin/users?status=inactive")).text(), /ada@example\.com/);
 
   // Create: the form renders; a valid post creates the identity and redirects to the list.
-  assert.match(await (await get("/admin/users/new")).text(), /Create user/);
-  const created = await post("/admin/users", `_csrf=${token}&email=grace%40example.com&first=Grace&last=Hopper&password=`);
+  assert.match(await (await get("/auth-admin/users/new")).text(), /Create user/);
+  const created = await post("/auth-admin/users", `_csrf=${token}&email=grace%40example.com&first=Grace&last=Hopper&password=`);
   assert.equal(created.status, 303);
-  assert.equal(created.headers.get("location"), "/admin/users");
+  assert.equal(created.headers.get("location"), "/auth-admin/users");
   assert.deepEqual(lastCreate?.traits, { email: "grace@example.com", name: { first: "Grace", last: "Hopper" } });
 
   // A create with no CSRF token is refused and creates nothing.
   const before = store.length;
-  assert.equal((await post("/admin/users", "email=x%40y.z")).status, 403);
+  assert.equal((await post("/auth-admin/users", "email=x%40y.z")).status, 403);
   assert.equal(store.length, before);
 
   // CSRF also guards a POST to an *existing* target (the per-route :id handlers), not just the
   // collection: a delete with no token is refused (403) and removes nothing.
-  assert.equal((await post(`/admin/users/${store[1]!.id}/delete`, "")).status, 403);
+  assert.equal((await post(`/auth-admin/users/${store[1]!.id}/delete`, "")).status, 403);
   assert.ok(store.some((x) => x.id === store[1]!.id));
 
   // Edit: email is read-only + prefilled; a post rewrites the name.
   const target = store[0]!;
-  const editHtml = await (await get(`/admin/users/${target.id}`)).text();
+  const editHtml = await (await get(`/auth-admin/users/${target.id}`)).text();
   assert.match(editHtml, /name="email"[^>]*readonly/);
   assert.match(editHtml, /value="ada@example\.com"/);
-  const updated = await post(`/admin/users/${target.id}`, `_csrf=${token}&first=Ada&last=King`);
+  const updated = await post(`/auth-admin/users/${target.id}`, `_csrf=${token}&first=Ada&last=King`);
   assert.equal(updated.status, 303);
   assert.deepEqual((target.traits as { name: unknown }).name, { first: "Ada", last: "King" });
 
   // Deactivate (state toggle): active → inactive, and the target's live tokens are revoked at once.
-  await post(`/admin/users/${target.id}/state`, `_csrf=${token}`);
+  await post(`/auth-admin/users/${target.id}/state`, `_csrf=${token}`);
   assert.equal(target.state, "inactive");
   assert.equal(denylist.isRevoked(target.id, 0), true);
 
   // Recovery: renders the edit page (200) showing the generated code, linked to the flow it was minted on.
-  const rec = await post(`/admin/users/${target.id}/recovery`, `_csrf=${token}`);
+  const rec = await post(`/auth-admin/users/${target.id}/recovery`, `_csrf=${token}`);
   assert.equal(rec.status, 200);
   const recHtml = await rec.text();
   assert.match(recHtml, /Recovery code generated/);
@@ -142,22 +142,22 @@ test("admin Users screen: gate, list/filter, create, edit, deactivate, delete, r
   assert.match(recHtml, new RegExp(`<a href="http://kratos/self-service/recovery\\?flow=flow-${target.id}">`));
 
   // Delete needs a deliberate confirm step (zero-JS): GET renders the interstitial, POST performs it.
-  const confirm = await (await get(`/admin/users/${target.id}/delete`)).text();
+  const confirm = await (await get(`/auth-admin/users/${target.id}/delete`)).text();
   assert.match(confirm, /Cancel/);
-  assert.match(confirm, new RegExp(`action="/admin/users/${target.id}/delete"`));
-  const del = await post(`/admin/users/${target.id}/delete`, `_csrf=${token}`);
+  assert.match(confirm, new RegExp(`action="/auth-admin/users/${target.id}/delete"`));
+  const del = await post(`/auth-admin/users/${target.id}/delete`, `_csrf=${token}`);
   assert.equal(del.status, 303);
   assert.ok(!store.some((x) => x.id === target.id));
 
   // Self-protection: an admin can't delete or deactivate their own account (JWT sub = admin1).
-  assert.equal((await post(`/admin/users/admin1/delete`, `_csrf=${token}`)).status, 400);
+  assert.equal((await post(`/auth-admin/users/admin1/delete`, `_csrf=${token}`)).status, 400);
   assert.ok(store.some((x) => x.id === "admin1"));
-  assert.equal((await post(`/admin/users/admin1/state`, `_csrf=${token}`)).status, 400);
+  assert.equal((await post(`/auth-admin/users/admin1/state`, `_csrf=${token}`)).status, 400);
   assert.equal(store.find((x) => x.id === "admin1")!.state, "active");
 
   // Unknown id → 404; malformed %-encoding → 404 (not a 500), matching groups/permissions/clients.
-  assert.equal((await get(`/admin/users/${randomUUID()}`)).status, 404);
-  assert.equal((await get("/admin/users/%ZZ")).status, 404);
+  assert.equal((await get(`/auth-admin/users/${randomUUID()}`)).status, 404);
+  assert.equal((await get("/auth-admin/users/%ZZ")).status, 404);
 });
 
 // Built-in Groups admin screen: gate + list/create/membership/delete over HTTP against a
@@ -174,56 +174,56 @@ test("admin Groups screen: gate, list, create, detail/membership, delete (CSRF-g
   const kratosAdmin = stubAdmin({ listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token, url } = await adminHarness(t, { keto, kratosAdmin });
 
-  await assertAdminGate(url, get, "/admin/groups");
+  await assertAdminGate(url, get, "/auth-admin/groups");
 
   // List: the existing group shows + the "add" link.
-  const listHtml = await (await get("/admin/groups")).text();
-  assert.match(listHtml, /href="\/admin\/groups\/eng"/);
-  assert.match(listHtml, /href="\/admin\/groups\/new"/);
+  const listHtml = await (await get("/auth-admin/groups")).text();
+  assert.match(listHtml, /href="\/auth-admin\/groups\/eng"/);
+  assert.match(listHtml, /href="\/auth-admin\/groups\/new"/);
 
   // Create: the form renders; a valid post writes the first-member tuple and redirects to the detail.
-  assert.match(await (await get("/admin/groups/new")).text(), /Create group/);
-  const created = await post("/admin/groups", `_csrf=${token}&name=design&member=user:${grace}`);
+  assert.match(await (await get("/auth-admin/groups/new")).text(), /Create group/);
+  const created = await post("/auth-admin/groups", `_csrf=${token}&name=design&member=user:${grace}`);
   assert.equal(created.status, 303);
-  assert.equal(created.headers.get("location"), "/admin/groups/design");
+  assert.equal(created.headers.get("location"), "/auth-admin/groups/design");
   assert.ok(tuples.some((tp) => tp.object === "design" && tp.subject_id === `user:${grace}`));
 
   // An invalid name, a duplicate name, or a missing CSRF token are all refused, nothing written.
   const before = tuples.length;
-  assert.equal((await post("/admin/groups", `_csrf=${token}&name=Bad Name&member=user:${grace}`)).status, 400);
-  const duplicate = await post("/admin/groups?locale=sv-SE", `_csrf=${token}&name=eng&member=user:${grace}`);
+  assert.equal((await post("/auth-admin/groups", `_csrf=${token}&name=Bad Name&member=user:${grace}`)).status, 400);
+  const duplicate = await post("/auth-admin/groups?locale=sv-SE", `_csrf=${token}&name=eng&member=user:${grace}`);
   assert.equal(duplicate.status, 400);
   assert.match(await duplicate.text(), /Det finns redan en grupp med det namnet\./);
-  assert.equal((await post("/admin/groups", `name=x&member=user:${grace}`)).status, 403);
+  assert.equal((await post("/auth-admin/groups", `name=x&member=user:${grace}`)).status, 403);
   assert.equal(tuples.length, before);
 
   // Detail: lists the current member by email.
-  assert.match(await (await get("/admin/groups/eng")).text(), /ada@example\.com/);
+  assert.match(await (await get("/auth-admin/groups/eng")).text(), /ada@example\.com/);
 
   // Add a member, then remove it.
-  await post("/admin/groups/eng/members", `_csrf=${token}&member=user:${grace}`);
+  await post("/auth-admin/groups/eng/members", `_csrf=${token}&member=user:${grace}`);
   assert.ok(tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
-  await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
+  await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${grace}`);
   assert.ok(!tuples.some((tp) => tp.object === "eng" && tp.subject_id === `user:${grace}`));
 
   // Give it a permission first, so the delete below has an orphan to avoid leaving behind.
-  const permissionsBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
-  await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${permissionsBaseline}&permission=users%3Aread`);
+  const permissionsBaseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
+  await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${permissionsBaseline}&permission=users%3Aread`);
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "users:read" && tp.subject_set?.object === "eng"));
 
   // Delete the group: a confirm step (GET) then the POST removes every member tuple, back to the list.
-  assert.match(await (await get("/admin/groups/eng/delete")).text(), /Cancel/);
-  const del = await post("/admin/groups/eng/delete", `_csrf=${token}`);
+  assert.match(await (await get("/auth-admin/groups/eng/delete")).text(), /Cancel/);
+  const del = await post("/auth-admin/groups/eng/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
-  assert.equal(del.headers.get("location"), "/admin/groups");
+  assert.equal(del.headers.get("location"), "/auth-admin/groups");
   assert.ok(!tuples.some((tp) => tp.object === "eng"));
   // …and the permissions it held go with it. A Keto set exists only through its tuples, so an
   // orphaned grant would resurrect the moment someone re-created a group with the same name.
   assert.ok(!tuples.some((tp) => tp.namespace === "Permission" && tp.subject_set?.object === "eng"));
 
   // An invalid group name in the path → 404; malformed %-encoding doesn't 500.
-  assert.equal((await get("/admin/groups/Bad%20Name")).status, 404);
-  assert.equal((await get("/admin/groups/%ZZ")).status, 404);
+  assert.equal((await get("/auth-admin/groups/Bad%20Name")).status, 404);
+  assert.equal((await get("/auth-admin/groups/%ZZ")).status, 404);
 });
 
 // Granting permissions over HTTP. The offered set is the host's catalog (ctx.declaredPermissions),
@@ -238,7 +238,7 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
   const { get, post, token } = await adminHarness(t, { denylist, keto, kratosAdmin });
 
   // The user edit page renders one checkbox per declared permission, ticked where already held.
-  const edit = await (await get(`/admin/users/${ada}`)).text();
+  const edit = await (await get(`/auth-admin/users/${ada}`)).text();
   for (const name of ["users:read", "users:write", "groups:read", "groups:write", "oauth2-clients:read", "oauth2-clients:write"]) {
     assert.match(edit, new RegExp(`value="${name.replace(":", ":")}"`), name);
   }
@@ -248,7 +248,7 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
 
   // Save a new set: users:write is added, users:read is dropped — the POST is the whole truth.
   const baseline = baselineOf(edit);
-  const saved = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
+  const saved = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(saved.status, 303);
   assert.deepEqual(
     tuples.filter((tp) => tp.subject_id === `user:${ada}`).map((tp) => tp.object).sort(),
@@ -258,20 +258,20 @@ test("admin permission grants: the picker offers the declared catalog, and a sav
 
   // The redirect lands on a page that confirms the save, and shows the new state.
   const landing = saved.headers.get("location") ?? "";
-  assert.match(landing, new RegExp(`^/admin/users/${ada}\\?info-msg=permissions-saved$`));
+  assert.match(landing, new RegExp(`^/auth-admin/users/${ada}\\?info-msg=permissions-saved$`));
   const confirmed = await (await get(landing)).text();
   assert.match(confirmed, /Permissions saved/);
   assert.match(confirmed, /value="users:write"[^>]*checked/);
 
   // A crafted POST can't grant something no plugin declares.
-  await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(confirmed)}&permission=users%3Awrite&permission=superuser%3Aall`);
+  await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(confirmed)}&permission=users%3Awrite&permission=superuser%3Aall`);
   assert.ok(!tuples.some((tp) => tp.object === "superuser:all"));
 
   // The same picker on a group writes the group's subject_set, which Keto resolves transitively.
   tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
-  const groupBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
-  const groupSaved = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread`);
-  assert.equal(groupSaved.headers.get("location"), "/admin/groups/eng?info-msg=permissions-saved");
+  const groupBaseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
+  const groupSaved = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread`);
+  assert.equal(groupSaved.headers.get("location"), "/auth-admin/groups/eng?info-msg=permissions-saved");
   assert.ok(tuples.some((tp) => tp.namespace === "Permission" && tp.object === "groups:read" && tp.subject_set?.object === "eng"));
 });
 
@@ -283,12 +283,12 @@ test("admin permission grants: a save from a stale page is refused, and the page
   const keto = fakeKeto(tuples);
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
-  const stale = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+  const stale = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
 
   // Another admin grants users:write while this page is open.
   tuples.push({ namespace: "Permission", object: "users:write", relation: "granted", subject_id: `user:${ada}` });
   const before = JSON.stringify(tuples);
-  const refused = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=groups%3Aread`);
+  const refused = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=groups%3Aread`);
   assert.equal(refused.status, 409);
   const page = await refused.text();
   assert.match(page, /changed while you had the page open/);
@@ -297,18 +297,18 @@ test("admin permission grants: a save from a stale page is refused, and the page
   assert.notEqual(baselineOf(page), stale);
 
   // Saving from the re-rendered page goes through.
-  const retried = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(page)}&permission=users%3Aread&permission=users%3Awrite&permission=groups%3Aread`);
+  const retried = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baselineOf(page)}&permission=users%3Aread&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(retried.status, 303);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === `user:${ada}`));
 
   // A POST with no token at all (a crafted request, or a form rendered before this check existed) is stale too.
-  assert.equal((await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Aread`)).status, 409);
+  assert.equal((await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&permission=users%3Aread`)).status, 409);
 
   // Groups are checked the same way.
   tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
-  const groupStale = baselineOf(await (await get("/admin/groups/eng")).text());
+  const groupStale = baselineOf(await (await get("/auth-admin/groups/eng")).text());
   tuples.push({ namespace: "Permission", object: "groups:read", relation: "granted", subject_set: { namespace: "Group", object: "eng", relation: "members" } });
-  const groupRefused = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupStale}&permission=users%3Aread`);
+  const groupRefused = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupStale}&permission=users%3Aread`);
   assert.equal(groupRefused.status, 409);
   assert.match(await groupRefused.text(), /changed while you had the page open/);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the group keeps its grant");
@@ -329,9 +329,9 @@ test("admin permission grants: a Keto failure midway reports a partial save and 
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const denylist = createDenylist();
   const { get, post, token } = await adminHarness(t, { denylist, keto, kratosAdmin });
-  const baseline = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+  const baseline = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
 
-  const res = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread&permission=users%3Awrite`);
+  const res = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread&permission=users%3Awrite`);
   assert.equal(res.status, 502);
   const page = await res.text();
   assert.match(page, /stopped part-way/);
@@ -350,11 +350,11 @@ test("admin permission grants: a save that changes nothing is not refused for a 
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const denylist = createDenylist();
   const { get, post, token } = await adminHarness(t, { denylist, keto: fakeKeto(tuples), kratosAdmin });
-  const stale = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+  const stale = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
   tuples.push({ namespace: "Permission", object: "users:write", relation: "granted", subject_id: `user:${ada}` });
   const before = JSON.stringify(tuples);
 
-  const repeated = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=users%3Awrite`);
+  const repeated = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${stale}&permission=users%3Aread&permission=users%3Awrite`);
   assert.equal(repeated.status, 303);
   assert.equal(JSON.stringify(tuples), before);
   assert.equal(denylist.isRevoked(ada, 0), false);
@@ -380,9 +380,9 @@ test("admin permission grants: a partial save is still reported when Keto cannot
   });
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
-  const baseline = baselineOf(await (await get(`/admin/users/${ada}`)).text());
+  const baseline = baselineOf(await (await get(`/auth-admin/users/${ada}`)).text());
 
-  const res = await post(`/admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread`);
+  const res = await post(`/auth-admin/users/${ada}/permissions`, `_csrf=${token}&baseline=${baseline}&permission=groups%3Aread&permission=users%3Aread`);
   assert.equal(res.status, 502);
   assert.match(await res.text(), /stopped part-way/);
   assert.deepEqual(tuples.map((tp) => tp.object), ["groups:read"]);
@@ -392,8 +392,8 @@ test("admin permission grants: a partial save is still reported when Keto cannot
   writes = 0;
   tuples.length = 0;
   tuples.push({ namespace: "Group", object: "eng", relation: "members", subject_id: `user:${ada}` });
-  const groupBaseline = baselineOf(await (await get("/admin/groups/eng")).text());
-  const groupRes = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread&permission=users%3Aread`);
+  const groupBaseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
+  const groupRes = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${groupBaseline}&permission=groups%3Aread&permission=users%3Aread`);
   assert.equal(groupRes.status, 502);
   assert.match(await groupRes.text(), /stopped part-way/);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_set?.object === "eng"), "the first write landed");
@@ -403,7 +403,7 @@ test("admin permission grants: a partial save is still reported when Keto cannot
   down = false;
   writes = 0;
   tuples.length = 1;
-  const again = await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baselineOf(await (await get("/admin/groups/eng")).text())}&permission=groups%3Aread&permission=users%3Aread`);
+  const again = await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${baselineOf(await (await get("/auth-admin/groups/eng")).text())}&permission=groups%3Aread&permission=users%3Aread`);
   assert.equal(again.status, 502);
   const page = await again.text();
   assert.match(page, /stopped part-way/);
@@ -419,15 +419,15 @@ test("admin permission grants: you can't revoke your own permissions, but you ca
   const keto = fakeKeto(tuples);
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token } = await adminHarness(t, { keto, kratosAdmin });
-  const baseline = baselineOf(await (await get("/admin/users/admin1")).text());
+  const baseline = baselineOf(await (await get("/auth-admin/users/admin1")).text());
 
-  const refused = await post("/admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}`); // every box cleared
+  const refused = await post("/auth-admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}`); // every box cleared
   assert.equal(refused.status, 400);
   assert.match(await refused.text(), /lock yourself out/);
   assert.ok(tuples.some((tp) => tp.object === "users:write" && tp.subject_id === "user:admin1"), "nothing was revoked");
 
   // Granting yourself more is not a lockout, so it goes through.
-  const granted = await post("/admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
+  const granted = await post("/auth-admin/users/admin1/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite&permission=groups%3Aread`);
   assert.equal(granted.status, 303);
   assert.ok(tuples.some((tp) => tp.object === "groups:read" && tp.subject_id === "user:admin1"));
 });
@@ -464,32 +464,32 @@ test("admin groups: you can't take away permissions you hold only through a grou
   const keto = fakeKeto(tuples, { check: resolvingCheck(tuples) });
   const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
   const { get, post, token } = await adminHarness(t, { keto, kratosAdmin }, you);
-  const baseline = baselineOf(await (await get("/admin/groups/eng")).text());
+  const baseline = baselineOf(await (await get("/auth-admin/groups/eng")).text());
   // A refusal renders that group's own page and names what you would lose.
   const refusedWithMessage = async (res: Response, group: string, lost: string) => {
     assert.equal(res.status, 400);
     const html = await res.text();
     assert.match(html, new RegExp(`lock you out of ${lost}, which`));
-    assert.match(html, new RegExp(`action="/admin/groups/${group}/members"`));
+    assert.match(html, new RegExp(`action="/auth-admin/groups/${group}/members"`));
   };
 
   // Unticking users:write on eng would take it from you: refused, nothing revoked.
   const before = JSON.stringify(tuples);
-  await refusedWithMessage(await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=groups%3Awrite`), "eng", "users:write");
+  await refusedWithMessage(await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=groups%3Awrite`), "eng", "users:write");
   // Leaving eng, removing eng from leads, or deleting eng (the confirm step too) are refused the same
   // way; leaving eng also loses what it gets from leads.
-  await refusedWithMessage(await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${you}`), "eng", "oauth2-clients:write, users:write");
-  await refusedWithMessage(await post("/admin/groups/leads/members/delete", `_csrf=${token}&member=group:eng`), "leads", "oauth2-clients:write");
-  await refusedWithMessage(await get("/admin/groups/eng/delete"), "eng", "oauth2-clients:write, users:write");
-  await refusedWithMessage(await post("/admin/groups/eng/delete", `_csrf=${token}`), "eng", "oauth2-clients:write, users:write");
+  await refusedWithMessage(await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${you}`), "eng", "oauth2-clients:write, users:write");
+  await refusedWithMessage(await post("/auth-admin/groups/leads/members/delete", `_csrf=${token}&member=group:eng`), "leads", "oauth2-clients:write");
+  await refusedWithMessage(await get("/auth-admin/groups/eng/delete"), "eng", "oauth2-clients:write, users:write");
+  await refusedWithMessage(await post("/auth-admin/groups/eng/delete", `_csrf=${token}`), "eng", "oauth2-clients:write, users:write");
   assert.equal(JSON.stringify(tuples), before, "nothing changed");
 
   // You hold groups:write directly too, so unticking it on eng costs you nothing.
-  assert.equal((await post("/admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite`)).status, 303);
+  assert.equal((await post("/auth-admin/groups/eng/permissions", `_csrf=${token}&baseline=${baseline}&permission=users%3Awrite`)).status, 303);
   // Removing someone else, leaving a group that confers nothing, and deleting a group you are not in all go through.
-  assert.equal((await post("/admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ada}`)).status, 303);
-  assert.equal((await post("/admin/groups/social/members/delete", `_csrf=${token}&member=user:${you}`)).status, 303);
-  assert.equal((await post("/admin/groups/design/delete", `_csrf=${token}`)).status, 303);
+  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ada}`)).status, 303);
+  assert.equal((await post("/auth-admin/groups/social/members/delete", `_csrf=${token}&member=user:${you}`)).status, 303);
+  assert.equal((await post("/auth-admin/groups/design/delete", `_csrf=${token}`)).status, 303);
   assert.ok(!tuples.some((tp) => tp.object === "design" || tp.subject_set?.object === "design"));
 });
 
@@ -507,43 +507,43 @@ test("admin screens render no write affordance for a read-only holder", async (t
   const { get } = await adminHarness(t, { hydra, keto, kratosAdmin });
   const readOnly = ["users:read", "groups:read"];
 
-  const list = await (await get("/admin/users", readOnly)).text();
-  assert.doesNotMatch(list, /href="\/admin\/users\/new"/); // no "New user"
+  const list = await (await get("/auth-admin/users", readOnly)).text();
+  assert.doesNotMatch(list, /href="\/auth-admin\/users\/new"/); // no "New user"
   assert.match(list, /ada@example\.com/); // but the list itself is there — that's the point of :read
 
   // (The shell's own sign-out is a POST form, so assert on the affordances by name, not on <form>.)
-  const detail = await (await get(`/admin/users/${ada}`, readOnly)).text();
+  const detail = await (await get(`/auth-admin/users/${ada}`, readOnly)).text();
   assert.doesNotMatch(detail, /Save changes/);
   assert.doesNotMatch(detail, /Generate recovery code/);
   assert.doesNotMatch(detail, /Delete user/);
   assert.doesNotMatch(detail, /Save permissions/);
   assert.match(detail, /type="checkbox"[^>]*disabled/); // the permissions are shown, just not editable
 
-  const group = await (await get("/admin/groups/eng", readOnly)).text();
+  const group = await (await get("/auth-admin/groups/eng", readOnly)).text();
   assert.doesNotMatch(group, /Add a member/);
   assert.doesNotMatch(group, /Delete group/);
   assert.doesNotMatch(group, /Save permissions/);
 
   // The OAuth2-clients screen is held to the same rule.
-  const clientsRes = await get("/admin/clients", ["oauth2-clients:read"]);
+  const clientsRes = await get("/auth-admin/clients", ["oauth2-clients:read"]);
   assert.equal(clientsRes.status, 200); // a real render, not the capability-missing 503
   const clients = await clientsRes.text();
   assert.match(clients, /Reporting/); // the list is there — that's what :read buys
-  assert.doesNotMatch(clients, /href="\/admin\/clients\/new"/);
+  assert.doesNotMatch(clients, /href="\/auth-admin\/clients\/new"/);
   // The detail page is where Delete lives, so check it too and not just the list.
-  const clientDetail = await (await get("/admin/clients/existing", ["oauth2-clients:read"])).text();
+  const clientDetail = await (await get("/auth-admin/clients/existing", ["oauth2-clients:read"])).text();
   assert.match(clientDetail, /Reporting/);
   assert.doesNotMatch(clientDetail, /clients\/existing\/delete/);
 
   // A write-intent GET — a create form or a delete-confirm — refuses a reader outright rather than
   // rendering a form whose submit would 403.
-  for (const path of ["/admin/users/new", "/admin/groups/new", `/admin/users/${ada}/delete`, "/admin/groups/eng/delete"]) {
+  for (const path of ["/auth-admin/users/new", "/auth-admin/groups/new", `/auth-admin/users/${ada}/delete`, "/auth-admin/groups/eng/delete"]) {
     assert.equal((await get(path, readOnly)).status, 403, path);
   }
-  assert.equal((await get("/admin/clients/new", ["oauth2-clients:read"])).status, 403);
+  assert.equal((await get("/auth-admin/clients/new", ["oauth2-clients:read"])).status, 403);
 
   // A writer sees the affordances the reader didn't.
-  const writable = await (await get(`/admin/users/${ada}`, ["users:read", "users:write"])).text();
+  const writable = await (await get(`/auth-admin/users/${ada}`, ["users:read", "users:write"])).text();
   assert.match(writable, /Save changes/);
   assert.match(writable, /Save permissions/);
 });
@@ -563,20 +563,20 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
   });
   const { get, post, token, url } = await adminHarness(t, { hydra });
 
-  await assertAdminGate(url, get, "/admin/clients");
+  await assertAdminGate(url, get, "/auth-admin/clients");
 
   // List: the existing client shows + the "register" link.
-  const listHtml = await (await get("/admin/clients")).text();
-  assert.match(listHtml, /href="\/admin\/clients\/existing"/);
-  assert.match(listHtml, /href="\/admin\/clients\/new"/);
+  const listHtml = await (await get("/auth-admin/clients")).text();
+  assert.match(listHtml, /href="\/auth-admin\/clients\/existing"/);
+  assert.match(listHtml, /href="\/auth-admin\/clients\/new"/);
   assert.match(listHtml, /Reporting/);
 
   // Register: the form renders (with confidential-vs-public guidance); a valid post creates the
   // client and shows the one-time secret + id.
-  const formHtml = await (await get("/admin/clients/new")).text();
+  const formHtml = await (await get("/auth-admin/clients/new")).text();
   assert.match(formHtml, /Register client/);
   assert.match(formHtml, /keep a secret/i); // guidance on the public-vs-confidential choice (apostrophes arrive escaped: t() text goes through <%= %>)
-  const created = await post("/admin/clients", `_csrf=${token}&name=Grafana&redirectUris=${encodeURIComponent("https://graf/cb")}&scope=openid+offline_access`);
+  const created = await post("/auth-admin/clients", `_csrf=${token}&name=Grafana&redirectUris=${encodeURIComponent("https://graf/cb")}&scope=openid+offline_access`);
   assert.equal(created.status, 200); // not a redirect — the secret is shown once
   const createdHtml = await created.text();
   assert.match(createdHtml, /Client registered/);
@@ -586,26 +586,26 @@ test("admin OAuth2 clients screen: gate, list, register (one-time secret), detai
 
   // Invalid input (missing redirect URI) and a missing CSRF token are both refused, nothing created.
   const before = store.length;
-  assert.equal((await post("/admin/clients", `_csrf=${token}&name=NoRedirect&redirectUris=`)).status, 400);
-  assert.equal((await post("/admin/clients", `name=x&redirectUris=${encodeURIComponent("https://x/cb")}`)).status, 403);
+  assert.equal((await post("/auth-admin/clients", `_csrf=${token}&name=NoRedirect&redirectUris=`)).status, 400);
+  assert.equal((await post("/auth-admin/clients", `name=x&redirectUris=${encodeURIComponent("https://x/cb")}`)).status, 403);
   assert.equal(store.length, before);
 
   // Detail: read-only info, never the secret again, a delete control.
-  const detail = await (await get("/admin/clients/existing")).text();
+  const detail = await (await get("/auth-admin/clients/existing")).text();
   assert.match(detail, /reporting\.example\/cb/);
   assert.doesNotMatch(detail, /Client secret/i); // the secret is shown only once, at creation
   assert.match(detail, /delete and re-register/i); // no edit: the lifecycle guidance is surfaced
-  assert.match(detail, /href="\/admin\/clients\/existing\/delete"/);
+  assert.match(detail, /href="\/auth-admin\/clients\/existing\/delete"/);
 
   // Delete: a confirm step (GET) then the POST removes the client, back to the list.
-  assert.match(await (await get("/admin/clients/existing/delete")).text(), /Cancel/);
-  const del = await post("/admin/clients/existing/delete", `_csrf=${token}`);
+  assert.match(await (await get("/auth-admin/clients/existing/delete")).text(), /Cancel/);
+  const del = await post("/auth-admin/clients/existing/delete", `_csrf=${token}`);
   assert.equal(del.status, 303);
-  assert.equal(del.headers.get("location"), "/admin/clients");
+  assert.equal(del.headers.get("location"), "/auth-admin/clients");
   assert.ok(!store.some((c) => c.client_id === "existing"));
 
   // Unknown id → 404; malformed %-encoding doesn't 500.
-  assert.equal((await get("/admin/clients/does-not-exist")).status, 404);
-  assert.equal((await get("/admin/clients/%ZZ")).status, 404);
+  assert.equal((await get("/auth-admin/clients/does-not-exist")).status, 404);
+  assert.equal((await get("/auth-admin/clients/%ZZ")).status, 404);
 });
 

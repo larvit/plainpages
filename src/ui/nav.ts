@@ -23,9 +23,9 @@ export interface NavNode extends Gate {
 // order → hide, then the per-user gate filter runs last.
 export interface NavOverride {
   groups?: NavGroupSpec[]; // wrap top-level nodes (by id) under a new header
-  hide?: string[]; // remove nodes by id, at any depth (incl. a group's id)
+  hide?: string[]; // remove nodes by id, at any depth (incl. a group's id), and profile-menu entries
   order?: string[]; // reorder top-level nodes by id; unlisted keep their order, after
-  rename?: Record<string, string>; // id → replacement label
+  rename?: Record<string, string>; // id → replacement label, for a node or a profile-menu entry
 }
 
 export interface NavGroupSpec {

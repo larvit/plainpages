@@ -36,8 +36,8 @@ test("grantDiff ignores anything the plugins don't declare, in both directions",
 });
 
 test("buildPermissionPicker ticks what is held and carries each declaration's description", () => {
-  const picker = buildPermissionPicker({ action: "/admin/users/u1/permissions", declared, direct: ["users:write"] });
-  assert.equal(picker.action, "/admin/users/u1/permissions");
+  const picker = buildPermissionPicker({ action: "/auth-admin/users/u1/permissions", declared, direct: ["users:write"] });
+  assert.equal(picker.action, "/auth-admin/users/u1/permissions");
   assert.deepEqual(picker.choices.map((c) => c.name), ["users:read", "users:write", "groups:read"]);
   assert.deepEqual(picker.choices.map((c) => c.checked), [false, true, false]);
   assert.equal(picker.choices[0]?.description, "View users");

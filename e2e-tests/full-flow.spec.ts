@@ -55,7 +55,7 @@ test.describe.serial("authenticated admin journey", () => {
   // The list screens rebuild their query from the list state (sort/page/filter), so they are where a
   // chosen language is most easily dropped; the core building blocks carry it through.
   test("a sorted, paged admin list keeps the visitor's language", async () => {
-    await page.goto("/admin/users?locale=sv-SE");
+    await page.goto("/auth-admin/users?locale=sv-SE");
     await expect(page.locator("html")).toHaveAttribute("lang", "sv-SE");
     await expect(page.getByRole("heading", { name: "Användare" })).toBeVisible();
 
@@ -80,7 +80,7 @@ test.describe.serial("authenticated admin journey", () => {
   // A POST that re-renders a page: the write must keep the language, and the picker — which is on
   // every page — must point somewhere that answers GET rather than at the POST-only URL.
   test("a write keeps the visitor's language, and the picker still works on the POST-rendered page", async () => {
-    await page.goto("/admin/users?locale=sv-SE");
+    await page.goto("/auth-admin/users?locale=sv-SE");
     await page.getByRole("link", { name: "Ny användare" }).click();
     await page.fill('input[name="email"]', `lang-${suffix}@plainpages.local`);
     await page.getByRole("button", { name: "Skapa användare" }).click();
@@ -89,7 +89,7 @@ test.describe.serial("authenticated admin journey", () => {
 
     // Open the new user's edit page the way the CRUD test does — the row's Edit link carries the id.
     const row = page.locator("tr", { hasText: `lang-${suffix}@plainpages.local` });
-    const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
+    const editHref = await row.locator('a[href^="/auth-admin/users/"]').first().getAttribute("href");
     await page.goto(`${editHref}`);
     await expect(page.locator('button[aria-label="Språk"]')).toHaveCount(1);
     await page.getByRole("button", { name: "Skapa återställningskod" }).click(); // POST-only route
@@ -108,33 +108,33 @@ test.describe.serial("authenticated admin journey", () => {
     // seeds exactly those), so both gated sections are present in the menu (collapsed by default →
     // assert they're in the DOM, not necessarily visible).
     await page.goto("/dashboard");
-    await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(1);
+    await expect(page.locator('.sidebar a[href="/auth-admin/users"]')).toHaveCount(1);
     await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(1);
   });
 
   test("users CRUD: create a user, see it listed, then delete it via the confirm step", async () => {
     const email = `e2e-${suffix}@plainpages.local`;
-    await page.goto("/admin/users/new");
+    await page.goto("/auth-admin/users/new");
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="first"]', "E2E");
     await page.fill('input[name="last"]', "User");
     await page.locator('.form-card button[type="submit"]').click();
 
-    await expect(page).toHaveURL(/\/admin\/users(\?|$)/); // PRG back to the list
+    await expect(page).toHaveURL(/\/auth-admin\/users(\?|$)/); // PRG back to the list
     const row = page.locator("tr", { hasText: email });
     await expect(row).toBeVisible();
 
     // Row actions sit behind the kebab popover: opening it reveals them, in the top layer, so the
     // scrolling table around the row cannot clip the panel.
     await row.locator("button.kebab").click();
-    await expect(row.locator('a[href^="/admin/users/"]').first()).toBeVisible();
+    await expect(row.locator('a[href^="/auth-admin/users/"]').first()).toBeVisible();
 
     // Delete through the confirm interstitial (the row's Edit link carries the id).
-    const editHref = await row.locator('a[href^="/admin/users/"]').first().getAttribute("href");
+    const editHref = await row.locator('a[href^="/auth-admin/users/"]').first().getAttribute("href");
     await page.goto(`${editHref}/delete`);
     await page.getByRole("button", { name: "Delete user" }).click(); // the confirm form's danger button
 
-    await expect(page).toHaveURL(/\/admin\/users(\?|$)/);
+    await expect(page).toHaveURL(/\/auth-admin\/users(\?|$)/);
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
   });
 
@@ -143,8 +143,8 @@ test.describe.serial("authenticated admin journey", () => {
     test.setTimeout(90_000);
     const email = `admin-recovery-${suffix}@plainpages.local`;
     await createIdentity(email);
-    await page.goto("/admin/users");
-    const editHref = await page.locator("tr", { hasText: email }).locator('a[href^="/admin/users/"]').first().getAttribute("href");
+    await page.goto("/auth-admin/users");
+    const editHref = await page.locator("tr", { hasText: email }).locator('a[href^="/auth-admin/users/"]').first().getAttribute("href");
     await page.goto(editHref!);
     await page.getByRole("button", { name: "Generate recovery code" }).click();
     const code = await page.locator(".recovery-code code").innerText();
@@ -162,27 +162,27 @@ test.describe.serial("authenticated admin journey", () => {
     // A Keto set exists only while it has ≥1 member, so create needs a first member (the form
     // enforces it); pick the first option (a user) from the required picker.
     const group = `e2e-grp-${suffix}`;
-    await page.goto("/admin/groups/new");
+    await page.goto("/auth-admin/groups/new");
     await page.fill('input[name="name"]', group);
     await page.locator('select[name="member"]').selectOption({ index: 1 });
     await page.locator('.form-card button[type="submit"]').click();
-    await expect(page).toHaveURL(/\/admin\/groups(\?|\/|$)/);
+    await expect(page).toHaveURL(/\/auth-admin\/groups(\?|\/|$)/);
     await expect(page.locator("main")).toContainText(group);
 
     // Permissions are declared in plugin code, so the group's detail page offers them as a fixed
     // checkbox list rather than a create form — there is no Permissions screen to visit.
-    await page.goto(`/admin/groups/${group}`);
-    allowConsole(/status of 409 .*\/admin\/groups\/[^/]+\/permissions/); // the stale save below, refused on purpose
+    await page.goto(`/auth-admin/groups/${group}`);
+    allowConsole(/status of 409 .*\/auth-admin\/groups\/[^/]+\/permissions/); // the stale save below, refused on purpose
     // A second browser signed in as the same admin, opened before the save below, so its form carries the old grants.
     const staleTab = await watchedPage(await browser.newContext({ storageState: await page.context().storageState() }));
-    await staleTab.goto(`/admin/groups/${group}`);
+    await staleTab.goto(`/auth-admin/groups/${group}`);
     const scheduling = page.locator('input[name="permission"][value="scheduling:read"]');
     await expect(scheduling).toHaveCount(1); // declared by the reference plugin, so it's on offer
     await expect(scheduling).not.toBeChecked();
     await scheduling.check();
     await page.locator('form:has(input[name="permission"]) button[type="submit"]').click();
 
-    await expect(page).toHaveURL(new RegExp(`/admin/groups/${group}`));
+    await expect(page).toHaveURL(new RegExp(`/auth-admin/groups/${group}`));
     await expect(page.getByText("Permissions saved.")).toBeVisible();
     await expect(page.locator('input[name="permission"][value="scheduling:read"]')).toBeChecked();
 
@@ -197,7 +197,7 @@ test.describe.serial("authenticated admin journey", () => {
 
   test("OAuth2 clients CRUD: register a client (writes go to Hydra), see the one-time secret once, then delete it via the confirm step", async () => {
     const name = `e2e-client-${suffix}`;
-    await page.goto("/admin/clients");
+    await page.goto("/auth-admin/clients");
     await page.getByRole("link", { name: "Register client" }).click();
     await page.fill('input[name="name"]', name);
     await page.fill('textarea[name="redirectUris"]', "https://app.example.com/callback");
@@ -210,17 +210,17 @@ test.describe.serial("authenticated admin journey", () => {
     await expect(page.locator("#csecret")).toHaveValue(/.+/);
 
     // Listed; the row header links to the plain detail, which never shows the secret again.
-    await page.goto("/admin/clients");
+    await page.goto("/auth-admin/clients");
     const row = page.locator("tr", { hasText: name });
     await expect(row).toBeVisible();
     await row.getByRole("link", { name }).click();
-    await expect(page).toHaveURL(new RegExp(`/admin/clients/${clientId}`));
+    await expect(page).toHaveURL(new RegExp(`/auth-admin/clients/${clientId}`));
     await expect(page.locator("#csecret")).toHaveCount(0);
 
     // Delete through the confirm interstitial (danger link on the detail → confirm form's button).
     await page.getByRole("link", { name: "Delete client" }).click();
     await page.getByRole("button", { name: "Delete client" }).click();
-    await expect(page).toHaveURL(/\/admin\/clients(\?|$)/);
+    await expect(page).toHaveURL(/\/auth-admin\/clients(\?|$)/);
     await expect(page.locator("tr", { hasText: name })).toHaveCount(0);
   });
 
@@ -237,7 +237,7 @@ test.describe.serial("authenticated admin journey", () => {
   });
 
   test("plugin settings: the screen names the variable that sets each declared key", async () => {
-    await page.goto("/admin/plugin-settings");
+    await page.goto("/auth-admin/plugin-settings");
     await expect(page.locator("h1")).toHaveText("Plugin settings");
     // The reference plugin's one declared setting, and the variable an operator would set for it.
     const scheduling = page.locator("table").filter({ hasText: "PLUGIN_SETTING_SCHEDULING_UPSTREAM" });
@@ -257,7 +257,7 @@ test.describe.serial("authenticated admin journey", () => {
     // The session is gone: /dashboard is gated, so it bounces back to the login page (no admin nav).
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login(\?|$)/);
-    await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(0);
+    await expect(page.locator('.sidebar a[href="/auth-admin/users"]')).toHaveCount(0);
   });
 });
 
@@ -265,13 +265,13 @@ test("return_to: a deep link while logged out returns to that page after login",
   test.setTimeout(90_000);
   // A gated deep link, logged out → bounced to the themed login (return_to is baked into the Kratos
   // flow server-side, so it's consumed, not shown in the settled URL).
-  await page.goto("/admin/users");
+  await page.goto("/auth-admin/users");
   await expect(page).toHaveURL(/\/login(\?|$)/);
   await page.fill('input[name="identifier"]', ADMIN_EMAIL);
   await page.fill('input[name="password"]', ADMIN_PASSWORD);
   await page.locator('.auth-form button[type="submit"]').click();
   // Completion routes through /auth/complete (mints the JWT) and on to the requested page, not the dashboard.
-  await expect(page).toHaveURL(/\/admin\/users(\?|$)/);
+  await expect(page).toHaveURL(/\/auth-admin\/users(\?|$)/);
   await expect(page.locator("h1")).toHaveText("Users");
 });
 
@@ -294,7 +294,7 @@ test("mocked SSO login: the provider button signs a user in via OIDC", async ({ 
   // Mock OIDC auto-approves → Kratos creates the identity → /auth/complete → dashboard, signed in.
   await expect(page.locator(".profile-mail")).toHaveText(SSO_EMAIL);
   // A fresh SSO identity holds no permissions, so the gated Admin section stays hidden.
-  await expect(page.locator('.sidebar a[href="/admin/users"]')).toHaveCount(0);
+  await expect(page.locator('.sidebar a[href="/auth-admin/users"]')).toHaveCount(0);
 });
 
 // The newest one-time code Kratos' courier mailed to `to`, read from the mail catcher (compose.full.yml).

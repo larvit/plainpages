@@ -59,15 +59,15 @@ test("validateClientInput requires a name, ≥1 redirect URI, and absolute redir
 test("buildClientsListModel filters by search, paginates; the name links to the detail page", () => {
   const clients = Array.from({ length: 30 }, (_, i) => ({ client_id: `id-${String(i).padStart(2, "0")}`, client_name: `app-${String(i).padStart(2, "0")}`, token_endpoint_auth_method: "client_secret_basic" }));
 
-  const all = buildClientsListModel({ clients, url: "http://x/admin/clients" });
+  const all = buildClientsListModel({ clients, url: "http://x/auth-admin/clients" });
   assert.equal(all.pagination.summary.total, 30);
   assert.equal(all.table.rows.length, 25); // default page size
   assert.equal(all.title, "OAuth2 clients");
   const first = all.table.rows[0]!.cells[0] as { rowHeader: { href: string; text: string } };
   assert.equal(first.rowHeader.text, "app-00");
-  assert.equal(first.rowHeader.href, "/admin/clients/id-00");
+  assert.equal(first.rowHeader.href, "/auth-admin/clients/id-00");
 
-  const one = buildClientsListModel({ clients, url: "http://x/admin/clients?q=app-07" });
+  const one = buildClientsListModel({ clients, url: "http://x/auth-admin/clients?q=app-07" });
   assert.equal(one.pagination.summary.total, 1);
   assert.deepEqual(one.filterBar.pills.map((p) => p.label), ["Search"]);
 });
@@ -75,7 +75,7 @@ test("buildClientsListModel filters by search, paginates; the name links to the 
 test("buildClientFormModel: a register form with name + scope fields; values reflected on error", () => {
   const m = buildClientFormModel({ csrfToken: "tok.sig" });
   assert.equal(m.title, "Register client");
-  assert.equal(m.form.action, "/admin/clients");
+  assert.equal(m.form.action, "/auth-admin/clients");
   assert.equal(m.form.submitLabel, "Register client");
   assert.equal(m.form.csrfToken, "tok.sig");
   assert.equal(m.form.nameField.required, true);
@@ -94,7 +94,7 @@ test("buildClientDetailModel: client info + delete action; the one-time secret +
 
   const plain = buildClientDetailModel({ client });
   assert.equal(plain.title, "Acme");
-  assert.equal(plain.delete.action, "/admin/clients/c1/delete");
+  assert.equal(plain.delete.action, "/auth-admin/clients/c1/delete");
   assert.equal(plain.created, false);
   assert.equal(plain.secret, undefined);
 

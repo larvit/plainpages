@@ -56,22 +56,22 @@ test("memberView resolves a user subject to its email (else the raw id) and a su
 test("buildGroupsListModel filters by search, sorts, paginates; the name links to the detail page", () => {
   const groups = Array.from({ length: 30 }, (_, i) => ({ memberCount: i + 1, name: `team-${String(i).padStart(2, "0")}` }));
 
-  const all = buildGroupsListModel({ groups, url: "http://x/admin/groups" });
+  const all = buildGroupsListModel({ groups, url: "http://x/auth-admin/groups" });
   assert.equal(all.pagination.summary.total, 30);
   assert.equal(all.table.rows.length, 25); // default page size
   assert.equal(all.title, "Groups");
   // The group name is the row header, linking to its detail page.
   const first = all.table.rows[0]!.cells[0] as { rowHeader: { href: string; text: string } };
   assert.equal(first.rowHeader.text, "team-00");
-  assert.equal(first.rowHeader.href, "/admin/groups/team-00");
+  assert.equal(first.rowHeader.href, "/auth-admin/groups/team-00");
 
   // Search narrows + shows a pill.
-  const one = buildGroupsListModel({ groups, url: "http://x/admin/groups?q=team-07" });
+  const one = buildGroupsListModel({ groups, url: "http://x/auth-admin/groups?q=team-07" });
   assert.equal(one.pagination.summary.total, 1);
   assert.deepEqual(one.filterBar.pills.map((p) => p.label), ["Search"]);
 
   // Sort by members descending puts the biggest group first.
-  const desc = buildGroupsListModel({ groups, url: "http://x/admin/groups?sort=-members" });
+  const desc = buildGroupsListModel({ groups, url: "http://x/auth-admin/groups?sort=-members" });
   assert.equal((desc.table.rows[0]!.cells[0] as { rowHeader: { text: string } }).rowHeader.text, "team-29");
 });
 
@@ -79,7 +79,7 @@ test("buildGroupFormModel: a create form with a required name field + member opt
   const options = [{ label: "ada@example.com", value: `user:${uid(1)}` }, { label: "eng (group)", value: "group:eng" }];
   const m = buildGroupFormModel({ csrfToken: "tok.sig", memberOptions: options });
   assert.equal(m.title, "New group");
-  assert.equal(m.form.action, "/admin/groups");
+  assert.equal(m.form.action, "/auth-admin/groups");
   assert.equal(m.form.submitLabel, "Create group");
   assert.equal(m.form.csrfToken, "tok.sig");
   assert.equal(m.form.nameField.name, "name");
@@ -105,8 +105,8 @@ test("buildGroupDetailModel: members → rows, add-options exclude current membe
   const m = buildGroupDetailModel({ candidates, group: { name: "eng" }, members });
   assert.equal(m.title, "eng");
   assert.equal(m.members.rows.length, 2);
-  assert.equal(m.members.action, "/admin/groups/eng/members/delete");
-  assert.equal(m.add.action, "/admin/groups/eng/members");
+  assert.equal(m.members.action, "/auth-admin/groups/eng/members/delete");
+  assert.equal(m.add.action, "/auth-admin/groups/eng/members");
   assert.deepEqual(m.add.options.map((o) => o.value), [`user:${uid(2)}`, "group:ops"]);
-  assert.equal(m.delete.action, "/admin/groups/eng/delete");
+  assert.equal(m.delete.action, "/auth-admin/groups/eng/delete");
 });

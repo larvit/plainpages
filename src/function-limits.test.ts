@@ -21,7 +21,7 @@ const grandfathered: Record<string, { lines?: number; complexity?: number }> = {
   "src/plugin-host/discovery.ts discoverPlugins": { lines: 74, complexity: 22 },
   "src/config.ts loadConfig": { lines: 52 },
   "release-tooling/dockerhub-overview.ts main": { lines: 57 },
-  "examples/plugins/admin/admin-users.ts buildUserFormModel": { complexity: 21 },
+  "examples/plugins/auth-admin/admin-users.ts buildUserFormModel": { complexity: 21 },
 };
 
 interface AstNode {

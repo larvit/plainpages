@@ -15,7 +15,7 @@ const member: User = { email: "bo@x.io", id: "u2", permissions: ["scheduling:rea
 const CHROME = { brand: { name: "Test" }, csrfToken: "tok", nav: [], signInHref: "/login", user: { email: "", initials: "T", name: "Tester" } } as PageChrome;
 
 function fakeCtx(opts: { body?: string; method?: string; user?: User | null; verifyCsrf?: (s: string | null | undefined) => boolean } = {}): RequestContext {
-  const url = new URL("http://localhost/admin/users");
+  const url = new URL("http://localhost/auth-admin/users");
   const req = Readable.from(opts.body != null ? [Buffer.from(opts.body)] : []) as unknown as IncomingMessage;
   req.method = opts.method ?? "GET";
   return {
@@ -36,7 +36,7 @@ test("ADMIN_NAV: an ungated Admin header whose screens each gate on their own re
   assert.equal(ADMIN_NAV.permission, undefined);
   assert.equal(ADMIN_NAV.href, undefined);
   assert.equal(ADMIN_NAV.open, undefined); // the host current-marks + opens; the fragment stays static
-  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/admin/users", "/admin/groups", "/admin/clients", "/admin/plugin-settings"]);
+  assert.deepEqual(ADMIN_NAV.children?.map((c) => c.href), ["/auth-admin/users", "/auth-admin/groups", "/auth-admin/clients", "/auth-admin/plugin-settings"]);
   assert.deepEqual(ADMIN_NAV.children?.map((c) => c.permission), ["users:read", "groups:read", "oauth2-clients:read", "plugin-settings:read"]);
   // Labels are catalog keys; the host translates them with this plugin's catalog when it composes
   // the menu, so what a visitor sees is the en-US (or sv-SE …) wording behind these keys.
@@ -64,7 +64,7 @@ test("actionForMethod: read for GET/HEAD, write for every mutation", () => {
 // ---- auth gates ----
 
 test("requirePermission: anonymous → 401→/login, wrong permission → 403, and read never grants write", () => {
-  assert.throws(() => requirePermission(fakeCtx({ user: null }), "users"), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login?return_to=%2Fadmin%2Fusers"); // bounce remembers the page
+  assert.throws(() => requirePermission(fakeCtx({ user: null }), "users"), (e: unknown) => e instanceof GuardError && e.status === 401 && e.location === "/login?return_to=%2Fauth-admin%2Fusers"); // bounce remembers the page
   assert.throws(() => requirePermission(fakeCtx({ user: member }), "users"), (e: unknown) => e instanceof GuardError && e.status === 403);
   assert.equal(requirePermission(fakeCtx({ user: reader }), "users"), reader);
   // The whole point of the split: users:read opens the list but not the create/delete POSTs.

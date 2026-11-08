@@ -29,6 +29,12 @@ test("findConflicts: duplicate nav id is an error, a shared permission name only
     p({ id: "b", nav: [{ id: "dup", label: "B" }] }),
   ]);
   assert.ok(navDup.some((c) => c.kind === "nav-id" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
+  // The override targets profile-menu entries by the same ids, so one namespace covers both.
+  const profileDup = findConflicts([
+    p({ id: "a", nav: [{ id: "dup", label: "A" }] }),
+    p({ id: "b", profileMenu: [{ href: "/b", id: "dup", label: "B", session: true }] }),
+  ]);
+  assert.ok(profileDup.some((c) => c.kind === "nav-id" && c.level === "error" && c.plugins.includes("a") && c.plugins.includes("b")));
 
   // Sharing a permission across plugins is legitimate → warn, not error.
   const permissionDup = findConflicts([

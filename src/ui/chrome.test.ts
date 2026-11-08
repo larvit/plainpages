@@ -113,3 +113,18 @@ test("profile menu entries are gated like nav nodes, translated by their plugin 
   assert.deepEqual(entries({ permissions: ["billing:read"] }).map((e) => e.label), ["Inställningar", "account.billing", "Help"]);
   assert.deepEqual(entries({ signedIn: false }).map((e) => e.label), []); // an anonymous visitor has no profile menu
 });
+
+test("the central override hides and renames a profile-menu entry by its id, which is not rendered", () => {
+  const links = buildPluginChrome({
+    menu: { ...DEFAULT_MENU, override: { hide: ["help"], rename: { settings: "Preferences" } } },
+    plugins: [{
+      apiVersion: "1.0.0", id: "account",
+      profileMenu: [
+        { href: "/account/settings", id: "settings", label: "account.settings", session: true },
+        { href: "/account/help", id: "help", label: "Help", public: true },
+      ],
+    }],
+    user: { email: "ada@x.io", id: "u1", permissions: [] },
+  }).user.profileLinks;
+  assert.deepEqual(links, [{ href: "/account/settings", label: "Preferences" }]);
+});

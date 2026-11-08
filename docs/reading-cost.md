@@ -440,3 +440,20 @@ Read most (opens and searches):
 - `src/ci-gate.test.ts` 1
 - `src/function-limits.test.ts` 1
 - `src/plugin-host/discovery.ts` 1
+
+## Reading cost, chunk 7100f96a1d8d, finished 2026-11-08T20:19:54Z
+
+96357 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `AGENTS.md` 11
+- `README.md` 4
+- `docs/decisions.md` 4
+- `.gitea/workflows/release.yml` 2
+- `examples/plugins/admin/admin-shared.ts` 2
+- `src/postgres.test.ts` 2
+- `todo.md` 2
+- `src/auth/gate.ts` 1
+- `src/auth/jwt.ts` 1
+- `src/server.ts` 1

@@ -2,8 +2,8 @@
 //   cp examples/config/menu.ts config/menu.ts
 // Absent config = built-in defaults.
 //
-// Brand the app and reorder/rename/group/hide nav nodes (by their `id`) across all plugins — the
-// override always wins, applied before the per-user permission filter. Every field is optional.
+// Brand the app, reorder/rename/group/hide nav nodes and rename/hide profile-menu entries (by their
+// `id`) across all plugins — the override always wins, applied before the per-user permission filter. Every field is optional.
 // See src/ui/menu-config.ts (types), src/ui/nav.ts (NavOverride), README → The menu system.
 
 import { defineMenu } from "#menu-config";

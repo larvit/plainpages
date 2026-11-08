@@ -38,42 +38,42 @@ test("toUserView maps traits → name/initials/email/state; falls back to the em
 test("buildUsersListModel filters by search + status, sorts, and paginates", () => {
   const people = Array.from({ length: 30 }, (_, i) => identity(i + 1, { state: i % 2 ? "inactive" : "active" }));
 
-  const all = buildUsersListModel({ identities: people, url: "http://x/admin/users" });
+  const all = buildUsersListModel({ identities: people, url: "http://x/auth-admin/users" });
   assert.equal(all.pagination.summary.total, 30);
   assert.equal(all.table.rows.length, 25); // default page size
   assert.equal(all.title, "Users");
 
   // Search narrows to one and shows a pill.
-  const one = buildUsersListModel({ identities: people, url: "http://x/admin/users?q=user7%40example.com" });
+  const one = buildUsersListModel({ identities: people, url: "http://x/auth-admin/users?q=user7%40example.com" });
   assert.equal(one.pagination.summary.total, 1);
   assert.deepEqual(one.filterBar.pills.map((p) => p.label), ["Search"]);
 
   // Status filter keeps only inactive identities.
-  const inactive = buildUsersListModel({ identities: people, url: "http://x/admin/users?status=inactive" });
+  const inactive = buildUsersListModel({ identities: people, url: "http://x/auth-admin/users?status=inactive" });
   assert.equal(inactive.pagination.summary.total, 15);
   assert.deepEqual(inactive.filterBar.pills.map((p) => p.label), ["Status"]);
 
   // Sort by email descending reverses the order.
   const emailOf = (m: ReturnType<typeof buildUsersListModel>, i: number) => (m.table.rows[i]!.cells[1]) as string;
-  const desc = buildUsersListModel({ identities: people, url: "http://x/admin/users?sort=-email" });
+  const desc = buildUsersListModel({ identities: people, url: "http://x/auth-admin/users?sort=-email" });
   assert.ok(emailOf(desc, 0) > emailOf(desc, 1));
 
   // Edit link points at the per-identity route.
-  assert.match(all.table.rows[0]!.actions![0]!.href!, new RegExp(`/admin/users/${people[0]!.id}$`));
+  assert.match(all.table.rows[0]!.actions![0]!.href!, new RegExp(`/auth-admin/users/${people[0]!.id}$`));
   assert.deepEqual([all.table.rows[0]!.actions![0]!.icon, all.table.rows[0]!.actions![0]!.label], ["i-edit", "Edit"]);
 });
 
 // The detail page of a `users:read` holder is read-only, so the row action must not promise an edit.
 test("buildUsersListModel: a read-only holder's row action says View, with the same target", () => {
   const people: Identity[] = [{ id: "u1", traits: { email: "a@x.io" } }];
-  const action = buildUsersListModel({ canWrite: false, identities: people, url: "http://x/admin/users" }).table.rows[0]!.actions![0]!;
-  assert.deepEqual([action.icon, action.label, action.href], ["i-eye", "View", "/admin/users/u1"]);
+  const action = buildUsersListModel({ canWrite: false, identities: people, url: "http://x/auth-admin/users" }).table.rows[0]!.actions![0]!;
+  assert.deepEqual([action.icon, action.label, action.href], ["i-eye", "View", "/auth-admin/users/u1"]);
 });
 
 test("buildUserFormModel: create mode has an editable email + password, no edit actions", () => {
   const m = buildUserFormModel({ csrfToken: "tok.sig" });
   assert.equal(m.title, "New user");
-  assert.equal(m.form.action, "/admin/users");
+  assert.equal(m.form.action, "/auth-admin/users");
   assert.equal(m.form.submitLabel, "Create user");
   assert.equal(m.form.csrfToken, "tok.sig");
   const names = m.form.fields.map((f) => f.name);
@@ -85,7 +85,7 @@ test("buildUserFormModel: create mode has an editable email + password, no edit 
 test("buildUserFormModel: edit mode prefills, locks email, and exposes state/delete/recovery actions", () => {
   const m = buildUserFormModel({ identity: identity(3) });
   assert.equal(m.title, "Edit user");
-  assert.equal(m.form.action, `/admin/users/${id(3)}`);
+  assert.equal(m.form.action, `/auth-admin/users/${id(3)}`);
   assert.equal(m.form.submitLabel, "Save changes");
   const email = m.form.fields.find((f) => f.name === "email")!;
   assert.equal(email.value, "user3@example.com");
@@ -109,7 +109,7 @@ test("buildUserFormModel: the title and breadcrumb say New, Edit, or View for a 
   for (const [opts, title, crumb] of cases) {
     const m = buildUserFormModel(opts);
     assert.equal(m.title, title);
-    assert.deepEqual(m.breadcrumbs, [{ href: "/admin/users", label: "Users" }, { label: crumb }]);
+    assert.deepEqual(m.breadcrumbs, [{ href: "/auth-admin/users", label: "Users" }, { label: crumb }]);
   }
 });
 

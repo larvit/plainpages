@@ -34,7 +34,11 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     if (owners.length > 1) out.push({ kind: "route", level: "error", message: `${owners.length} routes resolve to "${key}"`, plugins: uniq(owners) });
   });
 
-  collect(plugins, (plugin, push) => collectNavIds(plugin.nav, push)).forEach((owners, id) => {
+  const overrideTargets = (plugin: Plugin, push: (id: string) => void): void => {
+    collectNavIds(plugin.nav, push);
+    for (const entry of plugin.profileMenu ?? []) if (entry.id != null) push(entry.id);
+  };
+  collect(plugins, overrideTargets).forEach((owners, id) => {
     if (owners.length > 1) out.push({ kind: "nav-id", level: "error", message: `nav id "${id}" used ${owners.length}×; override targets ids, so they must be unique`, plugins: uniq(owners) });
   });
 

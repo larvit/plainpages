@@ -41,7 +41,7 @@ export default definePlugin({
   ],
 
   // Also offered in the profile dropdown above Sign out, since the page is the visitor's own.
-  profileMenu: [{ href: MINE_PATH, icon: "i-cal", label: "scheduling.nav.mine", session: true }],
+  profileMenu: [{ href: MINE_PATH, icon: "i-cal", id: "scheduling:profile-mine", label: "scheduling.nav.mine", session: true }],
 
   routes: [
     { handler: overview(), method: "GET", path: "/", public: true },

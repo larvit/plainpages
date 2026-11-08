@@ -288,13 +288,13 @@ function withTarget(inner: (deps: UsersDeps, identity: Identity, id: string) => 
 const formResult = (ctx: RequestContext, extra: Parameters<typeof buildUserFormModel>[0]): RouteResult =>
   ({ data: { chrome: ctx.chrome, model: buildUserFormModel({ csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "user-form" });
 
-// GET /admin/users — the filtered/sorted/paged list.
+// GET /auth-admin/users — the filtered/sorted/paged list.
 export const usersList = withUser(async ({ ctx, kratosAdmin }) => {
   const { identities } = await kratosAdmin.listIdentities({ pageSize: LIST_FETCH_SIZE });
   return { data: { chrome: ctx.chrome, model: buildUsersListModel({ canWrite: canWriteUsers(ctx), csrfToken: ctx.chrome.csrfToken, identities, t: ctx.t, url: ctx.url }) }, view: "users" };
 });
 
-// POST /admin/users — create; a Kratos 4xx re-renders the form (400), keeping the input.
+// POST /auth-admin/users — create; a Kratos 4xx re-renders the form (400), keeping the input.
 export const usersCreate = withUser(async ({ ctx, kratosAdmin, user }) => {
   const input = readUserInput((await guardedForm(ctx))!);
   try {
@@ -307,10 +307,10 @@ export const usersCreate = withUser(async ({ ctx, kratosAdmin, user }) => {
   return { redirect: ADMIN_USERS_BASE };
 });
 
-// GET /admin/users/new — the empty create form.
+// GET /auth-admin/users/new — the empty create form.
 export const usersNewForm = withUser(({ ctx }) => Promise.resolve(formResult(ctx, {})), "write");
 
-// GET /admin/users/:id — the edit form, prefilled.
+// GET /auth-admin/users/:id — the edit form, prefilled.
 export const usersEditForm = withTarget(async (deps, identity, id) => {
   const permissions = await userPermissionPicker(deps, id, undefined, isSavedNotice(deps.ctx.url) ? deps.ctx.t("admin.grants.saved") : undefined);
   return formResult(deps.ctx, { canWrite: canWriteUsers(deps.ctx), identity, ...(permissions ? { permissions } : {}) });
@@ -342,7 +342,7 @@ async function userPermissionPicker(deps: UsersDeps, id: string, error?: string,
   };
 }
 
-// POST /admin/users/:id/permissions — the submitted checkboxes are the desired set of *direct*
+// POST /auth-admin/users/:id/permissions — the submitted checkboxes are the desired set of *direct*
 // grants; grant what's newly ticked, revoke what's newly unticked. A change to a user's own grants
 // revokes their live tokens so it lands now rather than at the next re-mint.
 export const usersPermissions = withTarget(async (deps, identity, id) => {
@@ -376,7 +376,7 @@ export const usersPermissions = withTarget(async (deps, identity, id) => {
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}?info-msg=${SAVED_NOTICE}` };
 });
 
-// POST /admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).
+// POST /auth-admin/users/:id — save edits; a Kratos 4xx re-renders the form (400).
 export const usersUpdate = withTarget(async (deps, identity, id) => {
   const { ctx, kratosAdmin } = deps;
   const input = readUserInput((await guardedForm(ctx))!);
@@ -390,7 +390,7 @@ export const usersUpdate = withTarget(async (deps, identity, id) => {
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
 });
 
-// POST /admin/users/:id/state — toggle active/inactive; a deactivation revokes the target's live
+// POST /auth-admin/users/:id/state — toggle active/inactive; a deactivation revokes the target's live
 // tokens now (not after the JWT TTL). Self-protection: an admin can't deactivate their own account.
 export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
   await guardedForm(ctx); // CSRF-verify the POST (no fields read)
@@ -402,7 +402,7 @@ export const usersState = withTarget(async ({ ctx, kratosAdmin, revoke, user }, 
   return { redirect: `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}` };
 });
 
-// GET /admin/users/:id/delete — the deliberate confirm step (zero-JS). Refuses self-delete.
+// GET /auth-admin/users/:id/delete — the deliberate confirm step (zero-JS). Refuses self-delete.
 export const usersDeleteConfirm = withTarget((deps, identity, id) => {
   if (id === deps.user.id) return Promise.resolve({ ...formResult(deps.ctx, { error: deps.ctx.t("admin.users.error.selfDelete"), identity }), status: 400 });
   const back = `${ADMIN_USERS_BASE}/${encodeURIComponent(id)}`;
@@ -415,7 +415,7 @@ export const usersDeleteConfirm = withTarget((deps, identity, id) => {
   }) }, view: "confirm" });
 }, "write");
 
-// POST /admin/users/:id/delete — perform it; revoke the gone account's live tokens. Refuses self-delete.
+// POST /auth-admin/users/:id/delete — perform it; revoke the gone account's live tokens. Refuses self-delete.
 export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user }, identity, id) => {
   await guardedForm(ctx); // CSRF-verify the POST
   if (id === user.id) return { ...formResult(ctx, { error: ctx.t("admin.users.error.selfDelete"), identity }), status: 400 };
@@ -425,7 +425,7 @@ export const usersDelete = withTarget(async ({ ctx, kratosAdmin, revoke, user },
   return { redirect: ADMIN_USERS_BASE };
 });
 
-// POST /admin/users/:id/recovery — mint a one-time recovery code, shown on the edit page.
+// POST /auth-admin/users/:id/recovery — mint a one-time recovery code, shown on the edit page.
 export const usersRecovery = withTarget(async (deps, identity, id) => {
   const { ctx, kratosAdmin } = deps;
   await guardedForm(ctx); // CSRF-verify the POST

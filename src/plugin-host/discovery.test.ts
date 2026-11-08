@@ -128,11 +128,11 @@ test("a route + nav node may be marked public, or session, and load fine", async
   assert.equal(sess?.nav?.[0]?.session, true);
 });
 
-test("`admin` is not reserved — the admin screens ship as a drop-in plugin mounted at /admin", async (t) => {
-  const dir = scaffold(t, { "admin/plugin.ts": full("admin") });
+test("`auth-admin` is not reserved — the admin screens ship as a drop-in plugin mounted at /auth-admin", async (t) => {
+  const dir = scaffold(t, { "auth-admin/plugin.ts": full("auth-admin") });
   const plugins = await discoverPlugins({ dir });
   assert.equal(plugins.length, 1);
-  assert.equal(plugins[0]?.id, "admin");
+  assert.equal(plugins[0]?.id, "auth-admin");
 });
 
 test("a plugin may declare `home` (public /) and `dashboard` (gated /dashboard) handlers", async (t) => {

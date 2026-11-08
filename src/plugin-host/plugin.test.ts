@@ -108,8 +108,8 @@ test("RESERVED_PLUGIN_IDS covers every built-in top-level mount; `home` (the / f
   ]);
   for (const id of builtins) assert.ok(RESERVED_PLUGIN_IDS.has(id), `built-in mount "${id}" must be a reserved plugin id`);
   // "/" is owned by the `home` manifest field (not a /<id> route), so it cannot be shadowed and is
-  // deliberately not reserved — a plugin folder named "home" is legal. `admin` is likewise free: the
-  // admin screens ship as a drop-in plugin mounted at /admin, not a built-in route.
+  // deliberately not reserved — a plugin folder named "home" is legal. `auth-admin` is likewise free:
+  // the admin screens ship as a drop-in plugin mounted at /auth-admin, not a built-in route.
   assert.equal(RESERVED_PLUGIN_IDS.has("home"), false);
-  assert.equal(RESERVED_PLUGIN_IDS.has("admin"), false);
+  assert.equal(RESERVED_PLUGIN_IDS.has("auth-admin"), false);
 });

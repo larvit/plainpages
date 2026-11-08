@@ -20,7 +20,9 @@ export interface ProfileLink {
 }
 
 // What a plugin's `profileMenu` declares: a link plus the one gate that decides who sees it.
-export interface ProfileMenuEntry extends ProfileLink, Gate {}
+export interface ProfileMenuEntry extends ProfileLink, Gate {
+  id?: string; // targets the entry from config/menu.ts's `hide` and `rename`, as on a nav node; not rendered
+}
 
 // `profileLinks` rides on the user, which every view already hands to the shell, so no view needs a new local.
 export interface ShellUser {
@@ -86,13 +88,18 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
 function profileLinks(opts: ChromeOptions, t: Translate, carryLocale: (href: string) => string): ProfileLink[] {
   const user = opts.user ?? null;
   if (!user) return [];
+  const { hide = [], rename = {} } = opts.menu.override;
   return (opts.plugins ?? []).flatMap((plugin) => {
     const pluginT = opts.translatorFor?.(plugin.id) ?? t;
-    return (plugin.profileMenu ?? []).filter((entry) => allows(entry, user)).map((entry) => ({
-      href: carryLocale(entry.href),
-      ...(entry.icon != null ? { icon: entry.icon } : {}),
-      label: pluginT(entry.label),
-    }));
+    const shown = (plugin.profileMenu ?? []).filter((entry) => allows(entry, user) && !(entry.id != null && hide.includes(entry.id)));
+    return shown.map((entry) => {
+      const renamed = entry.id != null ? rename[entry.id] : undefined;
+      return {
+        href: carryLocale(entry.href),
+        ...(entry.icon != null ? { icon: entry.icon } : {}),
+        label: renamed != null ? t(renamed) : pluginT(entry.label),
+      };
+    });
   });
 }
 

@@ -68,7 +68,7 @@ function valueLabel(setting: SettingSummary, t: Translate): string {
   return setting.value ?? t("admin.pluginSettings.unset");
 }
 
-// GET /admin/plugin-settings
+// GET /auth-admin/plugin-settings
 export const pluginSettingsList: RouteHandler = (ctx) => {
   requirePermission(ctx, "plugin-settings");
   return { data: { chrome: ctx.chrome, model: buildPluginSettingsModel({ chrome: ctx.chrome, settings: ctx.declaredSettings, t: ctx.t }) }, view: "plugin-settings" };

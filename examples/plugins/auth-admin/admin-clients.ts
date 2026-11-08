@@ -257,13 +257,13 @@ const canWriteClients = (ctx: RequestContext): boolean => can(ctx, permissionNam
 const clientDetailResult = (ctx: RequestContext, client: OAuth2Client, extra: { created?: boolean; secret?: string } = {}): RouteResult =>
   ({ data: { chrome: ctx.chrome, model: buildClientDetailModel({ canWrite: canWriteClients(ctx), client: toClientView(client), csrfToken: ctx.chrome.csrfToken, t: ctx.t, ...extra }) }, view: "client-detail" });
 
-// GET /admin/clients — the list.
+// GET /auth-admin/clients — the list.
 export const clientsList = withClients(async ({ ctx, hydra }) => {
   const { clients } = await hydra.listClients({ pageSize: LIST_FETCH_SIZE });
   return { data: { chrome: ctx.chrome, model: buildClientsListModel({ canWrite: canWriteClients(ctx), clients, csrfToken: ctx.chrome.csrfToken, t: ctx.t, url: ctx.url }) }, view: "clients" };
 });
 
-// POST /admin/clients — register; on success show the one-time secret directly (no PRG, Hydra never
+// POST /auth-admin/clients — register; on success show the one-time secret directly (no PRG, Hydra never
 // returns it again). A Hydra 4xx (bad redirect/scope) re-renders the form (400); a 5xx rethrows → 500.
 export const clientsCreate = withClients(async ({ ctx, hydra, user }) => {
   const input = readClientInput((await guardedForm(ctx))!);
@@ -280,13 +280,13 @@ export const clientsCreate = withClients(async ({ ctx, hydra, user }) => {
   return clientDetailResult(ctx, created, { created: true, ...(created.client_secret ? { secret: created.client_secret } : {}) });
 });
 
-// GET /admin/clients/new — the register form.
+// GET /auth-admin/clients/new — the register form.
 export const clientsNewForm = withClients(({ ctx }) => Promise.resolve(clientFormResult(ctx, {})), "write");
 
-// GET /admin/clients/:id — the detail (read-only; the secret is shown only once, at creation).
+// GET /auth-admin/clients/:id — the detail (read-only; the secret is shown only once, at creation).
 export const clientsDetail = withClient((deps, client) => Promise.resolve(clientDetailResult(deps.ctx, client)));
 
-// GET /admin/clients/:id/delete — the deliberate confirm step.
+// GET /auth-admin/clients/:id/delete — the deliberate confirm step.
 export const clientsDeleteConfirm = withClient((deps, client, id) => {
   const base = detailHref(id);
   const name = toClientView(client).name;
@@ -298,7 +298,7 @@ export const clientsDeleteConfirm = withClient((deps, client, id) => {
   }) }, view: "confirm" });
 }, "write");
 
-// POST /admin/clients/:id/delete — perform it.
+// POST /auth-admin/clients/:id/delete — perform it.
 export const clientsDelete = withClient(async ({ ctx, hydra, user }, _client, id) => {
   await guardedForm(ctx); // CSRF-verify the POST
   await hydra.deleteClient(id);

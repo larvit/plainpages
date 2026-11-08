@@ -12,10 +12,8 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2 | 0.5.0 |  |  | **Rename the admin example plugin to a name that says what it administers.** | 3 | 1 | 2 | 4 | 6 | 9 by 3, code health by 2 | 2.6 |
 | 5 | 0.5.0 |  |  | **List grants that no installed plugin declares, with a remove action.** | 2 | 2 | 2 | 4 | 4 | 2 by 3 | 2.1 |
 | 41 | 0.5.0 |  |  | **Apply a permission save as one Keto call, so it cannot stop part-way.** | 2 | 2 | 2 | 4 | 3 | 2 by 2 | 2.1 |
-| 58 | 0.5.0 |  | owner | **Let an operator hide a plugin's profile-menu entry from `config/menu.ts`.** | 2 | 2 | 2 | 4 | 4 | 7 by 3 | 2.0 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
@@ -26,11 +24,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 2. Rename the admin example plugin to a name that says what it administers.
-
-The new name is `auth-admin`, chosen by the maintainer. The id is also the mount path, so the compose files,
-E2E stacks and README move with it.
 
 ### 5. List grants that no installed plugin declares, with a remove action.
 
@@ -44,15 +37,6 @@ cleaned, and reinstalling its plugin silently reactivates access nobody remember
 and deletes in one transaction; confirm that against the Keto version `ory/` pins. If so, add the
 call to `KetoClient`, which is contract surface (`@plainpages/plugin-api`) and so needs 0.5.0, and the
 partial-failure path in the admin example can go.
-
-### 58. Let an operator hide a plugin's profile-menu entry from `config/menu.ts`.
-
-A manifest's `profileMenu` entries have no `id`, and the central override (`NavOverride` in
-`src/ui/nav.ts`) targets sidebar nav nodes only, so hiding or renaming one means forking the plugin,
-though README → The menu system promises hide and rename for menu items. The fix gives an entry an optional
-`id`, unique across plugins through a `findConflicts` kind like `nav-id`, and applies `hide` and
-`rename` to it in `profileLinks` (`src/ui/chrome.ts`). The alternative is a decision recording
-profile entries as plugin-only, with README saying so. The human chose to keep it in 0.5.0.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

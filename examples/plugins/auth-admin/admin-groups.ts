@@ -331,13 +331,13 @@ const groupFormResult = async (deps: GroupsDeps, extra: { error?: string; values
   return { data: { chrome: deps.ctx.chrome, model: buildGroupFormModel({ csrfToken: deps.ctx.chrome.csrfToken, memberOptions: options, t: deps.ctx.t, ...extra }) }, view: "group-form" };
 };
 
-// GET /admin/groups — the list.
+// GET /auth-admin/groups — the list.
 export const groupsList = withGroups(async ({ ctx, keto }) => {
   const groups = groupsFromTuples(await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS }));
   return { data: { chrome: ctx.chrome, model: buildGroupsListModel({ canWrite: can(ctx, permissionName("groups", "write")), csrfToken: ctx.chrome.csrfToken, groups, t: ctx.t, url: ctx.url }) }, view: "groups" };
 });
 
-// POST /admin/groups — create (a group exists once it has ≥1 member, so this writes the first tuple).
+// POST /auth-admin/groups — create (a group exists once it has ≥1 member, so this writes the first tuple).
 export const groupsCreate = withGroups(async (deps) => {
   const { ctx, keto, user } = deps;
   const form = (await guardedForm(ctx))!;
@@ -353,7 +353,7 @@ export const groupsCreate = withGroups(async (deps) => {
   return { redirect: detailHref(name) };
 });
 
-// GET /admin/groups/new — the create form.
+// GET /auth-admin/groups/new — the create form.
 export const groupsNewForm = withGroups((deps) => groupFormResult(deps, {}), "write");
 
 // The detail + membership page. `notice` and `error` ride the permission picker; `pageError` tops the
@@ -379,11 +379,11 @@ async function groupDetailPage({ ctx, keto, kratosAdmin }: GroupsDeps, name: str
   return { data: { chrome: ctx.chrome, model: buildGroupDetailModel({ canWrite: !permissions.readOnly, candidates: options, csrfToken: ctx.chrome.csrfToken, group: { name }, members, permissions, t: ctx.t, ...(say.pageError ? { error: say.pageError } : {}) }) }, view: "group-detail" };
 }
 
-// GET /admin/groups/:name — the detail + membership page.
+// GET /auth-admin/groups/:name — the detail + membership page.
 export const groupsDetail = withGroupName((deps, name) =>
   groupDetailPage(deps, name, isSavedNotice(deps.ctx.url) ? { notice: deps.ctx.t("admin.grants.saved") } : {}));
 
-// POST /admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold
+// POST /auth-admin/groups/:name/permissions — the submitted checkboxes are the desired set. Members hold
 // a group's permissions transitively, so the change reaches them at their next login or re-mint —
 // the documented instant-revoke tradeoff for anything held through a group.
 export const groupsPermissions = withGroupName(async (deps, name) => {
@@ -406,7 +406,7 @@ export const groupsPermissions = withGroupName(async (deps, name) => {
   return { redirect: `${detailHref(name)}?info-msg=${SAVED_NOTICE}` };
 });
 
-// POST /admin/groups/:name/members — add a member (skip an invalid member or a self-nest).
+// POST /auth-admin/groups/:name/members — add a member (skip an invalid member or a self-nest).
 export const groupsAddMember = withGroupName(async ({ ctx, keto }, name) => {
   const form = (await guardedForm(ctx))!;
   const tuple = memberTuple(name, (form.get("member") ?? "").trim());
@@ -414,7 +414,7 @@ export const groupsAddMember = withGroupName(async ({ ctx, keto }, name) => {
   return { redirect: detailHref(name) };
 });
 
-// GET /admin/groups/:name/delete — the deliberate confirm step.
+// GET /auth-admin/groups/:name/delete — the deliberate confirm step.
 export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
   const lost = await lostOnDelete(deps, name);
   if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
@@ -427,7 +427,7 @@ export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
   }) }, view: "confirm" };
 }, "write");
 
-// POST /admin/groups/:name/delete — remove every member tuple (the group ceases to exist).
+// POST /auth-admin/groups/:name/delete — remove every member tuple (the group ceases to exist).
 export const groupsDelete = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
@@ -444,7 +444,7 @@ export const groupsDelete = withGroupName(async (deps, name) => {
   return { redirect: ADMIN_GROUPS_BASE };
 });
 
-// POST /admin/groups/:name/members/delete — remove one member.
+// POST /auth-admin/groups/:name/members/delete — remove one member.
 export const groupsRemoveMember = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   const form = (await guardedForm(ctx))!;

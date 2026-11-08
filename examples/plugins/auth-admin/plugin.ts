@@ -1,5 +1,5 @@
 // Admin example plugin: the Users / Groups / OAuth2-clients screens for running the system. Copy
-// this folder to plugins/admin (then restart) to enable it — see README → Quick start.
+// this folder to plugins/auth-admin (then restart) to enable it — see README → Quick start.
 //
 // It is a *system* plugin: its handlers reach the host's Ory admin clients and the instant-revoke
 // hook via ctx.system. Where a capability is absent the screen degrades to a themed 503.

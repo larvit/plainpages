@@ -9,10 +9,10 @@ import enUS from "./i18n/en-US.ts";
 // i.e. its unit tests. At runtime the handlers pass ctx.t instead.
 export const ADMIN_EN: Translate = englishTranslator(enUS);
 
-export const ADMIN_USERS_BASE = "/admin/users";
-export const ADMIN_GROUPS_BASE = "/admin/groups";
-export const ADMIN_CLIENTS_BASE = "/admin/clients";
-export const ADMIN_PLUGIN_SETTINGS_BASE = "/admin/plugin-settings";
+export const ADMIN_USERS_BASE = "/auth-admin/users";
+export const ADMIN_GROUPS_BASE = "/auth-admin/groups";
+export const ADMIN_CLIENTS_BASE = "/auth-admin/clients";
+export const ADMIN_PLUGIN_SETTINGS_BASE = "/auth-admin/plugin-settings";
 
 // One resource per screen — the `<resource>` half of every permission this plugin gates on.
 // `oauth2-clients` rather than `clients` because permission names are one global namespace.
