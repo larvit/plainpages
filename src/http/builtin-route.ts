@@ -20,8 +20,8 @@ export interface RequestCsrf {
 // own context — otherwise the plugin's keys render as bare keys on the pages it owns.
 export type PluginContextFactory = (pluginId: string) => RequestContext;
 
-// A landing slot's result when a plugin owns it: rendered against that plugin's views, and
-// observed by the response hooks, on `ctx`.
+// A landing slot's result when a plugin owns it: the host renders it against that plugin's views
+// on `ctx`, and shows it to the response hooks like a plugin route's result.
 export interface PluginOwned {
   ctx: RequestContext; // the owner's own context, from PluginContextFactory
   pluginId: string;
