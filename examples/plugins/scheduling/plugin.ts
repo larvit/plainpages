@@ -34,7 +34,7 @@ export default definePlugin({
     public: true, // the header gates nothing; each child names its own gate, and an empty header is dropped
   }],
 
-  // Permissions this plugin declares (docs + Keto seeding), named `<resource>:<action>`.
+  // Permissions this plugin declares: the admin picker offers them and bootstrap grants them to the demo admin.
   permissions: [
     { description: "View shifts", name: READ },
     { description: "Create and edit shifts", name: WRITE },

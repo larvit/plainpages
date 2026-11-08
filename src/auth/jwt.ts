@@ -4,9 +4,8 @@ import type { JsonWebKey } from "./jwks.ts";
 
 // JWS signature verification with the Node stdlib — no `jose`/JWT dep:
 // `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures
-// the Kratos tokenizer produces (see AGENTS.md). Signature only: the caller
-// (`jwt-middleware.ts`) adds claim checks (exp/iss/aud, clock skew) and picks the key by `kid`
-// from the cached JWKS (`jwks.ts` fetches and rotates it).
+// the Kratos tokenizer produces. Signature only: `jwt-middleware.ts`
+// picks the key by `kid` and checks the claims.
 
 // JOSE `alg` → Node verify parameters. ES* signatures are raw r‖s (IEEE P1363), not DER.
 // Extend this map to widen support. Security invariant: never add `HS*`/`none` — this map

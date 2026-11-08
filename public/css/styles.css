@@ -20,10 +20,11 @@
    resolution is unreliable across engines. color-scheme is still
    set as a hint for native widgets (date picker, scrollbars,
    selects).
-   Footgun: a token value a floor engine can't parse (a function or unit it lacks)
-   is invalid at computed-value time, so every declaration reading it through
-   var() computes as `unset`; a fallback declared before it doesn't help.
-   src/test-tooling/stylesheet-floor.ts fails its test on one.
+   Footgun: a token value an engine of the oldest browser floor can't parse (a
+   function or unit it lacks) is invalid at computed-value time, so every
+   declaration reading it through var() computes as `unset`; a fallback declared
+   before it doesn't help. The test in src/test-tooling/stylesheet-floor.ts
+   fails on such a value.
 ------------------------------------------------------------- */
 :root {
   /* ---- raw LIGHT palette ---- */

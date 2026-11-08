@@ -15,7 +15,8 @@ const GROUP_NS = "Group";
 const MEMBERS = "members";
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];
-// One Kratos `listIdentities` page of candidate users is fetched for the member pickers (mirrors admin-users).
+// One Kratos `listIdentities` page of candidate users is fetched for the member pickers (mirrors
+// admin-users).
 const LIST_FETCH_SIZE = 250;
 const GROUP_NAME = /^[a-z0-9][a-z0-9_-]*$/; // URL-safe; doubles as the path segment
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i; // a Kratos identity id

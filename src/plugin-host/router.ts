@@ -1,8 +1,6 @@
 // Router: pure core mapping method + pathname → a discovered plugin route. I/O-free;
 // app.ts is the shell (build context, gate, call handler, render RouteResult). A route mounts at
 // `/<id>` + its path (fullPath, shared with conflict detection); `:name` segments → path params.
-// Specificity: the route with fewer `:param` segments wins (/users/new beats /users/:id). A tie, such
-// as /a/:x/b against /a/b/:y, falls to discovery order.
 
 import { fullPath, type Plugin, type Route } from "./plugin.ts";
 
