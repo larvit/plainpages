@@ -7,7 +7,9 @@
 // as false; media range and `or` syntax fail. A partial implementation counts as support, since MDN
 // marks edge gaps that way, such as `outline` ignoring `border-radius` before Chrome 94. A
 // vendor-prefixed name is one engine's by design and is skipped, as are `font-family` names: an engine
-// skips a family it lacks.
+// skips a family it lacks. A custom property's value is checked too, for functions and units though
+// not keywords: a value a floor engine can't parse makes every `var()` reading it invalid, so each
+// declaration using it is dropped, wherever the property is declared.
 // Not checked: the body of an at-rule other than @media and @supports.
 import bcd from "@mdn/browser-compat-data" with { type: "json" };
 import type { CompatStatement, Identifier, SimpleSupportStatement, SupportBlock } from "@mdn/browser-compat-data";
@@ -114,23 +116,36 @@ function mediaQuery(sheet: Sheet, guards: string[], condition: string, offset: n
   }
 }
 
-// The parts of an @supports condition that must hold for its block to apply: neither a `not (…)`
-// group nor an operand of an `or`, at any depth.
+// The parts of an @supports condition that must hold for its block to apply, as text a guard can
+// search: the condition without its `not (…)` groups and without any group joined by `or`, at every depth.
 function positive(condition: string): string {
-  let top = "";
-  let kept = "";
+  const { groups, tail } = parenGroups(condition);
+  if (OR.test(groups.map((g) => g.head).join("") + tail)) return "";
+  return groups.map(keepGroup).join("") + tail;
+}
+
+interface Group {
+  // The text between the previous group and this one's "(".
+  head: string;
+  inner: string;
+}
+
+// The top-level parenthesised groups of `condition`, and the text after the last.
+function parenGroups(condition: string): { groups: Group[]; tail: string } {
+  const groups: Group[] = [];
   let from = 0;
   for (let open = condition.indexOf("("); open >= 0; open = condition.indexOf("(", from)) {
     const close = closing(condition, open);
-    const head = condition.slice(from, open);
-    const inner = condition.slice(open + 1, close);
-    top += head;
-    if (NEGATED.test(head)) kept += head.replace(NEGATED, "");
-    else if (/[\w-]$/.test(head)) kept += `${head}(${inner})`; // a function such as selector()
-    else kept += `${head}(${positive(inner)})`;
+    groups.push({ head: condition.slice(from, open), inner: condition.slice(open + 1, close) });
     from = close + 1;
   }
-  return OR.test(top + condition.slice(from)) ? "" : kept + condition.slice(from);
+  return { groups, tail: condition.slice(from) };
+}
+
+function keepGroup({ head, inner }: Group): string {
+  if (NEGATED.test(head)) return head.replace(NEGATED, "");
+  if (/[\w-]$/.test(head)) return `${head}(${inner})`; // a function such as selector(): its argument names the feature
+  return `${head}(${positive(inner)})`;
 }
 
 const OR = /(?<![\w-])or\s/i;

@@ -2,7 +2,7 @@
 // router), method-distinct entries on the same path.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type BuiltinRoute, matchBuiltinRoute } from "./builtin-routes.ts";
+import { type BuiltinRoute, matchBuiltinRoute } from "./route-table.ts";
 
 const entry = (method: "GET" | "POST", path: string): BuiltinRoute => ({ handler: () => null, method, path });
 

@@ -12,9 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 51 | 0.5.0 |  |  | **Move the test-only tooling out of the runtime folders `src/ui/` and `src/http/`, and keep the README file map true.** | 2 | 1 | 1 | 2 | 3 | code health by 4 | 18.0 |
-| 52 | 0.5.0 | 51 |  | **Make `positive` in `stylesheet-floor.ts` readable without tracing it by hand, and state why a custom property's value is checked.** | 2 | 1 | 1 | 2 | 3 | code health by 5 | 22.5 |
-| 6 | 0.5.0 |  |  | **Warn at discovery when a route or nav node gates on a permission no plugin declares.** | 2 | 1 | 1 | 2 | 2 | 7 by 3, 9 by 3 | 8.0 |
 | 23 | 0.5.0 |  |  | **Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.** | 3 | 1 | 2 | 4 | 5 | 1 by 4, 9 by 2, code health by 3 | 7.9 |
 | 43 | 0.5.0 |  |  | **Let a plugin version the scripts and other `/public/` files its own markup links, so they are cached as immutable too.** | 2 | 2 | 1 | 3 | 3 | 8 by 3, 7 by 2 | 5.0 |
 | 57 | 0.5.0 |  | owner | **Put the caller's IP, user agent and host on every request's span and `request` log line, under OpenTelemetry's HTTP semantic conventions, reading the IP through a proxy only where configuration names it trusted.** | 2 | 2 | 2 | 4 | 3 | 1 by 3 | 3.3 |
@@ -34,24 +31,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 51. Move the test-only tooling out of the runtime folders `src/ui/` and `src/http/`, and keep the README file map true.
-
-`src/ui/stylesheet-floor.ts` imports a devDependency and only its test uses it; `src/http/app-harness.ts`
-is a test fixture. Both sit beside runtime modules, and the README file map omits them. Seats also
-named `src/http/builtin-routes.ts`, which holds no routes.
-
-### 52. Make `positive` in `stylesheet-floor.ts` readable without tracing it by hand, and state why a custom property's value is checked.
-
-Most scoring seats named `positive` (`:119`) with `walk` and `property` as opaque. Split it
-into named steps, say in the header that an unsupported value in a custom property blanks every
-`var()` that reads it, and keep the README's "Two browser floors" pointing here. It is the home of
-the 3am answer.
-
-### 6. Warn at discovery when a route or nav node gates on a permission no plugin declares.
-
-Declaring stays optional on purpose, but the picker is built from declarations only, so such a route
-is ungrantable from the GUI and answers a permanent 403. A warning, not an error.
 
 ### 23. Give list pages one view-model helper from query to pagination, instead of ~40 hand-written lines each.
 

@@ -218,6 +218,8 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
     if (owners.length > 1) out.push({ kind: "permission", level: "warn", message: `permission "${name}" declared by ${uniq(owners).length} plugins; pick a more specific "<resource>" unless shared on purpose`, plugins: uniq(owners) });
   });
 
+  out.push(...undeclaredGates(plugins));
+
   // Both the id's dashes and the key's camel humps become underscores, so plugin "a-b" key "c" and
   // plugin "a" key "bC" name one variable — one plugin would silently read the other's value.
   collect(plugins, (plugin, push) => {
@@ -227,6 +229,29 @@ export function findConflicts(plugins: Plugin[]): PluginConflict[] {
   });
 
   return out;
+}
+
+// Declaring is optional, but the admin screens offer only declared names: a gate on one nobody
+// declares answers 403 until someone writes the Keto tuple by hand.
+function undeclaredGates(plugins: Plugin[]): PluginConflict[] {
+  const declared = new Set(declaredPermissions(plugins).map((decl) => decl.name));
+  const out: PluginConflict[] = [];
+  for (const plugin of plugins) {
+    const gated = new Set<string>();
+    for (const route of plugin.routes ?? []) if (route.permission != null) gated.add(route.permission);
+    collectNavPermissions(plugin.nav, (name) => gated.add(name));
+    for (const name of [...gated].sort()) {
+      if (!declared.has(name)) out.push({ kind: "permission", level: "warn", message: `plugin "${plugin.id}" gates on "${name}", which no installed plugin declares, so the admin screens can't grant it; add it to a plugin's \`permissions\``, plugins: [plugin.id] });
+    }
+  }
+  return out;
+}
+
+function collectNavPermissions(nodes: NavNode[] | undefined, push: (name: string) => void): void {
+  for (const node of nodes ?? []) {
+    if (node.permission != null) push(node.permission);
+    collectNavPermissions(node.children, push);
+  }
 }
 
 // Map each emitted key → the plugin ids that emitted it (repeats kept, so within-plugin dups count).

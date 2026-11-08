@@ -730,7 +730,7 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 | `route` | error | Two routes resolve to the same `method` + full path. Cross-plugin routes can't collide (the `/<id>` prefix is unique), so this catches a plugin duplicating one of its own. |
 | `nav-id` | error | A nav node `id` is used more than once — the central override targets ids, so they must be unique. |
 | `home` / `dashboard` | error | More than one plugin declares `home` (or `dashboard`). Each landing page is a single slot, so only one may own it ([The landing pages](#the-landing-pages-home--dashboard)). |
-| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. |
+| `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. Also warned: a route or nav node gates on a permission no installed plugin declares, so the admin screens can't grant it. |
 
 Mount-path uniqueness needs no rule of its own — it follows from the id check. Discovery also
 rejects **per-manifest shape errors**: a non-array `nav`/`routes`/`permissions`, a non-function
@@ -1064,7 +1064,7 @@ stylesheet using a feature Chromium 87, Safari 15 or Firefox 115 lacks, unless a
 around it names that feature. It checks every stylesheet in `public/`, `examples/` and `plugins/`,
 so mount your plugin in `plugins/<id>/` and run it. A few constructs fail even when guarded, such as
 `@layer`, nested rules and media range syntax, while a media feature passes unguarded, since a
-browser without it skips the query; `src/ui/stylesheet-floor.ts` lists the rules.
+browser without it skips the query; `src/test-tooling/stylesheet-floor.ts` lists the rules.
 
 **A field whose options depend on another field is asked for in steps, one GET form each**, so every
 choice is in the URL, and nothing typed is lost to one because nothing is typed until they are made.
@@ -1830,7 +1830,7 @@ unnecessary here — the signature itself is already invalid.
 src/                 The app — strict tsc, no build step. *.test.ts sit beside their module.
   server.ts          Entry point; config.ts env loader; logger.ts structured log + trace span + tracedFetch
   *.test.ts          Guards with no source counterpart (compose/kratos/keto/hydra/postgres/ci-gate/function-limits)
-  http/              Request pipeline: app.ts (createApp), builtin-routes, context, body, cookie,
+  http/              Request pipeline: app.ts (createApp), route-table, context, body, cookie,
                      static, safe-url (safeUrl + localPath), security-headers
   auth/              Identity + the session-JWT hot path: jwt · jwt-middleware · jwks · gen-jwks (CLI) ·
                      login · guards · csrf · denylist · flow-view · oauth-login · oauth-consent ·
@@ -1843,6 +1843,8 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
                      storage-provisioning (the DDL; bootstrap-only, holds the driver)
   ui/                chrome (`ctx.chrome`: menu, brand, user) · nav (composeNav) · menu-config
                      (`#menu-config`) · icons (lucide sprite builder) · list-query · paginate
+  test-tooling/      Test-only: app-harness (starts `createApp` over fakes for the `src/http` tests) ·
+                     stylesheet-floor (the browser-floor check; imports a devDependency)
 
 plugin-api/          The `@plainpages/plugin-api` package — the author barrel, linked into /node_modules
 views/               Core EJS in the one app shell: home, index, auth, oauth-consent, error, 403/404/500/503,

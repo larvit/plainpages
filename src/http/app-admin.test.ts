@@ -16,7 +16,7 @@ import type { Plugin } from "../plugin-host/plugin.ts";
 import adminManifest from "../../examples/plugins/admin/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import { loadI18n } from "../i18n/load.ts";
-import { ecJwk, fakeKeto, matchesTuple, mintJwt, stubAdmin, stubHydra } from "./app-harness.ts";
+import { ecJwk, fakeKeto, matchesTuple, mintJwt, stubAdmin, stubHydra } from "../test-tooling/app-harness.ts";
 
 // The HTTP-level admin tests mount the example plugin via createApp — stub Ory clients on
 // ctx.system, views from examples/plugins — exactly as an operator would after copying it in.

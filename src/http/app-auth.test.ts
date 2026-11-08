@@ -10,7 +10,7 @@ import { KratosError, type Flow, type FlowSubmission, type FlowType, type Kratos
 import { SESSION_COOKIE } from "../auth/login.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import { loadI18n } from "../i18n/load.ts";
-import { ecJwk, fakeKeto, mintJwt, mockKratos, OAUTH_SUBJECT, stubAdmin, stubHydra, withWhoami } from "./app-harness.ts";
+import { ecJwk, fakeKeto, mintJwt, mockKratos, OAUTH_SUBJECT, stubAdmin, stubHydra, withWhoami } from "../test-tooling/app-harness.ts";
 
 // A re-rendered login flow: csrf hidden, themed fields, a submit, and a failed-attempt message.
 const node = (attrs: Record<string, unknown>, label?: string): UiNode => ({ attributes: attrs, group: "default", messages: [], meta: label ? { label: { id: 1, text: label, type: "info" } } : {}, type: "input" });

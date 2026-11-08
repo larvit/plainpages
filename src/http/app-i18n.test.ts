@@ -11,7 +11,7 @@ import type { Plugin } from "../plugin-host/plugin.ts";
 import { createI18n } from "../i18n/runtime.ts";
 import type { MenuConfig } from "../ui/menu-config.ts";
 import { loadI18n } from "../i18n/load.ts";
-import { ecJwk, mintJwt } from "./app-harness.ts";
+import { ecJwk, mintJwt } from "../test-tooling/app-harness.ts";
 
 // ---- language (i18n) ----
 

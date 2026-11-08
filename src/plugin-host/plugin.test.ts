@@ -129,6 +129,30 @@ test("findConflicts: duplicate nav id is an error, a shared permission name only
   assert.ok(permissionDup.some((c) => c.kind === "permission" && c.level === "warn"));
 });
 
+const noopHandler = () => {};
+
+test("findConflicts: a route or nav node gating on a permission no plugin declares warns once per plugin and name", () => {
+  const gated = findConflicts([
+    p({ id: "a", nav: [{ children: [{ id: "a:x", label: "X", permission: "ghost:read" }], id: "a:root", label: "A", session: true }], routes: [
+      { handler: noopHandler, method: "GET", path: "/x", permission: "ghost:read" },
+      { handler: noopHandler, method: "GET", path: "/y", permission: "other:write" },
+    ] }),
+    p({ id: "b", permissions: [{ name: "other:write" }] }),
+  ]);
+  const messages = gated.filter((c) => c.kind === "permission").map((c) => c.message);
+  assert.equal(messages.length, 1);
+  assert.match(messages[0] ?? "", /"ghost:read"/);
+  assert.deepEqual(gated[0]?.plugins, ["a"]);
+  assert.equal(gated[0]?.level, "warn");
+});
+
+test("findConflicts: a gate on a permission another plugin declares, or on none, stays quiet", () => {
+  assert.deepEqual(findConflicts([
+    p({ id: "a", permissions: [{ name: "a:read" }], routes: [{ handler: noopHandler, method: "GET", path: "/x", permission: "a:read" }] }),
+    p({ id: "b", routes: [{ handler: noopHandler, method: "GET", path: "/y", permission: "a:read" }, { handler: noopHandler, method: "GET", path: "/z", session: true }] }),
+  ]), []);
+});
+
 test("findConflicts: each single slot (`home`/`dashboard`) may have one owner — two is a loud error", () => {
   const handler = () => ({ html: "x" });
   const homeDup = findConflicts([p({ id: "a", home: handler }), p({ id: "b", home: handler })]);

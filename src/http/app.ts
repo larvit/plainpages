@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
-import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type RequestCsrf } from "./builtin-routes.ts";
+import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type RequestCsrf } from "./route-table.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";

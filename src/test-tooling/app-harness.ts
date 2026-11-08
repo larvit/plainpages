@@ -1,12 +1,12 @@
 import { generateKeyPairSync, sign, type JsonWebKey } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { TestContext } from "node:test";
-import { createApp } from "./app.ts";
 import type { HydraAdmin } from "../auth/hydra-admin.ts";
 import type { KetoClient, RelationTuple, SubjectSet } from "../auth/keto-client.ts";
 import type { KratosAdmin } from "../auth/kratos-admin.ts";
 import type { FlowType, KratosPublic } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
+import { createApp } from "../http/app.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 
 // A session JWT signed with a throwaway test key; `staticJwks([ecJwk])` is the matching verify side.

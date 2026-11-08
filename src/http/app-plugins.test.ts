@@ -14,7 +14,7 @@ import type { Identity } from "../auth/kratos-admin.ts";
 import { KratosError, type Session } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import { ecJwk, fakeKeto, mintJwt, startApp, stubAdmin, withWhoami } from "./app-harness.ts";
+import { ecJwk, fakeKeto, mintJwt, startApp, stubAdmin, withWhoami } from "../test-tooling/app-harness.ts";
 
 // A test plugin exercising each RouteResult shape, a path param, and the permission gate.
 const demoPlugin: Plugin = {

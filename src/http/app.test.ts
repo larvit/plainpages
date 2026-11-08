@@ -14,7 +14,7 @@ import { CSRF_COOKIE } from "../auth/csrf.ts";
 import { staticJwks } from "../auth/jwks.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { ENGLISH_LOCALS } from "../i18n/view-locals.ts";
-import { ecJwk, session, startApp } from "./app-harness.ts";
+import { ecJwk, session, startApp } from "../test-tooling/app-harness.ts";
 
 const viewsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "views");
 

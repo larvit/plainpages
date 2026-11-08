@@ -1,10 +1,10 @@
 // The built-in auth/OAuth2 endpoints as named handlers on the host's internal route table
-// (src/http/builtin-routes.ts): the themed Kratos self-service pages and their code submits, the Hydra OAuth2
+// (src/http/route-table.ts): the themed Kratos self-service pages and their code submits, the Hydra OAuth2
 // login/consent/logout challenges, login completion, the first-party logout, and Kratos'
 // flow-error sink. buildAuthRoutes registers only what the wired clients support — a missing
 // client means the path simply doesn't exist (404). `view` results render the core views.
 import { readFormBody } from "../http/body.ts";
-import type { BuiltinRoute, RequestCsrf } from "../http/builtin-routes.ts";
+import type { BuiltinRoute, RequestCsrf } from "../http/route-table.ts";
 import type { RequestContext } from "../http/context.ts";
 import { CSRF_FIELD } from "./csrf.ts";
 import { chosenLocale } from "../i18n/locale.ts";
