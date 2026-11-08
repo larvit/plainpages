@@ -20,6 +20,7 @@ export interface ProvisionResult {
 // so it is swallowed here. The driver, not `new URL`, decides what parses: it takes a multi-host DSN.
 function connect(adminUrl: string): ReturnType<typeof postgres> {
   try {
+    new URL(adminUrl); // postgres 4 connects to whatever a malformed DSN parses to, and its error names that host
     return postgres(adminUrl, { connect_timeout: 10, max: 1 });
   } catch {
     throw new Error("PLUGIN_DB_ADMIN_URL must be a Postgres URL (its value is not shown; percent-encode special characters in a password)");

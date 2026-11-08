@@ -4,8 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createPrivateKey, sign, type JsonWebKey } from "node:crypto";
+import { createPrivateKey, sign } from "node:crypto";
 import { generateJwks, rotateJwks } from "./gen-jwks.ts";
+import type { JsonWebKey } from "./jwks.ts";
 import { verifyJws } from "./jwt.ts";
 
 const b64url = (s: string) => Buffer.from(s).toString("base64url");

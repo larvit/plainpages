@@ -1,5 +1,6 @@
 import { createPublicKey, verify } from "node:crypto";
-import type { JsonWebKey, KeyObject } from "node:crypto";
+import type { KeyObject } from "node:crypto";
+import type { JsonWebKey } from "./jwks.ts";
 
 // JWS signature verification with the Node stdlib — no `jose`/JWT dep:
 // `createPublicKey({format:"jwk"})` imports a JWK and verifies the RS*/ES* signatures

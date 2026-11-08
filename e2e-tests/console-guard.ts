@@ -12,10 +12,14 @@ import { expect, test as base, type BrowserContext, type Page } from "@playwrigh
 const problems: string[] = [];
 const allowed: RegExp[] = [];
 
-// The one message the stack itself provokes: the runner reaches `web`/`proxy` by container name over
+// The messages the stack itself provokes: the runner reaches `web`/`proxy` by container name over
 // plain http, and only a `localhost` origin is trustworthy without TLS — so Chromium drops the COOP
-// header the app sends and says so on every page. Over https, where a deployment serves, it applies.
-const EXPECTED = [/^console\.error: The Cross-Origin-Opener-Policy header has been ignored/];
+// header the app sends, and WebKit reports the page not cross-origin isolated, on every page. Over
+// https, where a deployment serves, the header applies.
+const EXPECTED = [
+  /^console\.error: The Cross-Origin-Opener-Policy header has been ignored/,
+  /^console\.warning: This document is not cross-origin isolated because the document is not a secure context/,
+];
 
 // Allow a message for the current test only, when the page under test provokes it on purpose.
 export function allowConsole(...patterns: RegExp[]): void {

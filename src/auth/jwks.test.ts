@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync, type JsonWebKey } from "node:crypto";
+import { generateKeyPairSync } from "node:crypto";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { cachingJwks, createJwksProvider, loadJwks, staticJwks } from "./jwks.ts";
+import { cachingJwks, createJwksProvider, loadJwks, staticJwks, type JsonWebKey } from "./jwks.ts";
 
 const jwk = (kid: string): JsonWebKey => ({ ...(generateKeyPairSync("ec", { namedCurve: "P-256" }).publicKey.export({ format: "jwk" }) as JsonWebKey), alg: "ES256", kid });
 const committed = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "ory/kratos/tokenizer/jwks.json");
