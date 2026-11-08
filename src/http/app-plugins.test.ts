@@ -13,6 +13,7 @@ import { staticJwks } from "../auth/jwks.ts";
 import type { Identity } from "../auth/kratos-admin.ts";
 import { KratosError, type Session } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
+import { createLogger } from "../logger.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import { ecJwk, fakeKeto, mintJwt, startApp, stubAdmin, withWhoami } from "../test-tooling/app-harness.ts";
 
@@ -224,6 +225,48 @@ test("session re-mint: an expired JWT backed by a live Kratos session is silentl
   assert.equal(outage.headers.get("set-cookie"), null);
 });
 
+test("session re-mint runs only for an expired token with all three Ory clients wired; the new cookie is Secure under SECURE_COOKIES", async (t) => {
+  const identity: Identity = { id: "u1", traits: { email: "a@b.c" } };
+  const nowSec = Math.floor(Date.now() / 1000);
+  const freshJwt = mintJwt({ email: "a@b.c", exp: nowSec + 600, permissions: ["demo:read"], sub: "u1" });
+  let whoamiCalls = 0;
+  const kratos = withWhoami(async (o) => { whoamiCalls++; return (o?.tokenizeAs ? { active: true, identity, tokenized: freshJwt } : { active: true, identity }) as Session; });
+  const keto = fakeKeto([{ namespace: "Permission", object: "demo:read", relation: "granted", subject_id: "user:u1" }], { check: async () => true });
+  const kratosAdmin = stubAdmin({});
+  const logged: string[] = [];
+  const log = createLogger({ format: "json", level: "info", stderr: (l) => logged.push(l), stdout: (l) => logged.push(l) });
+  const valid = `${SESSION_COOKIE}=${freshJwt}`;
+  const expired = `${SESSION_COOKIE}=${mintJwt({ email: "a@b.c", exp: nowSec - 600, permissions: ["demo:read"], sub: "u1" })}`;
+  const get = async (options: Parameters<typeof createApp>[0], cookie: string): Promise<Response> => {
+    const app = createApp({ jwks: staticJwks([ecJwk]), log, plugins: [demoPlugin], ...options });
+    await new Promise<void>((r) => app.listen(0, r));
+    t.after(() => app.close());
+    return fetch(`http://localhost:${(app.address() as AddressInfo).port}/demo/secret`, { headers: { cookie }, redirect: "manual" });
+  };
+  const sessionCookieOf = (res: Response): string | undefined => res.headers.getSetCookie().find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+
+  // A valid token, or one that is invalid but not expired, never reaches Ory.
+  const ok = await get({ keto, kratos, kratosAdmin }, valid);
+  assert.equal(ok.status, 200);
+  assert.equal(sessionCookieOf(ok), undefined);
+  assert.equal((await get({ keto, kratos, kratosAdmin }, `${SESSION_COOKIE}=not-a-jwt`)).status, 303);
+  assert.equal(whoamiCalls, 0);
+
+  // An expired token with any one of the three clients missing stays anonymous, without trying.
+  for (const wired of [{ kratos, kratosAdmin }, { keto, kratosAdmin }, { keto, kratos }]) {
+    const res = await get(wired, expired);
+    assert.equal(res.status, 303, Object.keys(wired).join("+"));
+    assert.equal(sessionCookieOf(res), undefined);
+  }
+  assert.equal(whoamiCalls, 0);
+  assert.ok(!logged.some((l) => l.includes("session re-mint failed")), "no re-mint was attempted");
+
+  // All three wired on an https deployment: the re-minted cookie carries Secure.
+  const reminted = await get({ keto, kratos, kratosAdmin, secureCookies: true }, expired);
+  assert.equal(reminted.status, 200);
+  assert.match(sessionCookieOf(reminted) ?? "", /; Secure(;|$)/);
+});
+
 test("guards map to responses: requireSession → /login, a failed can/check → 403, success runs the handler", async (t) => {
   const keto = { check: async (tuple: { object: string }) => tuple.object === "open" } as unknown as Parameters<typeof check>[0];
   const guarded: Plugin = {
@@ -285,16 +328,22 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
       onResponse: (c, r) => void seen.push(`${c.url.pathname}:${r && "html" in r ? r.html : "?"}`),
     },
     id: "hooked",
-    routes: [{ handler: () => ({ html: "handler ran" }), method: "GET", path: "/ok" }],
+    routes: [
+      { handler: () => ({ html: "handler ran" }), method: "GET", path: "/ok" },
+      { handler: () => { seen.push("blocked handler ran"); return { html: "behind the hook" }; }, method: "GET", path: "/blocked" },
+    ],
   };
   const url = await startApp(t, [hooked]);
 
-  // onRequest short-circuits before routing — handler never runs; a fresh CSRF cookie still rides the
-  // response so a form the hook renders has its matching double-submit cookie.
+  // onRequest short-circuits before routing — the route behind it never runs; a fresh CSRF cookie
+  // still rides the response so a form the hook renders has its matching double-submit cookie.
   const blocked = await fetch(url + "/hooked/blocked");
   assert.equal(blocked.status, 403);
   assert.match(await blocked.text(), /blocked by hook/);
   assert.match(blocked.headers.get("set-cookie") ?? "", /plainpages_csrf=/);
+  // Again with that cookie, so no Set-Cookie is due once the response is sent.
+  await (await fetch(url + "/hooked/blocked", { headers: { cookie: blocked.headers.get("set-cookie")?.split(";")[0] ?? "" } })).text();
+  assert.ok(!seen.includes("blocked handler ran"));
 
   // A normal route runs the handler; onResponse observed its result.
   assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);

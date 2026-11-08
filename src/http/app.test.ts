@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
-import type { AddressInfo } from "node:net";
+import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, test } from "node:test";
@@ -214,6 +214,9 @@ test("static serving: GET sends body + content-type, HEAD headers only, unsafe p
   // Encoded traversal and a NUL byte are refused before touching the filesystem.
   assert.equal((await fetch(base + "/public/..%2f..%2fapp.ts")).status, 403);
   assert.equal((await fetch(base + "/public/%00")).status, 403);
+
+  // Only GET/HEAD read an asset; any other method is routed like a page, and nothing answers it.
+  assert.equal((await fetch(base + "/public/css/styles.css", { method: "POST" })).status, 404);
 });
 
 test("every response carries the security headers; HSTS follows SECURE_COOKIES", async (t) => {
@@ -233,6 +236,20 @@ test("every response carries the security headers; HSTS follows SECURE_COOKIES",
   t.after(() => secure.close());
   const res = await fetch(`http://localhost:${(secure.address() as AddressInfo).port}/`);
   assert.match(res.headers.get("strict-transport-security") ?? "", /max-age=\d+/);
+});
+
+test("the CSRF cookie is set only when the request carries no valid token, and is Secure under SECURE_COOKIES", async (t) => {
+  const first = await fetch(base + "/");
+  const csrf = first.headers.getSetCookie().find((c) => c.startsWith(`${CSRF_COOKIE}=`)) ?? "";
+  assert.ok(csrf, "a first visit mints the token");
+  assert.doesNotMatch(csrf, /; Secure/); // http dev
+  assert.deepEqual((await fetch(base + "/", { headers: { cookie: csrf.split(";")[0] ?? "" } })).headers.getSetCookie(), []);
+
+  const secure = createApp({ secureCookies: true });
+  await new Promise<void>((r) => secure.listen(0, r));
+  t.after(() => secure.close());
+  const res = await fetch(`http://localhost:${(secure.address() as AddressInfo).port}/`);
+  assert.match(res.headers.getSetCookie().find((c) => c.startsWith(`${CSRF_COOKIE}=`)) ?? "", /; Secure(;|$)/);
 });
 
 test("Cache-Control: pages and JSON are private, no-store unless the route sets its own", async (t) => {
@@ -305,6 +322,18 @@ function rawGet(port: number, path: string, host: string, method = "GET"): Promi
   });
 }
 
+// An HTTP/1.0 request with no Host header (Node refuses a Host-less HTTP/1.1 one with a 400);
+// resolves to the raw response head.
+function rawHttp10(port: number, path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    const socket = connect(port, "127.0.0.1", () => socket.write(`GET ${path} HTTP/1.0\r\n\r\n`));
+    socket.on("data", (c) => (raw += c));
+    socket.on("end", () => resolve(raw));
+    socket.on("error", reject);
+  });
+}
+
 test("APP_URL canonical-host redirect: an off-host visitor is 308'd to the configured origin (path+query kept)", async (t) => {
   // Reach the app on any host and it sends you to APP_URL's, so the browser, the themed form and the
   // cross-origin Kratos POST share ONE cookie host. Same-host requests pass straight through.
@@ -329,6 +358,22 @@ test("APP_URL canonical-host redirect: an off-host visitor is 308'd to the confi
   // A 308 must not replay a cross-host POST — non-GET/HEAD is left alone (not canonicalised).
   const post = await rawGet(port, "/dashboard", `127.0.0.1:${port}`, "POST");
   assert.notEqual(post.status, 308);
+
+  // HEAD is canonicalised like GET.
+  const head = await rawGet(port, "/dashboard", `127.0.0.1:${port}`, "HEAD");
+  assert.equal(head.status, 308);
+  assert.equal(head.location, "http://canonical.example:3000/dashboard");
+
+  // An HTTP/1.0 request may omit Host; with no host to compare it is served as-is.
+  assert.match(await rawHttp10(port, "/missing"), /^HTTP\/1\.[01] 404 /);
+});
+
+test("an APP_URL with no host (file:///srv) ⇒ no canonical redirect", async (t) => {
+  const app = createApp({ appUrl: "file:///srv" });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const port = (app.address() as AddressInfo).port;
+  assert.equal((await rawGet(port, "/missing", `127.0.0.1:${port}`)).status, 404);
 });
 
 test("no APP_URL configured ⇒ no canonical redirect (unit-test apps and host-agnostic deploys unaffected)", async () => {

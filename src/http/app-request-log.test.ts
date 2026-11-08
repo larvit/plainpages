@@ -15,13 +15,15 @@ async function requestLineOf(lines: string[]): Promise<Record<string, unknown>> 
   throw new Error("no request line was logged");
 }
 
-async function serve(t: TestContext, trustedProxies: string[], plugins: Plugin[] = []): Promise<{ lines: string[]; url: string }> {
+// `lines` is stdout (info); `problems` is stderr (warn and error).
+async function serve(t: TestContext, trustedProxies: string[], plugins: Plugin[] = []): Promise<{ lines: string[]; problems: string[]; url: string }> {
   const lines: string[] = [];
-  const log = createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (l: string) => lines.push(l) });
+  const problems: string[] = [];
+  const log = createLogger({ format: "json", level: "info", stderr: (l: string) => problems.push(l), stdout: (l: string) => lines.push(l) });
   const app = createApp({ log, plugins, trustedProxies });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
-  return { lines, url: `http://localhost:${(app.address() as AddressInfo).port}` };
+  return { lines, problems, url: `http://localhost:${(app.address() as AddressInfo).port}` };
 }
 
 test("the request line names the caller, the site and the matched route in OpenTelemetry's terms", async (t) => {
@@ -63,4 +65,26 @@ test("a listed proxy lets X-Forwarded-For name the caller; an unmatched path car
   assert.equal(line["client.address"], "198.51.100.7");
   assert.equal(line["http.response.status_code"], 404);
   assert.equal(line["http.route"], undefined);
+});
+
+test("an answered request goes no further: a refused visitor never reaches the handler, and nothing logs a problem", async (t) => {
+  const ran: string[] = [];
+  const plugin: Plugin = {
+    apiVersion: "1.0.0",
+    id: "demo",
+    routes: [
+      { handler: () => ({ html: "open" }), method: "GET", path: "/open", public: true },
+      { handler: () => { ran.push("gated"); return { html: "gated" }; }, method: "GET", path: "/gated", permission: "demo:read" },
+    ],
+  };
+  const { lines, problems, url } = await serve(t, [], [plugin]);
+  // A plugin route, a refused plugin route, a built-in route, a refused built-in route, an asset.
+  const paths = ["/demo/open", "/demo/gated", "/", "/dashboard", "/public/css/styles.css"];
+  for (const path of paths) await (await fetch(url + path, { redirect: "manual" })).text();
+  // A request that fell through to a later stage would log its error after its response closed.
+  while (lines.filter((l) => l.includes('"request"')).length < paths.length) await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 100));
+
+  assert.deepEqual(ran, []);
+  assert.deepEqual(problems, []);
 });
