@@ -238,6 +238,9 @@ interface RequestState {
   contextFor: (pluginId: string, params?: Record<string, string>) => RequestContext;
   csrf: RequestCsrf;
   ctx: RequestContext; // the base context (no route params), for the built-in routes
+  // Read before the onRequest hooks run, so a hook that edits `req` doesn't reroute the request.
+  method: string;
+  pathname: string;
 }
 
 // Before auth: assets don't need a verified user, and the JWT cookie rides every request.
@@ -298,6 +301,8 @@ async function prepareRequest(host: Host, req: IncomingMessage, res: ServerRespo
     contextFor: (pluginId, params) => buildContext(req, res, { ...shared, t: i18n.translator(locale, pluginId), ...(params ? { params } : {}) }),
     csrf,
     ctx: buildContext(req, res, { ...shared, t }),
+    method: req.method ?? "GET",
+    pathname: url.pathname,
   };
 }
 
@@ -333,7 +338,7 @@ async function answerFromHook(host: Host, { carryLocale, contextFor, csrf, ctx }
 
 async function answerPluginRoute(host: Host, state: RequestState): Promise<boolean> {
   const { carryLocale, contextFor, csrf, ctx } = state;
-  const match = matchRoute(host.plugins, ctx.req.method ?? "GET", ctx.url.pathname);
+  const match = matchRoute(host.plugins, state.method, state.pathname);
   if (!match) return false;
   ctx.log.context["http.route"] = fullPath(match.plugin.id, match.route.path);
   const routeCtx = contextFor(match.plugin.id, match.params);
@@ -352,7 +357,7 @@ async function answerPluginRoute(host: Host, state: RequestState): Promise<boole
 
 async function answerBuiltinRoute(host: Host, state: RequestState): Promise<boolean> {
   const { carryLocale, contextFor, csrf, ctx } = state;
-  const builtin = matchBuiltinRoute(host.builtinRoutes, ctx.req.method ?? "GET", ctx.url.pathname);
+  const builtin = matchBuiltinRoute(host.builtinRoutes, state.method, state.pathname);
   if (!builtin) return false;
   ctx.log.context["http.route"] = builtin.path;
   if (!allows(builtin, ctx.user)) await refuse(host, state, builtin, ctx);
@@ -361,8 +366,8 @@ async function answerBuiltinRoute(host: Host, state: RequestState): Promise<bool
 }
 
 // Known path, wrong method → 405 with Allow; otherwise nothing here → 404.
-async function answerUnrouted(host: Host, { ctx }: RequestState): Promise<void> {
-  const allow = allowedMethods(host.plugins, ctx.url.pathname);
+async function answerUnrouted(host: Host, { ctx, pathname }: RequestState): Promise<void> {
+  const allow = allowedMethods(host.plugins, pathname);
   if (allow.length) {
     ctx.res.writeHead(405, { allow: allow.join(", "), "content-type": "text/plain; charset=utf-8" }).end("Method Not Allowed");
     return;
@@ -372,9 +377,9 @@ async function answerUnrouted(host: Host, { ctx }: RequestState): Promise<void> 
 
 // Anonymous → sign in, remembering the page as return_to; a signed-in user who simply lacks
 // the permission gets the 403 page.
-async function refuse(host: Host, { carryLocale, ctx }: RequestState, gate: Gate, gateCtx: RequestContext): Promise<void> {
+async function refuse(host: Host, { carryLocale, ctx, pathname }: RequestState, gate: Gate, gateCtx: RequestContext): Promise<void> {
   if (!gateCtx.user) { ctx.res.writeHead(303, { location: carryLocale(loginRedirect(gateCtx)) }).end(); return; }
-  ctx.log.warn("forbidden: missing permission", { path: ctx.url.pathname, required: gate.permission ?? "", sub: gateCtx.user.id });
+  ctx.log.warn("forbidden: missing permission", { path: pathname, required: gate.permission ?? "", sub: gateCtx.user.id });
   sendHtml(ctx.res, 403, await host.viewsFor(ctx)("403", {}));
 }
 

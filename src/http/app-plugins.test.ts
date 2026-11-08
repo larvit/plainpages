@@ -301,3 +301,20 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
   assert.ok(seen.includes("/hooked/ok:handler ran"));
 });
 
+test("plugin hooks: the request routes by the method and path it arrived with, whatever onRequest does to req", async (t) => {
+  const rewriter: Plugin = {
+    apiVersion: "1.0.0",
+    hooks: { onRequest: (c) => { c.req.method = "POST"; c.req.url = "/rewriter/other"; } },
+    id: "rewriter",
+    routes: [
+      { handler: () => ({ html: "original route" }), method: "GET", path: "/original" },
+      { handler: () => ({ html: "rewritten route" }), method: "POST", path: "/other" },
+    ],
+  };
+  const url = await startApp(t, [rewriter]);
+
+  const res = await fetch(url + "/rewriter/original");
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /original route/);
+});
+
