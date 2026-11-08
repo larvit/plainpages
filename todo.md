@@ -6,15 +6,23 @@
 
 `Bar = 1`
 
-`Next ID = 63`
+`Next ID = 71`
 
 ## Items
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 62 | 0.5.1 |  |  | **Delete a group's grants and its membership set in one Keto transaction, so a failure cannot leave it half-deleted.** | 1 | 2 | 2 | 3 | 2 | code health by 2, 2 by 3 | 16.2 |
+| 63 | 0.5.1 |  |  | **Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.** | 2 | 2 | 1 | 3 | 3 | code health by 3, 9 by 2 | 15.4 |
+| 68 | 0.5.1 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
+| 64 | 0.5.1 |  |  | **Keep the permissions section on the user form when a self-deactivate or self-delete is refused.** | 1 | 2 | 1 | 2 | 2 | 2 by 3, code health by 1 | 10.2 |
+| 66 | 0.5.1 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
+| 70 | 0.5.1 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
+| 69 | 0.6.0 |  |  | **Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.** | 1 | 2 | 2 | 3 | 2 | code health by 2 | 12.0 |
+| 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
+| 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 4.0 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 
 ## Renamed
@@ -32,6 +40,79 @@ gone and its members still listed. Send all the deletes through `KetoClient.tran
 `applyGrants` in `admin-grants.ts` does. The comment on delete order stays true inside one
 transaction.
 
+### 63. Correct the stale and false comments and docs the comprehension seats flagged, so each states what the code does today.
+
+Prose only; no behaviour changes. Make each listed place easier to read, since the seats named
+most of them.
+
+- `src/auth/login.ts:43` and `README.md` ~L1367 name an admin "Effective access" view that doesn't
+  exist.
+- `src/plugin-host/router.ts:4` header says specificity is order-independent; `matchRoute` sorts by
+  `:param` count only, so a tie (`/a/:x/b` against `/a/b/:y`) falls to discovery order.
+- `ci.sh:9` ("users/groups/roles") and `examples/plugins/scheduling/plugin.ts:37` ("Roles", and
+  `<id>:<action>` where the rule is `<resource>:<action>`) use words the project doesn't have.
+- `src/plugin-host/system.ts:1-2` calls "the built-in admin screens" the reference consumer; they
+  are the `auth-admin` example plugin.
+- `examples/plugins/auth-admin/admin-groups.ts:18` says a Keto page; the call is Kratos
+  `listIdentities`.
+- `compose.yml` ~L166 says consent comes next; `src/auth/oauth-consent.ts` implements it.
+- `src/auth/jwt.ts:6-7`: "Signature only — adds claim checks…" lacks its subject (the caller,
+  `jwt-middleware.ts`, adds them).
+- `src/ui/chrome.ts` ~L69 and ~L143 use `/admin/users` as example paths; admin lives at
+  `/auth-admin/users`.
+- `README.md` ~L350 says a tuple naming an undeclared permission "gates nothing"; declaring stays
+  optional, so a plugin may gate on it. `examples/plugins/auth-admin/README.md:49` says six
+  permissions; `plugin.ts` declares seven.
+- `examples/plugins/auth-admin/views/partials/group-detail-body.ejs:2-7` documents member
+  `kind:"identity"` where the model says `"user"`, and omits the `canWrite` and `permissions`
+  locals.
+- `src/auth/bootstrap.ts:1-8` header lists the JWKS, admin and Keto steps, not the plugin-storage
+  step.
+- The custom-property `unset` footgun is stated only in `src/test-tooling/stylesheet-floor.ts:10-12`;
+  say it beside the tokens at `public/css/styles.css:9-23`, where an author writes one.
+
+### 68. Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.
+
+In `src/http/app.ts`, both (~L143-169) call `sendResult` with the owning plugin's renderer and
+return `null` when a plugin owns the slot, and return a `RouteResult` otherwise, so a reader of
+`handleRequest` (~L183) and `prepareRequest` (~L274) meets two return conventions. Return the
+result with whatever names its renderer and let the one send stage render it. Make
+`prepareRequest` and `handleRequest` easier to read, places the seats found hard. The 19-field
+`Host` bag is left alone: no checkable target for it came out of the scoring run.
+
+### 64. Keep the permissions section on the user form when a self-deactivate or self-delete is refused.
+
+In `examples/plugins/auth-admin/admin-users.ts`, the self-refusals in `usersState` (~L405),
+`usersDeleteConfirm` (~L415) and `usersDelete` (~L429) call `formResult` without
+`...(await pickerOrNothing(deps, id))` or `canWrite`, so the re-rendered form loses its permissions
+section; `usersUpdate` and `usersRecovery` keep it, and `pickerOrNothing`'s comment promises it.
+The groups side re-renders through `groupDetailPage`, which keeps it. Make `usersPermissions` and
+the `pickerOrNothing` contract easier to read, a place the seats found hard. Not exempt: a
+comprehension finding, not a 🔴, and no maintain goal is broken.
+
+### 66. Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.
+
+`seedAdminAndPermissions` (~L221-233) reads `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `KETO_WRITE_URL`,
+`KRATOS_ADMIN_URL` and `APP_URL` from the environment with its own defaults, which repeat
+`src/config.ts` (~L170-186) beside its "loaded once" promise. `seedAdmin` (~L86) and
+`findIdentityId` call Kratos and Keto with raw `fetch` where `createKratosAdmin` (`createIdentity`,
+`listIdentities` with `credentialsIdentifier`) and `createKetoClient` (`writeTuple`) exist. Check
+that `loadConfig` doesn't demand settings the one-shot service lacks; else reuse its readers. The
+seed stays idempotent (a Kratos 409 still means an existing admin). Make the `bootstrap.ts` header
+easier to read, a place the seats found hard.
+
+### 70. Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.
+
+- `pagedTuples` (`examples/plugins/auth-admin/admin-groups.ts` ~L246) and `heldPermissions`
+  (`admin-grants.ts` ~L38) each hand-write the Keto page-token loop; let `heldPermissions` use the
+  one loop.
+- `nextPageToken` is copied in `src/auth/kratos-admin.ts` ~L46 and `src/auth/hydra-admin.ts` ~L106.
+- `FieldConfig` lives in `admin-users.ts`, and `admin-groups.ts` and `admin-clients.ts` import it
+  from there; move it to `admin-shared.ts`.
+- `buildPluginChrome` (`src/ui/chrome.ts:55`) builds the chrome for every page, core pages
+  included; rename it, its test and the README ~L1027 mention. Make `buildPluginChrome` easier to
+  read, a place the seats found hard.
+
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
@@ -41,6 +122,33 @@ Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -
 
 Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
 project's "no catch-all names" rule applied to namespaces.
+
+### 69. Rename `views/index.ejs` to `views/dashboard.ejs`, so the core view's file names the page it renders.
+
+`index.ejs` renders `/dashboard` (`src/http/app.ts` ~L168); `home.ejs` renders `/` and matches the
+manifest's `home` slot, so it keeps its name. Core `views/` is an `include()` root for plugin views
+(`src/plugin-host/view-resolver.ts`), so a plugin may include `index` today: the rename changes the
+contract surface (AGENTS.md → Rules) and ships in a minor. Update `docs/reading-cost.md` and the
+README file map. Make `views/index.ejs` easier to find, a place the seats found hard.
+
+### 65. Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.
+
+`src/plugin-host/plugin-api.ts` ~L47-48 exports `KratosError` and `HydraError`, but not `KetoError`
+(`src/auth/keto-client.ts:43`), though `ctx.system.keto` throws it. The barrel is the contract
+surface, so this adds to the plugin API: it ships in a minor, and `HOST_API_VERSION` must read
+`0.6.0` when 0.6.0 is tagged (AGENTS.md → Rules). Adding is safe for installed plugins; removing it
+later would take a major.
+
+### 67. Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.
+
+`src/auth` holds 19 modules over several concerns: the per-request session path (`jwt*`, `jwks`,
+`denylist`, `csrf`, `gate`, `guards`), the Ory clients (`kratos-*`, `keto-client`, `hydra-admin`,
+`fetch-timeout`), the sign-in flows and their views (`routes`, `login`, `flow-view`), the OAuth2
+provider (`oauth-*`), and the one-shot CLIs (`bootstrap`, `gen-jwks`). Pick folders a reader can
+name, and update the folder list in `docs/decisions.md` → "`src/` is grouped by concern". Leave
+`bootstrap.ts` in place, per "`bootstrap.ts` stays under `src/auth/`". Plugins import only the
+barrel, so only `src/plugin-host/plugin-api.ts`'s paths change for them. Update the README file
+map. Make `src/auth` easier to navigate, a place the seats found hard.
 
 ### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
 
