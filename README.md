@@ -608,7 +608,7 @@ interface RequestContext {
 }
 ```
 
-**`ctx.chrome`** — `{ brand, csrfToken, nav, signInHref, theme, user }` (`user.menu` holds the profile-dropdown links). Hand each field to the
+**`ctx.chrome`** — `{ brand, csrfToken, nav, signInHref, theme, user }` (`user.profileLinks` holds the profile-dropdown links). Hand each field to the
 matching `partials/shell` local and a `view` result renders the **native app shell**, exactly as
 `examples/plugins/scheduling/views/overview.ejs` does; a field you omit falls back to its shell
 default rather than erroring. `chrome.nav` is the whole global menu — every installed plugin's

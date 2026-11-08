@@ -103,7 +103,7 @@ const entries = (opts: { permissions?: string[]; signedIn?: boolean }): { href: 
     plugins: [account],
     translatorFor: () => (key) => (key === "account.settings" ? "Inställningar" : key),
     ...(opts.signedIn === false ? {} : { user: { email: "ada@x.io", id: "u1", permissions: opts.permissions ?? [] } }),
-  }).user.menu!;
+  }).user.profileLinks!;
 
 test("profile menu entries are gated like nav nodes, translated by their plugin and carry the locale", () => {
   assert.deepEqual(entries({}), [

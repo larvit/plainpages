@@ -137,7 +137,7 @@ test("profile menu entries render as links above Sign out, with their icon", asy
     csrfToken: "tok.sig",
     user: {
       email: "ada@acme.io", initials: "AD", name: "ada",
-      menu: [{ href: "/account/settings", icon: "i-user", label: "My <settings>" }, { href: "/account/help", label: "Help" }],
+      profileLinks: [{ href: "/account/settings", icon: "i-user", label: "My <settings>" }, { href: "/account/help", label: "Help" }],
     },
   });
   const panel = html.slice(html.indexOf('id="profile-menu"'), html.indexOf("</aside>"));

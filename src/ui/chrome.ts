@@ -22,11 +22,11 @@ export interface ProfileLink {
 // What a plugin's `profileMenu` declares: a link plus the one gate that decides who sees it.
 export interface ProfileMenuEntry extends ProfileLink, Gate {}
 
-// `menu` rides on the user, which every view already hands to the shell, so no view needs a new local.
+// `profileLinks` rides on the user, which every view already hands to the shell, so no view needs a new local.
 export interface ShellUser {
   email: string;
   initials: string;
-  menu?: ProfileLink[]; // gate-filtered, translated, locale-carried. The host always sets it; a hand-built fixture may omit it
+  profileLinks?: ProfileLink[]; // gate-filtered, translated, locale-carried. The host always sets it; a hand-built fixture may omit it
   name: string;
 }
 
@@ -79,7 +79,7 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
     nav: carryLocaleInto(nav, carryLocale),
     signInHref: carryLocale(returnTo),
     ...(theme != null ? { theme } : {}),
-    user: { ...shellUser(opts.user, t), menu: profileLinks(opts, t, carryLocale) },
+    user: { ...shellUser(opts.user, t), profileLinks: profileLinks(opts, t, carryLocale) },
   };
 }
 
