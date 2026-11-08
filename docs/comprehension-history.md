@@ -359,3 +359,17 @@ Inherited architect, decided by:
 
 - Locality, Shape: `src/http/request-tracking.ts:9` `trackRequest`: the exactly-once finalize and close listener are one named unit, changeable without reading `createApp`'s other state
 - Locality, Shape: `src/http/request-fields.ts:33` `clientAddress`: pure function of peer, header and list, with the reasons for reading from the right beside it
+
+## 2026-11-08T18:34:54Z, PR #220 at 1b53b01, against 14a07dd
+
+Ruling: same
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | same | same | same | same | same |
+| Inherited architect | same | same | worse | same | same |
+
+Inherited architect, decided by:
+
+- Shape: `views/partials/shell.ejs:74` `user.menu`: a third meaning of `menu` beside the sidebar switch at line 19 and the `.menu` popover class
+- Shape: `src/plugin-host/plugin.ts:9` `import type { ProfileMenuEntry }`: a second contract type defined under `ui/`, with a type-only import cycle through `chrome.ts`
