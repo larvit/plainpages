@@ -354,3 +354,20 @@ Read most (opens and searches):
 - `src/plugin-host/discovery.ts` 2
 - `src/test-tooling/stylesheet-floor.test.ts` 2
 - `.dockerignore` 1
+
+## Reading cost, chunk dcd9bc01df44, finished 2026-11-08T13:55:26Z
+
+212195 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `README.md` 10
+- `todo.md` 8
+- `src/http/app.ts` 4
+- `src/http/app.test.ts` 3
+- `src/http/static.ts` 3
+- `CHANGELOG.md` 2
+- `examples/plugins/admin/admin-users.ts` 2
+- `release-tooling/contract-version.test.ts` 2
+- `examples/plugins/admin/admin-clients.ts` 1
+- `examples/plugins/admin/admin-groups.ts` 1
