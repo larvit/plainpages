@@ -250,7 +250,6 @@ test.describe.serial("authenticated admin journey", () => {
   test("logout: signing out ends the session and returns to the login page", async () => {
     await page.goto("/dashboard");
     await page.locator("button.profile").click(); // open the profile dropdown
-    // The scheduling plugin's profile entry sits above Sign out, which stays last.
     await expect(page.locator("#profile-menu .menu-item")).toHaveText(["My shifts", "Sign out"]);
     await expect(page.locator('#profile-menu a.menu-item[href="/scheduling/mine"]')).toHaveCount(1);
     await page.locator('form[action="/logout"] button[type="submit"]').click();

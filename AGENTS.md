@@ -162,7 +162,7 @@ Revisit only if the stated reason stops holding.
   "permission" (the `Resource` `permits`: view/edit/delete) is the separate per-row tier.
 - **A permission name is always `<resource>:<action>`** — `scheduling:read`, `users:write`. A bare
   word names *who someone is* (a role), and roles are groups here. **Enforced at discovery**
-  (`isValidPermissionName` in `plugin-host/plugin.ts`, checked by `shapeError` over every route/nav
+  (`isValidPermissionName` in `plugin-host/plugin.ts`, checked by `shapeError` over every route, nav and profile-menu
   `permission` and every declared name), fail-loud like any other manifest rule — not only in the
   admin GUI, which an operator removes by not copying it in.
   - **Names are authored in plugin code; only grants live in Keto.** The host collects every installed
@@ -288,8 +288,8 @@ Revisit only if the stated reason stops holding.
   declarative attribute's alone** — open a panel from script and no engine applies it, so
   "enhancing" one of these triggers is what would cost it its accessibility. `<details>` stays where
   it means disclosure rather than popup: the nav tree. `shell.ejs` hand-rolls the same block for the
-  profile menu (its trigger composes escaped user values and its Sign-out item is a CSRF POST form;
-  the plugin-declared links above it are `user.menu`) — keep the two in step.
+  profile menu (its trigger composes escaped user values and its Sign-out item is a CSRF POST form) — keep
+  the two in step.
 - **One scroller, the document** (priority 1). `.app` is `min-height: 100dvh`. `.nav`'s
   `overflow-y: auto` and `.side-footer`'s `flex: 0 0 auto` are not leftovers of a bounded frame:
   they are what makes the off-canvas panel usable with a long tree. `#nav-toggle` is `position: fixed` —

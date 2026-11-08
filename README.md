@@ -468,7 +468,7 @@ folder-derived `id` to produce the loaded `Plugin`.
 | `dashboard` | no | A `RouteHandler` that owns the **gated** app home `/dashboard`. At most one plugin may declare it. See [The landing pages](#the-landing-pages-home--dashboard). |
 | `nav` | no | `NavNode[]` fragment (same shape `composeNav` consumes). Every node names [exactly one gate](#public-pages--menu-items). `icon` is a Lucide sprite id (`src/ui/icons.ts`); node `id`s must be globally unique. A `label` that names a catalog key is [translated](#languages-i18n); anything else renders as written. |
 | `permissions` | no | Permissions this plugin gates on. See [Nav & permission gates](#nav--permission-gates). |
-| `profileMenu` | no | `ProfileMenuEntry[]`: `{ href, label, icon?, …gate }` links added above Sign out in the profile dropdown, shown only to a signed-in visitor. Each names [exactly one gate](#public-pages--menu-items); `icon` and `label` follow the same rules as a `nav` node. The host hands the visitor's entries to the shell as `chrome.user.menu`. |
+| `profileMenu` | no | `ProfileMenuEntry[]`: `{ href, label, icon?, …gate }` links added above Sign out in the profile dropdown, shown only to a signed-in visitor. Each names [exactly one gate](#public-pages--menu-items); `icon` and `label` follow the same rules as a `nav` node. |
 | `routes` | no | See [Routes & handlers](#routes--handlers). |
 | `hooks` | no | See [Hooks](#hooks). |
 | `settings` | no | Configuration this plugin accepts, one `PLUGIN_SETTING_<ID>_<KEY>` variable per key, resolved and validated at boot and handed to `onBoot`. See [Plugin settings](#plugin-settings). |
@@ -738,7 +738,7 @@ The host detects collisions across all discovered plugins with `findConflicts` a
 | `permission` | warn | A permission name is declared by more than one plugin. Sharing is legitimate; pick a more specific [`<resource>`](#naming-a-permission) if unintended. Also warned: a route, nav node or profile-menu entry gates on a permission no installed plugin declares, so the admin screens can't grant it; declare it in that plugin's `permissions`. |
 
 Mount-path uniqueness needs no rule of its own — it follows from the id check. Discovery also
-rejects **per-manifest shape errors**: a non-array `nav`/`profileMenu`/`routes`/`permissions`, a non-function
+rejects **per-manifest shape errors**: a non-array `nav`/`permissions`/`profileMenu`/`routes`, a non-function
 `home`/`dashboard`, a permission name that isn't [`<resource>:<action>`](#naming-a-permission), or a
 route, nav node or profile-menu entry that does not name [exactly one gate](#public-pages--menu-items).
 

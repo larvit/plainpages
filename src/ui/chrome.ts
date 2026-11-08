@@ -26,7 +26,7 @@ export interface ProfileMenuEntry extends ProfileLink, Gate {}
 export interface ShellUser {
   email: string;
   initials: string;
-  menu?: ProfileLink[]; // permission-filtered, translated and locale-carried; the host always sets it, a hand-built fixture may omit it
+  menu?: ProfileLink[]; // gate-filtered, translated, locale-carried. The host always sets it; a hand-built fixture may omit it
   name: string;
 }
 
@@ -83,8 +83,6 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   };
 }
 
-// A plugin's labels are keys in *its* catalog, hence its own translator. Only a signed-in visitor
-// has a profile menu; the gate then decides per entry.
 function profileLinks(opts: ChromeOptions, t: Translate, carryLocale: (href: string) => string): ProfileLink[] {
   const user = opts.user ?? null;
   if (!user) return [];

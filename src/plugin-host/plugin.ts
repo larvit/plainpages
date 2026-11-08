@@ -90,8 +90,7 @@ export interface PluginManifest<S extends readonly SettingDecl[] = readonly Sett
   hooks?: PluginHooks<S>;
   nav?: NavNode[]; // fragment merged into the menu (composeNav); node `icon` is a Lucide sprite id (src/ui/icons.ts), node ids must be globally unique
   permissions?: PermissionDecl[];
-  // Links added above Sign out in the profile dropdown, each gated like a nav node and shown only to a
-  // signed-in visitor; `icon` is a Lucide sprite id, and a `label` naming a catalog key is translated.
+  // Links above Sign out in the profile dropdown, each gated like a nav node; only a signed-in visitor sees any.
   profileMenu?: ProfileMenuEntry[];
   routes?: Route[];
   // Operator-supplied configuration, one PLUGIN_SETTING_<ID>_<KEY> variable per key; the resolved
