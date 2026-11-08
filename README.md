@@ -1237,8 +1237,8 @@ The app is **environment-agnostic**: no `NODE_ENV`, every behaviour its own expl
 | `LOG_FORMAT` | `text` | log line format: `text` (human-readable, dev) or `json` (structured, prod) |
 | `SERVICE_NAME` | `plainpages` | OTLP `service.name` on every log + span — brand it as your own deployment |
 | `OTLP_ENDPOINT` | _unset_ | OpenTelemetry Collector HTTP base URI; set ⇒ export logs + traces (unset ⇒ console only) |
-| `TRUSTED_PROXIES` | _unset_ | comma-separated IPs/CIDR ranges of the reverse proxies in front of the host; only a request from one lets `X-Forwarded-For` name the caller in logs and spans ([Observability](#observability)) |
 | `OTLP_PROTOCOL` | `http/json` | OTLP wire format: `http/json` or `http/protobuf` |
+| `TRUSTED_PROXIES` | _unset_ | comma-separated IPs/CIDR ranges of the reverse proxies in front of the host; only a request from one lets `X-Forwarded-For` name the caller in logs and spans ([Observability](#observability)) |
 | `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` | `http://kratos:4433` / `:4434` | identity (self-service / admin) |
 | `KETO_READ_URL` / `KETO_WRITE_URL` | `http://keto:4466` / `:4467` | authorization check / write |
 | `HYDRA_ADMIN_URL` | `http://hydra:4445` | OAuth2 provider admin API (login/consent handshake) |
@@ -1763,15 +1763,29 @@ Logging is **structured** and **OTLP-native**, on
 handler (an `AsyncLocalStorage`), so logs and traces correlate. Three explicit toggles:
 `LOG_LEVEL`, `LOG_FORMAT` (`text` dev / `json` prod) and `SERVICE_NAME`.
 
-Every request emits one access line, and the same fields ride its span. They follow OpenTelemetry's
-HTTP conventions: `http.request.method`, `url.path` (the query is dropped, it can carry tokens),
-`http.response.status_code`, `http.route` (the matched pattern, absent on a 404), `server.address`
-(the `Host`), `user_agent.original`, `client.address` and `requestId`; the span's duration is the
-latency. **They are personal data** (an IP and a user agent identify a caller), so a deployment's
-privacy policy must say the host logs them. `client.address` is the socket's peer; set
-`TRUSTED_PROXIES` to the IPs or CIDR ranges of the proxies in front of the host and a request from
-one takes the nearest address in `X-Forwarded-For` that is not itself a listed proxy. Never list a
-range a caller can send from: the header is then theirs to write.
+Every request emits one access line, and its span carries the same fields, named by
+OpenTelemetry's HTTP conventions:
+
+- `http.request.method`, `url.path` (the query is dropped, it can carry tokens),
+  `http.response.status_code`, `server.address` (the `Host`), `user_agent.original`,
+  `client.address` and `requestId`.
+- `http.route`: the matched pattern, such as `/admin/users/:id`. It is absent when no route
+  matched (a 404, a 405, a `/public/` file, a redirect) and on a plugin's `onRequest` short-circuit.
+- Latency is the span's duration, so it reaches you only with `OTLP_ENDPOINT` set. OTLP carries every
+  attribute as a string.
+
+A plugin's own lines for a request carry them too, except the status, which is known only when
+the response closes.
+
+**These are personal data.** An IP and a user agent identify a caller, so a deployment's privacy
+policy must say the host logs them.
+
+`client.address` is the socket's peer. Behind a reverse proxy that is the proxy, so set
+`TRUSTED_PROXIES` to its IPs or CIDR ranges: for a request from a listed peer, the address is the
+nearest one in `X-Forwarded-For` that is not itself listed. Anything else in the header is
+ignored. List only addresses a caller cannot send from. In Docker, `compose.yml` publishes the port
+on every interface, so a range that includes the bridge gateway lets a direct caller write any
+`client.address`.
 
 Login/logout, admin writes and missing-permission/CSRF rejections log at `info`/`warn`, the
 catch-all 500 and Ory-unreachable re-mint at `error`/`warn`. An inbound W3C
@@ -1860,7 +1874,7 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   server.ts          Entry point; config.ts env loader; logger.ts structured log + trace span + tracedFetch
   *.test.ts          Guards with no source counterpart (compose/kratos/keto/hydra/postgres/ci-gate/function-limits)
   http/              Request pipeline: app.ts (createApp), builtin-route, context, body, cookie,
-                     static, safe-url (safeUrl + localPath), security-headers, request-fields (span/log attributes)
+                     static, safe-url (safeUrl + localPath), security-headers, request-fields · request-tracking (span/log attributes)
   auth/              Identity + the session-JWT hot path: jwt · jwt-middleware · jwks · gen-jwks (CLI) ·
                      login · guards · csrf · denylist · flow-view · oauth-login · oauth-consent ·
                      routes · bootstrap, and the Ory REST clients (kratos-public/admin, keto, hydra,

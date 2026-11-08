@@ -24,6 +24,7 @@ services:
       PLUGIN_DB_URL: ${PLUGIN_DB_URL:-}
       REQUIRE_SECURE_SECRETS: "true"
       SECURE_COOKIES: "true" # prod serves https — mark session/CSRF cookies Secure
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-} # IPs/CIDRs of your reverse proxy; empty ⇒ X-Forwarded-For is ignored
     # Wait for the services the app talks to (kratos + keto + hydra for the OAuth2 login/
     # consent handler) + the one-shot bootstrap (admin + JWKS seed). Postgres too: a plugin that
     # declares `storage` opens its connection in onBoot, before the server listens.

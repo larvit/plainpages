@@ -12,18 +12,19 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 `0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
 `RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
-### Every request's span and `request` log line name the caller, the site and the route
+### The `request` log line renames `method`, `path`, `status` and `ms`, and gains the caller, site and route
 
-The `request` line and the request span now carry OpenTelemetry's HTTP attributes:
-`http.request.method`, `url.path`, `http.response.status_code`, `http.route` (when a route matched),
-`server.address` (the `Host`), `user_agent.original` and `client.address`. They replace `method`,
-`path` and `status`; `ms` is gone, because the span's own duration is the latency. Plugins' own log
-lines for a request carry them too.
+Update dashboards and log queries: the `request` line and the request span now use OpenTelemetry's
+HTTP names. `method`, `path` and `status` become `http.request.method`, `url.path` and
+`http.response.status_code`. `ms` is gone: latency is the span's duration, so it needs
+`OTLP_ENDPOINT`. New are `http.route` (when a route matched), `server.address` (the `Host`),
+`user_agent.original` and `client.address`. A plugin's own lines for a request carry them too,
+except the status.
 
-`client.address` is the socket's peer. Set `TRUSTED_PROXIES` (comma-separated IPs or CIDR ranges)
-to the proxies in front of the host and the address `X-Forwarded-For` names is used instead. A bad
-entry refuses the boot. The log now holds callers' IPs and user agents, which are personal data:
-say so in your privacy policy.
+`client.address` is the socket's peer. Set `TRUSTED_PROXIES` (comma-separated IPs or CIDR ranges) to
+the proxies in front of the host and it follows `X-Forwarded-For`; a bad entry refuses the boot.
+README → Observability says which ranges to list. The log now holds callers' IPs and user agents,
+which are personal data: say so in your privacy policy.
 
 ### `buildPaginationModel` builds the pagination partial's model
 

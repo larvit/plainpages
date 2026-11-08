@@ -26,8 +26,22 @@ test("clientAddress: a malformed hop or a mapped IPv4 peer never yields garbage"
   assert.equal(clientAddress("fd00::1", "2001:db8::7", proxies), "2001:db8::7");
 });
 
+test("parseTrustedProxies: a range covers exactly its prefix, and the extremes are legal", () => {
+  const one = parseTrustedProxies(["10.1.2.3/32", "fd00::7/128", "192.168.0.0/16"]);
+  assert.equal(clientAddress("10.1.2.3", "198.51.100.1", one), "198.51.100.1");
+  assert.equal(clientAddress("10.1.2.4", "198.51.100.1", one), "10.1.2.4"); // /32 is one address
+  assert.equal(clientAddress("fd00::8", "2001:db8::7", one), "fd00::8"); // /128 is one address
+  assert.equal(clientAddress("192.168.255.1", "198.51.100.1", one), "198.51.100.1");
+  assert.equal(clientAddress("192.169.0.1", "198.51.100.1", one), "192.169.0.1");
+  assert.equal(clientAddress("203.0.113.9", "198.51.100.1", parseTrustedProxies(["0.0.0.0/0"])), "198.51.100.1"); // /0 is a choice, not a typo
+});
+
+test("clientAddress: a malformed hop left of a trusted one is not believed over the peer", () => {
+  assert.equal(clientAddress("10.0.0.1", "garbage, 10.0.0.2", proxies), "10.0.0.1");
+});
+
 test("parseTrustedProxies: refuses an entry that is not an IP or a CIDR range", () => {
-  for (const bad of ["proxy.internal", "10.0.0.0/33", "10.0.0.0/x", "::1/129", ""]) {
+  for (const bad of ["proxy.internal", "10.0.0.0/33", "10.0.0.0/x", "::1/129", "", "10.0.0.1/", "10.0.0.0/ ", "fd00::1/", "10.0.0.0//8", "10.0.0.0/8/8", "10.0.0.0/-1", "10.0.0.0/1e1"]) {
     assert.throws(() => parseTrustedProxies([bad]), /TRUSTED_PROXIES/, bad);
   }
 });

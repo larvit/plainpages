@@ -24,7 +24,7 @@ import type { KratosPublic } from "../auth/kratos-public.ts";
 import { createLogger, type Log } from "../logger.ts";
 import { remintSession } from "../auth/login.ts";
 import { DEFAULT_MENU, type MenuConfig } from "../ui/menu-config.ts";
-import { declaredPermissions, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
+import { declaredPermissions, fullPath, type Plugin, type RouteHandler, type RouteResult } from "../plugin-host/plugin.ts";
 import type { PluginSettings } from "../plugin-host/settings.ts";
 import type { SystemCapabilities } from "../plugin-host/system.ts";
 import { allows, type Gate } from "../auth/gate.ts";
@@ -295,7 +295,7 @@ export function createApp(options: AppOptions = {}): Server {
 
       const match = matchRoute(plugins, method, pathname);
       if (match) {
-        reqLog.context["http.route"] = match.route.path;
+        reqLog.context["http.route"] = fullPath(match.plugin.id, match.route.path);
         const routeCtx = contextFor(match.plugin.id, match.params);
         if (!allows(match.route, routeCtx.user)) {
           await refuse(match.route, routeCtx);

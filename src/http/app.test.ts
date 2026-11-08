@@ -115,28 +115,6 @@ test("renders branding from the menu config into the shell: logo + default theme
   assert.match(html, /id="theme-dark"\s+checked/); // config default theme reaches the switch
 });
 
-test("emits a structured access-log line per request (the injected logger)", async (t) => {
-  const lines: string[] = [];
-  const app = createApp({ log: createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (m) => lines.push(m) }) });
-  await new Promise<void>((r) => app.listen(0, r));
-  t.after(() => app.close());
-  const res = await fetch(`http://localhost:${(app.address() as AddressInfo).port}/?q=zz`); // the public "/" — no auth
-  assert.equal(res.status, 200);
-  await res.text(); // consume the body so the connection closes (the access line emits on close)
-
-  // The line is emitted on connection close (after the body is sent) — poll briefly for it.
-  let line: string | undefined;
-  for (let i = 0; i < 50 && !line; i++) {
-    line = lines.find((l) => l.includes('"msg":"request"'));
-    if (!line) await new Promise((r) => setTimeout(r, 10));
-  }
-  assert.ok(line, "an access line is logged for the request");
-  const rec = JSON.parse(line!);
-  assert.equal(rec["url.path"], "/"); // pathname only — the ?q=… query is dropped (may carry tokens)
-  assert.equal(rec["service.name"], "plainpages");
-  assert.ok(rec.requestId, "carries a requestId for log↔trace correlation");
-});
-
 test("ctx.log: a handler logs in the request trace, and ctx.log.fetch continues the inbound trace", async (t) => {
   const lines: string[] = [];
   const upstream: { traceparent: string | undefined; url: string }[] = [];

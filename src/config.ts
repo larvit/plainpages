@@ -185,7 +185,7 @@ export function loadConfig(env: Env = process.env): Config {
     ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
     kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
-    // Console-only by default; OTLP_ENDPOINT exports logs + per-request spans to an OpenTelemetry Collector.
+    // Console-only unless OTLP_ENDPOINT names a collector.
     logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),
     logLevel: readEnum(env, "LOG_LEVEL", LOG_LEVELS, "info"),
     oryTimeoutSec: readPosInt(env, "ORY_TIMEOUT_SEC", 5),

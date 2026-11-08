@@ -3,8 +3,8 @@ import { BlockList, isIP } from "node:net";
 
 export type TrustedProxies = BlockList;
 
-// Each entry is an IP address or a CIDR range (`10.0.0.0/8`). Fails loud: a typo here would
-// silently log a proxy's address for every caller, or trust a stranger's header.
+// Each entry is an IP address or a CIDR range (`10.0.0.0/8`). A bad entry refuses the boot: a
+// misread one could trust every caller's X-Forwarded-For.
 export function parseTrustedProxies(entries: readonly string[] = []): TrustedProxies {
   const list = new BlockList();
   for (const entry of entries) {
@@ -12,7 +12,9 @@ export function parseTrustedProxies(entries: readonly string[] = []): TrustedPro
     const family = isIP(address);
     const length = prefix === undefined ? undefined : Number(prefix);
     const maxLength = family === 4 ? 32 : 128;
-    if (family === 0 || rest.length > 0 || (length !== undefined && !(Number.isInteger(length) && length >= 0 && length <= maxLength))) {
+    // `Number("")` is 0, so a trailing slash must be refused before the range check sees it.
+    const badPrefix = prefix !== undefined && !(/^\d{1,3}$/.test(prefix) && length! <= maxLength);
+    if (family === 0 || rest.length > 0 || badPrefix) {
       throw new Error(`config: TRUSTED_PROXIES entry "${entry}" is not an IP address or CIDR range`);
     }
     const kind = family === 4 ? "ipv4" : "ipv6";

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { test, type TestContext } from "node:test";
 import { createLogger } from "../logger.ts";
+import type { Plugin } from "../plugin-host/plugin.ts";
 import { createApp } from "./app.ts";
 
 // The `request` line, parsed, once the server has logged it (it logs on the response's close).
@@ -14,10 +15,10 @@ async function requestLineOf(lines: string[]): Promise<Record<string, unknown>> 
   throw new Error("no request line was logged");
 }
 
-async function serve(t: TestContext, trustedProxies: string[]): Promise<{ lines: string[]; url: string }> {
+async function serve(t: TestContext, trustedProxies: string[], plugins: Plugin[] = []): Promise<{ lines: string[]; url: string }> {
   const lines: string[] = [];
   const log = createLogger({ format: "json", level: "info", stderr: () => {}, stdout: (l: string) => lines.push(l) });
-  const app = createApp({ log, trustedProxies });
+  const app = createApp({ log, plugins, trustedProxies });
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   return { lines, url: `http://localhost:${(app.address() as AddressInfo).port}` };
@@ -35,7 +36,23 @@ test("the request line names the caller, the site and the matched route in OpenT
   assert.equal(line["server.address"], "localhost");
   assert.equal(line["user_agent.original"], "TV/1.0");
   assert.match(String(line["client.address"]), /^(127\.0\.0\.1|::1)$/); // the forged header is not believed
+  assert.equal(line["service.name"], "plainpages");
+  assert.ok(line["requestId"], "carries a requestId for log↔trace correlation");
   for (const old of ["method", "path", "status", "ms"]) assert.equal(line[old], undefined, old);
+});
+
+test("http.route is the full pattern, plugin prefix included, so two plugins' routes never merge", async (t) => {
+  const plugin: Plugin = {
+    apiVersion: "1.0.0",
+    id: "demo",
+    routes: [{ handler: () => ({ json: {} }), method: "GET", path: "/items/:id", public: true }],
+  };
+  const { lines, url } = await serve(t, [], [plugin]);
+  await (await fetch(`${url}/demo/items/7`)).text();
+  const line = await requestLineOf(lines);
+
+  assert.equal(line["http.route"], "/demo/items/:id");
+  assert.equal(line["url.path"], "/demo/items/7");
 });
 
 test("a listed proxy lets X-Forwarded-For name the caller; an unmatched path carries no route", async (t) => {
