@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
-import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type RequestCsrf } from "./builtin-route.ts";
+import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type PluginOwned, type RequestCsrf } from "./builtin-route.ts";
 import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
@@ -140,32 +140,22 @@ export function createApp(options: AppOptions = {}): Server {
   const pluginViewsFor = (ctx: RequestContext, id: string): ViewRenderer => (view, data) => renderView(id, view, { ...data, ...i18nLocals(localsOf(ctx)), assetHref: assets.href });
 
   // The public landing "/", ungated. A plugin may own it via `home`; else the built-in intro page.
-  const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
+  const serveHome = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | PluginOwned> => {
     csrf.setCookie();
-    if (homePlugin) {
-      // The plugin owns this page, so it runs on its own context — its catalog first, then core.
-      const pluginCtx = contextFor(homePlugin.id);
-      const result = (await homePlugin.home(pluginCtx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result);
-      await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, homePlugin.id), pluginCtx.localeHref);
-      return null;
-    }
-    return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
+    if (!homePlugin) return { data: { chrome: ctx.chrome, user: ctx.user }, view: "home" };
+    // The plugin owns this page, so it runs on its own context — its catalog first, then core.
+    const pluginCtx = contextFor(homePlugin.id);
+    return { ctx: pluginCtx, pluginId: homePlugin.id, result: (await homePlugin.home(pluginCtx)) ?? null };
   };
 
   // "/dashboard", gated to a signed-in user. A plugin may own it via `dashboard`; else the built-in
   // starter page.
-  const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | null> => {
+  const serveDashboard = async (ctx: RequestContext, csrf: RequestCsrf, contextFor: PluginContextFactory): Promise<RouteResult | PluginOwned> => {
     // The page carries the Sign-out form, so Set-Cookie a fresh CSRF token here when absent.
     csrf.setCookie();
-    if (dashboardPlugin) {
-      const pluginCtx = contextFor(dashboardPlugin.id); // as serveHome: the owner's own translator
-      const result = (await dashboardPlugin.dashboard(pluginCtx)) ?? null;
-      if (anyResponseHooks) await runResponseHooks(plugins, contextFor, result);
-      await sendResult(ctx.res, result, pluginViewsFor(pluginCtx, dashboardPlugin.id), pluginCtx.localeHref);
-      return null;
-    }
-    return { data: { chrome: ctx.chrome }, view: "dashboard" };
+    if (!dashboardPlugin) return { data: { chrome: ctx.chrome }, view: "dashboard" };
+    const pluginCtx = contextFor(dashboardPlugin.id); // as serveHome: the owner's own translator
+    return { ctx: pluginCtx, pluginId: dashboardPlugin.id, result: (await dashboardPlugin.dashboard(pluginCtx)) ?? null };
   };
 
   // The internal route table, matched after plugin routes: the auth/OAuth2 group (src/auth/
@@ -178,8 +168,9 @@ export function createApp(options: AppOptions = {}): Server {
 
   const host: Host = { anyRequestHooks, anyResponseHooks, assets, authOptions, builtinRoutes, csrfSecret, i18n, jwks, keto, kratos, kratosAdmin, menu, permissionCatalog, pluginViewsFor, plugins, secureCookies, settingsCatalog, system, viewsFor };
 
-  // A stage that returns a boolean returns true once it has answered the request, and false to
-  // pass the request to the next stage.
+  // Static files, the canonical-host redirect and prepareRequest come first; then the answering
+  // stages in order — onRequest hook, plugin route, built-in route, else 404/405. A stage that
+  // returns a boolean returns true once it has answered the request, and false to pass it on.
   const handleRequest = async (req: IncomingMessage, res: ServerResponse, reqLog: Log): Promise<void> => {
     // Error pages can render before this request has a context at all (a throw on the way to one),
     // so they start on the built-in English and switch to the visitor's locale once it is resolved.
@@ -279,17 +270,16 @@ async function prepareRequest(host: Host, req: IncomingMessage, res: ServerRespo
   const carryLocale = (href: string): string => localeHref(href, explicit ? locale : null);
   const t = i18n.translator(locale);
   const user = await resolveUser(host, req, res, reqLog);
-  const { fresh, token } = ensureCsrfToken(req.headers.cookie, host.csrfSecret);
-  const csrf: RequestCsrf = {
-    setCookie: (): void => { if (fresh) res.appendHeader("set-cookie", csrfCookie(token, { secure: host.secureCookies })); },
-    token,
-  };
+  const csrf = requestCsrf(host, req, res);
   const verifyCsrf = (submitted: string | null | undefined): boolean =>
     verifyCsrfRequest({ cookieHeader: req.headers.cookie, secret: host.csrfSecret, submitted });
   // Chrome composes the whole menu, so it is memoized and resolved lazily — a json/redirect
   // handler, or the public "/" with a standalone home, never pays for it.
   let chromeMemo: PageChrome | undefined;
-  const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({ csrfToken: token, currentPath: url.pathname, localeHref: carryLocale, menu: host.menu, plugins: host.plugins, t, translatorFor: (id) => i18n.translator(locale, id), user }));
+  const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({
+    csrfToken: csrf.token, currentPath: url.pathname, localeHref: carryLocale, menu: host.menu, plugins: host.plugins, t,
+    translatorFor: (id) => i18n.translator(locale, id), user,
+  }));
   const shared = { assetHref: host.assets.href, chrome, declaredPermissions: host.permissionCatalog, declaredSettings: host.settingsCatalog, locale, localeHref: carryLocale, locales: i18n.available, log: reqLog, user, verifyCsrf, ...(host.system ? { system: host.system } : {}) };
   return {
     carryLocale,
@@ -299,6 +289,14 @@ async function prepareRequest(host: Host, req: IncomingMessage, res: ServerRespo
     ctx: buildContext(req, res, { ...shared, t }),
     method,
     pathname: url.pathname,
+  };
+}
+
+function requestCsrf(host: Host, req: IncomingMessage, res: ServerResponse): RequestCsrf {
+  const { fresh, token } = ensureCsrfToken(req.headers.cookie, host.csrfSecret);
+  return {
+    setCookie: (): void => { if (fresh) res.appendHeader("set-cookie", csrfCookie(token, { secure: host.secureCookies })); },
+    token,
   };
 }
 
@@ -355,8 +353,18 @@ async function answerBuiltinRoute(host: Host, state: RequestState): Promise<bool
   const builtin = matchBuiltinRoute(host.builtinRoutes, state.method, state.pathname);
   if (!builtin) return false;
   ctx.log.context["http.route"] = builtin.path;
-  if (!allows(builtin, ctx.user)) await refuse(host, state, builtin, ctx);
-  else await sendResult(ctx.res, await builtin.handler(ctx, csrf, contextFor), host.viewsFor(ctx), carryLocale);
+  if (!allows(builtin, ctx.user)) {
+    await refuse(host, state, builtin, ctx);
+    return true;
+  }
+  const answer = await builtin.handler(ctx, csrf, contextFor);
+  if (answer && "pluginId" in answer) {
+    // A plugin-owned landing slot answers as a plugin route does: its hooks observe it, its views render it.
+    if (host.anyResponseHooks) await runResponseHooks(host.plugins, contextFor, answer.result);
+    await sendResult(ctx.res, answer.result, host.pluginViewsFor(answer.ctx, answer.pluginId), carryLocale);
+  } else {
+    await sendResult(ctx.res, answer, host.viewsFor(ctx), carryLocale);
+  }
   return true;
 }
 

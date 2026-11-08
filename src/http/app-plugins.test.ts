@@ -15,7 +15,7 @@ import { KratosError, type Session } from "../auth/kratos-public.ts";
 import { SESSION_COOKIE } from "../auth/login.ts";
 import { createLogger } from "../logger.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
-import { ecJwk, fakeKeto, mintJwt, startApp, stubAdmin, withWhoami } from "../test-tooling/app-harness.ts";
+import { ecJwk, fakeKeto, mintJwt, session, startApp, stubAdmin, withWhoami } from "../test-tooling/app-harness.ts";
 
 // A test plugin exercising each RouteResult shape, a path param, and the permission gate.
 const demoPlugin: Plugin = {
@@ -348,6 +348,29 @@ test("plugin hooks: onRequest can short-circuit a request and onResponse observe
   // A normal route runs the handler; onResponse observed its result.
   assert.match(await (await fetch(url + "/hooked/ok")).text(), /handler ran/);
   assert.ok(seen.includes("/hooked/ok:handler ran"));
+});
+
+test("plugin hooks: onResponse observes the result of a plugin-owned `/` and `/dashboard`", async (t) => {
+  const seen: string[] = [];
+  const owner: Plugin = {
+    apiVersion: "1.0.0",
+    dashboard: () => ({ html: "owned dashboard" }),
+    home: () => ({ html: "owned home" }),
+    id: "owner",
+  };
+  const observer: Plugin = {
+    apiVersion: "1.0.0",
+    hooks: { onResponse: (c, r) => void seen.push(`${c.url.pathname}:${r && "html" in r ? r.html : "?"}`) },
+    id: "observer",
+  };
+  const app = createApp({ jwks: staticJwks([ecJwk]), plugins: [owner, observer] });
+  await new Promise<void>((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const url = `http://localhost:${(app.address() as AddressInfo).port}`;
+
+  assert.match(await (await fetch(url + "/")).text(), /owned home/);
+  assert.match(await (await fetch(url + "/dashboard", { headers: { cookie: session() } })).text(), /owned dashboard/);
+  assert.deepEqual(seen, ["/:owned home", "/dashboard:owned dashboard"]);
 });
 
 test("plugin hooks: the request routes by the method and path it arrived with, whatever onRequest does to req", async (t) => {
