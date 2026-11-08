@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 68 | 0.5.0 |  |  | **Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.** | 2 | 1 | 3 | 4 | 3 | code health by 3 | 13.5 |
 | 66 | 0.5.0 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
 | 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
 | 71 | 0.5.0 |  |  | **Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.** | 1 | 2 | 2 | 3 | 2 | 2 by 3 | 4.2 |
@@ -28,15 +27,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 68. Make `serveHome` and `serveDashboard` return their result to the request pipeline, as every other stage does, instead of sending it themselves.
-
-In `src/http/app.ts`, both (~L143-169) call `sendResult` with the owning plugin's renderer and
-return `null` when a plugin owns the slot, and return a `RouteResult` otherwise, so a reader of
-`handleRequest` (~L183) and `prepareRequest` (~L274) meets two return conventions. Return the
-result with whatever names its renderer and let the one send stage render it. Make
-`prepareRequest` and `handleRequest` easier to read, places the seats found hard. The 19-field
-`Host` bag is left alone: no checkable target for it came out of the scoring run.
 
 ### 66. Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.
 
