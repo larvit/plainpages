@@ -312,7 +312,7 @@ test("the reference plugin: public Overview is open to all, My shifts takes any 
   await expect(page.locator('.sidebar a[href="/dashboard"]')).toHaveCount(1); // the one unified menu renders
   await expect(page.locator('.sidebar a[href="/scheduling"]')).toHaveCount(1); // public Overview shown
   await expect(page.locator('.sidebar a[href="/scheduling/shifts"]')).toHaveCount(0); // gated leaf filtered out
-  await expect(page.locator('.sidebar a[href="/scheduling/mine"]')).toHaveCount(1); // session gate: a session is enough
+  await expect(page.locator('.sidebar nav a[href="/scheduling/mine"]')).toHaveCount(1); // session gate: a session is enough
 
   // No shifts upstream on this stack, so this also pins the degraded page: the reason, never a 500
   // and never a claim about what is assigned.

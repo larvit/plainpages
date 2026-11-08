@@ -96,18 +96,18 @@ const account: Plugin = {
     { href: "/account/help", label: "Help", public: true },
   ],
 };
-const entries = (opts: { permissions?: string[]; signedIn?: boolean }): { href: string; label: string }[] =>
+const entries = (opts: { permissions?: string[]; signedIn?: boolean }): { href: string; icon?: string; label: string }[] =>
   buildPluginChrome({
     localeHref: (href) => `${href}?locale=sv-SE`,
     menu: DEFAULT_MENU,
     plugins: [account],
     translatorFor: () => (key) => (key === "account.settings" ? "Inställningar" : key),
     ...(opts.signedIn === false ? {} : { user: { email: "ada@x.io", id: "u1", permissions: opts.permissions ?? [] } }),
-  }).user.menu!.map(({ href, label }) => ({ href, label }));
+  }).user.menu!;
 
 test("profile menu entries are gated like nav nodes, translated by their plugin and carry the locale", () => {
   assert.deepEqual(entries({}), [
-    { href: "/account/settings?locale=sv-SE", label: "Inställningar" },
+    { href: "/account/settings?locale=sv-SE", icon: "i-user", label: "Inställningar" },
     { href: "/account/help?locale=sv-SE", label: "Help" },
   ]);
   assert.deepEqual(entries({ permissions: ["billing:read"] }).map((e) => e.label), ["Inställningar", "account.billing", "Help"]);

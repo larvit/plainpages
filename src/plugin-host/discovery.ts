@@ -195,6 +195,7 @@ function findProfileMenuError(entries: PluginManifest["profileMenu"]): string | 
   for (const entry of Array.isArray(entries) ? entries : []) {
     const what = `profile-menu entry "${entry?.label ?? "?"}"`;
     if (typeof entry?.href !== "string" || entry.href === "") return `${what} needs an href`;
+    if (typeof entry.label !== "string" || entry.label === "") return `${what} needs a label`;
     const err = gateError(what, entry);
     if (err) return err;
   }

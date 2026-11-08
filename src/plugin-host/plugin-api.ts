@@ -14,7 +14,7 @@ export type { RequestContext, User } from "../http/context.ts";
 export type { PageChrome, ProfileMenuEntry } from "../ui/chrome.ts";
 export type { NavNode } from "../ui/nav.ts";
 export { can, check, GuardError, requireSession } from "../auth/guards.ts";
-// The three coarse gates a route or nav node may declare — `Route` and `NavNode` both extend it.
+// The three coarse gates a route, nav node or profile-menu entry may declare — `Route`, `NavNode` and `ProfileMenuEntry` all extend it.
 export type { Gate } from "../auth/gate.ts";
 // Translation: `ctx.t` and the view-level `t(...)` do the work at runtime — these are for
 // authoring a plugin's own catalogs (plugins/<id>/i18n/<locale>.ts) and for building a translator

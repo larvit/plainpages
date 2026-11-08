@@ -138,7 +138,7 @@ test("findConflicts: a route, nav node or profile entry gating on a permission n
       { handler: noopHandler, method: "GET", path: "/y", permission: "both:read" },
       { handler: noopHandler, method: "POST", path: "/y", permission: "both:read" },
       { handler: noopHandler, method: "GET", path: "/z", permission: "declared:write" },
-    ], permissions: [], profileMenu: [{ href: "/p", label: "P", permission: "profileonly:read" }] }),
+    ], permissions: [], profileMenu: [{ href: "/p", label: "P", permission: "profileonly:read" }, { href: "/q", label: "Q", session: true }, { href: "/r", label: "R", public: true }] }),
     p({ id: "b", nav: [{ id: "b:y", label: "Y", permission: "both:read" }], permissions: [{ name: "declared:write" }] }),
   ]);
   assert.ok(gated.every((c) => c.kind === "permission" && c.level === "warn"));
