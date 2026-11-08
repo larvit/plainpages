@@ -172,19 +172,16 @@ test("ctx.log after a client abort doesn't throw: the request log is ended only 
   const started = Promise.withResolvers<void>();
   const closed = Promise.withResolvers<void>();
   const logged = Promise.withResolvers<void>();
-  let calls = 0;
   const plugin: Plugin = {
     apiVersion: "1.0.0",
     id: "slow",
     routes: [{
       handler: async (ctx) => {
-        if (calls++ === 0) {
-          started.resolve();
-          await closed.promise; // the response has closed under the running handler
-          try { ctx.log.info("after abort", {}); afterCloseOk = true; } // would throw if end() already ran
-          catch (e) { afterCloseErr = String(e); }
-          logged.resolve();
-        }
+        started.resolve();
+        await closed.promise;
+        try { ctx.log.info("after abort", {}); afterCloseOk = true; } // would throw if end() already ran
+        catch (e) { afterCloseErr = String(e); }
+        logged.resolve();
         return { json: { ok: true } };
       },
       method: "GET",
@@ -192,20 +189,20 @@ test("ctx.log after a client abort doesn't throw: the request log is ended only 
     }],
   };
   const app = createApp({ log: createLogger({ level: "none" }), plugins: [plugin] });
-  // Registered after the host's own listener, so this "close" handler runs after the host's.
+  // Added after the host's request listener, so this "close" listener fires after the host's.
   app.once("request", (_req, res) => res.on("close", () => closed.resolve()));
   await new Promise<void>((r) => app.listen(0, r));
   t.after(() => app.close());
   const base = `http://localhost:${(app.address() as AddressInfo).port}`;
 
-  // Abort the request once the handler is running, forcing res "close" while it still runs.
+  // Abort the request mid-handler.
   const ac = new AbortController();
   const aborted = assert.rejects(fetch(base + "/slow/go", { signal: ac.signal })); // the client sees the abort
   await started.promise;
   ac.abort();
   await aborted;
 
-  await logged.promise; // the handler finished its post-abort log
+  await logged.promise;
   assert.equal(afterCloseErr, undefined, "ctx.log did not throw after the client disconnected");
   assert.ok(afterCloseOk, "the handler logged successfully after close");
 
