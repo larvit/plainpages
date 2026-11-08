@@ -315,3 +315,28 @@ Inherited architect, decided by:
 - Navigation: `src/test-tooling/stylesheet-floor.ts:1` `floorViolations`: the folder is named in AGENTS.md and the README file map
 - Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: one loop split into `parenGroups`, `Group` and `keepGroup`
 - Self-sufficiency: `src/auth/routes.ts:117` `codeFlowSubmit`: a comment says which `flowFailure` branch can fire there
+
+## 2026-11-08T13:44:57Z, PR #215 at 3a3bd77, against 01f368d
+
+Ruling: better
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Mid A | better | better | better | same | better |
+| Inherited architect | better | better | better | better | better |
+
+Mid A, decided by:
+
+- Locality, Shape: `src/ui/paginate.ts:68` `buildPaginationModel`: the rows form's hidden inputs are read off hrefFor, so form and links can't drift, where each page used to list them by hand
+- Shape, Navigation: `examples/plugins/admin/admin-users.ts:140` `buildUsersListModel`: three near-identical listPagination copies become one call each to a named helper
+- Locality: `src/http/app.ts:271` `shared`: ctx and contextFor spread one option object instead of spelling the same list twice
+- Shape: `src/ui/paginate.ts:1` header: names both steps truthfully, and PaginationModel types the partial's input
+- Navigation: `src/http/context.ts:28` `RequestContext.assetHref`: versioning a plugin's asset is a documented contract member, not a host-internal local
+
+Inherited architect, decided by:
+
+- Shape, Locality, Navigation: `src/ui/paginate.ts:68` `buildPaginationModel`: one typed function in the module owning the page math replaces three hand-written copies in the example plugins
+- Locality: `examples/plugins/admin/admin-users.ts:188` `listPagination`: the older version built the hidden inputs field by field, apart from listHref; the round trip through new URL is a little clever, paid for by its comment
+- Locality, Shape: `src/http/app.ts:271` `shared`: the two buildContext calls differ only in the translator and params
+- Self-sufficiency: `src/http/context.ts:28` `RequestContext.assetHref`: the contract field says on the spot what it does and how it differs from the view local
+- Self-sufficiency: `README.md:1050` pagination sketch: URL to partial in five lines, with the param-renaming rule
