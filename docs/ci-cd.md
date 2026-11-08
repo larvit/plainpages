@@ -26,7 +26,7 @@ image for any `main` commit already exists from that commit's branch gate — bu
 re-tagging. The build runs inside the required gate, so a missing/expired token or a registry outage
 blocks **all** merges until restored; use a non-expiring token or track its expiry. Hash tags
 accumulate one image per gated push, so nightly `registry-cleanup.yml` prunes them
-([`registry-cleanup/cleanup.ts`](registry-cleanup/cleanup.ts) defines what survives). Don't add a
+([`registry-cleanup/select-versions.ts`](../registry-cleanup/select-versions.ts) defines what survives). Don't add a
 pattern-based org cleanup rule for this package — its age/count heuristics can't see branch heads or
 release tags and would delete images the workflow protects.
 
@@ -42,7 +42,7 @@ The [contract check](../README.md#contract-versioning) guards the tag before any
 whose `major.minor` disagrees with `HOST_API_VERSION` and naming the value to set.
 
 **The Docker Hub overview** is published by a separate `publish-overview` job from
-[`release-tooling/dockerhub-overview.md.tmpl`](release-tooling/dockerhub-overview.md.tmpl), with
+[`release-tooling/dockerhub-overview.md.tmpl`](../release-tooling/dockerhub-overview.md.tmpl), with
 `{{VERSION}}` rendered to the release, so the Plainpages tag it tells adopters to pull cannot go
 stale. The same job sets the page's short description. Its sidecar pins are Renovate-managed and gated against this repo's own compose files, so the
 quick start stays a topology CI has actually run.
@@ -60,7 +60,7 @@ GitHub is swept away — cut releases on Gitea, never on the mirror. Branches ot
 no refspec and are left alone.
 
 **Dependency updates** — `renovate.yml` runs [Renovate](https://docs.renovatebot.com) nightly
-(self-hosted, this repo only) against [`renovate.json`](renovate.json), bumping npm deps, Docker base
+(self-hosted, this repo only) against [`renovate.json`](../renovate.json), bumping npm deps, Docker base
 images, Gitea action versions, and the image tags pinned inside workflow `run:` steps (a custom regex
 manager, so nothing pinned drifts unmanaged). Version-locked sets move together in one PR — the Ory
 images, and the Playwright runner + its browser image — and every bump keeps the **exact semver pin**
@@ -72,8 +72,8 @@ exact. Each PR runs the normal gate on its `renovate/*` branch and automerges on
 **skips** when the tip isn't a Renovate commit, nothing new merged, or nothing that merged carried a
 trailer — a dependency update that cannot reach the app releases nothing. Renovate stamps a
 `Release-Bump: <updateType>` trailer onto the updates that reach a running Plainpages — the rules in
-[`renovate.json`](renovate.json) name them — and
-[`release-tooling/next-version.ts`](release-tooling/next-version.ts) turns the highest one into the next
+[`renovate.json`](../renovate.json) name them — and
+[`release-tooling/next-version.ts`](../release-tooling/next-version.ts) turns the highest one into the next
 version; pre-1.0 it never auto-crosses into `1.0.0`. Because the contract version *is* the release
 version, an update big enough to reach a **minor** stops the job rather than tagging: bump
 `HOST_API_VERSION` in a PR, merge, then tag by hand. Pre-1.0 that covers a dependency *major*, since
