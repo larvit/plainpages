@@ -396,3 +396,114 @@ Inherited architect, decided by:
 - Locality: `src/http/app.ts:213` `Host`: a 19-field bag wider than any stage needs
 - Shape: `src/ui/chrome.ts:29` `ShellUser.profileLinks`: no longer collides with `MenuConfig` and the `menu` partial
 - Navigation: `.gitea/workflows/release.yml:60` error pointer: names `docs/ci-cd.md`, one hop from the failure
+
+## 2026-11-08T21:24:33Z, PR #228 at ed48c5a
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7.5 | 6 | 7 | 7 | 6.5 |
+| Mid A | 7 | 6 | 6.5 | 6.5 | 6.5 |
+| Maintainability senior | 7.5 | 6.5 | 7 | 6.5 | 7 |
+| Inherited architect | 6 | 6 | 6.5 | 7 | 6.5 |
+| Mean | 7.00 | 6.13 | 6.75 | 6.75 | 6.63 |
+
+Junior A, hardest first:
+
+- Locality, Overall: `src/http/app.ts:67` `createApp`: a closure bag whose order matters; `switchBase` uses `builtinRoutes` declared further down
+- Locality, Overall: `src/http/app.ts:274` `prepareRequest`: builds the context, the factory and the memoized chrome together, and every page path must remember to set the CSRF cookie
+- Locality, Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:285` `lostToSelf`: the self-lockout rule is spread over four call sites and no single place states it
+- Shape, Overall: `examples/plugins/auth-admin/admin-grants.ts:99` `buildPermissionPicker`: checked, inherited, read-only and undeclared rows interact and need a truth table
+- Self-sufficiency: `src/auth/routes.ts:45` `flowReturnTo`: locale and return-to inputs interact, and no table gives the result per input
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: four Kratos error branches that need Ory knowledge the repo doesn't hold
+- Locality: `src/ui/chrome.ts:55` `buildPluginChrome`: the locale rule is put into effect in three places with no single owner
+- Self-sufficiency: `src/plugin-host/router.ts:4` header: promises order-independent specificity, but ties fall to discovery order
+
+Mid A, hardest first:
+
+- Locality, Overall: `examples/plugins/auth-admin/admin-groups.ts:285` `lostToSelf`: needs Keto's transitive group resolution rebuilt by hand, and over-reports
+- Shape, Locality: `examples/plugins/auth-admin/admin-groups.ts:435` `groupsDelete`: deletes grants one at a time, so it can stop part-way
+- Shape, Overall: `examples/plugins/auth-admin/admin-grants.ts:99` `buildPermissionPicker`: four overlapping ideas; `checked` means direct or effective
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos status codes map to different outcomes and need outside knowledge
+- Shape, Locality: `src/http/app.ts:183` `handleRequest`: the 19-field `Host` bag and the state threaded between stages
+- Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: a hand-rolled parser for `@supports` conditions
+- Self-sufficiency: `src/plugin-host/settings.ts:35` `ValueOfDecl`: type-level inference with a `const` generic
+- Self-sufficiency: `src/auth/jwt-middleware.ts:75` `verifyToken`: a denylisted token is thrown as expired so it gets re-minted
+- Self-sufficiency: `examples/plugins/auth-admin/plugin.ts:22` `on`: each write-intent GET states its `"write"` override in the route table and in the handler
+
+Maintainability senior, hardest first:
+
+- Locality, Overall: `examples/plugins/auth-admin/admin-groups.ts:285` `lostToSelf`: the self-lockout guards rebuild Keto's transitive membership and no sentence states the invariant
+- Shape, Overall: `src/http/app.ts:67` `createApp`: a long closure factory that is safe to read but not safe to change
+- Shape, Self-sufficiency: `examples/plugins/auth-admin/admin-grants.ts:99` `buildPermissionPicker`: direct, effective and undeclared grant sets with a staleness token on top
+- Self-sufficiency: `src/plugin-host/settings.ts:35` `ValueOfDecl`: type-level inference whose comments say what it does, not how
+- Self-sufficiency: `src/auth/routes.ts:45` `flowFailure`: a matrix of Kratos statuses and flow states
+- Locality: `src/auth/jwks.ts:68` `cachingJwks`: subtle cache state, and the denylist reuses the `expired` flag
+- Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: a hand-written parser for `@supports` conditions
+- Locality: `src/auth/bootstrap.ts:86` `seedAdmin`: calls Kratos and Keto with raw fetch instead of the client modules
+- Self-sufficiency: `examples/plugins/auth-admin/views/partials/group-detail-body.ejs:2` locals header: documents `identity` and `del`, omits `canWrite` and `permissions`
+
+Inherited architect, would restructure first:
+
+- Navigation, Overall: `src/auth/routes.ts:1` `src/auth`: 19 modules holding sessions, Ory clients, flows, the OAuth2 provider and one-shot CLIs
+- Navigation: `src/auth/bootstrap.ts:1` `bootstrap.ts`: a one-shot process that also provisions plugin storage, placed under auth
+- Navigation, Locality: `src/ui/chrome.ts:55` `buildPluginChrome`: builds the chrome for every page, the host's own included
+- Navigation: `views/index.ejs:1` `index.ejs`: the built-in /dashboard, and `home.ejs` is "/", and neither filename says so
+- Locality: `public/css/styles.css:326` `.btn-primary`: one visual fact spans the partial, the rule, the tokens and the floor policy in `src/test-tooling/`
+- Shape, Locality: `examples/plugins/auth-admin/admin-groups.ts:113` `admin-groups.ts`: pure view models, Keto queries, lockout policy and handlers in one 463-line file
+- Shape: `src/http/app.ts:213` `Host`: a 19-field bag that every cross-cutting feature edits
+- Self-sufficiency: `src/plugin-host/system.ts:1` header: calls the built-in admin screens the reference consumer, but they are a drop-in plugin
+
+## 2026-11-08T21:30:30Z, PR #228 rerun at 0727d15
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7.5 | 6 | 6.5 | 6.5 | 6.5 |
+| Mid A | 7 | 6 | 6.5 | 7 | 6.5 |
+| Maintainability senior | 7.5 | 6.5 | 7 | 7 | 7 |
+| Inherited architect | 7 | 6.5 | 6 | 7.5 | 6.5 |
+| Mean | 7.25 | 6.25 | 6.50 | 7.00 | 6.63 |
+
+Junior A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:274` `prepareRequest`: a 19-field `Host` bag and a twice-memoized chrome threaded through one closure, and two return conventions (send and return null, or return a result)
+- Locality, Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:285` `lostToSelf`: the self-lockout rule differs from the users side and nothing says whether that is deliberate
+- Shape, Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:18` `LIST_FETCH_SIZE`: the comment says a Keto page but the call is Kratos `listIdentities`
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: branches on Kratos status and body text that need Ory knowledge
+- Shape, Self-sufficiency: `src/auth/jwt-middleware.ts:75` `verifyToken`: a revoked token is reported as expired, with the effect in another file
+- Locality: `src/i18n/load.ts:43` `loadI18n`: four catalog sources kept apart with a nested spread on one line
+- Self-sufficiency: `src/server.ts:25` boot order: deleting `PLUGIN_DB_SECRET` is order-dependent and its reason sits in the decision log
+- Self-sufficiency: `src/plugin-host/system.ts:1` header: calls the built-in admin screens the reference consumer
+
+Mid A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:274` `prepareRequest`: the request order lives only in the sequence of a long closure, and `serveHome` skips `sendResult`
+- Shape: `src/test-tooling/stylesheet-floor.ts:122` `positive`: a hand-written, regex-heavy reader of `@supports` conditions
+- Locality: `src/auth/jwt-middleware.ts:75` `verifyToken`: revocation reported as expired works only through `resolveUser` in another file
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos statuses that need outside knowledge
+- Locality: `src/auth/jwks.ts:68` `cachingJwks`: four interacting behaviours in one closure
+- Shape: `src/i18n/load.ts:43` `loadI18n`: merges four catalog sources, with the chain order described in two files
+- Locality: `src/i18n/locale.ts:81` `chosenLocale`: infers an explicit choice from the output of a URL builder
+- Shape, Self-sufficiency: `examples/plugins/scheduling/plugin.ts:37` header: says "Roles" and `<id>:<action>` where the project has neither
+- Self-sufficiency: `compose.yml:166` comment: says consent comes next, but `src/auth/oauth-consent.ts` exists
+
+Maintainability senior, hardest first:
+
+- Shape, Overall: `src/test-tooling/stylesheet-floor.ts:122` `positive`: a regex-driven mini-parser whose header states the rules but not how the helpers carry them
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: five branches that assume Kratos' error vocabulary
+- Locality: `src/http/app.ts:274` `prepareRequest`: where the language picker points after a POST is spread over four units in three files
+- Shape: `src/i18n/load.ts:43` `loadI18n`: three catalog sets, each with its own baseline, and a nested spread
+- Locality: `src/auth/jwt-middleware.ts:84` `verifyToken`: the denylist travels as `expired`, so `resolveSession` can't show it
+- Shape: `src/ui/chrome.ts:55` `buildPluginChrome`: labels are translated twice and `markCurrent` mutates the nodes
+- Locality, Shape: `examples/plugins/auth-admin/admin-users.ts:348` `usersPermissions`: the stale-page, self-revoke and diff guards interact across two files, and `pickerOrNothing`'s promise is broken on the self-delete paths
+- Shape: `src/plugin-host/router.ts:4` header: promises order-independent specificity, but ties fall to discovery order
+
+Inherited architect, would restructure first:
+
+- Shape, Navigation, Overall: `src/auth/bootstrap.ts:1` `src/auth`: 19 modules across the session, Kratos flows, OAuth2 and a second process entrypoint
+- Navigation, Self-sufficiency: `src/auth/bootstrap.ts:1` header: lists the JWKS, admin and Keto steps but not the plugin storage step, and the file reads the environment outside `config.ts`
+- Shape, Navigation: `views/index.ejs:1` `index.ejs`: the dashboard, with `home.ejs` as the landing page, and neither name says so
+- Shape: `src/ui/chrome.ts:55` `buildPluginChrome`: builds the chrome for every page, not only plugin pages
+- Locality, Navigation: `src/test-tooling/stylesheet-floor.ts:10` header: the custom-property footgun sits in test tooling instead of beside the tokens at `public/css/styles.css:9`
+- Locality: `src/auth/bootstrap.ts:170` `provisionPluginStorage`: plugin storage lives in three places, across `storage.ts`, `storage-provisioning.ts` and `bootstrap.ts`
+- Locality, Shape: `src/http/app.ts:183` `handleRequest`: every new manifest field or slot adds a stage here and a field to `Host`
+- Self-sufficiency: `src/plugin-host/system.ts:1` header: calls the built-in admin screens the reference consumer
