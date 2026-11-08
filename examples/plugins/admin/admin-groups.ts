@@ -179,7 +179,6 @@ function listFilterBar(state: ListState, t: Translate) {
   };
 }
 
-
 // ---- create form + detail view models ----
 
 export function buildGroupFormModel(opts: {

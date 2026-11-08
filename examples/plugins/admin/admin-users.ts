@@ -185,7 +185,6 @@ function listFilterBar(state: ListState, total: number, t: Translate) {
   };
 }
 
-
 export interface FieldConfig {
   autocomplete?: string;
   hint?: string;
