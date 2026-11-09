@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { ensureJwks, firstRunBanner, identityPayload, permissionTuple, provisionPluginStorage, seedAdmin, seedPermissions, serverMismatch } from "./bootstrap.ts";
 import { createLogger } from "../logger.ts";
+import { createKetoClient } from "./keto-client.ts";
+import { createKratosAdmin } from "./kratos-admin.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
 import type { ProvisionOptions, ProvisionResult } from "../plugin-host/storage-provisioning.ts";
 
@@ -75,9 +77,8 @@ test("seedAdmin on a fresh stack creates the identity and grants every permissio
 
   const result = await seedAdmin({
     email: "admin@plainpages.local",
-    fetchImpl,
-    ketoWriteUrl: "http://keto:4467",
-    kratosAdminUrl: "http://kratos:4434",
+    keto: createKetoClient({ fetchImpl, readUrl: "http://keto:4466", writeUrl: "http://keto:4467" }),
+    kratos: createKratosAdmin({ baseUrl: "http://kratos:4434", fetchImpl }),
     password: "admin",
     permissions: ["admin", "scheduling:read"],
   });
@@ -108,9 +109,8 @@ test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants 
 
   const result = await seedAdmin({
     email: "admin@plainpages.local",
-    fetchImpl,
-    ketoWriteUrl: "http://keto:4467",
-    kratosAdminUrl: "http://kratos:4434",
+    keto: createKetoClient({ fetchImpl, readUrl: "http://keto:4466", writeUrl: "http://keto:4467" }),
+    kratos: createKratosAdmin({ baseUrl: "http://kratos:4434", fetchImpl }),
     password: "admin",
     permissions: ["admin"],
   });
@@ -124,9 +124,8 @@ test("seedAdmin fails loud on an unexpected Kratos error", async () => {
   await assert.rejects(
     seedAdmin({
       email: "admin@plainpages.local",
-      fetchImpl,
-      ketoWriteUrl: "http://keto:4467",
-      kratosAdminUrl: "http://kratos:4434",
+      keto: createKetoClient({ fetchImpl, readUrl: "http://keto:4466", writeUrl: "http://keto:4467" }),
+      kratos: createKratosAdmin({ baseUrl: "http://kratos:4434", fetchImpl }),
       password: "admin",
       permissions: ["admin"],
     }),

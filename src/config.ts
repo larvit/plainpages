@@ -158,6 +158,34 @@ function readTrustedProxies(env: Env): string[] {
   return entries;
 }
 
+function readKratosKetoUrls(env: Env) {
+  return {
+    ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
+    ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
+    kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
+  };
+}
+
+export interface BootstrapConfig {
+  adminEmail: string;
+  adminPassword: string;
+  appUrl: string; // only printed in the first-run banner; unlike Config.appUrl, it has a default
+  ketoReadUrl: string;
+  ketoWriteUrl: string;
+  kratosAdminUrl: string;
+}
+
+// What the one-shot bootstrap service reads. Not `loadConfig`: that demands web's own secrets, which
+// compose withholds from bootstrap while REQUIRE_SECURE_SECRETS is on there.
+export function loadBootstrapConfig(env: Env): BootstrapConfig {
+  return {
+    adminEmail: env["ADMIN_EMAIL"] || "admin@plainpages.local",
+    adminPassword: env["ADMIN_PASSWORD"] || "admin",
+    appUrl: readOptionalUrl(env, "APP_URL") ?? "http://localhost:3000",
+    ...readKratosKetoUrls(env),
+  };
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const requireSecure = readBool(env, "REQUIRE_SECURE_SECRETS", false);
   return {
@@ -181,9 +209,7 @@ export function loadConfig(env: Env = process.env): Config {
     // exp/nbf leeway (s) for Kratos↔web clock drift; the auth E2E sets 0 to time tokens out fast.
     jwtClockSkewSec: readNonNegInt(env, "JWT_CLOCK_SKEW_SEC", 60),
     jwtIssuer: readOptional(env, "JWT_ISSUER"),
-    ketoReadUrl: readUrl(env, "KETO_READ_URL", "http://keto:4466"),
-    ketoWriteUrl: readUrl(env, "KETO_WRITE_URL", "http://keto:4467"),
-    kratosAdminUrl: readUrl(env, "KRATOS_ADMIN_URL", "http://kratos:4434"),
+    ...readKratosKetoUrls(env),
     kratosPublicUrl: readUrl(env, "KRATOS_PUBLIC_URL", "http://kratos:4433"),
     // Console-only unless OTLP_ENDPOINT names a collector.
     logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),

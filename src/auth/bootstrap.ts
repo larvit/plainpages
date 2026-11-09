@@ -1,20 +1,23 @@
-// One-command bootstrap (the MVP bar). One-shot compose service: runs after
-// kratos+keto are healthy (web waits on it), idempotent on every `docker compose up`:
-//   1. generate the JWKS signing key if absent (committed dev key makes this a safety net);
-//   2. create a database and login role for each discovered plugin that declares storage;
-//   3. seed a demo admin (admin@plainpages.local / admin) in Kratos;
-//   4. grant it its permissions in Keto so menu/permission checks resolve out of the box — every
-//      discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so a dropped-in
-//      plugin is usable by the demo admin with no host config edit (the host stays plugin-agnostic).
-// Then prints a first-run banner; fails loud on any unexpected upstream error.
+// The one-shot compose service (`node src/auth/bootstrap.ts`) that prepares a stack; `web` waits for
+// it. It runs once Kratos and Keto are healthy, repeats safely on every `docker compose up`, and
+// fails loud on any unexpected upstream error. In order:
+//   1. JWKS: write the session-token signing key if the file is missing.
+//   2. Plugin storage: create a database and login role for each plugin that declares storage.
+//   3. Admin: create the demo admin in Kratos, or find it again.
+//   4. Permissions: grant that admin in Keto every discovered plugin's declared permission names plus
+//      ADMIN_PERMISSIONS, so a dropped-in plugin works with no host config edit.
+// It ends by printing the first-run banner. Settings come from `loadBootstrapConfig`.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
+import { loadBootstrapConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
 import { declaredPermissions, isValidPermissionName, type Plugin } from "../plugin-host/plugin.ts";
 import { provisionStorage } from "../plugin-host/storage-provisioning.ts";
 import { storagePluginIds } from "../plugin-host/storage.ts";
 import { generateJwks, type JwkSet } from "./gen-jwks.ts";
+import { createKetoClient, type KetoClient } from "./keto-client.ts";
+import { createKratosAdmin, type KratosAdmin } from "./kratos-admin.ts";
+import { KratosError } from "./kratos-public.ts";
 import { createLogger, runWithLog, tracedFetch, type Log } from "../logger.ts";
 
 type Env = Record<string, string | undefined>;
@@ -71,9 +74,8 @@ export function ensureJwks(path: string, hooks: JwksFsHooks = {}): boolean {
 
 export interface SeedOptions {
   email: string;
-  fetchImpl?: typeof fetch;
-  ketoWriteUrl: string;
-  kratosAdminUrl: string;
+  keto: KetoClient;
+  kratos: KratosAdmin;
   password: string;
   permissions: string[];
 }
@@ -85,45 +87,30 @@ export interface SeedResult {
 }
 
 export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
-  const http = opts.fetchImpl ?? fetch;
+  const { created, id } = await createOrFindAdmin(opts.kratos, opts.email, opts.password);
 
-  // Create the identity. A 409 means it already exists (a re-run) — look up its id.
-  const res = await http(`${opts.kratosAdminUrl}/admin/identities`, {
-    body: JSON.stringify(identityPayload(opts.email, opts.password)),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
-  let created: boolean;
-  let id: string;
-  if (res.status === 201) {
-    id = ((await res.json()) as { id: string }).id;
-    created = true;
-  } else if (res.status === 409) {
-    id = await findIdentityId(http, opts.kratosAdminUrl, opts.email);
-    created = false;
-  } else {
-    throw new Error(`bootstrap: Kratos create identity failed (${res.status}): ${await res.text()}`);
-  }
-
-  // Grant each permission in Keto. PUT is idempotent — re-running just re-asserts the tuple.
+  // PUT is idempotent — re-running just re-asserts the tuple.
   for (const permission of opts.permissions) {
-    const grant = await http(`${opts.ketoWriteUrl}/admin/relation-tuples`, {
-      body: JSON.stringify(permissionTuple(id, permission)),
-      headers: { "content-type": "application/json" },
-      method: "PUT",
-    });
-    if (!grant.ok) throw new Error(`bootstrap: Keto grant permission "${permission}" failed (${grant.status}): ${await grant.text()}`);
+    try {
+      await opts.keto.writeTuple(permissionTuple(id, permission));
+    } catch (err) {
+      throw new Error(`bootstrap: Keto grant permission "${permission}" failed: ${(err as Error).message}`, { cause: err });
+    }
   }
 
   return { created, id, permissions: opts.permissions };
 }
 
-async function findIdentityId(http: typeof fetch, adminUrl: string, email: string): Promise<string> {
-  const res = await http(`${adminUrl}/admin/identities?credentials_identifier=${encodeURIComponent(email)}`);
-  if (!res.ok) throw new Error(`bootstrap: Kratos lookup failed (${res.status}): ${await res.text()}`);
-  const found = ((await res.json()) as { id: string }[])[0];
-  if (!found?.id) throw new Error(`bootstrap: ${email} reported as existing but not found`);
-  return found.id;
+// A Kratos 409 means the admin exists (a re-run), so look its id up by login identifier.
+async function createOrFindAdmin(kratos: KratosAdmin, email: string, password: string): Promise<{ created: boolean; id: string }> {
+  try {
+    return { created: true, id: (await kratos.createIdentity(identityPayload(email, password))).id };
+  } catch (err) {
+    if (!(err instanceof KratosError) || err.status !== 409) throw new Error(`bootstrap: ${(err as Error).message}`, { cause: err });
+  }
+  const found = (await kratos.listIdentities({ credentialsIdentifier: email })).identities[0];
+  if (!found) throw new Error(`bootstrap: ${email} reported as existing but not found`);
+  return { created: false, id: found.id };
 }
 
 // --- First-run banner ----------------------------------------------------------------
@@ -219,19 +206,17 @@ async function seedAdminAndPermissions(env: Env, plugins: Plugin[], log: Log): P
   if (ignored.length > 0) {
     log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });
   }
-  const email = env["ADMIN_EMAIL"] ?? "admin@plainpages.local";
-  const password = env["ADMIN_PASSWORD"] ?? "admin";
+  const config = loadBootstrapConfig(env);
   const result = await seedAdmin({
-    email,
-    fetchImpl: tracedFetch,
-    ketoWriteUrl: env["KETO_WRITE_URL"] ?? "http://keto:4467",
-    kratosAdminUrl: env["KRATOS_ADMIN_URL"] ?? "http://kratos:4434",
-    password,
+    email: config.adminEmail,
+    keto: createKetoClient({ fetchImpl: tracedFetch, readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl }),
+    kratos: createKratosAdmin({ baseUrl: config.kratosAdminUrl, fetchImpl: tracedFetch }),
+    password: config.adminPassword,
     permissions,
   });
   log.info("admin seeded", { created: result.created, id: result.id, permissions: result.permissions.join(", ") });
   // The banner is human-facing UX (the first-run "you're ready" block), not a log event — print raw.
-  console.log(firstRunBanner({ appUrl: env["APP_URL"] ?? "http://localhost:3000", email, password }));
+  console.log(firstRunBanner({ appUrl: config.appUrl, email: config.adminEmail, password: config.adminPassword }));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

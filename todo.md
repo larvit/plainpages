@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 66 | 0.5.0 |  |  | **Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.** | 2 | 1 | 3 | 4 | 4 | code health by 3 | 9.0 |
 | 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
 | 71 | 0.5.0 |  |  | **Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.** | 1 | 2 | 2 | 3 | 2 | 2 by 3 | 4.2 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
@@ -27,17 +26,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 66. Make `src/auth/bootstrap.ts` read its settings through `src/config.ts` and call Kratos and Keto through their client modules.
-
-`seedAdminAndPermissions` (~L221-233) reads `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `KETO_WRITE_URL`,
-`KRATOS_ADMIN_URL` and `APP_URL` from the environment with its own defaults, which repeat
-`src/config.ts` (~L170-186) beside its "loaded once" promise. `seedAdmin` (~L86) and
-`findIdentityId` call Kratos and Keto with raw `fetch` where `createKratosAdmin` (`createIdentity`,
-`listIdentities` with `credentialsIdentifier`) and `createKetoClient` (`writeTuple`) exist. Check
-that `loadConfig` doesn't demand settings the one-shot service lacks; else reuse its readers. The
-seed stays idempotent (a Kratos 409 still means an existing admin). Make the `bootstrap.ts` header
-easier to read, a place the seats found hard.
 
 ### 70. Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.
 

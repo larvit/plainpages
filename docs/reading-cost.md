@@ -547,3 +547,20 @@ Read most (opens and searches):
 - `compose.yml` 2
 - `examples/plugins/auth-admin/admin-groups.ts` 2
 - `examples/plugins/auth-admin/views/partials/group-detail-body.ejs` 2
+
+## Reading cost, chunk d95a4d7286d2, finished 2026-11-08T23:59:30Z
+
+82203 new input tokens before the first commit.
+
+Read most (opens and searches):
+
+- `src/http/app.ts` 8
+- `src/http/app-plugins.test.ts` 4
+- `todo.md` 4
+- `src/http/app.test.ts` 3
+- `src/function-limits.test.ts` 2
+- `src/test-tooling/app-harness.ts` 2
+- `docs/decisions.md` 1
+- `src/auth/routes.ts` 1
+- `src/http/builtin-route.test.ts` 1
+- `src/http/builtin-route.ts` 1

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { loadConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "./config.ts";
+import { loadBootstrapConfig, loadConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "./config.ts";
 
 // Explicit secure-secret enforcement (no environment sniffing): secrets are the only
 // thing a hardened deploy must supply.
@@ -61,6 +61,22 @@ test("the per-role connection ceiling defaults to 10 and rejects nonsense", () =
   assert.equal(resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "25" }), 25);
   assert.throws(() => resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "0" }), /positive integer/);
   assert.throws(() => resolvePluginDbConnectionLimit({ PLUGIN_DB_CONNECTION_LIMIT: "ten" }), /positive integer/);
+});
+
+test("the one-shot bootstrap config has dev defaults and demands no web secret, even when secure secrets are required", () => {
+  const c = loadBootstrapConfig({ REQUIRE_SECURE_SECRETS: "true" });
+  assert.deepEqual(c, {
+    adminEmail: "admin@plainpages.local",
+    adminPassword: "admin",
+    appUrl: "http://localhost:3000",
+    ketoReadUrl: "http://keto:4466",
+    ketoWriteUrl: "http://keto:4467",
+    kratosAdminUrl: "http://kratos:4434",
+  });
+  assert.equal(loadBootstrapConfig({ ADMIN_EMAIL: "", ADMIN_PASSWORD: "" }).adminEmail, "admin@plainpages.local"); // compose passes an unset variable as ""
+  const set = loadBootstrapConfig({ ADMIN_EMAIL: "a@b.c", APP_URL: "https://x.test", KRATOS_ADMIN_URL: "http://k:1" });
+  assert.deepEqual([set.adminEmail, set.appUrl, set.kratosAdminUrl], ["a@b.c", "https://x.test", "http://k:1"]);
+  assert.throws(() => loadBootstrapConfig({ KETO_WRITE_URL: "not a url" }), /KETO_WRITE_URL/);
 });
 
 test("loads dev defaults when the environment is empty", () => {
