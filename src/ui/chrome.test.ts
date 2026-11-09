@@ -67,6 +67,16 @@ test("a gated section (like the admin plugin) shows to a holder; a sub-path mark
   assert.equal(admin.children!.find((c) => c.label === "Groups")!.current, undefined);
 });
 
+test("a path no nav leaf owns marks nothing current and opens nothing", () => {
+  const chrome = buildPageChrome({
+    currentPath: "/elsewhere", menu: DEFAULT_MENU, plugins: [scheduling],
+    user: { email: "ada@x.io", id: "u1", permissions: ["scheduling:read"] },
+  });
+  const section = chrome.nav.find((n) => n.label === "Scheduling")!;
+  assert.equal(section.open, undefined);
+  assert.equal(section.children!.some((c) => c.current), false);
+});
+
 test("branding logo + default theme flow through when set", () => {
   const menu: MenuConfig = { branding: { logo: "/logo.svg", name: "Acme", theme: "dark" }, override: {} };
   const chrome = buildPageChrome({ menu });

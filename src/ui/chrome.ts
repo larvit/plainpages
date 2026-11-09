@@ -52,7 +52,6 @@ export interface ChromeOptions {
   user?: User | null;
 }
 
-// The chrome of every page the host renders, its own screens and a plugin's alike.
 export function buildPageChrome(opts: ChromeOptions): PageChrome {
   const t = opts.t ?? ENGLISH;
   const carryLocale = opts.localeHref ?? ((href: string) => href);
@@ -62,6 +61,7 @@ export function buildPageChrome(opts: ChromeOptions): PageChrome {
   return {
     brand,
     csrfToken: opts.csrfToken ?? "",
+    // Marked before the locale rides along, so an href still matches the plain request path.
     nav: carryLocaleInto(currentMarkedNav(opts, t), carryLocale),
     signInHref: carryLocale(returnTo),
     ...(theme != null ? { theme } : {}),
@@ -69,8 +69,6 @@ export function buildPageChrome(opts: ChromeOptions): PageChrome {
   };
 }
 
-// Dashboard plus every plugin's fragment, composed and filtered for the user, with the current leaf
-// marked. Marked before the locale rides along, so an href still matches the plain request path.
 function currentMarkedNav(opts: ChromeOptions, t: Translate): NavNode[] {
   const fragments: NavNode[][] = [[DASHBOARD_NAV]];
   // A plugin's nav labels are keys in *its* catalog, so translate each fragment with that plugin's
@@ -80,9 +78,7 @@ function currentMarkedNav(opts: ChromeOptions, t: Translate): NavNode[] {
     if (p.nav?.length) fragments.push(translateNav(p.nav, opts.translatorFor?.(p.id) ?? t));
   }
   const nav = composeNav(fragments, opts.menu.override, opts.user ?? null, t);
-  // The *best* (longest) href that is the path or a parent of it, so a sub-path like
-  // /auth-admin/users/new marks the Users base leaf (/auth-admin/users) and the dashboard marks Dashboard.
-  const target = opts.currentPath ? bestHref(nav, opts.currentPath) : null;
+  const target = opts.currentPath ? bestHref(nav, opts.currentPath) : undefined;
   if (target) markCurrent(nav, target);
   return nav;
 }

@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { test } from "node:test";
-import { GuardError, isValidPermissionName, type Log, type PageChrome, type RequestContext, type User } from "@plainpages/plugin-api";
-import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, actionForMethod, buildConfirmModel, guardedForm, permissionName, requirePermission } from "./admin-shared.ts";
+import { GuardError, isValidPermissionName, type KetoClient, type Log, type PageChrome, type RequestContext, type User } from "@plainpages/plugin-api";
+import { ADMIN_EN, ADMIN_NAV, ADMIN_USERS_BASE, actionForMethod, buildConfirmModel, guardedForm, pagedTuples, permissionName, requirePermission } from "./admin-shared.ts";
 
 const reader: User = { email: "ada@x.io", id: "u1", permissions: ["users:read"] };
 const writer: User = { email: "cy@x.io", id: "u3", permissions: ["users:read", "users:write"] };
@@ -99,4 +99,24 @@ test("buildConfirmModel wires the danger action, message, breadcrumbs and title 
   assert.equal(model.cancelHref, ADMIN_USERS_BASE);
   assert.equal(model.title, "Delete user");
   assert.deepEqual(model.breadcrumbs.at(-1), { label: "Delete" });
+});
+
+test("pagedTuples follows the page token to the last page and keeps the query on every page", async () => {
+  const queries: unknown[] = [];
+  const tuple = (object: string) => ({ namespace: "Group", object, relation: "members", subject_id: "user:a" });
+  const keto = {
+    listRelations: async (q: { pageToken?: string } = {}) => {
+      queries.push(q);
+      if (q.pageToken === "p2") return { nextPageToken: "p3", tuples: [tuple("b")] };
+      if (q.pageToken === "p3") return { nextPageToken: null, tuples: [tuple("c")] };
+      return { nextPageToken: "p2", tuples: [tuple("a")] };
+    },
+  } as unknown as KetoClient;
+  const all = await pagedTuples(keto, { namespace: "Group", relation: "members" });
+  assert.deepEqual(all.map((t) => t.object), ["a", "b", "c"]);
+  assert.deepEqual(queries, [
+    { namespace: "Group", relation: "members" },
+    { namespace: "Group", pageToken: "p2", relation: "members" },
+    { namespace: "Group", pageToken: "p3", relation: "members" },
+  ]);
 });
