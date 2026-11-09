@@ -1777,7 +1777,7 @@ src/                 The app — strict tsc, no build step. *.test.ts sit beside
   auth/              Identity + the session-JWT hot path: jwt · jwt-middleware · jwks · gen-jwks (CLI) ·
                      login · guards · csrf · denylist · flow-view · oauth-login · oauth-consent ·
                      routes · bootstrap, and the Ory REST clients (kratos-public/admin, keto, hydra,
-                     fetch-timeout)
+                     link-header, fetch-timeout)
   i18n/              catalog (parity rules) · locale (resolution) · translate · load · runtime ·
                      english · view-locals · locales/ (the core en-US + sv-SE catalogs)
   plugin-host/       plugin.ts (the contract) · plugin-api.ts (the `@plainpages/plugin-api` barrel) · system.ts

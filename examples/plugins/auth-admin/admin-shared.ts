@@ -1,6 +1,4 @@
-// Shared plumbing for the admin example plugin: the section nav fragment, the screen gate, the
-// CSRF-guarded form reader, the destructive-confirm model builder, the form-field type, the Keto
-// paging loop, and small RouteResult helpers.
+// Shared plumbing for the admin example plugin's screens.
 // Everything imports the host only through the @plainpages/plugin-api barrel.
 
 import { can, CSRF_FIELD, englishTranslator, GuardError, type KetoClient, type NavNode, readFormBody, type RelationQuery, type RelationTuple, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
