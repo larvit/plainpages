@@ -1,15 +1,12 @@
-// The one-shot compose service (`node src/auth/bootstrap.ts`) that prepares a stack; `web` waits for
-// it. It runs once Kratos and Keto are healthy, repeats safely on every `docker compose up`, and
-// fails loud on any unexpected upstream error. In order:
-//   1. JWKS: write the session-token signing key if the file is missing.
-//   2. Plugin storage: create a database and login role for each plugin that declares storage.
-//   3. Admin: create the demo admin in Kratos, or find it again.
-//   4. Permissions: grant that admin in Keto every discovered plugin's declared permission names plus
-//      ADMIN_PERMISSIONS, so a dropped-in plugin works with no host config edit.
-// It ends by printing the first-run banner. Settings come from `loadBootstrapConfig`.
+// The one-shot compose service (`node src/auth/bootstrap.ts`) that prepares a stack. It starts once
+// Kratos and Keto are healthy, `web` waits for it, and it repeats safely on every `docker compose up`.
+// Steps, in the order `main` runs them: write the JWKS signing key if absent, create each storage
+// plugin's database and role, then seed the demo admin in Kratos and grant it in Keto every
+// discovered plugin's declared permissions (plus ADMIN_PERMISSIONS). Any unexpected upstream error
+// fails the run loudly.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { loadBootstrapConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
+import { type BootstrapConfig, loadBootstrapConfig, resolvePluginDbConnectionLimit, resolvePluginDbSecret } from "../config.ts";
 import { discoverPlugins } from "../plugin-host/discovery.ts";
 import { declaredPermissions, isValidPermissionName, type Plugin } from "../plugin-host/plugin.ts";
 import { provisionStorage } from "../plugin-host/storage-provisioning.ts";
@@ -89,12 +86,11 @@ export interface SeedResult {
 export async function seedAdmin(opts: SeedOptions): Promise<SeedResult> {
   const { created, id } = await createOrFindAdmin(opts.kratos, opts.email, opts.password);
 
-  // PUT is idempotent — re-running just re-asserts the tuple.
   for (const permission of opts.permissions) {
     try {
       await opts.keto.writeTuple(permissionTuple(id, permission));
     } catch (err) {
-      throw new Error(`bootstrap: Keto grant permission "${permission}" failed: ${(err as Error).message}`, { cause: err });
+      throw new Error(`bootstrap: granting "${permission}" in Keto: ${(err as Error).message}`, { cause: err });
     }
   }
 
@@ -133,21 +129,19 @@ export function firstRunBanner(opts: { appUrl: string; email: string; password: 
 
 async function main() {
   const env = { ...process.env }; // snapshot: the storage credentials leave process.env before discovery
-  // Structured like the web app so prod logs stay uniform; honour LOG_FORMAT/SERVICE_NAME.
-  const log = createLogger({
-    format: env["LOG_FORMAT"] === "json" ? "json" : "text",
-    ...(env["SERVICE_NAME"] ? { serviceName: env["SERVICE_NAME"] } : {}),
-  });
-  // runWithLog makes `log` ambient so seedAdmin's tracedFetch traces the Kratos/Keto seed calls.
+  const config = loadBootstrapConfig(env); // first, so a bad setting fails before any step has run
+  // Structured like the web app so prod logs stay uniform.
+  const log = createLogger({ format: config.logFormat, ...(config.serviceName ? { serviceName: config.serviceName } : {}) });
+  // runWithLog makes `log` ambient so the Kratos/Keto clients' tracedFetch traces the seed calls.
   await runWithLog(log, async () => {
-    if (ensureJwks(env["JWKS_FILE"] ?? "/etc/config/kratos/tokenizer/jwks.json")) log.info("generated a JWKS signing key");
+    if (ensureJwks(config.jwksFile)) log.info("generated a JWKS signing key");
     // Discovery imports every plugin module — and its dependencies — into *this* process, which holds
     // the credential that may CREATE DATABASE/ROLE. Same move as server.ts, on the stronger secret.
     delete process.env["PLUGIN_DB_ADMIN_URL"];
     delete process.env["PLUGIN_DB_SECRET"];
     const plugins = await discoverPlugins();
     await provisionPluginStorage(env, plugins, log);
-    await seedAdminAndPermissions(env, plugins, log);
+    await seedAdminAndPermissions(config, plugins, log);
   });
   await log.end(); // flush any pending OTLP spans/logs before the one-shot exits
 }
@@ -200,13 +194,12 @@ function safeHostPort(url: string): string | null {
 
 // Seed every discovered plugin's declared permission names (plus any ADMIN_PERMISSIONS), so the
 // shipped example — and any dropped-in plugin — works for the demo admin without a host edit.
-async function seedAdminAndPermissions(env: Env, plugins: Plugin[], log: Log): Promise<void> {
+async function seedAdminAndPermissions(config: BootstrapConfig, plugins: Plugin[], log: Log): Promise<void> {
   const declared = declaredPermissions(plugins).map((decl) => decl.name);
-  const { ignored, permissions } = seedPermissions(env["ADMIN_PERMISSIONS"], declared);
+  const { ignored, permissions } = seedPermissions(config.adminPermissions, declared);
   if (ignored.length > 0) {
     log.warn("ignoring ADMIN_PERMISSIONS entries that are not <resource>:<action>", { ignored: ignored.join(", ") });
   }
-  const config = loadBootstrapConfig(env);
   const result = await seedAdmin({
     email: config.adminEmail,
     keto: createKetoClient({ fetchImpl: tracedFetch, readUrl: config.ketoReadUrl, writeUrl: config.ketoWriteUrl }),

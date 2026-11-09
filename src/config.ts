@@ -169,19 +169,28 @@ function readKratosKetoUrls(env: Env) {
 export interface BootstrapConfig {
   adminEmail: string;
   adminPassword: string;
+  adminPermissions: string | undefined; // comma-separated, validated where it is used
   appUrl: string; // only printed in the first-run banner; unlike Config.appUrl, it has a default
   ketoReadUrl: string;
   ketoWriteUrl: string;
   kratosAdminUrl: string;
+  jwksFile: string;
+  logFormat: Config["logFormat"];
+  serviceName: string | undefined;
 }
 
-// What the one-shot bootstrap service reads. Not `loadConfig`: that demands web's own secrets, which
-// compose withholds from bootstrap while REQUIRE_SECURE_SECRETS is on there.
+// What the one-shot bootstrap service reads, apart from the plugin-storage variables, which
+// `resolvePluginDb*` and `PLUGIN_DB_*` cover. Not `loadConfig`: that demands web's own secrets, which
+// compose does not give the bootstrap service while it sets REQUIRE_SECURE_SECRETS there.
 export function loadBootstrapConfig(env: Env): BootstrapConfig {
   return {
     adminEmail: env["ADMIN_EMAIL"] || "admin@plainpages.local",
     adminPassword: env["ADMIN_PASSWORD"] || "admin",
+    adminPermissions: readOptional(env, "ADMIN_PERMISSIONS"),
     appUrl: readOptionalUrl(env, "APP_URL") ?? "http://localhost:3000",
+    jwksFile: env["JWKS_FILE"] || "/etc/config/kratos/tokenizer/jwks.json",
+    logFormat: readEnum(env, "LOG_FORMAT", ["json", "text"] as const, "text"),
+    serviceName: readOptional(env, "SERVICE_NAME"),
     ...readKratosKetoUrls(env),
   };
 }

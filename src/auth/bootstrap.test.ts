@@ -119,18 +119,29 @@ test("seedAdmin is idempotent: a 409 reuses the existing identity and re-grants 
   assert.deepEqual(granted, { namespace: "Permission", object: "admin", relation: "granted", subject_id: `user:${id}` });
 });
 
-test("seedAdmin fails loud on an unexpected Kratos error", async () => {
-  const fetchImpl = (async () => json(500, { error: "boom" })) as typeof fetch;
-  await assert.rejects(
-    seedAdmin({
-      email: "admin@plainpages.local",
-      keto: createKetoClient({ fetchImpl, readUrl: "http://keto:4466", writeUrl: "http://keto:4467" }),
-      kratos: createKratosAdmin({ baseUrl: "http://kratos:4434", fetchImpl }),
-      password: "admin",
-      permissions: ["admin"],
-    }),
-    /Kratos/,
-  );
+const clients = (fetchImpl: typeof fetch) => ({
+  keto: createKetoClient({ fetchImpl, readUrl: "http://keto:4466", writeUrl: "http://keto:4467" }),
+  kratos: createKratosAdmin({ baseUrl: "http://kratos:4434", fetchImpl }),
+});
+
+test("seedAdmin fails loud on a Kratos error other than 409, without looking the admin up", async () => {
+  const urls: string[] = [];
+  const fetchImpl = (async (url) => {
+    urls.push(String(url));
+    return json(500, { error: "boom" });
+  }) as typeof fetch;
+  await assert.rejects(seedAdmin({ email: "admin@plainpages.local", password: "admin", permissions: ["admin"], ...clients(fetchImpl) }), /bootstrap: Kratos.*500/);
+  assert.equal(urls.length, 1);
+});
+
+test("seedAdmin fails loud when a 409 admin cannot be found", async () => {
+  const fetchImpl = (async (_url, init) => (init?.method === "POST" ? json(409, {}) : json(200, []))) as typeof fetch;
+  await assert.rejects(seedAdmin({ email: "admin@plainpages.local", password: "admin", permissions: [], ...clients(fetchImpl) }), /reported as existing but not found/);
+});
+
+test("seedAdmin fails loud when Keto refuses a grant, naming the permission", async () => {
+  const fetchImpl = (async (url) => (String(url).endsWith("/admin/identities") ? json(201, { id: "u1" }) : json(500, {}))) as typeof fetch;
+  await assert.rejects(seedAdmin({ email: "admin@plainpages.local", password: "admin", permissions: ["users:read"], ...clients(fetchImpl) }), /granting "users:read" in Keto/);
 });
 
 test("firstRunBanner prints the login URL, seeded creds, and a change-before-production warning", () => {

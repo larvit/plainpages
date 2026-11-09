@@ -68,14 +68,31 @@ test("the one-shot bootstrap config has dev defaults and demands no web secret, 
   assert.deepEqual(c, {
     adminEmail: "admin@plainpages.local",
     adminPassword: "admin",
+    adminPermissions: undefined,
     appUrl: "http://localhost:3000",
     ketoReadUrl: "http://keto:4466",
     ketoWriteUrl: "http://keto:4467",
     kratosAdminUrl: "http://kratos:4434",
+    jwksFile: "/etc/config/kratos/tokenizer/jwks.json",
+    logFormat: "text",
+    serviceName: undefined,
   });
-  assert.equal(loadBootstrapConfig({ ADMIN_EMAIL: "", ADMIN_PASSWORD: "" }).adminEmail, "admin@plainpages.local"); // compose passes an unset variable as ""
-  const set = loadBootstrapConfig({ ADMIN_EMAIL: "a@b.c", APP_URL: "https://x.test", KRATOS_ADMIN_URL: "http://k:1" });
-  assert.deepEqual([set.adminEmail, set.appUrl, set.kratosAdminUrl], ["a@b.c", "https://x.test", "http://k:1"]);
+  assert.equal(loadBootstrapConfig({ ADMIN_EMAIL: "", ADMIN_PASSWORD: "" }).adminEmail, "admin@plainpages.local");
+  const set = loadBootstrapConfig({
+    ADMIN_EMAIL: "a@b.c",
+    ADMIN_PASSWORD: "s3cret",
+    ADMIN_PERMISSIONS: "users:read",
+    APP_URL: "https://x.test",
+    JWKS_FILE: "/k.json",
+    KRATOS_ADMIN_URL: "http://k:1",
+    LOG_FORMAT: "json",
+    SERVICE_NAME: "boot",
+  });
+  assert.deepEqual(
+    [set.adminEmail, set.adminPassword, set.adminPermissions, set.appUrl, set.jwksFile, set.kratosAdminUrl, set.logFormat, set.serviceName],
+    ["a@b.c", "s3cret", "users:read", "https://x.test", "/k.json", "http://k:1", "json", "boot"],
+  );
+  assert.throws(() => loadBootstrapConfig({ LOG_FORMAT: "JSON" }), /LOG_FORMAT/);
   assert.throws(() => loadBootstrapConfig({ KETO_WRITE_URL: "not a url" }), /KETO_WRITE_URL/);
 });
 
