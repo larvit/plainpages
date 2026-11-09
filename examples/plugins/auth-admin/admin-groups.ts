@@ -6,10 +6,9 @@
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
-import { buildPaginationModel, can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
+import { buildPaginationModel, can, type KetoClient, type KratosAdmin, paginate, parseListQuery, type RelationTuple, type RequestContext, type RouteHandler, type RouteResult, type SubjectSet, type Translate, type User } from "@plainpages/plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, grantTuple, groupSubject, heldPermissions, grantsNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, REMOVED_NOTICE, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
-import type { FieldConfig } from "./admin-users.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_GROUPS_BASE, buildConfirmModel, type FieldConfig, guardedForm, notFound, pagedTuples, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const GROUP_NS = "Group";
 const MEMBERS = "members";
@@ -243,18 +242,6 @@ export function buildGroupDetailModel(opts: {
 
 // ---- request handler (imperative shell) ----
 
-// Drain every page of a relation-tuple query.
-export async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<RelationTuple[]> {
-  const out: RelationTuple[] = [];
-  let pageToken: string | undefined;
-  do {
-    const page = await keto.listRelations({ ...query, ...(pageToken ? { pageToken } : {}) });
-    out.push(...page.tuples);
-    pageToken = page.nextPageToken ?? undefined;
-  } while (pageToken);
-  return out;
-}
-
 // Build the member-picker options (every user by email + every existing group) and the id→email map
 // detail rows render with. One Kratos page + one Keto scan; ample for an admin tool.
 export async function memberCandidates(keto: KetoClient, kratosAdmin: KratosAdmin): Promise<{ emailById: Map<string, string>; options: MemberOption[] }> {
@@ -432,20 +419,23 @@ export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
   }) }, view: "confirm" };
 }, "write");
 
-// POST /auth-admin/groups/:name/delete — one Keto transaction removes the group's member tuples
-// and the grants it holds, so a Keto failure leaves the group as it was.
+// POST /auth-admin/groups/:name/delete — one Keto transaction removes the group's member tuples,
+// the tuples naming it as a member of a parent group, and the grants it holds, so a Keto failure
+// leaves the group as it was.
 export const groupsDelete = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
   const lost = await lostOnDelete(deps, name);
   if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
-  // A Keto set exists only through its tuples, so leaving the grants behind would resurrect every
-  // permission the moment someone re-created a group with the same name.
+  // A Keto set exists only through its tuples, so leaving the grants or the parents' membership
+  // tuples behind would resurrect every permission and nesting the moment someone re-created a
+  // group with the same name.
   const subject = groupSubject(name);
   const held = await heldPermissions(keto, subject);
   const grants = held.map((permission) => grantTuple(permission, subject));
   const members = await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS });
-  await keto.transactTuples({ delete: [...grants, ...members], insert: [] });
+  const inParents = await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS, ...subject });
+  await keto.transactTuples({ delete: [...grants, ...members, ...inParents], insert: [] });
   ctx.log.info("admin: group deleted", { actor: user.id, group: name, revoked: held.join(",") });
   return { redirect: ADMIN_GROUPS_BASE };
 });

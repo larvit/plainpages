@@ -52,9 +52,26 @@ export interface ChromeOptions {
   user?: User | null;
 }
 
-export function buildPluginChrome(opts: ChromeOptions): PageChrome {
+// The chrome of every page the host renders, its own screens and a plugin's alike.
+export function buildPageChrome(opts: ChromeOptions): PageChrome {
   const t = opts.t ?? ENGLISH;
   const carryLocale = opts.localeHref ?? ((href: string) => href);
+  // The sign-in link keeps the visitor's locale, and brings it back afterwards via return_to.
+  const returnTo = opts.currentPath ? `/login?return_to=${encodeURIComponent(carryLocale(opts.currentPath))}` : "/login";
+  const { theme, ...brand } = branding(opts.menu, t);
+  return {
+    brand,
+    csrfToken: opts.csrfToken ?? "",
+    nav: carryLocaleInto(currentMarkedNav(opts, t), carryLocale),
+    signInHref: carryLocale(returnTo),
+    ...(theme != null ? { theme } : {}),
+    user: { ...shellUser(opts.user, t), profileLinks: profileLinks(opts, t, carryLocale) },
+  };
+}
+
+// Dashboard plus every plugin's fragment, composed and filtered for the user, with the current leaf
+// marked. Marked before the locale rides along, so an href still matches the plain request path.
+function currentMarkedNav(opts: ChromeOptions, t: Translate): NavNode[] {
   const fragments: NavNode[][] = [[DASHBOARD_NAV]];
   // A plugin's nav labels are keys in *its* catalog, so translate each fragment with that plugin's
   // translator before merging. composeNav then runs the core one over the result; already-translated
@@ -62,27 +79,12 @@ export function buildPluginChrome(opts: ChromeOptions): PageChrome {
   for (const p of opts.plugins ?? []) {
     if (p.nav?.length) fragments.push(translateNav(p.nav, opts.translatorFor?.(p.id) ?? t));
   }
-
   const nav = composeNav(fragments, opts.menu.override, opts.user ?? null, t);
-  if (opts.currentPath) {
-    // Mark by the *best* (longest) href that is the path or a parent of it, so a sub-path like
-    // /auth-admin/users/new marks the Users base leaf (/auth-admin/users) and the dashboard marks Dashboard.
-    // Marked before the locale rides along, so an href still matches the plain request path.
-    const target = bestHref(nav, opts.currentPath);
-    if (target) markCurrent(nav, target);
-  }
-
-  // The sign-in link keeps the visitor's locale, and brings it back afterwards via return_to.
-  const returnTo = opts.currentPath ? `/login?return_to=${encodeURIComponent(carryLocale(opts.currentPath))}` : "/login";
-  const { theme, ...brand } = branding(opts.menu, t);
-  return {
-    brand,
-    csrfToken: opts.csrfToken ?? "",
-    nav: carryLocaleInto(nav, carryLocale),
-    signInHref: carryLocale(returnTo),
-    ...(theme != null ? { theme } : {}),
-    user: { ...shellUser(opts.user, t), profileLinks: profileLinks(opts, t, carryLocale) },
-  };
+  // The *best* (longest) href that is the path or a parent of it, so a sub-path like
+  // /auth-admin/users/new marks the Users base leaf (/auth-admin/users) and the dashboard marks Dashboard.
+  const target = opts.currentPath ? bestHref(nav, opts.currentPath) : null;
+  if (target) markCurrent(nav, target);
+  return nav;
 }
 
 function profileLinks(opts: ChromeOptions, t: Translate, carryLocale: (href: string) => string): ProfileLink[] {

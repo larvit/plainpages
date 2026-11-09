@@ -6,8 +6,7 @@
 // per-route handlers (keyed on ctx.params) over a shared `withClients` gate — admin-only, CSRF-guarded.
 
 import { buildPaginationModel, can, type HydraAdmin, HydraError, type OAuth2Client, paginate, parseListQuery, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
-import { ADMIN_CLIENTS_BASE, ADMIN_EN, type AdminAction, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
-import type { FieldConfig } from "./admin-users.ts";
+import { ADMIN_CLIENTS_BASE, ADMIN_EN, type AdminAction, buildConfirmModel, type FieldConfig, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZES = [25, 50, 100];

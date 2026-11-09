@@ -1,8 +1,9 @@
 // Shared plumbing for the admin example plugin: the section nav fragment, the screen gate, the
-// CSRF-guarded form reader, the destructive-confirm model builder, and small RouteResult helpers.
+// CSRF-guarded form reader, the destructive-confirm model builder, the form-field type, the Keto
+// paging loop, and small RouteResult helpers.
 // Everything imports the host only through the @plainpages/plugin-api barrel.
 
-import { can, CSRF_FIELD, englishTranslator, GuardError, type NavNode, readFormBody, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
+import { can, CSRF_FIELD, englishTranslator, GuardError, type KetoClient, type NavNode, readFormBody, type RelationQuery, type RelationTuple, type RequestContext, requireSession, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import enUS from "./i18n/en-US.ts";
 
 // This plugin's English — its catalog, then the host's — for a view model built outside a request,
@@ -102,4 +103,31 @@ export function buildConfirmModel(opts: {
     message: opts.message,
     title: opts.title,
   };
+}
+
+// The config one text input takes in the core `field` partial.
+export interface FieldConfig {
+  autocomplete?: string;
+  hint?: string;
+  icon?: string;
+  id: string;
+  label: string;
+  name: string;
+  optional?: boolean;
+  readonly?: boolean;
+  required?: boolean;
+  type?: string;
+  value?: string;
+}
+
+// Drain every page of a relation-tuple query.
+export async function pagedTuples(keto: KetoClient, query: RelationQuery): Promise<RelationTuple[]> {
+  const out: RelationTuple[] = [];
+  let pageToken: string | undefined;
+  do {
+    const page = await keto.listRelations({ ...query, ...(pageToken ? { pageToken } : {}) });
+    out.push(...page.tuples);
+    pageToken = page.nextPageToken ?? undefined;
+  } while (pageToken);
+  return out;
 }

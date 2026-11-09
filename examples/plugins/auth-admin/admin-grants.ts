@@ -8,6 +8,7 @@
 
 import { createHash } from "node:crypto";
 import type { KetoClient, PermissionDecl, RelationTuple, SubjectSet, Translate } from "@plainpages/plugin-api";
+import { pagedTuples } from "./admin-shared.ts";
 
 const PERMISSION_NS = "Permission";
 const GRANTED = "granted";
@@ -36,14 +37,8 @@ export function grantTuple(permission: string, subject: GrantSubject): RelationT
 // The permissions this subject holds *directly* — one Keto read filtered by the subject, not one per
 // declared name. This is the edge the picker edits; `effectivePermissions` adds what a group confers.
 export async function heldPermissions(keto: KetoClient, subject: GrantSubject): Promise<string[]> {
-  const held = new Set<string>();
-  let pageToken: string | undefined;
-  do {
-    const page = await keto.listRelations({ namespace: PERMISSION_NS, relation: GRANTED, ...subject, ...(pageToken ? { pageToken } : {}) });
-    for (const tuple of page.tuples) held.add(tuple.object);
-    pageToken = page.nextPageToken ?? undefined;
-  } while (pageToken);
-  return [...held].sort();
+  const tuples = await pagedTuples(keto, { namespace: PERMISSION_NS, relation: GRANTED, ...subject });
+  return [...new Set(tuples.map((tuple) => tuple.object))].sort();
 }
 
 // Every declared permission the subject effectively holds — direct grants *plus* anything reached

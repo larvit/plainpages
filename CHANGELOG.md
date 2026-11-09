@@ -30,6 +30,11 @@ every grant as it was and answers with the error page.
 A Keto failure while deleting a group now leaves the group as it was, with its grants and members,
 and answers with the error page. It used to leave some grants gone and the members still listed.
 
+### The admin example removes a deleted group from the groups it was nested in
+
+Deleting a group now also deletes the tuples that made it a member of another group, in the same
+transaction. It used to leave them, so a group re-created with the same name was back in every parent.
+
 ### The admin example keeps a user's permissions section when it refuses a self-deactivate or self-delete
 
 The refusal page used to drop the permissions section of the user form.

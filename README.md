@@ -1024,7 +1024,7 @@ whenever a child does. The rendered tree is **filtered per user** from the sessi
 per-request authz call), so the menu only shows what that person can reach.
 Branding (name, logo, default theme) renders in the app shell.
 
-**One menu, one shell, everywhere.** A single menu (`src/ui/chrome.ts` `buildPluginChrome`) renders
+**One menu, one shell, everywhere.** A single menu (`src/ui/chrome.ts` `buildPageChrome`) renders
 in the same app shell on **every** page — dashboard, plugin pages, and the login / registration /
 recovery / front pages — so it looks identical signed in or out and just shows fewer items to an
 anonymous visitor. The sidebar collapses to a burger on a narrow screen; a page wanting a

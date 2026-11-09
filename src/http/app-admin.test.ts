@@ -427,6 +427,25 @@ test("admin group delete: a Keto failure leaves the group's grants and members i
   assert.equal(tuples.length, 2);
 });
 
+test("admin group delete: removes the group from every parent, so re-creating the name restores no nesting", async (t) => {
+  const ada = randomUUID();
+  const identities: Identity[] = [{ id: ada, traits: { email: "ada@example.com" } }];
+  const member = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Group", object, relation: "members", ...subject } as RelationTuple);
+  const inEng = { subject_set: { namespace: "Group", object: "eng", relation: "members" } };
+  const tuples: RelationTuple[] = [
+    member("eng", { subject_id: `user:${ada}` }),
+    member("org", { subject_id: `user:${ada}` }),
+    member("org", inEng),
+    member("staff", inEng),
+    member("staff", { subject_id: "user:other" }),
+  ];
+  const kratosAdmin = stubAdmin({ getIdentity: async (id) => identities.find((i) => i.id === id) ?? null, listIdentities: async () => ({ identities, nextPageToken: null }) });
+  const { post, token } = await adminHarness(t, { keto: fakeKeto(tuples), kratosAdmin });
+
+  assert.equal((await post("/auth-admin/groups/eng/delete", `_csrf=${token}`)).status, 303);
+  assert.deepEqual(tuples, [member("org", { subject_id: `user:${ada}` }), member("staff", { subject_id: "user:other" })]);
+});
+
 // A double-clicked Save posts twice from one page; the second post finds the first one's result.
 // A save that changes nothing has nothing to refuse and nothing to revoke.
 test("admin permission grants: a save that changes nothing is not refused for a stale page and leaves live tokens alone", async (t) => {

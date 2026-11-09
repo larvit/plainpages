@@ -3,6 +3,7 @@
 // completion projects Keto permissions into (README). Built-in `fetch` only, no SDK dep (AGENTS.md);
 // `fetchImpl`-injectable, reuses kratos-public.ts's `KratosError` (branch on `.status`).
 import { KratosError } from "./kratos-public.ts";
+import { nextPageToken } from "./link-header.ts";
 
 export interface Identity {
   id: string;
@@ -39,13 +40,6 @@ export interface KratosAdmin {
   listIdentities(opts?: ListOptions): Promise<IdentityList>;
   updateIdentity(id: string, payload: unknown): Promise<Identity>;
   updateMetadataPublic(id: string, metadata: unknown): Promise<Identity>;
-}
-
-// Kratos paginates with a Link header; pull the page_token of rel="next" (the href is a
-// relative path, so resolve it against a throwaway base just to read the query param).
-function nextPageToken(link: string | null): string | null {
-  const href = link?.match(/<([^>]+)>\s*;\s*rel="next"/)?.[1];
-  return href ? new URL(href, "http://kratos").searchParams.get("page_token") : null;
 }
 
 export function createKratosAdmin(config: { baseUrl: string; fetchImpl?: typeof fetch }): KratosAdmin {

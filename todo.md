@@ -12,8 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 70 | 0.5.0 |  |  | **Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.** | 2 | 1 | 1 | 2 | 3 | code health by 2 | 9.0 |
-| 71 | 0.5.0 |  |  | **Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.** | 1 | 2 | 2 | 3 | 2 | 2 by 3 | 4.2 |
 | 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
@@ -26,27 +24,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 70. Give the duplicated paging loop, Link-header parser and `FieldConfig` type one home each, and rename `buildPluginChrome` to `buildPageChrome`.
-
-- `pagedTuples` (`examples/plugins/auth-admin/admin-groups.ts` ~L246) and `heldPermissions`
-  (`admin-grants.ts` ~L38) each hand-write the Keto page-token loop; let `heldPermissions` use the
-  one loop.
-- `nextPageToken` is copied in `src/auth/kratos-admin.ts` ~L46 and `src/auth/hydra-admin.ts` ~L106.
-- `FieldConfig` lives in `admin-users.ts`, and `admin-groups.ts` and `admin-clients.ts` import it
-  from there; move it to `admin-shared.ts`.
-- `buildPluginChrome` (`src/ui/chrome.ts:55`) builds the chrome for every page, core pages
-  included; rename it, its test and the README ~L1027 mention. Make `buildPluginChrome` easier to
-  read, a place the seats found hard.
-
-### 71. Delete, with a group, every membership tuple in another group that names it, so re-creating the name restores no nested membership.
-
-Groups nest: a parent holds `Group:<parent>#members` with `subject_set` `Group:<child>#members`.
-`groupsDelete` in `examples/plugins/auth-admin/admin-groups.ts` drops the child's own member tuples
-and held grants, but not those parent tuples, so a group re-created with the deleted name is back
-in every parent, the orphan class its comment already guards against for grants. List them with
-`pagedTuples` filtered on `subject_set` (`namespace: GROUP_NS`, `object: name`, `relation: MEMBERS`)
-and add them to the same `transactTuples` delete; extend the comment to say so.
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 

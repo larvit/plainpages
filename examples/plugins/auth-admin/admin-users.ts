@@ -5,7 +5,7 @@
 
 import { buildPaginationModel, can, type Identity, type KetoClient, type KratosAdmin, KratosError, paginate, parseListQuery, type RecoveryCode, type RequestContext, type RouteHandler, type RouteResult, type Translate, type User } from "@plainpages/plugin-api";
 import { applyGrants, buildPermissionPicker, effectivePermissions, grantDiff, heldPermissions, grantsNotice, isStale, type PermissionPicker, PERMISSIONS_FIELD, REMOVE_FIELD, removeUndeclaredGrant, REMOVED_NOTICE, SAVED_NOTICE, userSubject } from "./admin-grants.ts";
-import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
+import { ADMIN_EN, type AdminAction, ADMIN_USERS_BASE, buildConfirmModel, type FieldConfig, guardedForm, notFound, permissionName, requirePermission, unavailable } from "./admin-shared.ts";
 
 const SCHEMA_ID = "default"; // matches kratos.yml identity.default_schema_id
 const DEFAULT_PAGE_SIZE = 25;
@@ -183,20 +183,6 @@ function listFilterBar(state: ListState, total: number, t: Translate) {
       { type: "spacer" },
     ]],
   };
-}
-
-export interface FieldConfig {
-  autocomplete?: string;
-  hint?: string;
-  icon?: string;
-  id: string;
-  label: string;
-  name: string;
-  optional?: boolean;
-  readonly?: boolean;
-  required?: boolean;
-  type?: string;
-  value?: string;
 }
 
 export function buildUserFormModel(opts: {

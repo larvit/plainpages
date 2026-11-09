@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
 import { type BuiltinRoute, matchBuiltinRoute, type PluginContextFactory, type PluginOwned, type RequestCsrf } from "./builtin-route.ts";
-import { buildPluginChrome, type PageChrome } from "../ui/chrome.ts";
+import { buildPageChrome, type PageChrome } from "../ui/chrome.ts";
 import { buildContext, type RequestContext, type User } from "./context.ts";
 import { csrfCookie, ensureCsrfToken, verifyCsrfRequest } from "../auth/csrf.ts";
 import type { Denylist } from "../auth/denylist.ts";
@@ -274,7 +274,7 @@ async function prepareRequest(host: Host, req: IncomingMessage, res: ServerRespo
   // Chrome composes the whole menu, so it is memoized and resolved lazily — a json/redirect
   // handler, or the public "/" with a standalone home, never pays for it.
   let chromeMemo: PageChrome | undefined;
-  const chrome = (): PageChrome => (chromeMemo ??= buildPluginChrome({
+  const chrome = (): PageChrome => (chromeMemo ??= buildPageChrome({
     csrfToken: csrf.token, currentPath: url.pathname, localeHref: carryLocale, menu: host.menu, plugins: host.plugins, t,
     translatorFor: (id) => i18n.translator(locale, id), user,
   }));

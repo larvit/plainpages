@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPluginChrome, shellUser } from "./chrome.ts";
+import { buildPageChrome, shellUser } from "./chrome.ts";
 import { DEFAULT_MENU, type MenuConfig } from "./menu-config.ts";
 import type { NavNode } from "./nav.ts";
 import type { Plugin } from "../plugin-host/plugin.ts";
@@ -31,7 +31,7 @@ const adminLike: Plugin = {
 const labels = (nodes: NavNode[]): string[] => nodes.map((n) => n.label);
 
 test("anonymous: brand from menu, Guest user; the gated Dashboard link is hidden, a public node still shows", () => {
-  const chrome = buildPluginChrome({ menu: DEFAULT_MENU, plugins: [scheduling, portal] });
+  const chrome = buildPageChrome({ menu: DEFAULT_MENU, plugins: [scheduling, portal] });
   assert.equal(chrome.brand.name, DEFAULT_MENU.branding.name);
   assert.equal(chrome.user.name, "Guest");
   // Dashboard points at the gated /dashboard — showing it to an anonymous visitor only dead-ends them
@@ -41,12 +41,12 @@ test("anonymous: brand from menu, Guest user; the gated Dashboard link is hidden
 });
 
 test("anonymous shell Sign-in link carries the current page as return_to", () => {
-  assert.equal(buildPluginChrome({ menu: DEFAULT_MENU }).signInHref, "/login"); // no path known
-  assert.equal(buildPluginChrome({ currentPath: "/portal", menu: DEFAULT_MENU }).signInHref, "/login?return_to=%2Fportal");
+  assert.equal(buildPageChrome({ menu: DEFAULT_MENU }).signInHref, "/login"); // no path known
+  assert.equal(buildPageChrome({ currentPath: "/portal", menu: DEFAULT_MENU }).signInHref, "/login?return_to=%2Fportal");
 });
 
 test("a permission holder sees the Dashboard link + plugin nav; current path opens the active leaf", () => {
-  const chrome = buildPluginChrome({
+  const chrome = buildPageChrome({
     currentPath: "/scheduling/shifts", menu: DEFAULT_MENU, plugins: [scheduling],
     user: { email: "ada@x.io", id: "u1", permissions: ["scheduling:read"] },
   });
@@ -58,7 +58,7 @@ test("a permission holder sees the Dashboard link + plugin nav; current path ope
 });
 
 test("a gated section (like the admin plugin) shows to a holder; a sub-path marks its base leaf current", () => {
-  const chrome = buildPluginChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], user: { email: "a@b.c", id: "u1", permissions: ["users:read"] } });
+  const chrome = buildPageChrome({ currentPath: "/admin/users/new", menu: DEFAULT_MENU, plugins: [adminLike], user: { email: "a@b.c", id: "u1", permissions: ["users:read"] } });
   const admin = chrome.nav.find((n) => n.label === "Admin")!;
   assert.ok(admin); // gated section visible to an admin
   assert.equal(admin.open, true); // ancestor of the current leaf opened
@@ -69,7 +69,7 @@ test("a gated section (like the admin plugin) shows to a holder; a sub-path mark
 
 test("branding logo + default theme flow through when set", () => {
   const menu: MenuConfig = { branding: { logo: "/logo.svg", name: "Acme", theme: "dark" }, override: {} };
-  const chrome = buildPluginChrome({ menu });
+  const chrome = buildPageChrome({ menu });
   assert.equal(chrome.brand.logo, "/logo.svg");
   assert.equal(chrome.brand.name, "Acme");
   assert.equal(chrome.theme, "dark");
@@ -77,10 +77,10 @@ test("branding logo + default theme flow through when set", () => {
 
 test("branding name and sub are translated; an unknown key renders as itself", () => {
   const t = (key: string): string => (key === "brand.sub" ? "Undertitel" : key);
-  const chrome = buildPluginChrome({ menu: { branding: { name: "Acme", sub: "brand.sub" }, override: {} }, t });
+  const chrome = buildPageChrome({ menu: { branding: { name: "Acme", sub: "brand.sub" }, override: {} }, t });
   assert.equal(chrome.brand.name, "Acme");
   assert.equal(chrome.brand.sub, "Undertitel");
-  assert.equal(buildPluginChrome({ menu: { branding: { name: "Acme" }, override: {} } }).brand.sub, undefined);
+  assert.equal(buildPageChrome({ menu: { branding: { name: "Acme" }, override: {} } }).brand.sub, undefined);
 });
 
 test("shellUser derives the profile from the real user; anonymous → Guest", () => {
@@ -97,7 +97,7 @@ const account: Plugin = {
   ],
 };
 const entries = (opts: { permissions?: string[]; signedIn?: boolean }): { href: string; icon?: string; label: string }[] =>
-  buildPluginChrome({
+  buildPageChrome({
     localeHref: (href) => `${href}?locale=sv-SE`,
     menu: DEFAULT_MENU,
     plugins: [account],
@@ -115,7 +115,7 @@ test("profile menu entries are gated like nav nodes, translated by their plugin 
 });
 
 test("the central override hides and renames a profile-menu entry by its id; the host translates the new label", () => {
-  const links = buildPluginChrome({
+  const links = buildPageChrome({
     menu: { ...DEFAULT_MENU, override: { hide: ["help"], rename: { settings: "Preferences" } } },
     plugins: [{
       apiVersion: "1.0.0", id: "account",

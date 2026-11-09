@@ -3,6 +3,7 @@
 // *through* us with. Built-in `fetch` only, no SDK dep (AGENTS.md); `fetchImpl`-injectable
 // like the kratos/keto clients. We authenticate the user (login) and grant scopes (consent);
 // Hydra mints the tokens.
+import { nextPageToken } from "./link-header.ts";
 
 export interface OAuth2Client {
   client_id?: string;
@@ -99,13 +100,6 @@ export interface HydraAdmin {
   listClients(opts?: { pageSize?: number; pageToken?: string }): Promise<ClientList>;
   rejectConsentRequest(challenge: string, body: RejectRequest): Promise<Completed>;
   rejectLoginRequest(challenge: string, body: RejectRequest): Promise<Completed>;
-}
-
-// Hydra paginates with a Link header; pull the page_token of rel="next" (the href is relative, so
-// resolve against a throwaway base to read the query param). Mirrors kratos-admin's helper.
-function nextPageToken(link: string | null): string | null {
-  const href = link?.match(/<([^>]+)>\s*;\s*rel="next"/)?.[1];
-  return href ? new URL(href, "http://hydra").searchParams.get("page_token") : null;
 }
 
 export function createHydraAdmin(config: { baseUrl: string; fetchImpl?: typeof fetch }): HydraAdmin {
