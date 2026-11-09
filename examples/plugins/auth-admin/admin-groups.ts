@@ -2,7 +2,7 @@
 // A group is a Keto subject set `Group:<name>#members`; a member is a user or a nested group (see
 // parseSubject). Writes go only to Keto (README "stateless"). Keto has no "create object" — a group
 // exists exactly while it has ≥1 member, so create writes its first-member tuple and delete removes
-// every member tuple. Pure builders turn tuples + the request URL into view models; below them are thin
+// every tuple that makes it a group or puts it in another. Pure builders turn tuples + the request URL into view models; below them are thin
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
@@ -428,8 +428,10 @@ export const groupsDelete = withGroupName(async (deps, name) => {
   const lost = await lostOnDelete(deps, name);
   if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
   // A Keto set exists only through its tuples, so leaving the grants or the parents' membership
-  // tuples behind would resurrect every permission and nesting the moment someone re-created a
-  // group with the same name.
+  // tuples behind would resurrect every permission and parent membership the moment someone
+  // re-created a group with the same name. A parent that had only this group as a member is left
+  // with none and so ceases to exist, as when its last member is removed by hand; its own grants
+  // and parent memberships stay (todo.md).
   const subject = groupSubject(name);
   const held = await heldPermissions(keto, subject);
   const grants = held.map((permission) => grantTuple(permission, subject));
