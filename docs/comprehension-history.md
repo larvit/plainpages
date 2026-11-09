@@ -507,3 +507,96 @@ Inherited architect, would restructure first:
 - Locality: `src/auth/bootstrap.ts:170` `provisionPluginStorage`: plugin storage lives in three places, across `storage.ts`, `storage-provisioning.ts` and `bootstrap.ts`
 - Locality, Shape: `src/http/app.ts:183` `handleRequest`: every new manifest field or slot adds a stage here and a field to `Host`
 - Self-sufficiency: `src/plugin-host/system.ts:1` header: calls the built-in admin screens the reference consumer
+
+## 2026-11-09T00:38:11Z, item-70 at 5a5ce54
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7 | 6 | 7 | 6.5 | 6.5 |
+| Mid A | 7.5 | 6.5 | 7 | 6.5 | 7 |
+| Maintainability senior | 7 | 6 | 6.5 | 6.5 | 6.5 |
+| Inherited architect | 7 | 7 | 6 | 7.5 | 6.5 |
+| Mean | 7.13 | 6.38 | 6.63 | 6.75 | 6.63 |
+
+Junior A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: a 130-line closure whose 19-field `Host` bag is read by every stage, and `switchBase` reads `builtinRoutes` declared 44 lines later
+- Locality: `src/http/app.ts:263` `prepareRequest`: a lazily memoized chrome, `shared` and `contextFor` in one function, with two context paths whose reason is implicit
+- Self-sufficiency: `src/plugin-host/settings.ts:35` `ValueOfDecl`: nested conditional types that only the README's settings example explains
+- Locality: `examples/plugins/auth-admin/admin-groups.ts:270` `lostToSelf`: the self-lockout guard has three entry points that each decide "is the actor in this group" differently
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos status meanings that the code and README do not explain
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+
+Mid A, hardest first:
+
+- Locality, Overall: `examples/plugins/auth-admin/admin-groups.ts:273` `lostToSelf`: one guard spread over four functions and three call sites, and it over-refuses on purpose
+- Locality: `src/i18n/load.ts:43` `loadI18n`: four catalog sources and their precedence, explained only in the README
+- Locality, Navigation: `src/http/app.ts:118` `switchBase`: where the language picker points after a POST needs `app.ts` and two i18n files
+- Locality: `src/ui/chrome.ts:86` `profileLinks`: re-implements `hide` and `rename` outside `composeNav`, so the override rules have two homes
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+- Self-sufficiency: `src/server.ts:23` trust-boundary comment: cites `docs/decisions.md` for its reason
+
+Maintainability senior, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: 133 lines and complexity 26 (grandfathered), and `switchBase` reads a table declared later
+- Locality: `src/http/app.ts:349` `answerBuiltinRoute`: the CSRF cookie and the response-hook context differ from `answerPluginRoute` without a comment saying so
+- Locality: `examples/plugins/auth-admin/admin-groups.ts:273` `lostToSelf`: the guard assumes Keto's transitive model, and `removesSelf` checks one level of nesting
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: each branch rests on Ory behaviour that only a comment states
+- Locality: `src/ui/chrome.ts:86` `profileLinks`: the menu override has two homes
+- Locality: `src/i18n/runtime.ts:39` `chain`: a plugin that shadows a core key in English gives a Swedish visitor the English text
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+
+Inherited architect, would restructure first:
+
+- Shape, Navigation, Overall: `public/css/auth.css:84` `.field`: the generic form building-block rules live in a file named for one feature
+- Shape, Navigation: `src/auth/bootstrap.ts:1` `src/auth`: 21 modules across Ory clients, session crypto and flow handlers in one flat directory
+- Shape: `src/http/builtin-route.ts:23` `BuiltinRoute`: a second route contract beside the plugin `Route`
+- Locality: `src/http/app.ts:202` `Host`: 19 fields, and each new capability adds one here, in `prepareRequest` and in `context.ts`
+- Locality: `views/partials/shell.ejs:61` profile popover: hand-copied from `menu.ejs` and kept in step by a comment
+- Self-sufficiency: `views/dashboard.ejs:15` card: hard-codes `apiVersion: "0.5.0"`, which nothing ties to `HOST_API_VERSION`
+
+## 2026-11-09T00:38:15Z, item-70 rerun at 5a5ce54
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7 | 6 | 6.5 | 7 | 6.5 |
+| Mid A | 7 | 6 | 7 | 6.5 | 6.5 |
+| Maintainability senior | 7.5 | 6.5 | 7 | 7 | 7 |
+| Inherited architect | 7 | 6.5 | 6 | 7.5 | 6.5 |
+| Mean | 7.13 | 6.25 | 6.63 | 7.00 | 6.63 |
+
+Junior A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: about 130 lines of closure setup with a forward reference from `switchBase` to `builtinRoutes`, and a 19-field `Host` bag
+- Locality: `src/http/app.ts:263` `prepareRequest`: reserved locals exist only through the spread order of an object literal
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos status branches that cannot be checked from the code
+- Shape: `src/plugin-host/settings.ts:43` `SettingsOf`: conditional types that took several rereads
+- Shape: `src/i18n/load.ts:43` `loadI18n`: two baselines and two catalog sources, with a dense tuple line at `:78`
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+- Shape: `src/plugin-host/discovery.ts:26` `discoverPlugins`: a long loop of `continue` exits
+
+Mid A, hardest first:
+
+- Locality, Overall: `src/ui/chrome.ts:72` `currentMarkedNav`: labels are translated twice, marking must precede the locale, and `markCurrent` mutates nodes
+- Locality, Overall: `src/http/app.ts:118` `switchBase`: a forward reference to `builtinRoutes` that only works because the closure runs later
+- Locality: `src/plugin-host/plugin.ts:129` `RESERVED_PLUGIN_IDS`: kept in step with `buildAuthRoutes` by hand, and nothing says so
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:446` `groupsRemoveMember`: the Keto subject-set model is never explained in this file
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos statuses that the comments name but the code cannot confirm
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+
+Maintainability senior, hardest first:
+
+- Locality, Overall: `src/http/app.ts:263` `prepareRequest`: the lazy `ctx.chrome` is memoized here and in `buildContext`, and only a comment guards it
+- Locality: `src/ui/chrome.ts:160` `markCurrent`: mutates nodes, safe only because `composeNav` returns fresh objects
+- Locality: `examples/plugins/auth-admin/admin-groups.ts:273` `lostToSelf`: over-approximates deliberately, spread over four helpers
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos status meanings that no readable document states
+- Shape: `views/partials/filter-bar.ejs:33` include loops: pass `align: null, up: false, width: null` to stop EJS locals leaking, which reads as noise
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+
+Inherited architect, would restructure first:
+
+- Shape, Navigation, Overall: `src/auth/bootstrap.ts:1` `src/auth`: 21 files over five concerns, with the lying names `jwt-middleware.ts` and `bootstrap.ts`
+- Locality, Shape: `src/http/builtin-route.ts:23` `BuiltinRoute`: a second route shape, so `switchBase` at `src/http/app.ts:118` consults two tables
+- Locality: `src/http/app.ts:202` `Host`: 19 fields, and a new request capability touches four files
+- Shape, Self-sufficiency: `examples/plugins/auth-admin/admin-shared.ts:107` `FieldConfig`: the type for a core partial's option shape lives in an example plugin
+- Locality: `src/auth/login.ts:48` `readPermissions`: a second copy of the Keto paging loop that nothing says the barrel boundary forces
