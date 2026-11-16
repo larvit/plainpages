@@ -263,6 +263,13 @@ proxy in front of Plainpages can't store a signed-in page and serve it to the ne
 whose page is the same for everyone can still set its own `cache-control` through
 `RouteResult.headers`; assets are unchanged.
 
+### A per-row Keto grant names its object `<resource>:<row-id>`
+
+`Resource` is one namespace shared by every plugin, so a bare row id (`4471`) lets two plugins' rows
+share one grant. Name the object `shift:4471`, with the same `<resource>` word as your permissions.
+Nothing checks this. The README's per-row example now does, and checks the `edit` permit, not the
+`editors` relation, so an owner passes.
+
 ## 0.4.0
 
 **Breaking.** Set `apiVersion: "0.4.0"`. The app shell no longer bounds the content column, so a page

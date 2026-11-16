@@ -249,7 +249,7 @@ Keto relation tuples: `Permission:<name>#granted@user:<id>`, or `@Group:<name>#m
 | **User** | Kratos | who you are | `user:0198f2c1-…` |
 | **Group** | Keto | who — a reusable set | `Group:support` |
 | **Permission** | Keto | what you may do | `Permission:scheduling:read` |
-| **Resource** | Keto | which specific row | `Resource:shift-4471` |
+| **Resource** | Keto | which specific row | `Resource:shift:4471` |
 
 Keto's whole model is one primitive — `namespace:object#relation@subject` — so those four
 namespaces are *ours*, declared in `ory/keto/namespaces.keto.ts`; Keto resolves them, transitively
@@ -359,6 +359,15 @@ The `Resource` namespace covers what a coarse permission cannot express: *this* 
 *this* person. A `Resource` carries Keto `permits` (`view`, `edit`, `delete`, nesting as `owner` ⊇
 `editor` ⊇ `viewer`) and never appears in the JWT.
 
+> **Warning: name the object `<resource>:<row-id>`, never the bare row id.** `Resource` is one
+> namespace shared by every plugin, and Keto stores the object as an opaque string. Two plugins that
+> each have a row `4471` and both write `object: "4471"` share one grant: whoever may edit shift
+> 4471 may edit invoice 4471. Prefix every object with the same `<resource>` word your permissions
+> use (`shift:4471`, `invoice:4471`). Nothing checks this, at boot or at runtime. Check a *permit*
+> (`view`, `edit`, `delete`), not a stored relation (`owners`, `editors`, `viewers`), so an owner
+> passes an `edit` check. A plugin that needs relations `Resource` can't express adds its own class
+> to `ory/keto/namespaces.keto.ts`.
+
 **A per-row grant never widens a coarse gate** — the route's `permission` is checked before the
 handler runs. Gate the route on something they hold, then narrow inside the handler:
 
@@ -366,7 +375,7 @@ handler runs. Gate the route on something they hold, then narrow inside the hand
 { method: "POST", path: "/shifts/:id", permission: READ, handler: editShift }
 
 async function editShift(ctx) {
-  if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id, relation: "editors" })))
+  if (!(await check(keto, ctx, { namespace: "Resource", object: `shift:${ctx.params.id}`, relation: "edit" })))
     throw new GuardError(403, "not an editor of this shift");
   …
 }

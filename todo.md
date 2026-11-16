@@ -12,12 +12,11 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 19 | 0.6.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
-| 16 | 0.6.0 |  | question | **Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.** | 3 | 2 | 3 | 6 | 6 | 7 by 2 | 0.5 |
 | 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
 | 72 | 0.6.0 |  |  | **Delete a group's grants and parent memberships when its last member leaves, by group delete or by removing the member, so re-creating the name restores none.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 4.0 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
+| 19 | 0.7.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 
 ## Renamed
 
@@ -25,16 +24,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
-
-Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
-`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.
-
-### 16. Decide whether the single Keto `Resource` namespace splits into per-domain namespaces.
-
-Ory's own examples model `Shift`, `Document` and so on. One global `Resource` bucket is the
-project's "no catch-all names" rule applied to namespaces.
 
 ### 65. Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.
 
@@ -86,3 +75,8 @@ host recognising a duplicate (same session, route and payload within a short win
 dropping it. Open: what identifies "the same submission" (a one-time token minted into each form
 beats hashing the payload), the window, where the record lives given the host is stateless, and how
 a plugin declares a route repeatable.
+
+### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
+
+Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
+`dialout` inside the noble image, and Docker Desktop remaps bind-mount ownership in its VM.

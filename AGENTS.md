@@ -98,6 +98,7 @@ on; a review honours them.
 - A permission name is always `<resource>:<action>`, enforced at discovery
 - Permission names are authored in plugin code; only grants live in Keto
 - A permission's `<resource>` is global, not plugin-scoped
+- The `Resource` namespace is shared by all plugins, and an object is `<resource>:<row-id>`
 - Declaring a permission stays optional
 - `ADMIN_PERMISSIONS` defaults to empty, and an unusable value is dropped with a warning
 - `actionForMethod` is plugin-local and stays out of `@plainpages/plugin-api`

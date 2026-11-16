@@ -41,7 +41,8 @@ export function can(ctx: RequestContext, permission: string): boolean {
 }
 
 // Live Keto relationship check at the point of action. The subject is the current user;
-// anonymous ⇒ false (fail-closed, no Keto call).
+// anonymous ⇒ false (fail-closed, no Keto call). In the shared `Resource` namespace the object
+// is `<resource>:<row-id>`, never a bare id (README → Fine-grained, per-row access).
 export async function check(
   keto: KetoClient,
   ctx: RequestContext,

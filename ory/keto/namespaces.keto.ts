@@ -29,6 +29,8 @@ class Permission implements Namespace {
 // A fine-grained, relationship-checked resource — README's third "may I?" tier, the rare
 // live Keto check (e.g. sharing/delegation). Permits nest: owner ⊇ editor ⊇ viewer.
 // Grants accept a user directly or any member of a group.
+// Every plugin shares this namespace, so an object is `<resource>:<row-id>` (`shift:4471`):
+// a bare row id lets two plugins' rows share one grant. Nothing enforces that.
 class Resource implements Namespace {
   related: {
     owners: (User | SubjectSet<Group, "members">)[]

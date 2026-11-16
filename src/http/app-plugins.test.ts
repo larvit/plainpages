@@ -268,14 +268,14 @@ test("session re-mint runs only for an expired token with all three Ory clients 
 });
 
 test("guards map to responses: requireSession → /login, a failed can/check → 403, success runs the handler", async (t) => {
-  const keto = { check: async (tuple: { object: string }) => tuple.object === "open" } as unknown as Parameters<typeof check>[0];
+  const keto = { check: async (tuple: { object: string }) => tuple.object === "doc:open" } as unknown as Parameters<typeof check>[0];
   const guarded: Plugin = {
     apiVersion: "1.0.0",
     id: "guarded",
     routes: [
       { handler: (ctx) => ({ html: `hi ${requireSession(ctx).email}` }), method: "GET", path: "/me" },
       { handler: (ctx) => { if (!can(ctx, "admin")) throw new GuardError(403, "no"); return { html: "ok" }; }, method: "GET", path: "/admin-only" },
-      { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: ctx.params.id ?? "", relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
+      { handler: async (ctx) => { if (!(await check(keto, ctx, { namespace: "Resource", object: `doc:${ctx.params.id ?? ""}`, relation: "view" }))) throw new GuardError(403, "no"); return { html: "seen" }; }, method: "GET", path: "/doc/:id" },
       { handler: () => ({ html: "gated" }), method: "GET", path: "/gated", permission: "secret:read" }, // declarative route gate
       { handler: () => ({ html: "mine" }), method: "GET", path: "/mine", session: true }, // declarative session gate
     ],

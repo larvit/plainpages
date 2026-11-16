@@ -209,6 +209,18 @@ Hence `oauth2-clients`, not `clients`. Users are the host's, and plugins share t
 that collision-freedom is a convention rather than structural; the alternative penalizes the
 sharing case.
 
+## The `Resource` namespace is shared by all plugins, and an object is `<resource>:<row-id>`
+
+2026-11-17, the maintainer. Goal 7. Valid while no plugin needs a relation `Resource` can't express.
+
+Ory's examples use one namespace per domain (`Shift`, `Document`). Splitting here would make an
+operator edit `ory/keto/namespaces.keto.ts` for every plugin, so a drop-in stops being drop-in, and
+a missing namespace fails on the first request rather than at boot. It also breaks the contract
+(a minor) for a tier no shipped code uses. One namespace with the kind in the object follows the
+`<resource>` rule above and `Permission:<resource>:<action>`. The cost is that nothing enforces
+the prefix, so a bare row id lets two plugins share a grant; the README warns of it. A plugin that
+needs its own relations adds a class to the OPL file, which already works. Revisit when one does.
+
 ## Declaring a permission stays optional
 
 2026-08-05, the maintainer. Goal 7. Valid while plugins may share a permission.
