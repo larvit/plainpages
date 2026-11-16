@@ -600,3 +600,39 @@ Inherited architect, would restructure first:
 - Locality: `src/http/app.ts:202` `Host`: 19 fields, and a new request capability touches four files
 - Shape, Self-sufficiency: `examples/plugins/auth-admin/admin-shared.ts:107` `FieldConfig`: the type for a core partial's option shape lives in an example plugin
 - Locality: `src/auth/login.ts:48` `readPermissions`: a second copy of the Keto paging loop that nothing says the barrel boundary forces
+
+## 2026-11-16T23:56:01Z, PR #247 at 7e8bdd9
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7.5 | 6.5 | 7 | 6.5 | 7 |
+| Mid A | 8 | 7 | 7 | 7 | 7.5 |
+| Maintainability senior | 7.5 | 6 | 7 | 7 | 7 |
+| Inherited architect | 7 | 7 | 6.5 | 7 | 7 |
+| Mean | 7.50 | 6.63 | 6.88 | 6.88 | 7.13 |
+
+Junior A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: about 130 lines of closures that refer to each other, `switchBase` reads `builtinRoutes` declared later
+- Locality: `src/http/app.ts:263` `prepareRequest`: chrome is memoized lazily twice, and an untyped `shared` bag feeds `buildContext`
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: six branches keyed on Kratos statuses that nothing in the file explains
+- Locality: `src/server.ts:25` `delete process.env["PLUGIN_DB_SECRET"]`: a load-bearing order rule in a top-level script
+
+Mid A, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: about 130 lines, 20 option fields, route table and `switchBase` refer to each other
+- Locality: `src/http/app.ts:263` `prepareRequest`: implicit stage order, three ways to get a context
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: the Kratos status meanings are unexplained
+
+Maintainability senior, hardest first:
+
+- Locality, Shape, Overall: `src/http/app.ts:67` `createApp`: about 130 lines, a dozen closures calling each other
+- Locality: `src/i18n/locale.ts:81` `chosenLocale`: recovers "was a locale requested" from `localeHref("/") === "/"`, so the name hides the mechanism
+- Locality: `views/partials/data-table.ejs:74` include: EJS locals leak from page to partial, defended by explicit null options
+- Self-sufficiency: `examples/plugins/auth-admin/admin-groups.ts:434` `groupsDelete`: its comment ends with a pointer to `todo.md`
+
+Inherited architect, would restructure first:
+
+- Navigation, Shape, Overall: `src/auth/bootstrap.ts:1` `src/auth`: 20 files over four concerns, and `bootstrap.ts` belongs to none of them
+- Shape: `public/css/styles.css:81` dark and light palette mapping: the same token list written three times
+- Locality: `src/http/app.ts:202` `Host`: restates the options and locals a third time, so a new capability touches several files
