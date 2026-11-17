@@ -22,3 +22,13 @@ test("plugin-api re-exports the stable author value surface", () => {
   assert.equal(api.safeUrl("javascript:alert(1)"), "#"); // the URL sanitiser for rendering untrusted hrefs
   assert.equal(api.definePlugin({ apiVersion: "1.0.0" }).apiVersion, "1.0.0"); // identity helper works through the barrel
 });
+
+// A system plugin tells an Ory failure apart by `instanceof`; each client's error class must be the barrel's.
+test("plugin-api re-exports the Ory error classes a ctx.system client throws", async () => {
+  const { KetoError } = await import("../auth/keto-client.ts");
+
+  assert.equal(api.KetoError, KetoError);
+  for (const name of ["KratosError", "HydraError", "KetoError"] as const) {
+    assert.equal(typeof api[name], "function", `missing export: ${name}`);
+  }
+});

@@ -46,6 +46,7 @@ export type { ExpandTree, KetoClient, RelationQuery, RelationTuple, SubjectSet }
 export type { HydraAdmin, OAuth2Client } from "../auth/hydra-admin.ts";
 export { KratosError } from "../auth/kratos-public.ts";
 export { HydraError } from "../auth/hydra-admin.ts";
+export { KetoError } from "../auth/keto-client.ts";
 // Sanitise an untrusted URL (upstream/user data) before rendering it in an href/src — partials
 // escape text but not URL schemes, so a `javascript:`/`data:` URL would be live XSS (see docs).
 export { safeUrl } from "../http/safe-url.ts";

@@ -12,6 +12,10 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 `0.4.x`. Change the literal in each plugin's manifest when you upgrade, and add `assetHref` to any
 `RequestContext` your tests build by hand: `assetHref: (href) => href`.
 
+### `@plainpages/plugin-api` exports `KetoError`
+
+A plugin that calls `ctx.system.keto` can tell a Keto failure apart with `instanceof KetoError`, as it already can for `KratosError` and `HydraError`. The error carries the HTTP `status`.
+
 ### The core dashboard view is `dashboard`, not `index`
 
 `views/index.ejs` is now `views/dashboard.ejs`. The `apiVersion` check can't see this: a plugin view
@@ -34,8 +38,14 @@ and answers with the error page. It used to leave some grants gone and the membe
 
 Deleting a group now also removes it from every group it was a member of, in the same Keto
 transaction as the rest. It used to stay listed there, so a group re-created with the same name was
-back in every parent. A parent whose only member was the deleted group is left with no members, and
-so no longer exists as a group.
+back in every parent.
+
+### The admin example removes a group's grants and parent memberships when its last member leaves
+
+A group with no members no longer exists, and now neither do its grants or its memberships in other
+groups. This holds when the last member is removed, and when deleting a group leaves a parent with
+no members, up through every ancestor that is left empty in turn. A group re-created with the same
+name used to get the old group's permissions and parents back.
 
 ### The admin example keeps a user's permissions section when it refuses a self-deactivate or self-delete
 

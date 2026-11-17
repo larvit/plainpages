@@ -446,6 +446,61 @@ test("admin group delete: removes the group from every parent, so re-creating th
   assert.deepEqual(tuples, [member("org", { subject_id: `user:${ada}` }), member("staff", { subject_id: "user:other" })]);
 });
 
+// A group exists only while it has a member, so one left with none must take its grants and
+// its memberships with it: otherwise re-creating the name hands every new member the old ones.
+const ADA = randomUUID();
+const groupTuple = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Group", object, relation: "members", ...subject } as RelationTuple);
+const inGroup = (object: string) => ({ subject_set: { namespace: "Group", object, relation: "members" } });
+const grantTo = (group: string, permission = "users:read"): RelationTuple => ({ namespace: "Permission", object: permission, relation: "granted", ...inGroup(group) });
+const groupsAdminHarness = (t: TestContext, tuples: RelationTuple[]) => adminHarness(t, { keto: fakeKeto(tuples), kratosAdmin: stubAdmin({}) });
+
+test("admin group delete: a parent left with no members loses its grants and memberships, all the way up", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("eng", { subject_id: `user:${ADA}` }),
+    groupTuple("org", inGroup("eng")), grantTo("org"),
+    groupTuple("company", inGroup("org")), grantTo("company", "users:write"),
+    groupTuple("everyone", inGroup("company")), groupTuple("everyone", { subject_id: "user:other" }), grantTo("everyone", "groups:read"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/eng/delete", `_csrf=${token}`)).status, 303);
+  assert.deepEqual(tuples, [groupTuple("everyone", { subject_id: "user:other" }), grantTo("everyone", "groups:read")]);
+});
+
+test("admin group delete: a nesting cycle ends the cascade at a group that keeps a member", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("a", { subject_id: `user:${ADA}` }), groupTuple("a", inGroup("b")),
+    groupTuple("b", inGroup("a")), grantTo("b"),
+    groupTuple("c", inGroup("b")), groupTuple("c", { subject_id: "user:other" }), grantTo("c", "groups:read"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/a/delete", `_csrf=${token}`)).status, 303);
+  assert.deepEqual(tuples, [groupTuple("c", { subject_id: "user:other" }), grantTo("c", "groups:read")]);
+});
+
+test("admin group member removal: the last member leaving takes the group's grants and parent memberships with it", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("eng", { subject_id: `user:${ADA}` }), grantTo("eng"),
+    groupTuple("org", inGroup("eng")), groupTuple("org", { subject_id: "user:other" }),
+    groupTuple("solo", inGroup("org")), grantTo("solo", "users:write"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${randomUUID()}`)).status, 303);
+  assert.equal(tuples.length, 6, "removing a non-member changes nothing");
+  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`)).status, 303);
+  assert.deepEqual(tuples, [groupTuple("org", { subject_id: "user:other" }), groupTuple("solo", inGroup("org")), grantTo("solo", "users:write")]);
+});
+
+test("admin group member removal: a group that keeps a member keeps its grants and parents", async (t) => {
+  const tuples: RelationTuple[] = [groupTuple("eng", { subject_id: `user:${ADA}` }), groupTuple("eng", { subject_id: "user:bob" }), grantTo("eng"), groupTuple("org", inGroup("eng"))];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`)).status, 303);
+  assert.equal(tuples.length, 3);
+});
+
 // A double-clicked Save posts twice from one page; the second post finds the first one's result.
 // A save that changes nothing has nothing to refuse and nothing to revoke.
 test("admin permission grants: a save that changes nothing is not refused for a stale page and leaves live tokens alone", async (t) => {

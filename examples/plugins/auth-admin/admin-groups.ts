@@ -1,8 +1,8 @@
 // Groups admin screen: list / create / delete Keto groups and manage membership.
 // A group is a Keto subject set `Group:<name>#members`; a member is a user or a nested group (see
 // parseSubject). Writes go only to Keto (README "stateless"). Keto has no "create object" — a group
-// exists exactly while it has ≥1 member, so create writes its first-member tuple and delete removes
-// every tuple that makes it a group or puts it in another. Pure builders turn tuples + the request URL into view models; below them are thin
+// exists exactly while it has ≥1 member, so create writes its first-member tuple, and delete — or
+// removing the last member — removes every tuple that makes it a group or puts it in another. Pure builders turn tuples + the request URL into view models; below them are thin
 // per-route handlers (keyed on ctx.params) over a shared `withGroups` gate — admin-only, CSRF-guarded,
 // each returning a RouteResult.
 
@@ -419,25 +419,43 @@ export const groupsDeleteConfirm = withGroupName(async (deps, name) => {
   }) }, view: "confirm" };
 }, "write");
 
-// POST /auth-admin/groups/:name/delete — one Keto transaction removes the group's member tuples,
-// the tuples naming it as a member of a parent group, and the grants it holds, so a Keto failure
-// leaves the group as it was.
+const tupleId = (t: RelationTuple): string => {
+  const subject = t.subject_set ? `${t.subject_set.namespace}:${t.subject_set.object}#${t.subject_set.relation}` : t.subject_id;
+  return `${t.namespace}:${t.object}#${t.relation}@${subject}`;
+};
+
+// A group exists only through its members, so once `removing` leaves one with none, what still hangs
+// on its name — its grants and its memberships in other groups — must go too, or re-creating the name
+// would restore them. Returns `removing` plus those tuples. Emptying a group can empty its parents in
+// turn, so the walk climbs until it meets a group that keeps a member; `seen` ends it on a nesting cycle.
+async function withEmptiedGroups(keto: KetoClient, removing: readonly RelationTuple[], groups: readonly string[]): Promise<RelationTuple[]> {
+  const doomed = new Map(removing.map((t) => [tupleId(t), t]));
+  const pending = [...groups];
+  const seen = new Set<string>();
+  for (let group = pending.pop(); group !== undefined; group = pending.pop()) {
+    if (seen.has(group)) continue;
+    seen.add(group);
+    const members = await pagedTuples(keto, { namespace: GROUP_NS, object: group, relation: MEMBERS });
+    if (members.some((m) => !doomed.has(tupleId(m)))) continue;
+    const subject = groupSubject(group);
+    const grants = (await heldPermissions(keto, subject)).map((permission) => grantTuple(permission, subject));
+    const inParents = await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS, ...subject });
+    for (const t of [...grants, ...inParents]) doomed.set(tupleId(t), t);
+    pending.push(...inParents.map((t) => t.object));
+  }
+  return [...doomed.values()];
+}
+
+// POST /auth-admin/groups/:name/delete — one Keto transaction removes the group's member tuples and
+// what hangs on its name (see `withEmptiedGroups`), so a Keto failure leaves the group as it was.
 export const groupsDelete = withGroupName(async (deps, name) => {
   const { ctx, keto, user } = deps;
   await guardedForm(ctx); // CSRF-verify the POST
   const lost = await lostOnDelete(deps, name);
   if (lost.length > 0) return refuseSelfLockout(deps, name, "delete", lost);
-  // A Keto set exists only through its tuples, so leaving the grants or the parents' membership
-  // tuples behind would resurrect every permission and parent membership the moment someone
-  // re-created a group with the same name. A parent that had only this group as a member is left
-  // with none and so ceases to exist, as when its last member is removed by hand; its own grants
-  // and parent memberships stay (todo.md).
-  const subject = groupSubject(name);
-  const held = await heldPermissions(keto, subject);
-  const grants = held.map((permission) => grantTuple(permission, subject));
+  const held = await heldPermissions(keto, groupSubject(name));
   const members = await pagedTuples(keto, { namespace: GROUP_NS, object: name, relation: MEMBERS });
-  const inParents = await pagedTuples(keto, { namespace: GROUP_NS, relation: MEMBERS, ...subject });
-  await keto.transactTuples({ delete: [...grants, ...members, ...inParents], insert: [] });
+  await keto.transactTuples({ delete: await withEmptiedGroups(keto, members, [name]), insert: [] });
   ctx.log.info("admin: group deleted", { actor: user.id, group: name, revoked: held.join(",") });
   return { redirect: ADMIN_GROUPS_BASE };
 });
@@ -452,6 +470,6 @@ export const groupsRemoveMember = withGroupName(async (deps, name) => {
   const removesSelf = tuple.subject_set ? await isMember(keto, user.id, tuple.subject_set.object) : tuple.subject_id === `user:${user.id}`;
   const lost = removesSelf ? await lostOnLeaving(deps, name) : [];
   if (lost.length > 0) return refuseSelfLockout(deps, name, "remove", lost);
-  await keto.deleteTuple(tuple);
+  await keto.transactTuples({ delete: await withEmptiedGroups(keto, [tuple], [name]), insert: [] });
   return { redirect: detailHref(name) };
 });
