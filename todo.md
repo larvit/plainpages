@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 72 | 0.6.0 |  |  | **Delete a group's grants and parent memberships when its last member leaves, by group delete or by removing the member, so re-creating the name restores none.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 | 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 1.0 |
 | 19 | 0.7.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
@@ -24,28 +23,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 72. Delete a group's grants and parent memberships when its last member leaves, by group delete or by removing the member, so re-creating the name restores none.
-
-In `examples/plugins/auth-admin/admin-groups.ts` a group exists exactly while it has a
-`Group:<name>#members` tuple. Two paths empty a group but keep its other tuples, so re-creating the
-name silently hands every new member the old permissions and parent memberships:
-
-1. `groupsDelete` of a group that is a parent's only member: the parent ceases to exist but keeps
-   its `Permission:*#granted@Group:<parent>#members` grants and its memberships in grandparents.
-2. `groupsRemoveMember` removing a group's last member, which today is a lone `deleteTuple`.
-
-Fix both in one `transactTuples` with the removal: when the removal leaves a group with no members,
-add its grants and the tuples naming it as a member of other groups to the delete. The cascade is
-transitive: a grandparent emptied by its parent vanishing is the same bug one level up. The walk
-stops at a group that keeps any member, so a nesting cycle (`groupsAddMember` refuses only a
-self-nest) ends it. An emptied group grants nobody, so the cascade cannot change what
-`lostToSelf` computes. Test it with nesting two levels deep and with a cycle.
-
-When it ships, rewrite the comment at `groupsDelete` that points here, and the CHANGELOG entry "The
-admin example removes a deleted group from the groups it was nested in", which then says a parent
-left with no members no longer exists as a group. `lostToSelf`, in this file, is a place the seats
-found hard; if the change touches it, make it easier to read.
 
 ### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
 
