@@ -424,7 +424,7 @@ const EMPTIED_NOTICE = "group-emptied"; // the `info-msg` that removing a group'
 const emptiedNotice = (url: URL, t: Translate): string | undefined =>
   url.searchParams.get("info-msg") === EMPTIED_NOTICE ? t("admin.groups.emptied") : undefined;
 
-const tupleId =(t: RelationTuple): string => {
+const tupleId = (t: RelationTuple): string => {
   const subject = t.subject_set ? `${t.subject_set.namespace}:${t.subject_set.object}#${t.subject_set.relation}` : t.subject_id;
   return `${t.namespace}:${t.object}#${t.relation}@${subject}`;
 };

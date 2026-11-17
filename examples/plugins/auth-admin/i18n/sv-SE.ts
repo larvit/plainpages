@@ -72,7 +72,7 @@ const messages: AdminMessages = {
   "admin.groups.delete": "Radera grupp",
   "admin.groups.deleteMessage": "Ta bort gruppen {{name}}? Det går inte att ångra.",
   "admin.groups.emptied": "Det var den sista medlemmen, så gruppen finns inte längre och dess behörigheter och föräldragrupper är borttagna.",
-  "admin.groups.error.duplicate":"Det finns redan en grupp med det namnet.",
+  "admin.groups.error.duplicate": "Det finns redan en grupp med det namnet.",
   "admin.groups.error.selfLockout": "Ändringen skulle låsa ute dig från {{permissions}}, som du har genom den här gruppen. Be en annan administratör att göra den.",
   "admin.groups.field.name": "Gruppnamn",
   "admin.groups.field.nameHint": "Små bokstäver, siffror, bindestreck och understreck.",

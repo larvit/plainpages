@@ -478,6 +478,19 @@ test("admin group delete: a nesting cycle ends the cascade at a group that keeps
   assert.deepEqual(tuples, [groupTuple("c", { subject_id: "user:other" }), grantTo("c", "groups:read")]);
 });
 
+// The walk reaches `a` a second time, through the cycle, while `p` still waits: it must go on to `p`.
+// Keto lists `p@b` before `a@b`, so `a` is popped before `p`.
+test("admin group delete: a nesting cycle back to an emptied group doesn't end the cascade", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("a", { subject_id: `user:${ADA}` }), groupTuple("p", inGroup("b")), groupTuple("a", inGroup("b")),
+    groupTuple("b", inGroup("a")), grantTo("p"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/a/delete", `_csrf=${token}`)).status, 303);
+  assert.deepEqual(tuples, []);
+});
+
 test("admin group delete: a diamond of nested groups empties the top once both its members are gone", async (t) => {
   const tuples: RelationTuple[] = [
     groupTuple("eng", { subject_id: `user:${ADA}` }),

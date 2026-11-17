@@ -72,7 +72,7 @@ const messages = {
   "admin.groups.delete": "Delete group",
   "admin.groups.deleteMessage": "Delete group {{name}}? This can't be undone.",
   "admin.groups.emptied": "That was the last member, so the group no longer exists and its permissions and parent groups are removed.",
-  "admin.groups.error.duplicate":"A group with that name already exists.",
+  "admin.groups.error.duplicate": "A group with that name already exists.",
   "admin.groups.error.selfLockout": "This change would lock you out of {{permissions}}, which you hold through this group. Ask another administrator to make it.",
   "admin.groups.field.name": "Group name",
   "admin.groups.field.nameHint": "Lowercase letters, digits, dashes and underscores.",
