@@ -12,7 +12,6 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 65 | 0.6.0 |  |  | **Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.** | 1 | 2 | 1 | 2 | 1 | 7 by 3, 1 by 1 | 6.7 |
 | 72 | 0.6.0 |  |  | **Delete a group's grants and parent memberships when its last member leaves, by group delete or by removing the member, so re-creating the name restores none.** | 2 | 2 | 2 | 4 | 3 | 2 by 4 | 4.2 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 | 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 1.0 |
@@ -25,14 +24,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 65. Export `KetoError` from `@plainpages/plugin-api`, so a plugin can tell a Keto failure apart with `instanceof`.
-
-`src/plugin-host/plugin-api.ts` ~L47-48 exports `KratosError` and `HydraError`, but not `KetoError`
-(`src/auth/keto-client.ts:43`), though `ctx.system.keto` throws it. The barrel is the contract
-surface, so this adds to the plugin API: it ships in a minor, and `HOST_API_VERSION` must read
-`0.6.0` when 0.6.0 is tagged (AGENTS.md → Rules). Adding is safe for installed plugins; removing it
-later would take a major.
 
 ### 72. Delete a group's grants and parent memberships when its last member leaves, by group delete or by removing the member, so re-creating the name restores none.
 
