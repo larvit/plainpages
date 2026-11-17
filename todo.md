@@ -34,6 +34,14 @@ dropping it. Open: what identifies "the same submission" (a one-time token minte
 beats hashing the payload), the window, where the record lives given the host is stateless, and how
 a plugin declares a route repeatable.
 
+Touches:
+
+- `src/http/app.ts`: `answerPluginRoute`, `answerBuiltinRoute`, `prepareRequest`, `requestCsrf`
+- `src/plugin-host/plugin.ts`: `Route` (small)
+- `src/auth/csrf.ts`
+- `public/css/styles.css`: lines 323-340 (small)
+- `README.md`: `### Routes & handlers`
+
 ### 67. Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.
 
 `src/auth` holds 19 modules over several concerns: the per-request session path (`jwt*`, `jwks`,
@@ -44,6 +52,70 @@ name, and update the folder list in `docs/decisions.md` → "`src/` is grouped b
 `bootstrap.ts` in place, per "`bootstrap.ts` stays under `src/auth/`". Plugins import only the
 barrel, so only `src/plugin-host/plugin-api.ts`'s paths change for them. Update the README file
 map. Make `src/auth` easier to navigate, a place the seats found hard.
+
+Touches:
+
+- `src/auth/csrf.ts`
+- `src/auth/csrf.test.ts`
+- `src/auth/denylist.ts`
+- `src/auth/denylist.test.ts`
+- `src/auth/fetch-timeout.ts`
+- `src/auth/fetch-timeout.test.ts`
+- `src/auth/flow-view.ts`
+- `src/auth/flow-view.test.ts`
+- `src/auth/gate.ts`
+- `src/auth/gate.test.ts`
+- `src/auth/gen-jwks.ts`
+- `src/auth/gen-jwks.test.ts`
+- `src/auth/guards.ts`
+- `src/auth/guards.test.ts`
+- `src/auth/hydra-admin.ts`
+- `src/auth/hydra-admin.test.ts`
+- `src/auth/jwks.ts`
+- `src/auth/jwks.test.ts`
+- `src/auth/jwt-middleware.ts`
+- `src/auth/jwt-middleware.test.ts`
+- `src/auth/jwt.ts`
+- `src/auth/jwt.test.ts`
+- `src/auth/keto-client.ts`
+- `src/auth/keto-client.test.ts`
+- `src/auth/kratos-admin.ts`
+- `src/auth/kratos-admin.test.ts`
+- `src/auth/kratos-public.ts`
+- `src/auth/kratos-public.test.ts`
+- `src/auth/link-header.ts`
+- `src/auth/link-header.test.ts`
+- `src/auth/login.ts`
+- `src/auth/login.test.ts`
+- `src/auth/oauth-consent.ts`
+- `src/auth/oauth-consent.test.ts`
+- `src/auth/oauth-login.ts`
+- `src/auth/oauth-login.test.ts`
+- `src/auth/routes.ts`
+- `src/auth/routes.test.ts`
+- `src/auth/bootstrap.ts`: import lines (small)
+- `src/auth/bootstrap.test.ts`: import lines (small)
+- `src/plugin-host/plugin-api.ts`: the `../auth/` export lines (small)
+- `src/plugin-host/plugin.ts`: the `Gate` import (small)
+- `src/plugin-host/plugin.test.ts`: the `AUTH_FLOWS` import (small)
+- `src/plugin-host/discovery.ts`: the `gate.ts` import (small)
+- `src/plugin-host/system.ts`: the three client-type imports (small)
+- `src/http/app.ts`: the `../auth/` import lines (small)
+- `src/http/app.test.ts`: import lines (small)
+- `src/http/app-admin.test.ts`: import lines (small)
+- `src/http/app-auth.test.ts`: import lines (small)
+- `src/http/app-i18n.test.ts`: import lines (small)
+- `src/http/app-plugins.test.ts`: import lines (small)
+- `src/http/builtin-route.ts`: the `Gate` import (small)
+- `src/ui/chrome.ts`: the `gate.ts` import (small)
+- `src/ui/nav.ts`: the `gate.ts` import (small)
+- `src/test-tooling/app-harness.ts`: import lines (small)
+- `src/server.ts`: the `./auth/` import lines (small)
+- `src/function-limits.test.ts`: the `src/auth/` keys (small)
+- `src/postgres.test.ts`: the `src/auth/bootstrap.ts` path (small, only if bootstrap's path changes)
+- `README.md`: `## Project layout`, `## Users, groups & permissions` (small), `## Building blocks` (small), `### Instant revoke: the optional denylist` (small), `### OAuth2 provider (Hydra)` (small), `## JWT signing key & rotation` (small), `### Scheduled rotation` (small), `### Emergency rotation (key compromise)` (small)
+- `package.json`: the `gen-jwks` script (small)
+- `compose.yml`: the `src/auth/bootstrap.ts` comment and command (small)
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
