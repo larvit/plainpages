@@ -14,7 +14,9 @@ The host's contract version is now 0.5.0, so discovery refuses a plugin whose `a
 
 ### `@plainpages/plugin-api` exports `KetoError`
 
-A plugin that calls `ctx.system.keto` can tell a Keto failure apart with `instanceof KetoError`, as it already can for `KratosError` and `HydraError`. The error carries the HTTP `status`.
+A plugin that calls `ctx.system.keto` can tell a Keto failure from any other error with
+`instanceof KetoError`, as it already can a `KratosError` or a `HydraError`. The error carries the HTTP
+`status`. It adds to the plugin API, so an installed plugin needs no change.
 
 ### The core dashboard view is `dashboard`, not `index`
 
@@ -43,9 +45,10 @@ back in every parent.
 ### The admin example removes a group's grants and parent memberships when its last member leaves
 
 A group with no members no longer exists, and now neither do its grants or its memberships in other
-groups. This holds when the last member is removed, and when deleting a group leaves a parent with
-no members, up through every ancestor that is left empty in turn. A group re-created with the same
-name used to get the old group's permissions and parents back.
+groups. This holds when the last member is removed, and the group page then says so. It also holds
+when deleting a group leaves its parent with no members, and so on up through each ancestor left
+empty. A group re-created with the same name used to get the old group's permissions and parents back.
+Groups already left empty by an earlier version keep theirs, and re-creating one still restores them.
 
 ### The admin example keeps a user's permissions section when it refuses a self-deactivate or self-delete
 

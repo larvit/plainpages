@@ -446,8 +446,7 @@ test("admin group delete: removes the group from every parent, so re-creating th
   assert.deepEqual(tuples, [member("org", { subject_id: `user:${ada}` }), member("staff", { subject_id: "user:other" })]);
 });
 
-// A group exists only while it has a member, so one left with none must take its grants and
-// its memberships with it: otherwise re-creating the name hands every new member the old ones.
+// Tuples a group keeps after it loses its last member would be restored by re-creating its name.
 const ADA = randomUUID();
 const groupTuple = (object: string, subject: Partial<RelationTuple>): RelationTuple => ({ namespace: "Group", object, relation: "members", ...subject } as RelationTuple);
 const inGroup = (object: string) => ({ subject_set: { namespace: "Group", object, relation: "members" } });
@@ -479,6 +478,18 @@ test("admin group delete: a nesting cycle ends the cascade at a group that keeps
   assert.deepEqual(tuples, [groupTuple("c", { subject_id: "user:other" }), grantTo("c", "groups:read")]);
 });
 
+test("admin group delete: a diamond of nested groups empties the top once both its members are gone", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("eng", { subject_id: `user:${ADA}` }),
+    groupTuple("left", inGroup("eng")), groupTuple("right", inGroup("eng")),
+    groupTuple("top", inGroup("left")), groupTuple("top", inGroup("right")), grantTo("top"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  assert.equal((await post("/auth-admin/groups/eng/delete", `_csrf=${token}`)).status, 303);
+  assert.deepEqual(tuples, []);
+});
+
 test("admin group member removal: the last member leaving takes the group's grants and parent memberships with it", async (t) => {
   const tuples: RelationTuple[] = [
     groupTuple("eng", { subject_id: `user:${ADA}` }), grantTo("eng"),
@@ -487,18 +498,45 @@ test("admin group member removal: the last member leaving takes the group's gran
   ];
   const { post, token } = await groupsAdminHarness(t, tuples);
 
-  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${randomUUID()}`)).status, 303);
-  assert.equal(tuples.length, 6, "removing a non-member changes nothing");
-  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`)).status, 303);
+  const res = await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`);
+  assert.equal(res.headers.get("location"), "/auth-admin/groups/eng?info-msg=group-emptied");
   assert.deepEqual(tuples, [groupTuple("org", { subject_id: "user:other" }), groupTuple("solo", inGroup("org")), grantTo("solo", "users:write")]);
+});
+
+test("admin group member removal: removing someone who isn't a member changes nothing", async (t) => {
+  const tuples: RelationTuple[] = [groupTuple("eng", { subject_id: `user:${ADA}` }), grantTo("eng")];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  const res = await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${randomUUID()}`);
+  assert.equal(res.headers.get("location"), "/auth-admin/groups/eng");
+  assert.equal(tuples.length, 2);
 });
 
 test("admin group member removal: a group that keeps a member keeps its grants and parents", async (t) => {
   const tuples: RelationTuple[] = [groupTuple("eng", { subject_id: `user:${ADA}` }), groupTuple("eng", { subject_id: "user:bob" }), grantTo("eng"), groupTuple("org", inGroup("eng"))];
   const { post, token } = await groupsAdminHarness(t, tuples);
 
-  assert.equal((await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`)).status, 303);
+  const res = await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`);
+  assert.equal(res.headers.get("location"), "/auth-admin/groups/eng");
   assert.equal(tuples.length, 3);
+});
+
+test("admin group member removal: a parent that keeps another nested group keeps its grants", async (t) => {
+  const tuples: RelationTuple[] = [
+    groupTuple("eng", { subject_id: `user:${ADA}` }),
+    groupTuple("left", inGroup("eng")), groupTuple("right", { subject_id: "user:other" }),
+    groupTuple("top", inGroup("left")), groupTuple("top", inGroup("right")), grantTo("top"),
+  ];
+  const { post, token } = await groupsAdminHarness(t, tuples);
+
+  await post("/auth-admin/groups/eng/members/delete", `_csrf=${token}&member=user:${ADA}`);
+  assert.deepEqual(tuples, [groupTuple("right", { subject_id: "user:other" }), groupTuple("top", inGroup("right")), grantTo("top")]);
+});
+
+test("admin group member removal: the group page shows the notice that the group is gone", async (t) => {
+  const { get } = await groupsAdminHarness(t, []);
+
+  assert.match(await (await get("/auth-admin/groups/eng?info-msg=group-emptied")).text(), /That was the last member/);
 });
 
 // A double-clicked Save posts twice from one page; the second post finds the first one's result.
