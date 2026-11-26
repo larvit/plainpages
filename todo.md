@@ -12,11 +12,11 @@
 
 | ID | Release | Blocked by | Exempt | Item | L | E | I | R | S | Moves | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 4.0 |
+| 74 | 0.6.0 |  | owner | **Indent the TypeScript, CSS and shell source with hard tabs, as the tabs principle asks, and have `.editorconfig` and `AGENTS.md` say so.** | 3 | 1 | 1 | 3 | 7 | code health by 4 | 2.1 |
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
-| 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 1.0 |
-| 74 | 0.6.0 |  | owner | **Indent the TypeScript, CSS and shell source with hard tabs, as the tabs principle asks, and have `.editorconfig` and `AGENTS.md` say so.** | 3 | 1 | 1 | 3 | 7 | code health by 4 | 0.5 |
 | 19 | 0.7.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
-| 73 | 0.7.0 |  | owner | **Reach the comprehension floor: make the request pipeline in `src/http/app.ts` and the locale and EJS-locals plumbing readable one unit at a time, so every dimension mean reaches 7.0.** | 3 | 1 | 2 | 4 | 7 | code health by 7 | 0.9 |
+| 73 | 0.7.0 |  | owner | **Reach the comprehension floor: make the request pipeline in `src/http/app.ts` and the locale and EJS-locals plumbing readable one unit at a time, so every dimension mean reaches 7.0.** | 3 | 1 | 2 | 4 | 7 | code health by 7 | 3.7 |
 
 ## Renamed
 
@@ -24,24 +24,6 @@
 - 0.4.22 renamed to 0.5.0
 
 ## Details
-
-### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
-
-A second identical POST is expected from a non-technical user, and today creates two
-users, mints two recovery codes, or registers two OAuth2 clients. It must not break a legitimately
-repeatable action. Sketch: a CSS-only affordance so the second click has nothing to hit, plus the
-host recognising a duplicate (same session, route and payload within a short window), logging and
-dropping it. Open: what identifies "the same submission" (a one-time token minted into each form
-beats hashing the payload), the window, where the record lives given the host is stateless, and how
-a plugin declares a route repeatable.
-
-Touches:
-
-- `src/http/app.ts`: `answerPluginRoute`, `answerBuiltinRoute`, `prepareRequest`, `requestCsrf`
-- `src/plugin-host/plugin.ts`: `Route` (small)
-- `src/auth/csrf.ts`
-- `public/css/styles.css`: lines 323-340 (small)
-- `README.md`: `### Routes & handlers`
 
 ### 67. Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.
 
@@ -133,6 +115,24 @@ Touches:
 - `AGENTS.md`
 - `src`
 
+### 14. Drop a double-clicked duplicate submit, with no client-side JavaScript.
+
+A second identical POST is expected from a non-technical user, and today creates two
+users, mints two recovery codes, or registers two OAuth2 clients. It must not break a legitimately
+repeatable action. Sketch: a CSS-only affordance so the second click has nothing to hit, plus the
+host recognising a duplicate (same session, route and payload within a short window), logging and
+dropping it. Open: what identifies "the same submission" (a one-time token minted into each form
+beats hashing the payload), the window, where the record lives given the host is stateless, and how
+a plugin declares a route repeatable.
+
+Touches:
+
+- `src/http/app.ts`: `answerPluginRoute`, `answerBuiltinRoute`, `prepareRequest`, `requestCsrf`
+- `src/plugin-host/plugin.ts`: `Route` (small)
+- `src/auth/csrf.ts`
+- `public/css/styles.css`: lines 323-340 (small)
+- `README.md`: `### Routes & handlers`
+
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
 Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -g` is `20`, which is
@@ -140,16 +140,16 @@ Needs a Mac. Two suspects, both from `--user "$(id -u):$(id -g)"`: a macOS `id -
 
 ### 73. Reach the comprehension floor: make the request pipeline in `src/http/app.ts` and the locale and EJS-locals plumbing readable one unit at a time, so every dimension mean reaches 7.0.
 
-The scoring run on PR #247 at 7e8bdd9 gave means Navigation 7.50, Locality 6.63, Shape 6.88, Self-sufficiency 6.88, Overall 7.13. Locality is the lowest. Item 67 covers the `src/auth` folder, so this item leaves it out.
+The scoring run on branch filing-tabs at f3c41e4 gave means Navigation 7.38, Locality 6.50, Shape 7.00, Self-sufficiency 6.38, Overall 6.88. Self-sufficiency is the lowest, then Locality. Item 67 covers the `src/auth` folder, so this item leaves it out.
 
 Places the seats named, to make easier to read:
-- `src/http/app.ts:67` `createApp`: about 130 lines of closures that refer to each other, and `switchBase` reads `builtinRoutes`, which is declared later; all four seats named it.
-- `src/http/app.ts:263` `prepareRequest` and `src/http/context.ts:97` `buildContext`: chrome is memoized lazily in both, and an untyped `shared` bag feeds the context, so a new context field touches about five declarations.
+- `src/auth/routes.ts:58` `flowFailure`: Kratos statuses and branch order whose reasons sit outside the file; three seats named it.
+- `src/http/app.ts:67` `createApp` and `src/http/app.ts:263` `prepareRequest`: a 130-line closure, a lazy chrome that spreading the context triggers, and a `csrf.setCookie()` that each page-emitting stage repeats by hand.
 - `src/http/app.ts:202` `Host`: restates the options and locals a third time.
-- `src/i18n/locale.ts:81` `chosenLocale`: recovers "was a locale requested" from `localeHref("/") === "/"`, so its name hides the mechanism.
+- `src/ui/nav.ts:122` `toRenderNode` and `src/ui/chrome.ts:160` `markCurrent`: labels are translated twice, and nodes are mutated in place on the strength of a comment.
 - `views/partials/data-table.ejs:74`, `views/partials/menu.ejs:22` and `views/partials/filter-bar.ejs:26`: EJS locals leak into includes, defended by explicit null options.
-- `src/server.ts:25` `delete process.env["PLUGIN_DB_SECRET"]`: a load-bearing order rule in a top-level script.
-- `public/css/styles.css:81`: the dark and light token mapping is written three times.
-- `src/auth/routes.ts:58` `flowFailure`: Kratos statuses that no comment in the file explains.
+- `src/server.ts:25` `delete process.env["PLUGIN_DB_SECRET"]`: a load-bearing order rule, repeated in `src/auth/bootstrap.ts:140`.
+- `src/test-tooling/stylesheet-floor.ts:74` `walk`: a regex CSS parser that doesn't say what it deliberately misses.
+- `examples/plugins/auth-admin/admin-groups.ts:438` `withEmptiedGroups` and `:274` `lostToSelf`: the group-emptying walk and the self-lockout rule, each spread over several helpers.
 
 Aim: a reader of one unit should not need the other units open beside it. Re-run the scoring run when it ships.

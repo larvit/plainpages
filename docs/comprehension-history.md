@@ -636,3 +636,40 @@ Inherited architect, would restructure first:
 - Navigation, Shape, Overall: `src/auth/bootstrap.ts:1` `src/auth`: 20 files over four concerns, and `bootstrap.ts` belongs to none of them
 - Shape: `public/css/styles.css:81` dark and light palette mapping: the same token list written three times
 - Locality: `src/http/app.ts:202` `Host`: restates the options and locals a third time, so a new capability touches several files
+
+## 2026-11-26T07:57:19Z, filing-tabs at f3c41e4
+
+| Seat | Navigation | Locality | Shape | Self-sufficiency | Overall |
+|---|---|---|---|---|---|
+| Junior A | 7.5 | 7 | 7.5 | 6.5 | 7 |
+| Mid A | 7.5 | 6.5 | 7 | 6 | 6.5 |
+| Maintainability senior | 7 | 6 | 7 | 6 | 7 |
+| Inherited architect | 7.5 | 6.5 | 6.5 | 7 | 7 |
+| Mean | 7.38 | 6.50 | 7.00 | 6.38 | 6.88 |
+
+Junior A, hardest first:
+
+- Shape, Overall: `src/test-tooling/stylesheet-floor.ts:90` `atRule`: regex parsing of CSS where `positive`, `parenGroups` and `keepGroup` recurse over blanked offsets
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: five outcomes keyed on Kratos behaviour that has to be known from outside
+- Locality: `src/http/app.ts:262` `prepareRequest`: lazy chrome must not be spread, and each page-emitting stage repeats `csrf.setCookie()`
+- Locality: `src/server.ts:25` `delete process.env["PLUGIN_DB_SECRET"]`: an order rule duplicated in `src/auth/bootstrap.ts:140`
+
+Mid A, hardest first:
+
+- Locality, Overall: `examples/plugins/auth-admin/admin-groups.ts:438` `withEmptiedGroups`: a worklist walk, a deletion map and a cycle guard held at once
+- Locality: `examples/plugins/auth-admin/admin-groups.ts:274` `lostToSelf`: the self-lockout rule is spread over four helpers and three call sites
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: Kratos status meanings are unexplained
+- Locality: `src/ui/chrome.ts:160` `markCurrent`: mutates nodes in place and relies on `composeNav` returning fresh objects
+
+Maintainability senior, hardest first:
+
+- Shape, Overall: `src/test-tooling/stylesheet-floor.ts:74` `walk`: five things held at once, and nothing says what it deliberately misses
+- Self-sufficiency: `src/auth/routes.ts:58` `flowFailure`: branch order matters and the reasons sit in Kratos behaviour
+- Locality: `src/ui/nav.ts:122` `toRenderNode`: labels are translated twice and rely on an unknown key echoing itself
+- Locality: `views/partials/data-table.ejs:74` include: EJS locals leak from page to partial, defended by explicit null options
+
+Inherited architect, would restructure first:
+
+- Navigation, Shape: `src/auth/bootstrap.ts:1` `src/auth`: 20 flat files over five concerns, and `bootstrap.ts` belongs to none of them
+- Locality: `src/http/app.ts:67` `createApp`: a 130-line closure and a wide `Host` object in a 30-import hub
+- Shape: `plugin-api/index.ts:2` `plugin-api`: the name covers three things, and the contract types live in four directories
