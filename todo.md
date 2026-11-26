@@ -6,7 +6,7 @@
 
 `Bar = 1`
 
-`Next ID = 74`
+`Next ID = 75`
 
 ## Items
 
@@ -14,6 +14,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 14 | 0.6.0 |  |  | **Drop a double-clicked duplicate submit, with no client-side JavaScript.** | 4 | 2 | 3 | 7 | 7 | 2 by 7, 1 by 4 | 1.4 |
 | 67 | 0.6.0 |  |  | **Group `src/auth`'s modules into one subfolder per concern, with `bootstrap.ts` staying at `src/auth/bootstrap.ts`.** | 3 | 1 | 2 | 4 | 6 | code health by 4 | 1.0 |
+| 74 | 0.6.0 |  | owner | **Indent the TypeScript, CSS and shell source with hard tabs, as the tabs principle asks, and have `.editorconfig` and `AGENTS.md` say so.** | 3 | 1 | 1 | 3 | 7 | code health by 4 | 0.5 |
 | 19 | 0.7.0 |  | question | **Run the documented Docker commands on macOS and fix whatever misbehaves.** | 2 | 2 | 1 | 3 | 3 | 1 by 3 | 3.3 |
 | 73 | 0.7.0 |  | owner | **Reach the comprehension floor: make the request pipeline in `src/http/app.ts` and the locale and EJS-locals plumbing readable one unit at a time, so every dimension mean reaches 7.0.** | 3 | 1 | 2 | 4 | 7 | code health by 7 | 0.9 |
 
@@ -116,6 +117,21 @@ Touches:
 - `README.md`: `## Project layout`, `## Users, groups & permissions` (small), `## Building blocks` (small), `### Instant revoke: the optional denylist` (small), `### OAuth2 provider (Hydra)` (small), `## JWT signing key & rotation` (small), `### Scheduled rotation` (small), `### Emergency rotation (key compromise)` (small)
 - `package.json`: lines 14-14 (small)
 - `compose.yml`: lines 130-130 (small), lines 161-161 (small)
+
+### 74. Indent the TypeScript, CSS and shell source with hard tabs, as the tabs principle asks, and have `.editorconfig` and `AGENTS.md` say so.
+
+The tabs principle (`~/.claude/principles/technical-principles.md`) says to indent with hard tabs by default, and a project's own setting wins. A survey on 2026-11-26 found this project's source space-indented with no setting that records a reason. The maintainer asked for tabs in the source. A spelling of a format, such as a Markdown or JSON fixture, a test's expected text or a spec example, stays as it is.
+
+Convert the leading whitespace of each source line, one tab for each indent step. Leave alone a line inside a template literal, a heredoc or a string whose indentation is the string's content; a test that fails on the change shows one missed. Land the conversion in one commit with no other change, list it in `.git-blame-ignore-revs`, and merge it when no other chunk is open, since every open branch conflicts with it. Where a check fails on a tab, such as a formatter or linter setting, change that setting in the same commit.
+
+Add an `.editorconfig` with `indent_style = tab` for the source files and `indent_style = space` for `*.md`, `*.json` and `*.yml`, and say "tab indent" where `AGENTS.md` names the indentation.
+
+Touches:
+
+- `.editorconfig`
+- `.git-blame-ignore-revs`
+- `AGENTS.md`
+- `src`
 
 ### 19. Run the documented Docker commands on macOS and fix whatever misbehaves.
 
