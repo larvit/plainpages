@@ -18,7 +18,7 @@
   "dependencies": {
     "@larvit/log": "2.6.1",
     "ejs": "7.0.2",
-    "lucide-static": "1.81.0",
+    "lucide-static": "1.82.0",
     "postgres": "4.1.1"
   },
   "devDependencies": {
